@@ -82,7 +82,7 @@ func AssertGoldenJSON(t *testing.T, repoRelativePath string, value any) {
 	if err != nil {
 		t.Fatalf("read golden fixture %s: %v", goldenPath, err)
 	}
-	if bytes.Equal(expected, encoded) {
+	if bytes.Equal(normalizeNewlines(expected), normalizeNewlines(encoded)) {
 		return
 	}
 
@@ -92,6 +92,10 @@ func AssertGoldenJSON(t *testing.T, repoRelativePath string, value any) {
 		string(expected),
 		string(encoded),
 	)
+}
+
+func normalizeNewlines(raw []byte) []byte {
+	return bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
 }
 
 func WriteGoldenJSON(t *testing.T, repoRelativePath string, value any) {
