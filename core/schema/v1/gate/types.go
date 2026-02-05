@@ -71,3 +71,18 @@ type GateResult struct {
 	ReasonCodes     []string  `json:"reason_codes"`
 	Violations      []string  `json:"violations"`
 }
+
+type ApprovalToken struct {
+	SchemaID         string     `json:"schema_id"`
+	SchemaVersion    string     `json:"schema_version"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ProducerVersion  string     `json:"producer_version"`
+	TokenID          string     `json:"token_id"`
+	ApproverIdentity string     `json:"approver_identity"`
+	ReasonCode       string     `json:"reason_code"`
+	IntentDigest     string     `json:"intent_digest"`
+	PolicyDigest     string     `json:"policy_digest"`
+	Scope            []string   `json:"scope"`
+	ExpiresAt        time.Time  `json:"expires_at"`
+	Signature        *Signature `json:"signature,omitempty"`
+}

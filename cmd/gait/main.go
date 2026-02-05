@@ -18,6 +18,8 @@ func run(arguments []string) int {
 	}
 
 	switch arguments[1] {
+	case "approve":
+		return runApprove(arguments[2:])
 	case "demo":
 		return runDemo(arguments[2:])
 	case "gate":

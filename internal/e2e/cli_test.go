@@ -320,6 +320,230 @@ rules:
 	}
 }
 
+func TestCLIApproveAndGateRequireApprovalFlow(t *testing.T) {
+	root := repoRoot(t)
+	binPath := buildGaitBinary(t, root)
+
+	workDir := t.TempDir()
+	intentPath := filepath.Join(workDir, "intent.json")
+	intentContent := []byte(`{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "tool_name": "tool.write",
+  "args": {"path": "/tmp/out.txt"},
+  "targets": [{"kind":"host","value":"api.external.com"}],
+  "arg_provenance": [{"arg_path":"args.path","source":"user"}],
+  "context": {"identity":"alice","workspace":"/repo/gait","risk_class":"high"}
+}`)
+	if err := os.WriteFile(intentPath, intentContent, 0o600); err != nil {
+		t.Fatalf("write intent file: %v", err)
+	}
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	policyContent := []byte(`default_verdict: require_approval
+rules:
+  - name: require-approval-write
+    effect: require_approval
+    match:
+      tool_names: [tool.write]
+    reason_codes: [approval_required]
+`)
+	if err := os.WriteFile(policyPath, policyContent, 0o600); err != nil {
+		t.Fatalf("write policy file: %v", err)
+	}
+
+	traceKeyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate trace key pair: %v", err)
+	}
+	tracePrivateKeyPath := filepath.Join(workDir, "trace_private.key")
+	if err := os.WriteFile(tracePrivateKeyPath, []byte(base64.StdEncoding.EncodeToString(traceKeyPair.Private)), 0o600); err != nil {
+		t.Fatalf("write trace private key: %v", err)
+	}
+
+	approvalKeyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate approval key pair: %v", err)
+	}
+	approvalPrivateKeyPath := filepath.Join(workDir, "approval_private.key")
+	if err := os.WriteFile(approvalPrivateKeyPath, []byte(base64.StdEncoding.EncodeToString(approvalKeyPair.Private)), 0o600); err != nil {
+		t.Fatalf("write approval private key: %v", err)
+	}
+	approvalPublicKeyPath := filepath.Join(workDir, "approval_public.key")
+	if err := os.WriteFile(approvalPublicKeyPath, []byte(base64.StdEncoding.EncodeToString(approvalKeyPair.Public)), 0o600); err != nil {
+		t.Fatalf("write approval public key: %v", err)
+	}
+
+	evalMissingApproval := exec.Command(
+		binPath,
+		"gate", "eval",
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--key-mode", "prod",
+		"--private-key", tracePrivateKeyPath,
+		"--json",
+	)
+	evalMissingApproval.Dir = workDir
+	missingOut, err := evalMissingApproval.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected gate eval to require approval with exit code 4")
+	}
+	if code := commandExitCode(t, err); code != 4 {
+		t.Fatalf("unexpected require-approval exit code: got=%d want=4 output=%s", code, string(missingOut))
+	}
+
+	var missingResult struct {
+		OK           bool     `json:"ok"`
+		Verdict      string   `json:"verdict"`
+		ReasonCodes  []string `json:"reason_codes"`
+		TracePath    string   `json:"trace_path"`
+		PolicyDigest string   `json:"policy_digest"`
+		IntentDigest string   `json:"intent_digest"`
+	}
+	if err := json.Unmarshal(missingOut, &missingResult); err != nil {
+		t.Fatalf("parse require-approval output: %v\n%s", err, string(missingOut))
+	}
+	if !missingResult.OK || missingResult.Verdict != "require_approval" {
+		t.Fatalf("unexpected require-approval result: %s", string(missingOut))
+	}
+	if !containsString(missingResult.ReasonCodes, "approval_token_missing") {
+		t.Fatalf("expected approval_token_missing reason, got: %#v", missingResult.ReasonCodes)
+	}
+	if missingResult.TracePath == "" {
+		t.Fatalf("expected trace path from require-approval run")
+	}
+
+	approve := exec.Command(
+		binPath,
+		"approve",
+		"--intent-digest", missingResult.IntentDigest,
+		"--policy-digest", missingResult.PolicyDigest,
+		"--ttl", "1h",
+		"--scope", "tool:tool.write",
+		"--approver", "alice",
+		"--reason-code", "change_ticket",
+		"--key-mode", "prod",
+		"--private-key", approvalPrivateKeyPath,
+		"--json",
+	)
+	approve.Dir = workDir
+	approveOut, err := approve.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gait approve failed: %v\n%s", err, string(approveOut))
+	}
+	var approveResult struct {
+		OK        bool   `json:"ok"`
+		TokenID   string `json:"token_id"`
+		TokenPath string `json:"token_path"`
+	}
+	if err := json.Unmarshal(approveOut, &approveResult); err != nil {
+		t.Fatalf("parse approve output: %v\n%s", err, string(approveOut))
+	}
+	if !approveResult.OK || approveResult.TokenPath == "" || approveResult.TokenID == "" {
+		t.Fatalf("unexpected approve output: %s", string(approveOut))
+	}
+
+	evalApproved := exec.Command(
+		binPath,
+		"gate", "eval",
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--approval-token", approveResult.TokenPath,
+		"--approval-public-key", approvalPublicKeyPath,
+		"--key-mode", "prod",
+		"--private-key", tracePrivateKeyPath,
+		"--json",
+	)
+	evalApproved.Dir = workDir
+	approvedOut, err := evalApproved.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gate eval with valid approval failed: %v\n%s", err, string(approvedOut))
+	}
+	var approvedResult struct {
+		OK          bool     `json:"ok"`
+		Verdict     string   `json:"verdict"`
+		ReasonCodes []string `json:"reason_codes"`
+		ApprovalRef string   `json:"approval_ref"`
+	}
+	if err := json.Unmarshal(approvedOut, &approvedResult); err != nil {
+		t.Fatalf("parse approved output: %v\n%s", err, string(approvedOut))
+	}
+	if !approvedResult.OK || approvedResult.Verdict != "allow" {
+		t.Fatalf("unexpected approved gate result: %s", string(approvedOut))
+	}
+	if !containsString(approvedResult.ReasonCodes, "approval_granted") {
+		t.Fatalf("expected approval_granted reason, got: %#v", approvedResult.ReasonCodes)
+	}
+	if approvedResult.ApprovalRef != approveResult.TokenID {
+		t.Fatalf("unexpected approval ref: got=%s want=%s", approvedResult.ApprovalRef, approveResult.TokenID)
+	}
+
+	approveMismatch := exec.Command(
+		binPath,
+		"approve",
+		"--intent-digest", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"--policy-digest", missingResult.PolicyDigest,
+		"--ttl", "1h",
+		"--scope", "tool:tool.write",
+		"--approver", "alice",
+		"--reason-code", "mismatch_check",
+		"--key-mode", "prod",
+		"--private-key", approvalPrivateKeyPath,
+		"--json",
+	)
+	approveMismatch.Dir = workDir
+	mismatchTokenOut, err := approveMismatch.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gait approve mismatch token failed: %v\n%s", err, string(mismatchTokenOut))
+	}
+	var mismatchToken struct {
+		OK        bool   `json:"ok"`
+		TokenPath string `json:"token_path"`
+	}
+	if err := json.Unmarshal(mismatchTokenOut, &mismatchToken); err != nil {
+		t.Fatalf("parse mismatch token output: %v\n%s", err, string(mismatchTokenOut))
+	}
+	if !mismatchToken.OK || mismatchToken.TokenPath == "" {
+		t.Fatalf("unexpected mismatch token output: %s", string(mismatchTokenOut))
+	}
+
+	evalMismatch := exec.Command(
+		binPath,
+		"gate", "eval",
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--approval-token", mismatchToken.TokenPath,
+		"--approval-public-key", approvalPublicKeyPath,
+		"--key-mode", "prod",
+		"--private-key", tracePrivateKeyPath,
+		"--json",
+	)
+	evalMismatch.Dir = workDir
+	mismatchOut, err := evalMismatch.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected gate eval mismatch token to fail with exit code 4")
+	}
+	if code := commandExitCode(t, err); code != 4 {
+		t.Fatalf("unexpected mismatch approval exit code: got=%d want=4 output=%s", code, string(mismatchOut))
+	}
+	var mismatchResult struct {
+		OK          bool     `json:"ok"`
+		Verdict     string   `json:"verdict"`
+		ReasonCodes []string `json:"reason_codes"`
+	}
+	if err := json.Unmarshal(mismatchOut, &mismatchResult); err != nil {
+		t.Fatalf("parse mismatch gate output: %v\n%s", err, string(mismatchOut))
+	}
+	if !mismatchResult.OK || mismatchResult.Verdict != "require_approval" {
+		t.Fatalf("unexpected mismatch gate output: %s", string(mismatchOut))
+	}
+	if !containsString(mismatchResult.ReasonCodes, "approval_token_intent_mismatch") {
+		t.Fatalf("expected mismatch reason code, got: %#v", mismatchResult.ReasonCodes)
+	}
+}
+
 func buildGaitBinary(t *testing.T, root string) string {
 	t.Helper()
 	binDir := t.TempDir()
@@ -354,4 +578,13 @@ func repoRoot(t *testing.T) string {
 	}
 	dir := filepath.Dir(filename)
 	return filepath.Clean(filepath.Join(dir, "..", ".."))
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }

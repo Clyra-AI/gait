@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -19,6 +21,7 @@ type gateEvalOutput struct {
 	Verdict      string   `json:"verdict,omitempty"`
 	ReasonCodes  []string `json:"reason_codes,omitempty"`
 	Violations   []string `json:"violations,omitempty"`
+	ApprovalRef  string   `json:"approval_ref,omitempty"`
 	TraceID      string   `json:"trace_id,omitempty"`
 	TracePath    string   `json:"trace_path,omitempty"`
 	PolicyDigest string   `json:"policy_digest,omitempty"`
@@ -50,6 +53,11 @@ func runGateEval(arguments []string) int {
 	var intentPath string
 	var tracePath string
 	var approvalTokenRef string
+	var approvalTokenPath string
+	var approvalPublicKeyPath string
+	var approvalPublicKeyEnv string
+	var approvalPrivateKeyPath string
+	var approvalPrivateKeyEnv string
 	var keyMode string
 	var privateKeyPath string
 	var privateKeyEnv string
@@ -60,6 +68,11 @@ func runGateEval(arguments []string) int {
 	flagSet.StringVar(&intentPath, "intent", "", "path to intent request json")
 	flagSet.StringVar(&tracePath, "trace-out", "", "path to emitted trace JSON (default trace_<trace_id>.json)")
 	flagSet.StringVar(&approvalTokenRef, "approval-token-ref", "", "optional approval token reference")
+	flagSet.StringVar(&approvalTokenPath, "approval-token", "", "path to signed approval token")
+	flagSet.StringVar(&approvalPublicKeyPath, "approval-public-key", "", "path to base64 approval verify key")
+	flagSet.StringVar(&approvalPublicKeyEnv, "approval-public-key-env", "", "env var containing base64 approval verify key")
+	flagSet.StringVar(&approvalPrivateKeyPath, "approval-private-key", "", "path to base64 approval private key (derive public)")
+	flagSet.StringVar(&approvalPrivateKeyEnv, "approval-private-key-env", "", "env var containing base64 approval private key (derive public)")
 	flagSet.StringVar(&keyMode, "key-mode", string(sign.ModeDev), "signing key mode: dev or prod")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private signing key")
 	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private signing key")
@@ -106,9 +119,64 @@ func runGateEval(arguments []string) int {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
 	}
 
+	exitCode := exitOK
+	resolvedApprovalRef := strings.TrimSpace(approvalTokenRef)
+	if result.Verdict == "require_approval" {
+		policyDigest, intentDigest, requiredScope, err := gate.ApprovalContext(policy, intent)
+		if err != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		}
+		if strings.TrimSpace(approvalTokenPath) == "" {
+			result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{gate.ApprovalReasonMissingToken})
+			exitCode = exitApprovalRequired
+		} else {
+			token, err := gate.ReadApprovalToken(approvalTokenPath)
+			if err != nil {
+				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			}
+			if token.TokenID != "" {
+				resolvedApprovalRef = token.TokenID
+			}
+
+			verifyKey := keyPair.Public
+			verifyConfig := sign.KeyConfig{
+				PublicKeyPath:  approvalPublicKeyPath,
+				PublicKeyEnv:   approvalPublicKeyEnv,
+				PrivateKeyPath: approvalPrivateKeyPath,
+				PrivateKeyEnv:  approvalPrivateKeyEnv,
+			}
+			if hasAnyKeySource(verifyConfig) {
+				verifyKey, err = sign.LoadVerifyKey(verifyConfig)
+				if err != nil {
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+				}
+			}
+
+			err = gate.ValidateApprovalToken(token, verifyKey, gate.ApprovalValidationOptions{
+				Now:                  time.Now().UTC(),
+				ExpectedIntentDigest: intentDigest,
+				ExpectedPolicyDigest: policyDigest,
+				RequiredScope:        requiredScope,
+			})
+			if err != nil {
+				reasonCode := gate.ApprovalCodeSchemaInvalid
+				var tokenErr *gate.ApprovalTokenError
+				if errors.As(err, &tokenErr) && tokenErr.Code != "" {
+					reasonCode = tokenErr.Code
+				}
+				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{reasonCode})
+				result.Violations = mergeUniqueSorted(result.Violations, []string{"approval_not_granted"})
+				exitCode = exitApprovalRequired
+			} else {
+				result.Verdict = "allow"
+				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{gate.ApprovalReasonGranted})
+			}
+		}
+	}
+
 	traceResult, err := gate.EmitSignedTrace(policy, intent, result, gate.EmitTraceOptions{
 		ProducerVersion:   version,
-		ApprovalTokenRef:  approvalTokenRef,
+		ApprovalTokenRef:  resolvedApprovalRef,
 		LatencyMS:         evalLatencyMS,
 		SigningPrivateKey: keyPair.Private,
 		TracePath:         tracePath,
@@ -122,12 +190,13 @@ func runGateEval(arguments []string) int {
 		Verdict:      result.Verdict,
 		ReasonCodes:  result.ReasonCodes,
 		Violations:   result.Violations,
+		ApprovalRef:  resolvedApprovalRef,
 		TraceID:      traceResult.Trace.TraceID,
 		TracePath:    traceResult.TracePath,
 		PolicyDigest: traceResult.PolicyDigest,
 		IntentDigest: traceResult.IntentDigest,
 		Warnings:     warnings,
-	}, exitOK)
+	}, exitCode)
 }
 
 func readIntentRequest(path string) (schemagate.IntentRequest, error) {
@@ -174,14 +243,35 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 func printGateUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--approval-token <token.json>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
 }
 
 func printGateEvalUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--trace-out trace.json] [--approval-token-ref token] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--approval-token <token.json>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
 }
 
 func joinCSV(values []string) string {
 	return strings.Join(values, ",")
+}
+
+func mergeUniqueSorted(current []string, extra []string) []string {
+	merged := make([]string, 0, len(current)+len(extra))
+	merged = append(merged, current...)
+	merged = append(merged, extra...)
+	seen := make(map[string]struct{}, len(merged))
+	out := make([]string, 0, len(merged))
+	for _, value := range merged {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	return out
 }

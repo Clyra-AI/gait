@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	exitOK            = 0
-	exitRegressFailed = 5
-	exitVerifyFailed  = 2
-	exitInvalidInput  = 6
-	exitUnsafeReplay  = 8
+	exitOK               = 0
+	exitApprovalRequired = 4
+	exitRegressFailed    = 5
+	exitVerifyFailed     = 2
+	exitInvalidInput     = 6
+	exitUnsafeReplay     = 8
 )
 
 type verifyOutput struct {
@@ -166,6 +167,7 @@ func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 
 func printUsage() {
 	fmt.Println("Usage:")
+	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--json]")
 	fmt.Println("  gait demo")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--json]")
 	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>]")

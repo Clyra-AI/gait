@@ -1,0 +1,18 @@
+{
+  "schema_id": "gait.gate.approval_token",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "token_id": "token_demo",
+  "approver_identity": "alice",
+  "reason_code": "incident_hotfix",
+  "intent_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "policy_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "scope": ["tool:tool.write"],
+  "expires_at": "2026-02-05T01:00:00Z",
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "k1",
+    "sig": "Zm9v"
+  }
+}
