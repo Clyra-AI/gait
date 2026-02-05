@@ -34,7 +34,8 @@ jobs:
           go vet ./...
           golangci-lint run ./...
           gosec ./...
-          govulncheck ./...
+          go build ./cmd/gait
+          govulncheck -mode=binary ./gait
       - name: Python lint
         run: |
           cd sdk/python
@@ -59,12 +60,18 @@ jobs:
         run: |
           go test ./...
           go test ./core/... -coverprofile=coverage-go.out
-          go tool cover -func=coverage-go.out | awk '/^total:/ {print $$3}' | sed 's/%//' > coverage-go.txt
           python - <<'PY'
-          import sys
-          with open("coverage-go.txt") as f:
-              raw = f.read().strip() or "0"
-              cov = float(raw)
+          import subprocess, sys
+          out = subprocess.check_output(["go", "tool", "cover", "-func=coverage-go.out"], text=True)
+          total_line = ""
+          for line in out.splitlines():
+              if line.strip().startswith("total:"):
+                  total_line = line
+          if not total_line:
+              print("Go coverage total line not found")
+              sys.exit(1)
+          pct = total_line.split()[-1].rstrip("%")
+          cov = float(pct)
           if cov < 85.0:
               print(f"Go coverage too low: {cov}%")
               sys.exit(1)
