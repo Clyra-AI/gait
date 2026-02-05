@@ -6,8 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/davidahmann/gait/core/runpack"
@@ -18,6 +16,7 @@ const (
 	exitOK           = 0
 	exitVerifyFailed = 2
 	exitInvalidInput = 6
+	exitUnsafeReplay = 8
 )
 
 type verifyOutput struct {
@@ -122,48 +121,6 @@ func runVerify(arguments []string) int {
 	return writeVerifyOutput(jsonOutput, output, exitCode)
 }
 
-func resolveRunpackPath(input string) (string, error) {
-	if input == "" {
-		return "", fmt.Errorf("missing run_id or path")
-	}
-	if looksLikePath(input) {
-		if fileExists(input) {
-			return input, nil
-		}
-		return "", fmt.Errorf("runpack not found: %s", input)
-	}
-
-	runpackName := fmt.Sprintf("runpack_%s.zip", input)
-	candidates := []string{
-		filepath.Join(".", "gait-out", runpackName),
-	}
-	homeDir, err := os.UserHomeDir()
-	if err == nil {
-		candidates = append(candidates, filepath.Join(homeDir, ".gait", "runpacks", runpackName))
-	}
-	for _, candidate := range candidates {
-		if fileExists(candidate) {
-			return candidate, nil
-		}
-	}
-	return "", fmt.Errorf("runpack not found for run_id: %s", input)
-}
-
-func looksLikePath(input string) bool {
-	if strings.Contains(input, string(os.PathSeparator)) {
-		return true
-	}
-	return strings.HasSuffix(strings.ToLower(input), ".zip")
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return !info.IsDir()
-}
-
 func hasAnyKeySource(cfg sign.KeyConfig) bool {
 	return cfg.PrivateKeyPath != "" ||
 		cfg.PublicKeyPath != "" ||
@@ -209,6 +166,7 @@ func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait demo")
+	fmt.Println("  gait run replay <run_id|path>")
 	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>]")
 	fmt.Println("  gait version")
 }
