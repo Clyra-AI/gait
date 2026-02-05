@@ -6,5 +6,12 @@
   "tool_name": "tool.demo",
   "args": { "foo": "bar" },
   "args_digest": "bad",
-  "context": { "identity": "user", "risk_class": "low" }
+  "targets": [
+    { "kind": "path", "value": "/tmp/out.txt" }
+  ],
+  "context": {
+    "identity": "user",
+    "workspace": "/tmp/work",
+    "risk_class": "low"
+  }
 }

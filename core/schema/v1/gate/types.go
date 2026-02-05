@@ -26,19 +26,39 @@ type Signature struct {
 }
 
 type IntentRequest struct {
-	SchemaID        string         `json:"schema_id"`
-	SchemaVersion   string         `json:"schema_version"`
-	CreatedAt       time.Time      `json:"created_at"`
-	ProducerVersion string         `json:"producer_version"`
-	ToolName        string         `json:"tool_name"`
-	Args            map[string]any `json:"args"`
-	ArgsDigest      string         `json:"args_digest"`
-	Context         IntentContext  `json:"context"`
+	SchemaID        string                `json:"schema_id"`
+	SchemaVersion   string                `json:"schema_version"`
+	CreatedAt       time.Time             `json:"created_at"`
+	ProducerVersion string                `json:"producer_version"`
+	ToolName        string                `json:"tool_name"`
+	Args            map[string]any        `json:"args"`
+	ArgsDigest      string                `json:"args_digest,omitempty"`
+	IntentDigest    string                `json:"intent_digest,omitempty"`
+	Targets         []IntentTarget        `json:"targets"`
+	ArgProvenance   []IntentArgProvenance `json:"arg_provenance,omitempty"`
+	Context         IntentContext         `json:"context"`
+}
+
+type IntentTarget struct {
+	Kind        string `json:"kind"`
+	Value       string `json:"value"`
+	Operation   string `json:"operation,omitempty"`
+	Sensitivity string `json:"sensitivity,omitempty"`
+}
+
+type IntentArgProvenance struct {
+	ArgPath         string `json:"arg_path"`
+	Source          string `json:"source"`
+	SourceRef       string `json:"source_ref,omitempty"`
+	IntegrityDigest string `json:"integrity_digest,omitempty"`
 }
 
 type IntentContext struct {
 	Identity  string `json:"identity"`
+	Workspace string `json:"workspace"`
 	RiskClass string `json:"risk_class"`
+	SessionID string `json:"session_id,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 type GateResult struct {

@@ -10,7 +10,7 @@
     "producer_version",
     "tool_name",
     "args",
-    "args_digest",
+    "targets",
     "context"
   ],
   "properties": {
@@ -18,15 +18,50 @@
     "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
     "created_at": { "type": "string", "format": "date-time" },
     "producer_version": { "type": "string" },
-    "tool_name": { "type": "string" },
+    "tool_name": { "type": "string", "minLength": 1 },
     "args": { "type": "object" },
     "args_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "value"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["path", "url", "host", "repo", "bucket", "table", "queue", "topic", "other"]
+          },
+          "value": { "type": "string", "minLength": 1 },
+          "operation": { "type": "string" },
+          "sensitivity": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "arg_provenance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["arg_path", "source"],
+        "properties": {
+          "arg_path": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "enum": ["user", "tool_output", "external", "system"] },
+          "source_ref": { "type": "string" },
+          "integrity_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    },
     "context": {
       "type": "object",
-      "required": ["identity", "risk_class"],
+      "required": ["identity", "workspace", "risk_class"],
       "properties": {
-        "identity": { "type": "string" },
-        "risk_class": { "type": "string" }
+        "identity": { "type": "string", "minLength": 1 },
+        "workspace": { "type": "string", "minLength": 1 },
+        "risk_class": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string" },
+        "request_id": { "type": "string" }
       },
       "additionalProperties": true
     }

@@ -1,0 +1,29 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T12:00:00Z",
+  "producer_version": "0.1.0",
+  "tool_name": "  tool.write  ",
+  "args": {
+    "payload": {
+      "x": 1,
+      "tags": ["alpha", "beta"]
+    },
+    "path": "/tmp/out.txt"
+  },
+  "targets": [
+    { "kind": "host", "value": " api.internal " },
+    { "kind": "path", "value": "/tmp/out.txt", "operation": "WRITE" },
+    { "kind": "path", "value": "/tmp/out.txt", "operation": "write" }
+  ],
+  "arg_provenance": [
+    { "arg_path": "args.path", "source": " user " },
+    { "arg_path": "args.payload", "source": "TOOL_OUTPUT", "source_ref": "trace_2" }
+  ],
+  "context": {
+    "identity": " alice ",
+    "workspace": "/repo/work",
+    "risk_class": " high ",
+    "session_id": "s1"
+  }
+}

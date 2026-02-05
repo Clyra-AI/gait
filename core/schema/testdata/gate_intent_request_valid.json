@@ -6,5 +6,15 @@
   "tool_name": "tool.demo",
   "args": { "foo": "bar" },
   "args_digest": "2222222222222222222222222222222222222222222222222222222222222222",
-  "context": { "identity": "user", "risk_class": "low" }
+  "targets": [
+    { "kind": "path", "value": "/tmp/out.txt" }
+  ],
+  "arg_provenance": [
+    { "arg_path": "args.foo", "source": "user" }
+  ],
+  "context": {
+    "identity": "user",
+    "workspace": "/tmp/work",
+    "risk_class": "low"
+  }
 }
