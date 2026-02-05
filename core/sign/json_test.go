@@ -61,6 +61,45 @@ func TestSignVerifyTraceRecordJSON(t *testing.T) {
 	}
 }
 
+func TestSignJSONInvalid(t *testing.T) {
+	kp, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	if _, err := SignJSON(kp.Private, []byte("{")); err == nil {
+		t.Fatalf("expected error for invalid json")
+	}
+}
+
+func TestVerifyJSONMissingDigest(t *testing.T) {
+	kp, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	input := []byte(`{"foo":"bar"}`)
+	sig := Signature{Alg: AlgEd25519, KeyID: KeyID(kp.Public), Sig: "invalid", SignedDigest: ""}
+	if _, err := VerifyJSON(kp.Public, sig, input); err == nil {
+		t.Fatalf("expected error for missing signed_digest")
+	}
+}
+
+func TestVerifyJSONDigestMismatch(t *testing.T) {
+	kp, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	input := []byte(`{"foo":"bar"}`)
+	sig := Signature{
+		Alg:          AlgEd25519,
+		KeyID:        KeyID(kp.Public),
+		Sig:          "invalid",
+		SignedDigest: "1111111111111111111111111111111111111111111111111111111111111111",
+	}
+	if _, err := VerifyJSON(kp.Public, sig, input); err == nil {
+		t.Fatalf("expected error for signed_digest mismatch")
+	}
+}
+
 func loadManifestFixture(t *testing.T) []byte {
 	t.Helper()
 	_, filename, _, ok := runtime.Caller(0)

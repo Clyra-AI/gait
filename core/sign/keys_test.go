@@ -33,6 +33,39 @@ func TestLoadSigningKeyProdMissing(t *testing.T) {
 	}
 }
 
+func TestLoadSigningKeyUnsupportedMode(t *testing.T) {
+	if _, _, err := LoadSigningKey(KeyConfig{Mode: "nope"}); err == nil {
+		t.Fatalf("expected error for unsupported mode")
+	}
+}
+
+func TestLoadSigningKeyProdEnvMissing(t *testing.T) {
+	cfg := KeyConfig{
+		Mode:          ModeProd,
+		PrivateKeyEnv: "MISSING_PRIVATE_KEY",
+	}
+	if _, _, err := LoadSigningKey(cfg); err == nil {
+		t.Fatalf("expected error for missing private key env")
+	}
+}
+
+func TestLoadVerifyKeyConflictingSources(t *testing.T) {
+	cfg := KeyConfig{
+		PublicKeyPath: "path",
+		PublicKeyEnv:  "ENV",
+	}
+	if _, err := LoadVerifyKey(cfg); err == nil {
+		t.Fatalf("expected error for conflicting public key sources")
+	}
+}
+
+func TestReadEnvValueWhitespace(t *testing.T) {
+	t.Setenv("GAIT_EMPTY", "   ")
+	if value, ok := readEnvValue("GAIT_EMPTY"); ok || value != "" {
+		t.Fatalf("expected empty env to be treated as missing")
+	}
+}
+
 func TestLoadSigningKeyProdEnv(t *testing.T) {
 	kp, err := GenerateKeyPair()
 	if err != nil {
@@ -145,5 +178,12 @@ func TestLoadVerifyKeyFromPrivate(t *testing.T) {
 func TestLoadVerifyKeyMissing(t *testing.T) {
 	if _, err := LoadVerifyKey(KeyConfig{}); err == nil {
 		t.Fatalf("expected error for missing verify key")
+	}
+}
+
+func TestLoadVerifyKeyPublicEnvMissing(t *testing.T) {
+	cfg := KeyConfig{PublicKeyEnv: "MISSING_PUBLIC_KEY"}
+	if _, err := LoadVerifyKey(cfg); err == nil {
+		t.Fatalf("expected error for missing public key env")
 	}
 }
