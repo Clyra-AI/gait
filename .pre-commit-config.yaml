@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.0.1
+    hooks:
+      - id: golangci-lint
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.0.1
+    hooks:
+      - id: gofmt
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.1
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format

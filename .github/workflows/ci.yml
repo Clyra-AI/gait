@@ -1,0 +1,84 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+
+jobs:
+  lint:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
+      - name: Go lint
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.0.1
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.22.0
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go vet ./...
+          golangci-lint run ./...
+          gosec ./...
+          govulncheck ./...
+      - name: Python lint
+        run: |
+          cd sdk/python
+          uv run --extra dev ruff check
+          uv run --extra dev mypy
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
+      - name: Go tests with coverage
+        run: |
+          go test ./... -coverprofile=coverage-go.out
+          go tool cover -func=coverage-go.out | awk '/total:/ {print $$3}' | sed 's/%//' > coverage-go.txt
+          python - <<'PY'
+          import sys
+          with open("coverage-go.txt") as f:
+              cov = float(f.read().strip())
+          if cov < 85.0:
+              print(f"Go coverage too low: {cov}%")
+              sys.exit(1)
+          PY
+      - name: Python tests with coverage
+        run: |
+          cd sdk/python
+          PYTHONPATH=. uv run --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=85
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: |
+          go build ./cmd/gait

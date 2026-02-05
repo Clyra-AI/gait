@@ -1,0 +1,42 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install goreleaser
+        run: |
+          go install github.com/goreleaser/goreleaser@latest
+      - name: Build release artifacts
+        run: |
+          goreleaser release --clean
+      - name: Generate SBOM (syft)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft packages dir:. -o spdx-json=sbom.spdx.json
+      - name: Scan vulnerabilities (grype)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          grype dir:. -o json > grype.json
+      - name: Sign artifacts (cosign)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/sigstore/cosign/main/install.sh | sh -s -- -b /usr/local/bin
+          cosign sign-blob --yes dist/checksums.txt > dist/checksums.txt.sig
+

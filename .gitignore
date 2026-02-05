@@ -1,0 +1,16 @@
+bin/
+dist/
+gait
+coverage-go.out
+coverage-go.txt
+.venv/
+.python-version
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+sdk/python/.venv/
+sdk/python/.pytest_cache/
+sdk/python/.mypy_cache/
+sdk/python/.ruff_cache/
+sdk/python/.coverage
+sdk/python/htmlcov/
