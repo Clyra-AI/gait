@@ -1,0 +1,16 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: allow
+fail_closed:
+  enabled: true
+  risk_classes: [high, critical]
+  required_fields: [targets, arg_provenance]
+rules:
+  - name: block-network-egress
+    priority: 10
+    effect: block
+    match:
+      tool_names: [tool.write]
+      target_kinds: [host]
+    reason_codes: [blocked_prompt_injection]
+    violations: [prompt_injection_egress_attempt]

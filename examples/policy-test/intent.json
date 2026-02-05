@@ -1,0 +1,28 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-example",
+  "tool_name": "tool.write",
+  "args": {
+    "path": "/tmp/out.txt",
+    "content": "hello"
+  },
+  "targets": [
+    {
+      "kind": "path",
+      "value": "/tmp/out.txt"
+    }
+  ],
+  "arg_provenance": [
+    {
+      "arg_path": "$.path",
+      "source": "user"
+    }
+  ],
+  "context": {
+    "identity": "example-user",
+    "workspace": "/tmp/workspace",
+    "risk_class": "high"
+  }
+}

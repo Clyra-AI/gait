@@ -4,7 +4,7 @@
 
 Please report security issues privately.
 
-- Email: security@your-domain.example
+- Email: dahmann@lumyn.cc
 
 Do not open public issues for security vulnerabilities.
 

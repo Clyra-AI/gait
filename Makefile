@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-e2e build bench bench-check
+.PHONY: fmt lint test test-e2e test-acceptance build bench bench-check
 .PHONY: hooks
 
 fmt:
@@ -42,6 +42,10 @@ coverage:
 
 test-e2e:
 	$(GO) test ./internal/e2e -count=1
+
+test-acceptance:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_v1_acceptance.sh ./gait
 
 build:
 	$(GO) build ./cmd/gait
