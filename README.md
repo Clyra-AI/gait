@@ -27,4 +27,3 @@ GAIT run_id=<run_id> manifest=sha256:<manifest_hash> verify="gait verify <run_id
 ## Scope (v1)
 
 Runpack, Regress, Gate, Doctor, and a minimal adapter surface. No hosted UI.
-

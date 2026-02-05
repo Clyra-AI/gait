@@ -77,7 +77,7 @@ func TestCLIDemoVerify(t *testing.T) {
 		t.Fatalf("expected fixture runpack to exist: %v", err)
 	}
 
-	regressRun := exec.Command(binPath, "regress", "run", "--json")
+	regressRun := exec.Command(binPath, "regress", "run", "--json", "--junit", "junit.xml")
 	regressRun.Dir = workDir
 	regressRunOut, err := regressRun.CombinedOutput()
 	if err != nil {
@@ -87,6 +87,7 @@ func TestCLIDemoVerify(t *testing.T) {
 		OK     bool   `json:"ok"`
 		Status string `json:"status"`
 		Output string `json:"output"`
+		JUnit  string `json:"junit"`
 	}
 	if err := json.Unmarshal(regressRunOut, &regressRunResult); err != nil {
 		t.Fatalf("parse regress run json output: %v\n%s", err, string(regressRunOut))
@@ -97,8 +98,14 @@ func TestCLIDemoVerify(t *testing.T) {
 	if regressRunResult.Output != "regress_result.json" {
 		t.Fatalf("unexpected regress output path: %s", regressRunResult.Output)
 	}
+	if regressRunResult.JUnit != "junit.xml" {
+		t.Fatalf("unexpected junit output path: %s", regressRunResult.JUnit)
+	}
 	if _, err := os.Stat(filepath.Join(workDir, "regress_result.json")); err != nil {
 		t.Fatalf("expected regress_result.json to exist: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "junit.xml")); err != nil {
+		t.Fatalf("expected junit.xml to exist: %v", err)
 	}
 }
 

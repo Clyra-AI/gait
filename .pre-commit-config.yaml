@@ -7,18 +7,16 @@ repos:
       - id: check-added-large-files
       - id: detect-private-key
       - id: detect-aws-credentials
+        args: ["--allow-missing-credentials"]
   - repo: https://github.com/dnephin/pre-commit-golang
-    rev: v1.5.1
+    rev: v0.5.1
     hooks:
+      - id: go-fmt
       - id: go-mod-tidy
   - repo: https://github.com/golangci/golangci-lint
     rev: v2.0.1
     hooks:
       - id: golangci-lint
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v2.0.1
-    hooks:
-      - id: gofmt
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.1
     hooks:

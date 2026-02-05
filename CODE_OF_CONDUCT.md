@@ -19,4 +19,3 @@ Examples of unacceptable behavior:
 ## Enforcement
 
 Instances of abusive or unacceptable behavior may be reported to the project maintainers.
-

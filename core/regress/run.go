@@ -2,6 +2,7 @@ package regress
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ const (
 type RunOptions struct {
 	ConfigPath            string
 	OutputPath            string
+	JUnitPath             string
 	WorkDir               string
 	ProducerVersion       string
 	AllowNondeterministic bool
@@ -31,7 +33,41 @@ type RunOptions struct {
 type RunResult struct {
 	Result        schemaregress.RegressResult
 	OutputPath    string
+	JUnitPath     string
 	FailedGraders int
+}
+
+type junitTestSuites struct {
+	XMLName  xml.Name         `xml:"testsuites"`
+	Tests    int              `xml:"tests,attr"`
+	Failures int              `xml:"failures,attr"`
+	Errors   int              `xml:"errors,attr"`
+	Skipped  int              `xml:"skipped,attr"`
+	Time     string           `xml:"time,attr"`
+	Suites   []junitTestSuite `xml:"testsuite"`
+}
+
+type junitTestSuite struct {
+	Name      string          `xml:"name,attr"`
+	Tests     int             `xml:"tests,attr"`
+	Failures  int             `xml:"failures,attr"`
+	Errors    int             `xml:"errors,attr"`
+	Skipped   int             `xml:"skipped,attr"`
+	Time      string          `xml:"time,attr"`
+	TestCases []junitTestCase `xml:"testcase"`
+}
+
+type junitTestCase struct {
+	Name      string        `xml:"name,attr"`
+	ClassName string        `xml:"classname,attr"`
+	Time      string        `xml:"time,attr"`
+	Failure   *junitFailure `xml:"failure,omitempty"`
+}
+
+type junitFailure struct {
+	Message string `xml:"message,attr"`
+	Type    string `xml:"type,attr"`
+	Body    string `xml:",chardata"`
 }
 
 type Grader interface {
@@ -160,9 +196,17 @@ func Run(opts RunOptions) (RunResult, error) {
 		return RunResult{}, fmt.Errorf("write regress result: %w", err)
 	}
 
+	junitPath := strings.TrimSpace(opts.JUnitPath)
+	if junitPath != "" {
+		if err := writeJUnitReport(junitPath, result); err != nil {
+			return RunResult{}, fmt.Errorf("write junit report: %w", err)
+		}
+	}
+
 	return RunResult{
 		Result:        result,
 		OutputPath:    outputPath,
+		JUnitPath:     junitPath,
 		FailedGraders: failedGraders,
 	}, nil
 }
@@ -490,4 +534,79 @@ func uniqueSortedStrings(values []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func writeJUnitReport(path string, result schemaregress.RegressResult) error {
+	dir := filepath.Dir(path)
+	if dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return fmt.Errorf("create junit directory: %w", err)
+		}
+	}
+
+	suites := buildJUnit(result)
+	encoded, err := xml.MarshalIndent(suites, "", "  ")
+	if err != nil {
+		return err
+	}
+	document := append([]byte(xml.Header), encoded...)
+	document = append(document, '\n')
+	return os.WriteFile(path, document, 0o600)
+}
+
+func buildJUnit(result schemaregress.RegressResult) junitTestSuites {
+	testCases := make([]junitTestCase, 0, len(result.Graders))
+	failureCount := 0
+	for _, grader := range result.Graders {
+		fixtureName, graderName := splitFixtureGraderName(grader.Name)
+		testCase := junitTestCase{
+			Name:      graderName,
+			ClassName: fixtureName,
+			Time:      "0",
+		}
+		if grader.Status == regressStatusFail {
+			failureCount++
+			reasons := uniqueSortedStrings(grader.ReasonCodes)
+			reasonText := strings.Join(reasons, ",")
+			if reasonText == "" {
+				reasonText = "failed"
+			}
+			testCase.Failure = &junitFailure{
+				Message: reasonText,
+				Type:    "regress_failure",
+				Body:    reasonText,
+			}
+		}
+		testCases = append(testCases, testCase)
+	}
+
+	suiteName := "gait.regress"
+	if result.FixtureSet != "" {
+		suiteName += "." + result.FixtureSet
+	}
+	suite := junitTestSuite{
+		Name:      suiteName,
+		Tests:     len(testCases),
+		Failures:  failureCount,
+		Errors:    0,
+		Skipped:   0,
+		Time:      "0",
+		TestCases: testCases,
+	}
+	return junitTestSuites{
+		Tests:    suite.Tests,
+		Failures: suite.Failures,
+		Errors:   0,
+		Skipped:  0,
+		Time:     "0",
+		Suites:   []junitTestSuite{suite},
+	}
+}
+
+func splitFixtureGraderName(value string) (string, string) {
+	parts := strings.SplitN(value, "/", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return "regress", value
 }

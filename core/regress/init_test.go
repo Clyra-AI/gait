@@ -179,6 +179,78 @@ func TestSanitizeFixtureName(t *testing.T) {
 	}
 }
 
+func TestInitFixtureRequiresSourcePath(t *testing.T) {
+	if _, err := InitFixture(InitOptions{}); err == nil {
+		t.Fatalf("expected missing source path to fail")
+	}
+}
+
+func TestLoadFixtureEntriesRejectsNestedRunpackPath(t *testing.T) {
+	workDir := t.TempDir()
+	sourceRunpack := createRunpack(t, workDir, "run_demo")
+
+	if _, err := InitFixture(InitOptions{
+		SourceRunpackPath: sourceRunpack,
+		WorkDir:           workDir,
+	}); err != nil {
+		t.Fatalf("init fixture: %v", err)
+	}
+
+	metaPath := filepath.Join(workDir, "fixtures", "run_demo", "fixture.json")
+	meta := mustReadFixtureMetaFromInit(t, metaPath)
+	meta.Runpack = "nested/runpack.zip"
+	if err := writeJSON(metaPath, meta); err != nil {
+		t.Fatalf("write fixture metadata: %v", err)
+	}
+
+	if _, err := loadFixtureEntries(filepath.Join(workDir, "fixtures")); err == nil {
+		t.Fatalf("expected nested runpack path to fail")
+	}
+}
+
+func TestReadFixtureMetaRejectsNegativeExpectedExitCode(t *testing.T) {
+	workDir := t.TempDir()
+	metaPath := filepath.Join(workDir, "fixture.json")
+	meta := fixtureMeta{
+		SchemaID:               fixtureSchemaID,
+		SchemaVersion:          fixtureSchemaV1,
+		Name:                   "demo",
+		RunID:                  "run_demo",
+		Runpack:                "runpack.zip",
+		ExpectedReplayExitCode: -1,
+	}
+	if err := writeJSON(metaPath, meta); err != nil {
+		t.Fatalf("write fixture metadata: %v", err)
+	}
+	if _, err := readFixtureMeta(metaPath); err == nil {
+		t.Fatalf("expected negative expected_replay_exit_code to fail")
+	}
+}
+
+func TestCopyRunpackMissingSource(t *testing.T) {
+	workDir := t.TempDir()
+	dest := filepath.Join(workDir, "runpack.zip")
+	if err := copyRunpack(filepath.Join(workDir, "missing.zip"), dest); err == nil {
+		t.Fatalf("expected missing source copy to fail")
+	}
+}
+
+func TestWriteJSONFailsForDirectoryPath(t *testing.T) {
+	workDir := t.TempDir()
+	if err := writeJSON(workDir, map[string]any{"ok": true}); err == nil {
+		t.Fatalf("expected write json to directory path to fail")
+	}
+}
+
+func mustReadFixtureMetaFromInit(t *testing.T, path string) fixtureMeta {
+	t.Helper()
+	meta, err := readFixtureMeta(path)
+	if err != nil {
+		t.Fatalf("read fixture metadata: %v", err)
+	}
+	return meta
+}
+
 func createRunpack(t *testing.T, dir, runID string) string {
 	t.Helper()
 	path := filepath.Join(dir, runID+".zip")
