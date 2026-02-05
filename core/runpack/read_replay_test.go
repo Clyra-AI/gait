@@ -120,8 +120,9 @@ func writeTestRunpack(t *testing.T, runID string, intents []schemarunpack.Intent
 
 func writeTestRunpackWithIntents(t *testing.T, runID string, intents []schemarunpack.IntentRecord, results []schemarunpack.ResultRecord) string {
 	run := schemarunpack.Run{
-		RunID: runID,
-		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		RunID:     runID,
+		CreatedAt: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		Env:       schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
 		Timeline: []schemarunpack.TimelineEvt{
 			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
 		},
