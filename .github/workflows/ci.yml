@@ -59,7 +59,7 @@ jobs:
         run: |
           go test ./...
           go test ./core/... -coverprofile=coverage-go.out
-          go tool cover -func=coverage-go.out | tail -n 1 | awk '{print $$3}' | sed 's/%//' > coverage-go.txt
+          go tool cover -func=coverage-go.out | awk '/^total:/ {print $$3}' | sed 's/%//' > coverage-go.txt
           python - <<'PY'
           import sys
           with open("coverage-go.txt") as f:

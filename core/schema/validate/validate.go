@@ -14,6 +14,7 @@ func ValidateJSONFile(schemaPath, jsonPath string) error {
 	if err != nil {
 		return err
 	}
+	// #nosec G304 -- caller supplies local file path for validation by design
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
 		return fmt.Errorf("read json: %w", err)
@@ -34,6 +35,7 @@ func ValidateJSONLFile(schemaPath, jsonlPath string) error {
 	if err != nil {
 		return err
 	}
+	// #nosec G304 -- caller supplies local file path for validation by design
 	data, err := os.ReadFile(jsonlPath)
 	if err != nil {
 		return fmt.Errorf("read jsonl: %w", err)
@@ -50,6 +52,7 @@ func ValidateJSONL(schemaPath string, data []byte) error {
 }
 
 func loadSchema(schemaPath string) (*jsonschema.Schema, error) {
+	// #nosec G304 -- caller supplies local file path for validation by design
 	data, err := os.ReadFile(schemaPath)
 	if err != nil {
 		return nil, fmt.Errorf("read schema: %w", err)
