@@ -1,0 +1,25 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: require_approval
+fail_closed:
+  enabled: true
+  risk_classes: [high, critical]
+  required_fields: [targets, arg_provenance]
+rules:
+  - name: allow-safe-export
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [tool.write]
+      target_kinds: [path]
+      workspace_prefixes: [/tmp]
+      provenance_sources: [user]
+    reason_codes: [safe_export_allowed]
+  - name: block-network-egress
+    priority: 20
+    effect: block
+    match:
+      tool_names: [tool.write]
+      target_kinds: [host]
+    reason_codes: [network_egress_blocked]
+    violations: [high_risk_egress]
