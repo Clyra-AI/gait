@@ -76,6 +76,30 @@ func TestCLIDemoVerify(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(workDir, "fixtures", "run_demo", "runpack.zip")); err != nil {
 		t.Fatalf("expected fixture runpack to exist: %v", err)
 	}
+
+	regressRun := exec.Command(binPath, "regress", "run", "--json")
+	regressRun.Dir = workDir
+	regressRunOut, err := regressRun.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gait regress run failed: %v\n%s", err, string(regressRunOut))
+	}
+	var regressRunResult struct {
+		OK     bool   `json:"ok"`
+		Status string `json:"status"`
+		Output string `json:"output"`
+	}
+	if err := json.Unmarshal(regressRunOut, &regressRunResult); err != nil {
+		t.Fatalf("parse regress run json output: %v\n%s", err, string(regressRunOut))
+	}
+	if !regressRunResult.OK || regressRunResult.Status != "pass" {
+		t.Fatalf("unexpected regress run result: %s", string(regressRunOut))
+	}
+	if regressRunResult.Output != "regress_result.json" {
+		t.Fatalf("unexpected regress output path: %s", regressRunResult.Output)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "regress_result.json")); err != nil {
+		t.Fatalf("expected regress_result.json to exist: %v", err)
+	}
 }
 
 func repoRoot(t *testing.T) string {

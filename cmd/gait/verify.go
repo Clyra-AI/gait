@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	exitOK           = 0
-	exitVerifyFailed = 2
-	exitInvalidInput = 6
-	exitUnsafeReplay = 8
+	exitOK            = 0
+	exitRegressFailed = 5
+	exitVerifyFailed  = 2
+	exitInvalidInput  = 6
+	exitUnsafeReplay  = 8
 )
 
 type verifyOutput struct {
@@ -167,6 +168,7 @@ func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait demo")
 	fmt.Println("  gait regress init --from <run_id|path> [--json]")
+	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--json]")
 	fmt.Println("  gait run replay <run_id|path>")
 	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>]")
 	fmt.Println("  gait version")

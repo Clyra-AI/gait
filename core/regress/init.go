@@ -42,11 +42,14 @@ type InitResult struct {
 }
 
 type fixtureMeta struct {
-	SchemaID      string `json:"schema_id"`
-	SchemaVersion string `json:"schema_version"`
-	Name          string `json:"name"`
-	RunID         string `json:"run_id"`
-	Runpack       string `json:"runpack"`
+	SchemaID               string   `json:"schema_id"`
+	SchemaVersion          string   `json:"schema_version"`
+	Name                   string   `json:"name"`
+	RunID                  string   `json:"run_id"`
+	Runpack                string   `json:"runpack"`
+	ExpectedReplayExitCode int      `json:"expected_replay_exit_code"`
+	CandidateRunpack       string   `json:"candidate_runpack,omitempty"`
+	DiffAllowChangedFiles  []string `json:"diff_allow_changed_files,omitempty"`
 }
 
 type configFile struct {
@@ -105,11 +108,12 @@ func InitFixture(opts InitOptions) (InitResult, error) {
 	}
 
 	meta := fixtureMeta{
-		SchemaID:      fixtureSchemaID,
-		SchemaVersion: fixtureSchemaV1,
-		Name:          fixtureName,
-		RunID:         verifyResult.RunID,
-		Runpack:       fixtureRunpack,
+		SchemaID:               fixtureSchemaID,
+		SchemaVersion:          fixtureSchemaV1,
+		Name:                   fixtureName,
+		RunID:                  verifyResult.RunID,
+		Runpack:                fixtureRunpack,
+		ExpectedReplayExitCode: 0,
 	}
 	if err := writeJSON(filepath.Join(fixtureDir, fixtureFileName), meta); err != nil {
 		return InitResult{}, fmt.Errorf("write fixture metadata: %w", err)
@@ -210,6 +214,9 @@ func readFixtureMeta(path string) (fixtureMeta, error) {
 	}
 	if meta.Name == "" || meta.RunID == "" || meta.Runpack == "" {
 		return fixtureMeta{}, fmt.Errorf("fixture metadata incomplete: %s", slashPath(path))
+	}
+	if meta.ExpectedReplayExitCode < 0 {
+		return fixtureMeta{}, fmt.Errorf("fixture expected_replay_exit_code must be >= 0: %s", slashPath(path))
 	}
 	return meta, nil
 }
