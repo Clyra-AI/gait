@@ -37,7 +37,7 @@ coverage:
 	$(GO) tool cover -func=coverage-go.out | tail -n 1
 
 test-e2e:
-	$(GO) test ./internal/e2e -run TestCLIDemoVerify -count=1
+	$(GO) test ./internal/e2e -count=1
 
 build:
 	$(GO) build ./cmd/gait

@@ -72,6 +72,20 @@ jobs:
           cd sdk/python
           uv run --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=85
 
+  e2e:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: E2E tests
+        run: |
+          go test ./internal/e2e -count=1
+
   build:
     runs-on: ubuntu-latest
     steps:
