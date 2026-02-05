@@ -87,6 +87,19 @@ The durable product contract is **artifacts and schemas**, not a hosted UI.
   - add validation + golden fixtures
   - document upgrade/migration behavior
 
+## Issue tracking (optional)
+
+This repo may use **bd (beads)** for local, personal task tracking. It is not required for contributors.
+
+- If `bd` is available, use it to find and track work:
+  - `bd ready` (unblocked work)
+  - `bd show <id>` / `bd list`
+  - `bd create "Title" --type task --priority 2`
+  - `bd dep add <blocked_id> <blocker_id>` (dependencies)
+  - `bd close <id>`
+- For up-to-date workflow context: `bd prime`
+- Note: bd may be configured in stealth mode (local `.beads/` state excluded from git). Do not commit beads artifacts unless explicitly requested.
+
 ## Working with this file
 
 - Keep these instructions short, concrete, and current.
