@@ -76,8 +76,8 @@ jobs:
           pct = total_line.split()[-1].rstrip("%")
           cov = float(pct)
           if cov < 85.0:
-              print(f"Go coverage too low: {cov}%")
-              sys.exit(1)
+            print(f"Go coverage too low: {cov}%")
+            sys.exit(1)
           PY
       - name: Python tests with coverage
         run: |

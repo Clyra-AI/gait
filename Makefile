@@ -27,6 +27,10 @@ test:
 	$(GO) test ./core/... -coverprofile=coverage-go.out
 	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest --cov=gait --cov-report=term-missing)
 
+coverage:
+	$(GO) test ./core/... -coverprofile=coverage-go.out
+	$(GO) tool cover -func=coverage-go.out | tail -n 1
+
 test-e2e:
 	$(GO) build ./cmd/gait
 	./gait
