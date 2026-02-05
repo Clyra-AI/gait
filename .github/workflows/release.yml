@@ -39,4 +39,33 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/sigstore/cosign/main/install.sh | sh -s -- -b /usr/local/bin
           cosign sign-blob --yes dist/checksums.txt > dist/checksums.txt.sig
-
+      - name: Generate provenance (cosign)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          SUM=$(sha256sum dist/checksums.txt | awk '{print $1}')
+          cat > provenance.json <<JSON
+          {
+            "_type": "https://in-toto.io/Statement/v0.1",
+            "subject": [
+              { "name": "dist/checksums.txt", "digest": { "sha256": "${SUM}" } }
+            ],
+            "predicateType": "https://slsa.dev/provenance/v0.2",
+            "predicate": {
+              "buildType": "gait.release",
+              "builder": { "id": "github.com/davidahmann/gait" },
+              "invocation": {
+                "configSource": {
+                  "uri": "git+https://github.com/davidahmann/gait",
+                  "digest": { "sha1": "${GITHUB_SHA}" }
+                }
+              },
+              "metadata": {
+                "buildStartedOn": "${TS}",
+                "buildFinishedOn": "${TS}"
+              }
+            }
+          }
+          JSON
+          cosign attest-blob --yes --type slsaprovenance --predicate provenance.json dist/checksums.txt > dist/checksums.txt.intoto.jsonl

@@ -124,6 +124,83 @@ func TestRecordRunMissingRunID(test *testing.T) {
 	}
 }
 
+func TestRecordRunDeterministicZip(test *testing.T) {
+	ts := time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)
+	run := schemarunpack.Run{
+		RunID:           "run_deterministic",
+		CreatedAt:       ts,
+		ProducerVersion: "0.0.0-dev",
+		Env:             schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline:        []schemarunpack.TimelineEvt{{Event: "start", TS: ts}},
+	}
+	intents := []schemarunpack.IntentRecord{
+		{
+			IntentID:   "intent_1",
+			ToolName:   "tool.demo",
+			ArgsDigest: "2222222222222222222222222222222222222222222222222222222222222222",
+			Args:       map[string]any{"foo": "bar"},
+		},
+	}
+	results := []schemarunpack.ResultRecord{
+		{
+			IntentID:     "intent_1",
+			Status:       "ok",
+			ResultDigest: "3333333333333333333333333333333333333333333333333333333333333333",
+			Result:       map[string]any{"ok": true},
+		},
+	}
+	refs := schemarunpack.Refs{
+		RunID: run.RunID,
+		Receipts: []schemarunpack.RefReceipt{
+			{
+				RefID:         "ref_1",
+				SourceType:    "demo",
+				SourceLocator: "example",
+				QueryDigest:   "4444444444444444444444444444444444444444444444444444444444444444",
+				ContentDigest: "5555555555555555555555555555555555555555555555555555555555555555",
+				RetrievedAt:   ts,
+				RedactionMode: "reference",
+			},
+		},
+	}
+
+	first, err := RecordRun(RecordOptions{Run: run, Intents: intents, Results: results, Refs: refs})
+	if err != nil {
+		test.Fatalf("record run: %v", err)
+	}
+	second, err := RecordRun(RecordOptions{Run: run, Intents: intents, Results: results, Refs: refs})
+	if err != nil {
+		test.Fatalf("record run: %v", err)
+	}
+	if !bytes.Equal(first.ZipBytes, second.ZipBytes) {
+		test.Fatalf("expected deterministic zip bytes")
+	}
+}
+
+func TestRecordRunDifferentInputManifestDigest(test *testing.T) {
+	ts := time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)
+	runA := schemarunpack.Run{
+		RunID:           "run_a",
+		CreatedAt:       ts,
+		ProducerVersion: "0.0.0-dev",
+		Env:             schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline:        []schemarunpack.TimelineEvt{{Event: "start", TS: ts}},
+	}
+	runB := runA
+	runB.RunID = "run_b"
+	resultA, err := RecordRun(RecordOptions{Run: runA})
+	if err != nil {
+		test.Fatalf("record run A: %v", err)
+	}
+	resultB, err := RecordRun(RecordOptions{Run: runB})
+	if err != nil {
+		test.Fatalf("record run B: %v", err)
+	}
+	if resultA.Manifest.ManifestDigest == resultB.Manifest.ManifestDigest {
+		test.Fatalf("expected different manifest digest for different inputs")
+	}
+}
+
 func TestRecordRunUnsigned(test *testing.T) {
 	run := schemarunpack.Run{
 		CreatedAt: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),

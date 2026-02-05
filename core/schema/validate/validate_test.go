@@ -34,6 +34,85 @@ func TestValidateJSONLFile(t *testing.T) {
 	}
 }
 
+func TestValidateSchemaFixtures(t *testing.T) {
+	root := repoRoot(t)
+	cases := []struct {
+		name       string
+		schemaPath string
+		validPath  string
+		invalid    string
+		isJSONL    bool
+	}{
+		{
+			name:       "run",
+			schemaPath: filepath.Join(root, "schemas", "v1", "runpack", "run.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "run_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "run_invalid.json"),
+		},
+		{
+			name:       "result",
+			schemaPath: filepath.Join(root, "schemas", "v1", "runpack", "result.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "result_valid.jsonl"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "result_invalid.jsonl"),
+			isJSONL:    true,
+		},
+		{
+			name:       "refs",
+			schemaPath: filepath.Join(root, "schemas", "v1", "runpack", "refs.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "refs_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "refs_invalid.json"),
+		},
+		{
+			name:       "gate_intent_request",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "intent_request.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_intent_request_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_intent_request_invalid.json"),
+		},
+		{
+			name:       "gate_result",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "gate_result.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_result_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_result_invalid.json"),
+		},
+		{
+			name:       "gate_trace_record",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "trace_record.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_trace_record_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_trace_record_invalid.json"),
+		},
+		{
+			name:       "policy_test_result",
+			schemaPath: filepath.Join(root, "schemas", "v1", "policytest", "policy_test_result.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "policy_test_result_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "policy_test_result_invalid.json"),
+		},
+		{
+			name:       "regress_result",
+			schemaPath: filepath.Join(root, "schemas", "v1", "regress", "regress_result.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "regress_result_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "regress_result_invalid.json"),
+		},
+	}
+
+	for _, c := range cases {
+		if c.isJSONL {
+			if err := ValidateJSONLFile(c.schemaPath, c.validPath); err != nil {
+				t.Fatalf("expected valid %s, got error: %v", c.name, err)
+			}
+			if err := ValidateJSONLFile(c.schemaPath, c.invalid); err == nil {
+				t.Fatalf("expected invalid %s to fail", c.name)
+			}
+			continue
+		}
+		if err := ValidateJSONFile(c.schemaPath, c.validPath); err != nil {
+			t.Fatalf("expected valid %s, got error: %v", c.name, err)
+		}
+		if err := ValidateJSONFile(c.schemaPath, c.invalid); err == nil {
+			t.Fatalf("expected invalid %s to fail", c.name)
+		}
+	}
+}
+
 func TestValidateJSON(t *testing.T) {
 	root := repoRoot(t)
 	schema := filepath.Join(root, "schemas", "v1", "runpack", "manifest.schema.json")

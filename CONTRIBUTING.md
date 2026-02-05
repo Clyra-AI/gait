@@ -45,3 +45,28 @@ This runs `make lint` and `make test` on every push.
 - Use the provided issue templates.
 - Keep PRs focused and include tests.
 - Avoid adding network dependencies to core flows.
+
+## Triage and labels
+
+Use these labels consistently:
+
+- `bug`: defects or regressions
+- `feature`: new behavior or enhancements
+- `docs`: documentation-only changes
+- `security`: security-impacting changes
+- `breaking`: incompatible CLI or schema changes
+- `good first issue`: newcomer-friendly tasks
+- `needs-triage`: default for new issues
+
+Triage flow:
+
+1. Apply `needs-triage` on new issues.
+2. Confirm reproducibility or intent, then swap to `bug` or `feature`.
+3. Add `security` or `breaking` where relevant.
+4. Prioritize with milestone or project board if used.
+
+## Versioning policy
+
+- CLI versioning and artifact schema versioning are tracked independently.
+- Within a major version, schema changes are backward-compatible.
+- Breaking schema or CLI changes require a major bump.
