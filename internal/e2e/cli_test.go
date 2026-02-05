@@ -166,6 +166,83 @@ func TestCLIRegressExitCodes(t *testing.T) {
 	}
 }
 
+func TestCLIGateEval(t *testing.T) {
+	root := repoRoot(t)
+	binPath := buildGaitBinary(t, root)
+
+	workDir := t.TempDir()
+	intentPath := filepath.Join(workDir, "intent.json")
+	intentContent := []byte(`{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "tool_name": "tool.write",
+  "args": {"path": "/tmp/out.txt"},
+  "targets": [{"kind":"host","value":"api.external.com"}],
+  "arg_provenance": [{"arg_path":"args.path","source":"user"}],
+  "context": {"identity":"alice","workspace":"/repo/gait","risk_class":"high"}
+}`)
+	if err := os.WriteFile(intentPath, intentContent, 0o600); err != nil {
+		t.Fatalf("write intent file: %v", err)
+	}
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	policyContent := []byte(`default_verdict: allow
+fail_closed:
+  enabled: true
+  risk_classes: [high]
+  required_fields: [targets, arg_provenance]
+rules:
+  - name: block-external-host
+    effect: block
+    match:
+      tool_names: [tool.write]
+      target_kinds: [host]
+      target_values: [api.external.com]
+    reason_codes: [blocked_external]
+    violations: [external_target]
+`)
+	if err := os.WriteFile(policyPath, policyContent, 0o600); err != nil {
+		t.Fatalf("write policy file: %v", err)
+	}
+
+	eval := exec.Command(binPath, "gate", "eval", "--policy", policyPath, "--intent", intentPath, "--json")
+	eval.Dir = workDir
+	evalOut, err := eval.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gait gate eval failed: %v\n%s", err, string(evalOut))
+	}
+	var evalResult struct {
+		OK          bool     `json:"ok"`
+		Verdict     string   `json:"verdict"`
+		ReasonCodes []string `json:"reason_codes"`
+		Violations  []string `json:"violations"`
+	}
+	if err := json.Unmarshal(evalOut, &evalResult); err != nil {
+		t.Fatalf("parse gate eval json output: %v\n%s", err, string(evalOut))
+	}
+	if !evalResult.OK || evalResult.Verdict != "block" {
+		t.Fatalf("unexpected gate eval result: %s", string(evalOut))
+	}
+	if len(evalResult.ReasonCodes) != 1 || evalResult.ReasonCodes[0] != "blocked_external" {
+		t.Fatalf("unexpected gate reason codes: %#v", evalResult.ReasonCodes)
+	}
+	if len(evalResult.Violations) != 1 || evalResult.Violations[0] != "external_target" {
+		t.Fatalf("unexpected gate violations: %#v", evalResult.Violations)
+	}
+
+	invalid := exec.Command(binPath, "gate", "eval", "--policy", policyPath, "--json")
+	invalid.Dir = workDir
+	invalidOut, err := invalid.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected invalid gate eval invocation to fail with exit code 6")
+	}
+	if code := commandExitCode(t, err); code != 6 {
+		t.Fatalf("unexpected gate invalid-input exit code: got=%d want=6 output=%s", code, string(invalidOut))
+	}
+}
+
 func buildGaitBinary(t *testing.T, root string) string {
 	t.Helper()
 	binDir := t.TempDir()

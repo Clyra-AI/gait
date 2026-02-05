@@ -20,6 +20,8 @@ func run(arguments []string) int {
 	switch arguments[1] {
 	case "demo":
 		return runDemo(arguments[2:])
+	case "gate":
+		return runGate(arguments[2:])
 	case "regress":
 		return runRegress(arguments[2:])
 	case "run":

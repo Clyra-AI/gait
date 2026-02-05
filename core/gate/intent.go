@@ -111,7 +111,7 @@ func ArgsDigest(args map[string]any) (string, error) {
 }
 
 func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
-	toolName := strings.TrimSpace(input.ToolName)
+	toolName := strings.ToLower(strings.TrimSpace(input.ToolName))
 	if toolName == "" {
 		return normalizedIntent{}, fmt.Errorf("tool_name is required")
 	}
