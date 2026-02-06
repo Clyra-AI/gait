@@ -57,6 +57,18 @@ Release integrity assets (same release page):
 - `sbom.spdx.json`
 - `provenance.json`
 
+## Homebrew Tap Status
+
+Homebrew publication is intentionally deferred until CLI contracts are stable for public package consumers.
+
+Publication gate (must all be true):
+
+- Stable install/verify flow across macOS/Linux/Windows release assets.
+- Stable exit-code and schema contracts across at least one full release cycle.
+- Release artifacts include checksums, signatures, SBOM, and provenance assets.
+
+When the gate is met, use the release process in `CONTRIBUTING.md` (Homebrew section) to publish and update the tap.
+
 Run the offline demo and verify the artifact:
 
 ```bash
