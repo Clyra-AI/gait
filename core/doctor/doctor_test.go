@@ -51,8 +51,11 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	if result.NonFixable {
 		t.Fatalf("expected non-fixable to be false")
 	}
-	if len(result.Checks) != 6 {
+	if len(result.Checks) != 7 {
 		t.Fatalf("unexpected checks count: %d", len(result.Checks))
+	}
+	if !checkStatus(result.Checks, "key_permissions", statusPass) {
+		t.Fatalf("expected key_permissions pass check")
 	}
 	if !checkStatus(result.Checks, "onboarding_binary", statusPass) {
 		t.Fatalf("expected onboarding_binary pass check")
@@ -162,10 +165,26 @@ func TestDoctorHelperBranches(t *testing.T) {
 	if check.Status != statusPass {
 		t.Fatalf("prod mode valid keys should pass: %#v", check)
 	}
+
+	if err := os.Chmod(privateKeyPath, 0o666); err != nil {
+		t.Fatalf("chmod private key: %v", err)
+	}
+	check = checkKeyFilePermissions(sign.KeyConfig{PrivateKeyPath: privateKeyPath})
+	if check.Status != statusWarn {
+		t.Fatalf("expected key permission warning for writable key file: %#v", check)
+	}
+	if err := os.Chmod(privateKeyPath, 0o600); err != nil {
+		t.Fatalf("restore private key mode: %v", err)
+	}
+	check = checkKeyFilePermissions(sign.KeyConfig{PrivateKeyPath: privateKeyPath})
+	if check.Status != statusPass {
+		t.Fatalf("expected strict key permissions to pass: %#v", check)
+	}
 }
 
 func TestOnboardingChecks(t *testing.T) {
 	workDir := t.TempDir()
+	t.Setenv("PATH", "")
 
 	check := checkOnboardingBinary(workDir)
 	if check.Status != statusWarn {

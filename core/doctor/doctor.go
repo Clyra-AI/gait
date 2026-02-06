@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -97,6 +98,7 @@ func Run(opts Options) Result {
 		checkSchemaFiles(workDir),
 		checkOnboardingBinary(workDir),
 		checkOnboardingAssets(workDir),
+		checkKeyFilePermissions(opts.KeyConfig),
 		checkKeyConfig(opts.KeyMode, opts.KeyConfig),
 	}
 
@@ -246,29 +248,48 @@ func checkSchemaFiles(workDir string) Check {
 }
 
 func checkOnboardingBinary(workDir string) Check {
-	if _, err := exec.LookPath("gait"); err == nil {
+	binaryPath, err := findGaitBinaryPath(workDir)
+	if err != nil {
 		return Check{
-			Name:    "onboarding_binary",
-			Status:  statusPass,
-			Message: "gait binary is available on PATH",
+			Name:       "onboarding_binary",
+			Status:     statusWarn,
+			Message:    "gait binary not found; onboarding commands may fail",
+			FixCommand: "go build -o ./gait ./cmd/gait",
 		}
 	}
 
-	localBinaryPath := filepath.Join(workDir, "gait")
-	info, err := os.Stat(localBinaryPath)
-	if err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0 {
+	info, err := os.Stat(binaryPath)
+	if err != nil || info.IsDir() {
 		return Check{
-			Name:    "onboarding_binary",
-			Status:  statusPass,
-			Message: "local gait binary is executable",
+			Name:       "onboarding_binary",
+			Status:     statusWarn,
+			Message:    "gait binary path is not accessible",
+			FixCommand: "go build -o ./gait ./cmd/gait",
+		}
+	}
+	if !isExecutableBinary(binaryPath, info) {
+		return Check{
+			Name:       "onboarding_binary",
+			Status:     statusWarn,
+			Message:    fmt.Sprintf("gait binary is not executable: %s", binaryPath),
+			FixCommand: fmt.Sprintf("chmod +x %s", shellQuote(binaryPath)),
+		}
+	}
+
+	versionOutput, versionErr := readGaitVersion(binaryPath)
+	if versionErr != nil {
+		return Check{
+			Name:       "onboarding_binary",
+			Status:     statusWarn,
+			Message:    fmt.Sprintf("gait binary version check failed (%s): %v", binaryPath, versionErr),
+			FixCommand: "go build -o ./gait ./cmd/gait",
 		}
 	}
 
 	return Check{
-		Name:       "onboarding_binary",
-		Status:     statusWarn,
-		Message:    "gait binary not found; onboarding commands may fail",
-		FixCommand: "go build -o ./gait ./cmd/gait",
+		Name:    "onboarding_binary",
+		Status:  statusPass,
+		Message: fmt.Sprintf("gait binary ready (path=%s version=%s)", binaryPath, versionOutput),
 	}
 }
 
@@ -374,6 +395,98 @@ func hasAnyVerifySource(cfg sign.KeyConfig) bool {
 		strings.TrimSpace(cfg.PublicKeyEnv) != "" ||
 		strings.TrimSpace(cfg.PrivateKeyPath) != "" ||
 		strings.TrimSpace(cfg.PrivateKeyEnv) != ""
+}
+
+func checkKeyFilePermissions(cfg sign.KeyConfig) Check {
+	keyPaths := []string{
+		strings.TrimSpace(cfg.PrivateKeyPath),
+		strings.TrimSpace(cfg.PublicKeyPath),
+	}
+	requestedPaths := make([]string, 0, len(keyPaths))
+	for _, path := range keyPaths {
+		if path != "" {
+			requestedPaths = append(requestedPaths, path)
+		}
+	}
+	if len(requestedPaths) == 0 {
+		return Check{
+			Name:    "key_permissions",
+			Status:  statusPass,
+			Message: "no key file paths configured",
+		}
+	}
+
+	for _, path := range requestedPaths {
+		info, err := os.Stat(path)
+		if err != nil {
+			return Check{
+				Name:       "key_permissions",
+				Status:     statusWarn,
+				Message:    fmt.Sprintf("key file not accessible: %s (%v)", path, err),
+				FixCommand: fmt.Sprintf("ls -l %s", shellQuote(path)),
+			}
+		}
+		if info.IsDir() {
+			return Check{
+				Name:       "key_permissions",
+				Status:     statusWarn,
+				Message:    fmt.Sprintf("key path is a directory: %s", path),
+				FixCommand: fmt.Sprintf("set key path to a file: %s", shellQuote(path)),
+			}
+		}
+		if info.Mode().Perm()&0o022 != 0 {
+			return Check{
+				Name:       "key_permissions",
+				Status:     statusWarn,
+				Message:    fmt.Sprintf("key file is writable by group/others: %s", path),
+				FixCommand: fmt.Sprintf("chmod go-w %s", shellQuote(path)),
+			}
+		}
+	}
+
+	return Check{
+		Name:    "key_permissions",
+		Status:  statusPass,
+		Message: "key file permissions are strict",
+	}
+}
+
+func findGaitBinaryPath(workDir string) (string, error) {
+	if path, err := exec.LookPath("gait"); err == nil {
+		return path, nil
+	}
+
+	candidates := []string{
+		filepath.Join(workDir, "gait"),
+		filepath.Join(workDir, "gait.exe"),
+	}
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("gait binary not found")
+}
+
+func isExecutableBinary(path string, info os.FileInfo) bool {
+	if runtime.GOOS == "windows" {
+		lowerPath := strings.ToLower(path)
+		return strings.HasSuffix(lowerPath, ".exe")
+	}
+	return info.Mode().Perm()&0o111 != 0
+}
+
+func readGaitVersion(binaryPath string) (string, error) {
+	command := exec.Command(binaryPath, "version") // #nosec G204 -- controlled binary path from local workspace/PATH.
+	output, err := command.CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	version := strings.TrimSpace(string(output))
+	if !strings.HasPrefix(version, "gait ") {
+		return "", fmt.Errorf("unexpected version output: %s", version)
+	}
+	return version, nil
 }
 
 func shellQuote(value string) string {
