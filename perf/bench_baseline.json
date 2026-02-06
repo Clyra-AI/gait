@@ -30,7 +30,7 @@
       "max_regression_factor": 4.0
     },
     "BenchmarkInstallLocalTypical": {
-      "baseline_ns_op": 136775,
+      "baseline_ns_op": 17876251,
       "max_regression_factor": 4.0
     },
     "BenchmarkVerifyInstalledTypical": {

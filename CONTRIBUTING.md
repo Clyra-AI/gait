@@ -42,6 +42,15 @@ This runs `make lint` and `make test` on every push.
 make hooks
 ```
 
+## Repo hygiene guards
+
+`make lint` also enforces:
+
+- required planning docs under `product/` stay tracked in Git
+- generated artifacts (for example `gait-out/*`, coverage files, local binaries) are not committed
+
+If it fails, remove tracked generated files with `git rm --cached <path>` and re-run lint.
+
 ## Code quality
 
 - Go: `gofmt`, `golangci-lint`, `go vet`, `gosec`, `govulncheck`

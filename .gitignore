@@ -2,7 +2,6 @@ bin/
 dist/
 /gait
 gait-out/
-product/
 coverage-go.out
 coverage-go.txt
 coverage-*.out
@@ -19,3 +18,5 @@ sdk/python/.coverage
 sdk/python/htmlcov/
 perf/bench_output.txt
 perf/bench_report.json
+perf/resource_budget_report.json
+perf/command_budget_report.json

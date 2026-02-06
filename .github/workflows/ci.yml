@@ -30,6 +30,7 @@ jobs:
         shell: bash
         run: |
           python scripts/validate_repo_skills.py
+          bash scripts/check_repo_hygiene.sh
           git config core.hooksPath .githooks
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.1
           go install github.com/securego/gosec/v2/cmd/gosec@v2.22.0

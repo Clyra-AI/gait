@@ -28,7 +28,7 @@
     "max_allocs_op": 3500
   },
   "BenchmarkInstallLocalTypical": {
-    "max_ns_op": 400000,
+    "max_ns_op": 25000000,
     "max_allocs_op": 700
   },
   "BenchmarkVerifyInstalledTypical": {

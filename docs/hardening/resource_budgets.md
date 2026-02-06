@@ -34,6 +34,7 @@ Covered benchmark families:
 ## Budget Policy
 
 - Budgets are intentionally conservative to reduce false positives in shared CI environments.
+- `BenchmarkInstallLocalTypical` budget reflects full local install integrity work (JCS digest, signature verification, and atomic fsync writes), not a metadata-only path.
 - Tightening a budget requires:
   1. Baseline refresh in `perf/bench_baseline.json`
   2. Updated budget rationale in this document

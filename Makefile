@@ -22,6 +22,7 @@ fmt:
 
 lint:
 	$(PYTHON) scripts/validate_repo_skills.py
+	bash scripts/check_repo_hygiene.sh
 	bash scripts/check_hooks_config.sh
 	$(GO) vet ./...
 	$(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.1 run ./...
