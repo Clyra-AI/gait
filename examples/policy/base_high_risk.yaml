@@ -1,0 +1,27 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+rules:
+  - name: block-destructive-tool-delete
+    priority: 10
+    effect: block
+    match:
+      tool_names: [tool.delete]
+    reason_codes: [destructive_tool_blocked]
+    violations: [destructive_operation]
+  - name: require-approval-tool-write
+    priority: 20
+    effect: require_approval
+    min_approvals: 2
+    require_distinct_approvers: true
+    match:
+      tool_names: [tool.write]
+    reason_codes: [approval_required_for_write]
+    violations: [approval_required]
+  - name: allow-safe-tool-read
+    priority: 30
+    effect: allow
+    match:
+      tool_names: [tool.read]
+      risk_classes: [low]
+    reason_codes: [safe_read_allowed]

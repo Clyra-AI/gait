@@ -6,6 +6,7 @@ All examples in this folder run without network, secrets, or cloud accounts.
 
 - `stub-replay/`: deterministic stub replay flow from a demo runpack
 - `policy-test/`: allow/block/require-approval policy evaluation examples
+- `policy/`: starter low/medium/high risk policy templates + fixture intents
 - `regress-run/`: incident-to-regression fixture workflow
 - `prompt-injection/`: deterministic prompt-injection style blocking example
 - `python/`: thin Python adapter example (calls local `gait` binary)
@@ -17,8 +18,9 @@ All examples in this folder run without network, secrets, or cloud accounts.
 
 1. `stub-replay`
 2. `policy-test`
-3. `regress-run`
-4. `prompt-injection`
-5. `integrations/openai_agents`
-6. `integrations/langchain`
-7. `integrations/autogen`
+3. `policy`
+4. `regress-run`
+5. `prompt-injection`
+6. `integrations/openai_agents`
+7. `integrations/langchain`
+8. `integrations/autogen`

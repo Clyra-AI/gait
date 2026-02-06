@@ -422,6 +422,7 @@ See `examples/` for exact commands and expected outcomes:
 
 - `examples/stub-replay/`
 - `examples/policy-test/`
+- `examples/policy/` (starter low/medium/high risk templates with fixture intents)
 - `examples/regress-run/`
 - `examples/prompt-injection/`
 - `examples/python/` (thin adapter demo calling local `gait`)
