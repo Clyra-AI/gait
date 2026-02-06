@@ -104,6 +104,8 @@ Coverage and pack foundations:
 - `gait scout diff` reports deterministic inventory drift.
 - `gait guard pack` builds evidence packs; `gait guard verify` verifies pack integrity offline.
 - `gait registry install` installs signed manifests with allowlisted remote hosts and pinning.
+- `gait registry list` enumerates locally cached/pinned policy packs.
+- `gait registry verify` verifies cached registry metadata signatures and pin digests offline.
 - `gait run reduce` emits minimized runpacks that still trigger selected failure predicates.
 
 ## Core Workflows
@@ -260,10 +262,11 @@ When Gate emits `approval_audit_*.json` and `credential_evidence_*.json`, `gait 
 
 ### 4.5) MCP Proxy Mode (Protocol-Adjacent Enforcement)
 
-Proxy an MCP or adapter-formatted tool call through Gate without changing gate trace verification flow:
+Proxy or bridge an MCP or adapter-formatted tool call through Gate without changing gate trace verification flow:
 
 ```bash
 gait mcp proxy --policy <policy.yaml> --call <tool_call.json> --adapter mcp --trace-out trace_mcp.json --json
+gait mcp bridge --policy <policy.yaml> --call <tool_call.json> --adapter mcp --trace-out trace_mcp.json --json
 ```
 
 Supported adapter payload formats:
@@ -279,7 +282,7 @@ Optional proxy artifacts:
 - `--export-log-out <path>` writes JSONL events
 - `--export-otel-out <path>` writes OTEL-style JSONL events
 
-Adapter lifecycle is composable by default: for each supported adapter payload, use `gait mcp proxy --runpack-out ...` for capture and `gait regress init --from <runpack.zip>` to create deterministic regress fixtures.
+Adapter lifecycle is composable by default: for each supported adapter payload, use `gait mcp proxy --runpack-out ...` (or `gait mcp bridge --runpack-out ...`) for capture and `gait regress init --from <runpack.zip>` to create deterministic regress fixtures.
 
 ### 4.6) Guard v1.4 Audit And Incident Workflows
 
@@ -347,6 +350,10 @@ gait run record --explain
 gait scout snapshot --explain
 gait guard pack --explain
 gait registry install --explain
+gait registry list --explain
+gait registry verify --explain
+gait mcp proxy --explain
+gait mcp bridge --explain
 gait migrate --explain
 gait gate eval --explain
 ```
