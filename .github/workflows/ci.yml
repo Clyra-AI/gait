@@ -148,6 +148,7 @@ jobs:
       - name: Run hardening suite
         shell: bash
         run: |
+          git config core.hooksPath .githooks
           make test-hardening-acceptance
 
   build:

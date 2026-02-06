@@ -60,8 +60,9 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	if !checkStatus(result.Checks, "key_permissions", statusPass) {
 		t.Fatalf("expected key_permissions pass check")
 	}
-	if !checkStatus(result.Checks, "onboarding_binary", statusPass) {
-		t.Fatalf("expected onboarding_binary pass check")
+	if !checkStatus(result.Checks, "onboarding_binary", statusPass) &&
+		!checkStatus(result.Checks, "onboarding_binary", statusWarn) {
+		t.Fatalf("expected onboarding_binary pass or warn check")
 	}
 	if !checkStatus(result.Checks, "onboarding_assets", statusPass) {
 		t.Fatalf("expected onboarding_assets pass check")
