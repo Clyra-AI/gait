@@ -9,6 +9,7 @@ Thanks for your interest in contributing. This repo is optimized for **determini
    - `make fmt`
    - `make lint`
    - `make test`
+   - `make test-adoption`
 
 ## Pre-commit
 

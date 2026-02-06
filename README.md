@@ -170,6 +170,26 @@ Gait is built around a small number of strict contracts:
 4. **Fail-closed safety**: in high-risk modes, inability to evaluate policy blocks execution.
 5. **Schema stability**: artifacts and `--json` outputs are versioned and backward-compatible within a major.
 
+### Integration Architecture (No Bypass)
+
+Always enforce at the tool-call boundary:
+
+```
+agent runtime
+  -> wrapped tool adapter
+    -> gait gate eval --policy <policy> --intent <intent> --json
+      -> verdict: allow | block | require_approval | dry_run
+        -> allow only: execute tool
+        -> all other verdicts: no execution
+          -> persist trace/runpack artifacts
+```
+
+No-bypass rule:
+
+- Register only wrapped tools with the agent framework.
+- Keep raw tool executors private to the wrapper layer.
+- Treat missing/invalid gate evaluation as execution denial.
+
 ### What You Get (Artifacts)
 
 Gait emits and consumes a few canonical artifacts:
@@ -198,6 +218,23 @@ Coverage and pack foundations:
 - `gait registry list` enumerates locally cached/pinned policy packs.
 - `gait registry verify` verifies cached registry metadata signatures and pin digests offline.
 - `gait run reduce` emits minimized runpacks that still trigger selected failure predicates.
+
+## What's New By Milestone (v1.1-v1.5)
+
+- **v1.1 (coverage and pack foundations)**:
+  - Scout snapshot and deterministic diff for inventory drift.
+  - Guard evidence pack build/verify workflow.
+  - Registry install/list/verify baseline.
+  - Run reducer for deterministic minimized fixtures.
+- **v1.2 (enforcement depth)**:
+  - Approval token flow and richer gate enforcement semantics.
+  - Stable reason-code and exit-surface behavior for policy paths.
+- **v1.3 (MCP proxy path)**:
+  - MCP/adapters can route tool calls through gate evaluation without changing trust model.
+- **v1.4 (evidence packs)**:
+  - Incident-oriented evidence packaging and verification workflow.
+- **v1.5 (skills)**:
+  - Repo skills for runpack capture, incident-to-regression, and policy rollout operations.
 
 ## Core Workflows
 
@@ -515,6 +552,7 @@ make lint
 make test
 make test-e2e
 make test-acceptance
+make test-adoption
 ```
 
 Enable hooks:

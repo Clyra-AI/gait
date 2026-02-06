@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-e2e test-acceptance build bench bench-check skills-validate
+.PHONY: fmt lint test test-e2e test-acceptance test-adoption build bench bench-check skills-validate
 .PHONY: hooks
 
 fmt:
@@ -47,6 +47,9 @@ test-e2e:
 test-acceptance:
 	$(GO) build -o ./gait ./cmd/gait
 	bash scripts/test_v1_acceptance.sh ./gait
+
+test-adoption:
+	bash scripts/test_adoption_smoke.sh
 
 build:
 	$(GO) build ./cmd/gait
