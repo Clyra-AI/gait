@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-hardening test-e2e test-acceptance test-adoption build bench bench-check bench-budgets skills-validate
+.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-adoption build bench bench-check bench-budgets skills-validate
 .PHONY: hooks
 
 fmt:
@@ -40,6 +40,9 @@ test:
 
 test-hardening:
 	bash scripts/test_hardening.sh
+
+test-hardening-acceptance:
+	bash scripts/test_hardening_acceptance.sh
 
 coverage:
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out

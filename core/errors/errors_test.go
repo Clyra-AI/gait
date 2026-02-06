@@ -43,3 +43,31 @@ func TestUnknownErrorDefaults(t *testing.T) {
 		t.Fatal("unexpected retryable true")
 	}
 }
+
+func TestCategorySetIsStableAndUnique(t *testing.T) {
+	categories := []Category{
+		CategoryInvalidInput,
+		CategoryVerification,
+		CategoryPolicyBlocked,
+		CategoryApprovalRequired,
+		CategoryDependencyMissing,
+		CategoryIOFailure,
+		CategoryStateContention,
+		CategoryNetworkTransient,
+		CategoryNetworkPermanent,
+		CategoryInternalFailure,
+	}
+	seen := map[Category]struct{}{}
+	for _, category := range categories {
+		if category == "" {
+			t.Fatalf("category must not be empty")
+		}
+		if _, exists := seen[category]; exists {
+			t.Fatalf("duplicate category: %s", category)
+		}
+		seen[category] = struct{}{}
+	}
+	if len(seen) != 10 {
+		t.Fatalf("expected 10 categories, got %d", len(seen))
+	}
+}

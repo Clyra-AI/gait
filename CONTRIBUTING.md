@@ -10,6 +10,7 @@ Thanks for your interest in contributing. This repo is optimized for **determini
    - `make lint`
    - `make test`
    - `make test-hardening`
+   - `make test-hardening-acceptance`
    - `make test-adoption`
 
 ## Pre-commit

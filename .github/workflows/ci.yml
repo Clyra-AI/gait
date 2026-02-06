@@ -147,7 +147,7 @@ jobs:
       - name: Run hardening suite
         shell: bash
         run: |
-          make test-hardening
+          make test-hardening-acceptance
 
   build:
     runs-on: ubuntu-latest

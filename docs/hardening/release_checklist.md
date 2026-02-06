@@ -8,7 +8,7 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 - [ ] `make test` passes with coverage gates:
   - Go coverage >= 85%
   - Python coverage >= 85%
-- [ ] `make test-hardening` passes.
+- [ ] `make test-hardening-acceptance` passes.
 - [ ] CI `hardening` job is green on the release commit.
 
 ## 2) Contract Integrity (MANDATORY)
