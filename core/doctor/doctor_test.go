@@ -35,6 +35,8 @@ func TestRunDetectsMissingSchemasAsNonFixable(t *testing.T) {
 }
 
 func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
+	installFakeGaitBinaryInPath(t)
+
 	root := repoRoot(t)
 	outputDir := filepath.Join(t.TempDir(), "gait-out")
 	if err := ensureDir(outputDir); err != nil {
@@ -60,9 +62,8 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	if !checkStatus(result.Checks, "key_permissions", statusPass) {
 		t.Fatalf("expected key_permissions pass check")
 	}
-	if !checkStatus(result.Checks, "onboarding_binary", statusPass) &&
-		!checkStatus(result.Checks, "onboarding_binary", statusWarn) {
-		t.Fatalf("expected onboarding_binary pass or warn check")
+	if !checkStatus(result.Checks, "onboarding_binary", statusPass) {
+		t.Fatalf("expected onboarding_binary pass check")
 	}
 	if !checkStatus(result.Checks, "onboarding_assets", statusPass) {
 		t.Fatalf("expected onboarding_assets pass check")
@@ -462,4 +463,22 @@ func repoRoot(t *testing.T) string {
 	}
 	dir := filepath.Dir(filename)
 	return filepath.Clean(filepath.Join(dir, "..", ".."))
+}
+
+func installFakeGaitBinaryInPath(t *testing.T) {
+	t.Helper()
+
+	binDir := t.TempDir()
+	binPath := filepath.Join(binDir, "gait")
+	content := "#!/bin/sh\nif [ \"$1\" = \"version\" ]; then\n  echo \"gait 0.0.0-test\"\n  exit 0\nfi\necho \"gait 0.0.0-test\"\n"
+	mode := os.FileMode(0o755)
+	if runtime.GOOS == "windows" {
+		binPath = filepath.Join(binDir, "gait.cmd")
+		content = "@echo off\r\nif \"%1\"==\"version\" (\r\n  echo gait 0.0.0-test\r\n  exit /b 0\r\n)\r\necho gait 0.0.0-test\r\n"
+		mode = 0o600
+	}
+	if err := os.WriteFile(binPath, []byte(content), mode); err != nil {
+		t.Fatalf("write fake gait binary: %v", err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }

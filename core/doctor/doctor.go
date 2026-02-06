@@ -695,7 +695,9 @@ func findGaitBinaryPath(workDir string) (string, error) {
 func isExecutableBinary(path string, info os.FileInfo) bool {
 	if runtime.GOOS == "windows" {
 		lowerPath := strings.ToLower(path)
-		return strings.HasSuffix(lowerPath, ".exe")
+		return strings.HasSuffix(lowerPath, ".exe") ||
+			strings.HasSuffix(lowerPath, ".cmd") ||
+			strings.HasSuffix(lowerPath, ".bat")
 	}
 	return info.Mode().Perm()&0o111 != 0
 }
