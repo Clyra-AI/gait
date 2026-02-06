@@ -65,11 +65,12 @@ func TestInstallRemoteWithSignatureAndPin(t *testing.T) {
 
 	cacheDir := filepath.Join(t.TempDir(), "cache")
 	result, err := Install(context.Background(), InstallOptions{
-		Source:     server.URL,
-		CacheDir:   cacheDir,
-		PublicKey:  keyPair.Public,
-		AllowHosts: []string{"127.0.0.1"},
-		PinDigest:  "sha256:" + signableDigest,
+		Source:            server.URL,
+		CacheDir:          cacheDir,
+		PublicKey:         keyPair.Public,
+		AllowHosts:        []string{"127.0.0.1"},
+		PinDigest:         "sha256:" + signableDigest,
+		AllowInsecureHTTP: true,
 	})
 	if err != nil {
 		t.Fatalf("install: %v", err)
@@ -109,7 +110,8 @@ func TestInstallRemoteRequiresAllowlist(t *testing.T) {
 	defer server.Close()
 
 	_, err := Install(context.Background(), InstallOptions{
-		Source: server.URL,
+		Source:            server.URL,
+		AllowInsecureHTTP: true,
 	})
 	if err == nil {
 		t.Fatalf("expected allowlist error")
@@ -201,7 +203,7 @@ func TestRegistryHelperBranches(t *testing.T) {
 	clientErr := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		return nil, io.ErrUnexpectedEOF
 	})}
-	if _, err := fetchSource(context.Background(), "https://example.com/x", clientErr); err == nil {
+	if _, err := fetchSource(context.Background(), "https://example.com/x", clientErr, 1, time.Millisecond); err == nil {
 		t.Fatalf("expected fetchSource transport error")
 	}
 	clientStatus := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -210,7 +212,7 @@ func TestRegistryHelperBranches(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("bad")),
 		}, nil
 	})}
-	if _, err := fetchSource(context.Background(), "https://example.com/x", clientStatus); err == nil {
+	if _, err := fetchSource(context.Background(), "https://example.com/x", clientStatus, 1, time.Millisecond); err == nil {
 		t.Fatalf("expected fetchSource non-200 status error")
 	}
 	clientLarge := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -219,7 +221,7 @@ func TestRegistryHelperBranches(t *testing.T) {
 			Body:       io.NopCloser(bytes.NewReader(bytes.Repeat([]byte("a"), 6*1024*1024))),
 		}, nil
 	})}
-	if _, err := fetchSource(context.Background(), "https://example.com/x", clientLarge); err == nil {
+	if _, err := fetchSource(context.Background(), "https://example.com/x", clientLarge, 1, time.Millisecond); err == nil {
 		t.Fatalf("expected fetchSource large payload error")
 	}
 }
@@ -285,6 +287,148 @@ func TestInstallLocalAndErrorBranches(t *testing.T) {
 	}); err == nil {
 		t.Fatalf("expected missing source error")
 	}
+}
+
+func TestInstallRemoteRetryAndFallbackBranches(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	manifest := schemaregistry.RegistryPack{
+		SchemaID:        "gait.registry.pack",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "0.0.0-dev",
+		PackName:        "retry-pack",
+		PackVersion:     "1.0.0",
+		Artifacts:       []schemaregistry.PackArtifact{{Path: "policy.yaml", SHA256: strings.Repeat("a", 64)}},
+	}
+	digest, err := signableManifestDigest(manifest)
+	if err != nil {
+		t.Fatalf("signable digest: %v", err)
+	}
+	signature, err := sign.SignDigestHex(keyPair.Private, digest)
+	if err != nil {
+		t.Fatalf("sign digest: %v", err)
+	}
+	manifest.Signatures = []schemaregistry.SignatureRef{{
+		Alg:          signature.Alg,
+		KeyID:        signature.KeyID,
+		Sig:          signature.Sig,
+		SignedDigest: signature.SignedDigest,
+	}}
+	payload, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+
+	t.Run("transient retries recover", func(t *testing.T) {
+		requests := 0
+		client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			requests++
+			if requests < 3 {
+				return &http.Response{StatusCode: http.StatusBadGateway, Body: io.NopCloser(strings.NewReader("bad"))}, nil
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(payload))}, nil
+		})}
+		cacheDir := filepath.Join(t.TempDir(), "cache")
+		result, installErr := Install(context.Background(), InstallOptions{
+			Source:            "http://example.com/pack.json",
+			CacheDir:          cacheDir,
+			PublicKey:         keyPair.Public,
+			AllowHosts:        []string{"example.com"},
+			PinDigest:         "sha256:" + digest,
+			HTTPClient:        client,
+			RetryMaxAttempts:  3,
+			RetryBaseDelay:    time.Millisecond,
+			AllowInsecureHTTP: true,
+		})
+		if installErr != nil {
+			t.Fatalf("install with retry: %v", installErr)
+		}
+		if requests != 3 {
+			t.Fatalf("expected 3 requests, got %d", requests)
+		}
+		if result.FallbackUsed {
+			t.Fatalf("unexpected fallback usage")
+		}
+	})
+
+	t.Run("permanent status fails without retries", func(t *testing.T) {
+		requests := 0
+		client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			requests++
+			return &http.Response{StatusCode: http.StatusForbidden, Body: io.NopCloser(strings.NewReader("forbidden"))}, nil
+		})}
+		_, installErr := Install(context.Background(), InstallOptions{
+			Source:            "http://example.com/pack.json",
+			CacheDir:          filepath.Join(t.TempDir(), "cache"),
+			PublicKey:         keyPair.Public,
+			AllowHosts:        []string{"example.com"},
+			PinDigest:         "sha256:" + digest,
+			HTTPClient:        client,
+			RetryMaxAttempts:  5,
+			RetryBaseDelay:    time.Millisecond,
+			AllowInsecureHTTP: true,
+		})
+		if installErr == nil {
+			t.Fatalf("expected permanent failure")
+		}
+		if requests != 1 {
+			t.Fatalf("expected single request for permanent error, got %d", requests)
+		}
+	})
+
+	t.Run("cached fallback is explicit and pinned", func(t *testing.T) {
+		cacheDir := filepath.Join(t.TempDir(), "cache")
+		cachedPath := filepath.Join(cacheDir, manifest.PackName, manifest.PackVersion, digest, "registry_pack.json")
+		if err := os.MkdirAll(filepath.Dir(cachedPath), 0o750); err != nil {
+			t.Fatalf("mkdir cached path: %v", err)
+		}
+		if err := os.WriteFile(cachedPath, payload, 0o600); err != nil {
+			t.Fatalf("write cached manifest: %v", err)
+		}
+		client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			return nil, io.ErrUnexpectedEOF
+		})}
+		result, installErr := Install(context.Background(), InstallOptions{
+			Source:              "http://example.com/pack.json",
+			CacheDir:            cacheDir,
+			PublicKey:           keyPair.Public,
+			AllowHosts:          []string{"example.com"},
+			PinDigest:           "sha256:" + digest,
+			HTTPClient:          client,
+			RetryMaxAttempts:    2,
+			RetryBaseDelay:      time.Millisecond,
+			AllowInsecureHTTP:   true,
+			AllowCachedFallback: true,
+		})
+		if installErr != nil {
+			t.Fatalf("install with cached fallback: %v", installErr)
+		}
+		if !result.FallbackUsed {
+			t.Fatalf("expected fallback usage")
+		}
+		if result.FallbackPath == "" || result.FallbackPath != cachedPath {
+			t.Fatalf("unexpected fallback path: %s", result.FallbackPath)
+		}
+	})
+
+	t.Run("http blocked by default", func(t *testing.T) {
+		_, installErr := Install(context.Background(), InstallOptions{
+			Source:     "http://example.com/pack.json",
+			CacheDir:   filepath.Join(t.TempDir(), "cache"),
+			PublicKey:  keyPair.Public,
+			AllowHosts: []string{"example.com"},
+			PinDigest:  "sha256:" + digest,
+		})
+		if installErr == nil {
+			t.Fatalf("expected https enforcement error")
+		}
+		if !strings.Contains(strings.ToLower(installErr.Error()), "https") {
+			t.Fatalf("expected https error, got %v", installErr)
+		}
+	})
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

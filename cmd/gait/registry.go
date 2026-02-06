@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/davidahmann/gait/core/registry"
 	"github.com/davidahmann/gait/core/sign"
@@ -19,6 +20,8 @@ type registryInstallOutput struct {
 	Digest       string `json:"digest,omitempty"`
 	MetadataPath string `json:"metadata_path,omitempty"`
 	PinPath      string `json:"pin_path,omitempty"`
+	FallbackUsed bool   `json:"fallback_used,omitempty"`
+	FallbackPath string `json:"fallback_path,omitempty"`
 	Error        string `json:"error,omitempty"`
 }
 
@@ -69,14 +72,18 @@ func runRegistryInstall(arguments []string) int {
 		return writeExplain("Fetch a registry pack manifest, verify signatures and optional pin digest, then cache and pin locally.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
-		"source":          true,
-		"cache-dir":       true,
-		"allow-host":      true,
-		"pin":             true,
-		"public-key":      true,
-		"public-key-env":  true,
-		"private-key":     true,
-		"private-key-env": true,
+		"source":                true,
+		"cache-dir":             true,
+		"allow-host":            true,
+		"pin":                   true,
+		"public-key":            true,
+		"public-key-env":        true,
+		"private-key":           true,
+		"private-key-env":       true,
+		"retry-max-attempts":    true,
+		"retry-base-delay":      true,
+		"allow-insecure-http":   true,
+		"allow-cached-fallback": true,
 	})
 	flagSet := flag.NewFlagSet("registry-install", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -89,6 +96,10 @@ func runRegistryInstall(arguments []string) int {
 	var publicKeyEnv string
 	var privateKeyPath string
 	var privateKeyEnv string
+	var retryMaxAttempts int
+	var retryBaseDelay time.Duration
+	var allowInsecureHTTP bool
+	var allowCachedFallback bool
 	var jsonOutput bool
 	var helpFlag bool
 
@@ -100,6 +111,10 @@ func runRegistryInstall(arguments []string) int {
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private key (derive public)")
 	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private key (derive public)")
+	flagSet.IntVar(&retryMaxAttempts, "retry-max-attempts", 3, "max remote fetch retry attempts for transient failures")
+	flagSet.DurationVar(&retryBaseDelay, "retry-base-delay", 200*time.Millisecond, "base remote fetch retry delay (for example 200ms, 1s)")
+	flagSet.BoolVar(&allowInsecureHTTP, "allow-insecure-http", false, "allow insecure http sources (unsafe)")
+	flagSet.BoolVar(&allowCachedFallback, "allow-cached-fallback", false, "allow fallback to cached pinned manifest on remote fetch failure")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -130,11 +145,15 @@ func runRegistryInstall(arguments []string) int {
 	}
 
 	result, err := registry.Install(context.Background(), registry.InstallOptions{
-		Source:     source,
-		CacheDir:   cacheDir,
-		PublicKey:  publicKey,
-		AllowHosts: parseCSVList(allowHostsCSV),
-		PinDigest:  pinDigest,
+		Source:              source,
+		CacheDir:            cacheDir,
+		PublicKey:           publicKey,
+		AllowHosts:          parseCSVList(allowHostsCSV),
+		PinDigest:           pinDigest,
+		RetryMaxAttempts:    retryMaxAttempts,
+		RetryBaseDelay:      retryBaseDelay,
+		AllowInsecureHTTP:   allowInsecureHTTP,
+		AllowCachedFallback: allowCachedFallback,
 	})
 	if err != nil {
 		return writeRegistryInstallOutput(jsonOutput, registryInstallOutput{OK: false, Error: err.Error()}, exitVerifyFailed)
@@ -147,6 +166,8 @@ func runRegistryInstall(arguments []string) int {
 		Digest:       result.Digest,
 		MetadataPath: result.MetadataPath,
 		PinPath:      result.PinPath,
+		FallbackUsed: result.FallbackUsed,
+		FallbackPath: result.FallbackPath,
 	}, exitOK)
 }
 
@@ -284,6 +305,9 @@ func writeRegistryInstallOutput(jsonOutput bool, output registryInstallOutput, e
 	if output.OK {
 		fmt.Printf("registry install ok: %s@%s\n", output.PackName, output.PackVersion)
 		fmt.Printf("digest: sha256:%s\n", output.Digest)
+		if output.FallbackUsed {
+			fmt.Printf("fallback: cached manifest %s\n", output.FallbackPath)
+		}
 		return exitCode
 	}
 	fmt.Printf("registry install error: %s\n", output.Error)
@@ -327,14 +351,14 @@ func writeRegistryVerifyOutput(jsonOutput bool, output registryVerifyOutput, exi
 
 func printRegistryUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--pin sha256:<hex>] [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--pin sha256:<hex>] [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--retry-max-attempts <n>] [--retry-base-delay <duration>] [--allow-cached-fallback] [--allow-insecure-http] [--json] [--explain]")
 	fmt.Println("  gait registry list [--cache-dir <path>] [--json] [--explain]")
 	fmt.Println("  gait registry verify --path <registry_pack.json> [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 }
 
 func printRegistryInstallUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--pin sha256:<hex>] [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--pin sha256:<hex>] [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--retry-max-attempts <n>] [--retry-base-delay <duration>] [--allow-cached-fallback] [--allow-insecure-http] [--json] [--explain]")
 }
 
 func printRegistryListUsage() {
