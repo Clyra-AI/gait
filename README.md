@@ -390,6 +390,12 @@ For a real integration path, use a command broker:
 gait gate eval --policy <policy.yaml> --intent <intent.json> --credential-broker command --credential-command ./broker --credential-command-args issue,token --json
 ```
 
+Command broker hardening defaults:
+
+- Set `GAIT_CREDENTIAL_COMMAND_ALLOWLIST` to a comma-separated list of allowed broker executables (full path or basename match).
+- Broker output must be JSON (`{"issued_by":"...","credential_ref":"..."}`), not plain text.
+- Broker execution is bounded by timeout and output-size limits; failures return safe errors without leaking broker token values.
+
 Every gate decision can produce a trace record. Verify trace integrity offline:
 
 ```bash

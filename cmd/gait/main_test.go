@@ -1050,6 +1050,56 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 	}
 }
 
+func TestGateEvalCredentialCommandBrokerFailureDoesNotLeakSecrets(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+
+	policyPath := filepath.Join(workDir, "policy_gate_v12.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: protected-write",
+		"    effect: allow",
+		"    require_broker_credential: true",
+		"    broker_reference: egress",
+		"    broker_scopes: [export]",
+		"    match:",
+		"      tool_names: [tool.write]",
+	}, "\n")+"\n")
+
+	brokerPath := filepath.Join(workDir, "broker_fail.sh")
+	mustWriteFile(t, brokerPath, "#!/bin/sh\necho 'forced failure token=secret-broker-token' 1>&2\nexit 2\n")
+	if err := os.Chmod(brokerPath, 0o700); err != nil {
+		t.Fatalf("chmod broker script: %v", err)
+	}
+
+	var exitCode int
+	output := captureStdout(t, func() {
+		exitCode = runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--credential-broker", "command",
+			"--credential-command", brokerPath,
+			"--json",
+		})
+	})
+	if exitCode != exitOK {
+		t.Fatalf("runGateEval broker failure expected %d got %d", exitOK, exitCode)
+	}
+	if strings.Contains(output, "secret-broker-token") {
+		t.Fatalf("gate output leaked broker token: %s", output)
+	}
+	if !strings.Contains(output, `"verdict":"block"`) {
+		t.Fatalf("expected blocked verdict in output, got: %s", output)
+	}
+	if !strings.Contains(output, "broker_credential_missing") {
+		t.Fatalf("expected broker_credential_missing reason in output, got: %s", output)
+	}
+}
+
 func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	if code := writeApproveOutput(true, approveOutput{OK: true, TokenPath: "token.json"}, exitOK); code != exitOK {
 		t.Fatalf("writeApproveOutput json: expected %d got %d", exitOK, code)

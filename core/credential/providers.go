@@ -7,16 +7,21 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 )
 
 const (
-	defaultEnvPrefix      = "GAIT_BROKER_TOKEN_"
-	defaultCommandTimeout = 5 * time.Second
+	defaultEnvPrefix              = "GAIT_BROKER_TOKEN_"
+	defaultCommandTimeout         = 5 * time.Second
+	defaultCommandOutputMaxBytes  = 16 * 1024
+	defaultCredentialRefMaxLength = 256
+	commandAllowlistEnv           = "GAIT_CREDENTIAL_COMMAND_ALLOWLIST"
 )
 
 type StubBroker struct{}
@@ -87,6 +92,9 @@ func (b CommandBroker) Issue(request Request) (Response, error) {
 	if command == "" {
 		return Response{}, fmt.Errorf("command broker requires command")
 	}
+	if strings.ContainsAny(command, " \t\r\n") {
+		return Response{}, fmt.Errorf("command broker command must not contain whitespace")
+	}
 	timeout := b.Timeout
 	if timeout <= 0 {
 		timeout = defaultCommandTimeout
@@ -98,16 +106,15 @@ func (b CommandBroker) Issue(request Request) (Response, error) {
 	if err != nil {
 		return Response{}, fmt.Errorf("marshal command broker request: %w", err)
 	}
-
-	// #nosec G204 -- command broker execution is an explicit, opt-in local integration boundary.
-	cmd := exec.CommandContext(ctx, command, b.Args...)
-	cmd.Stdin = bytes.NewReader(payload)
-	output, err := cmd.CombinedOutput()
+	output, truncated, err := runCommandBroker(ctx, command, b.Args, payload, defaultCommandOutputMaxBytes)
 	if ctx.Err() != nil {
 		return Response{}, fmt.Errorf("%w: command broker timed out", ErrCredentialUnavailable)
 	}
+	if truncated {
+		return Response{}, fmt.Errorf("%w: command broker output exceeded %d bytes", ErrCredentialUnavailable, defaultCommandOutputMaxBytes)
+	}
 	if err != nil {
-		return Response{}, fmt.Errorf("%w: command broker failed: %s", ErrCredentialUnavailable, strings.TrimSpace(string(output)))
+		return Response{}, fmt.Errorf("%w: command broker failed", ErrCredentialUnavailable)
 	}
 
 	trimmed := strings.TrimSpace(string(output))
@@ -116,22 +123,24 @@ func (b CommandBroker) Issue(request Request) (Response, error) {
 	}
 
 	response := Response{}
-	if json.Unmarshal(output, &response) == nil {
-		response.IssuedBy = strings.TrimSpace(response.IssuedBy)
-		response.CredentialRef = strings.TrimSpace(response.CredentialRef)
-		if response.IssuedBy == "" {
-			response.IssuedBy = b.Name()
-		}
-		if response.CredentialRef == "" {
-			return Response{}, fmt.Errorf("command broker returned empty credential_ref")
-		}
-		return response, nil
+	if err := json.Unmarshal(output, &response); err != nil {
+		return Response{}, fmt.Errorf("%w: command broker must return JSON response", ErrCredentialUnavailable)
 	}
-
-	return Response{
-		IssuedBy:      b.Name(),
-		CredentialRef: trimmed,
-	}, nil
+	response.IssuedBy = strings.TrimSpace(response.IssuedBy)
+	response.CredentialRef = strings.TrimSpace(response.CredentialRef)
+	if response.IssuedBy == "" {
+		response.IssuedBy = b.Name()
+	}
+	if response.CredentialRef == "" {
+		return Response{}, fmt.Errorf("command broker returned empty credential_ref")
+	}
+	if len(response.CredentialRef) > defaultCredentialRefMaxLength {
+		return Response{}, fmt.Errorf("command broker credential_ref too long")
+	}
+	if strings.ContainsAny(response.CredentialRef, "\r\n\t") {
+		return Response{}, fmt.Errorf("command broker credential_ref contains invalid whitespace")
+	}
+	return response, nil
 }
 
 func ResolveBroker(name string, envPrefix string, command string, commandArgs []string) (Broker, error) {
@@ -146,8 +155,13 @@ func ResolveBroker(name string, envPrefix string, command string, commandArgs []
 		if strings.TrimSpace(command) == "" {
 			return nil, fmt.Errorf("command broker requires --credential-command")
 		}
+		commandPath := strings.TrimSpace(command)
+		allowlist := normalizeCommandAllowlist(os.Getenv(commandAllowlistEnv))
+		if len(allowlist) > 0 && !isCommandAllowed(commandPath, allowlist) {
+			return nil, fmt.Errorf("command broker command is not in allowlist %s", commandAllowlistEnv)
+		}
 		return CommandBroker{
-			Command: strings.TrimSpace(command),
+			Command: commandPath,
 			Args:    normalizeCommandArgs(commandArgs),
 		}, nil
 	default:
@@ -182,4 +196,68 @@ func normalizeCommandArgs(args []string) []string {
 		normalized = append(normalized, trimmed)
 	}
 	return normalized
+}
+
+type limitedOutputBuffer struct {
+	maxBytes  int
+	buffer    bytes.Buffer
+	truncated bool
+}
+
+func (b *limitedOutputBuffer) Write(payload []byte) (int, error) {
+	if b.maxBytes <= 0 {
+		b.maxBytes = defaultCommandOutputMaxBytes
+	}
+	remaining := b.maxBytes - b.buffer.Len()
+	if remaining <= 0 {
+		b.truncated = true
+		return len(payload), nil
+	}
+	if len(payload) > remaining {
+		_, _ = b.buffer.Write(payload[:remaining])
+		b.truncated = true
+		return len(payload), nil
+	}
+	_, _ = b.buffer.Write(payload)
+	return len(payload), nil
+}
+
+func runCommandBroker(ctx context.Context, command string, args []string, payload []byte, maxBytes int) ([]byte, bool, error) {
+	// #nosec G204 -- command broker execution is an explicit, opt-in local integration boundary.
+	cmd := exec.CommandContext(ctx, command, args...)
+	cmd.Stdin = bytes.NewReader(payload)
+	buffer := &limitedOutputBuffer{maxBytes: maxBytes}
+	cmd.Stdout = io.Writer(buffer)
+	cmd.Stderr = io.Writer(buffer)
+	err := cmd.Run()
+	return buffer.buffer.Bytes(), buffer.truncated, err
+}
+
+func normalizeCommandAllowlist(value string) []string {
+	entries := strings.Split(value, ",")
+	normalized := make([]string, 0, len(entries))
+	seen := map[string]struct{}{}
+	for _, entry := range entries {
+		trimmed := filepath.Clean(strings.TrimSpace(entry))
+		if trimmed == "." || trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
+}
+
+func isCommandAllowed(command string, allowlist []string) bool {
+	trimmed := filepath.Clean(strings.TrimSpace(command))
+	base := filepath.Base(trimmed)
+	for _, allowed := range allowlist {
+		if trimmed == allowed || base == allowed {
+			return true
+		}
+	}
+	return false
 }

@@ -139,6 +139,17 @@ func TestResolveBroker(t *testing.T) {
 	}
 }
 
+func TestResolveBrokerCommandAllowlist(t *testing.T) {
+	t.Setenv(commandAllowlistEnv, "/bin/allowed")
+	if _, err := ResolveBroker("command", "", "/bin/not-allowed", nil); err == nil {
+		t.Fatalf("expected allowlist rejection")
+	}
+	t.Setenv(commandAllowlistEnv, "/bin/allowed,/bin/not-allowed")
+	if _, err := ResolveBroker("command", "", "/bin/not-allowed", nil); err != nil {
+		t.Fatalf("expected allowed command, got: %v", err)
+	}
+}
+
 func TestBrokerNames(t *testing.T) {
 	if (StubBroker{}).Name() != "stub" {
 		t.Fatalf("unexpected stub broker name")
@@ -195,17 +206,18 @@ func TestCommandBrokerIssuePlainTextAndTimeout(t *testing.T) {
 		Command: executable,
 		Args:    []string{"-test.run", "TestCommandBrokerHelperProcess", "--"},
 	}
-	response, err := Issue(broker, Request{
+	_, err = Issue(broker, Request{
 		ToolName: "tool.write",
 		Identity: "alice",
 	})
-	if err != nil {
-		t.Fatalf("command broker plain output: %v", err)
+	if err == nil {
+		t.Fatalf("expected plain output to be rejected")
 	}
-	if response.CredentialRef != "cmd:plain-ref" {
-		t.Fatalf("unexpected plain credential ref: %#v", response)
+	if !errors.Is(err, ErrCredentialUnavailable) {
+		t.Fatalf("expected ErrCredentialUnavailable for plain output, got %v", err)
 	}
 
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_PLAIN", "")
 	t.Setenv("GAIT_TEST_COMMAND_BROKER_SLEEP", "1")
 	_, err = Issue(CommandBroker{
 		Command: executable,
@@ -223,6 +235,116 @@ func TestCommandBrokerIssuePlainTextAndTimeout(t *testing.T) {
 	}
 }
 
+func TestCommandBrokerOutputLimitAndErrorRedaction(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable: %v", err)
+	}
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_HELPER", "1")
+
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_LARGE", "1")
+	_, err = Issue(CommandBroker{
+		Command: executable,
+		Args:    []string{"-test.run", "TestCommandBrokerHelperProcess", "--"},
+	}, Request{
+		ToolName: "tool.write",
+		Identity: "alice",
+	})
+	if err == nil {
+		t.Fatalf("expected output-size error")
+	}
+	if !errors.Is(err, ErrCredentialUnavailable) {
+		t.Fatalf("expected ErrCredentialUnavailable for large output, got %v", err)
+	}
+
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_LARGE", "")
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_FAIL", "1")
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_FAIL_TOKEN", "secret-token-value")
+	_, err = Issue(CommandBroker{
+		Command: executable,
+		Args:    []string{"-test.run", "TestCommandBrokerHelperProcess", "--"},
+	}, Request{
+		ToolName: "tool.write",
+		Identity: "alice",
+	})
+	if err == nil {
+		t.Fatalf("expected command broker failure")
+	}
+	if strings.Contains(err.Error(), "secret-token-value") {
+		t.Fatalf("command broker error leaked sensitive token: %v", err)
+	}
+}
+
+func TestCommandBrokerCredentialRefValidation(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable: %v", err)
+	}
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_HELPER", "1")
+
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_LONG_REF", "1")
+	_, err = Issue(CommandBroker{
+		Command: executable,
+		Args:    []string{"-test.run", "TestCommandBrokerHelperProcess", "--"},
+	}, Request{
+		ToolName: "tool.write",
+		Identity: "alice",
+	})
+	if err == nil {
+		t.Fatalf("expected long credential_ref error")
+	}
+	if !strings.Contains(err.Error(), "credential_ref too long") {
+		t.Fatalf("expected long credential_ref error, got: %v", err)
+	}
+
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_LONG_REF", "")
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_CONTROL_REF", "1")
+	_, err = Issue(CommandBroker{
+		Command: executable,
+		Args:    []string{"-test.run", "TestCommandBrokerHelperProcess", "--"},
+	}, Request{
+		ToolName: "tool.write",
+		Identity: "alice",
+	})
+	if err == nil {
+		t.Fatalf("expected invalid credential_ref whitespace error")
+	}
+	if !strings.Contains(err.Error(), "credential_ref contains invalid whitespace") {
+		t.Fatalf("expected invalid whitespace credential_ref error, got: %v", err)
+	}
+}
+
+func TestCommandBrokerCommandValidation(t *testing.T) {
+	_, err := Issue(CommandBroker{
+		Command: "invalid command",
+	}, Request{
+		ToolName: "tool.write",
+		Identity: "alice",
+	})
+	if err == nil {
+		t.Fatalf("expected invalid command whitespace rejection")
+	}
+	if !strings.Contains(err.Error(), "must not contain whitespace") {
+		t.Fatalf("expected whitespace command error, got: %v", err)
+	}
+}
+
+func TestNormalizeCommandAllowlistAndMatch(t *testing.T) {
+	allowlist := normalizeCommandAllowlist(" /usr/local/bin/broker , broker ,,/usr/local/bin/broker ")
+	if len(allowlist) != 2 {
+		t.Fatalf("unexpected allowlist normalization: %#v", allowlist)
+	}
+	if !isCommandAllowed("/usr/local/bin/broker", allowlist) {
+		t.Fatalf("expected full path allowlist match")
+	}
+	if !isCommandAllowed("broker", allowlist) {
+		t.Fatalf("expected basename allowlist match")
+	}
+	if isCommandAllowed("/usr/local/bin/other", allowlist) {
+		t.Fatalf("unexpected allowlist match for other command")
+	}
+}
+
 func TestCommandBrokerHelperProcess(t *testing.T) {
 	if os.Getenv("GAIT_TEST_COMMAND_BROKER_HELPER") != "1" {
 		t.Skip("helper process")
@@ -230,8 +352,24 @@ func TestCommandBrokerHelperProcess(t *testing.T) {
 	if os.Getenv("GAIT_TEST_COMMAND_BROKER_SLEEP") == "1" {
 		time.Sleep(100 * time.Millisecond)
 	}
+	if os.Getenv("GAIT_TEST_COMMAND_BROKER_LARGE") == "1" {
+		fmt.Print(strings.Repeat("x", defaultCommandOutputMaxBytes+512))
+		os.Exit(0)
+	}
+	if os.Getenv("GAIT_TEST_COMMAND_BROKER_LONG_REF") == "1" {
+		fmt.Printf(`{"issued_by":"command","credential_ref":"cmd:%s"}`, strings.Repeat("x", defaultCredentialRefMaxLength))
+		os.Exit(0)
+	}
+	if os.Getenv("GAIT_TEST_COMMAND_BROKER_CONTROL_REF") == "1" {
+		fmt.Print("{\"issued_by\":\"command\",\"credential_ref\":\"cmd:bad\\nref\"}")
+		os.Exit(0)
+	}
 	if os.Getenv("GAIT_TEST_COMMAND_BROKER_FAIL") == "1" {
-		fmt.Fprintln(os.Stderr, "forced failure")
+		token := os.Getenv("GAIT_TEST_COMMAND_BROKER_FAIL_TOKEN")
+		if token == "" {
+			token = "missing-token"
+		}
+		fmt.Fprintf(os.Stderr, "forced failure token=%s\n", token)
 		os.Exit(2)
 	}
 	if os.Getenv("GAIT_TEST_COMMAND_BROKER_PLAIN") == "1" {
