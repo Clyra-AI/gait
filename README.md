@@ -468,6 +468,12 @@ Enable hooks:
 pre-commit install --hook-type pre-commit --hook-type pre-push
 ```
 
+CI cadence guidance:
+
+- PR checks: `make lint` + `make test`
+- Nightly profile: `.github/workflows/adoption-nightly.yml`
+- Full cadence guide: `docs/test_cadence.md`
+
 ## Project Links
 
 - Security policy: `SECURITY.md`
@@ -477,6 +483,7 @@ pre-commit install --hook-type pre-commit --hook-type pre-push
 - Policy rollout guide: `docs/policy_rollout.md`
 - Approval runbook: `docs/approval_runbook.md`
 - CI regress kit: `docs/ci_regress_kit.md`
+- Test cadence guide: `docs/test_cadence.md`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
 - Roadmap: `product/ROADMAP.md`

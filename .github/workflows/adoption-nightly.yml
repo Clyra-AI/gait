@@ -1,0 +1,45 @@
+name: adoption-nightly
+
+on:
+  schedule:
+    - cron: "15 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  nightly-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Full lint and deterministic tests
+        run: |
+          make lint
+          make test
+
+      - name: Integration and E2E profile
+        run: |
+          make test-e2e
+          make test-acceptance
+
+      - name: Performance regression profile
+        run: |
+          make bench-check
+
+      - name: Upload nightly artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adoption-nightly-${{ github.run_id }}
+          path: |
+            coverage-go.out
+            perf/bench_output.txt
+            perf/bench_report.json
+            sdk/python/.coverage
+            gait-out/
