@@ -481,6 +481,7 @@ See `examples/` for exact commands and expected outcomes:
 - `examples/policy/` (starter low/medium/high risk templates with fixture intents)
 - `examples/regress-run/`
 - `examples/prompt-injection/`
+- `examples/scenarios/` (reproducible incident/injection/approval scenario checks)
 - `examples/python/` (thin adapter demo calling local `gait`)
 - `examples/integrations/openai_agents/` (wrapped tool path with allow/block and trace artifacts)
 - `examples/integrations/langchain/` (wrapped tool path with allow/block and trace artifacts)
