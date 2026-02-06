@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/gate/approval_audit_record.schema.json",
+  "title": "Approval Audit Record",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "trace_id",
+    "tool_name",
+    "intent_digest",
+    "policy_digest",
+    "required_approvals",
+    "valid_approvals",
+    "approved",
+    "entries"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.gate.approval_audit_record" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "tool_name": { "type": "string", "minLength": 1 },
+    "intent_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "policy_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "required_approvals": { "type": "integer", "minimum": 0 },
+    "valid_approvals": { "type": "integer", "minimum": 0 },
+    "approved": { "type": "boolean" },
+    "approvers": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["valid"],
+        "properties": {
+          "token_id": { "type": "string" },
+          "approver_identity": { "type": "string" },
+          "reason_code": { "type": "string" },
+          "scope": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "valid": { "type": "boolean" },
+          "error_code": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

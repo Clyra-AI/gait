@@ -6,7 +6,7 @@ When an agent touches real tools, credentials, production data, or money, "logs"
 
 - **Runpack**: produce and verify an integrity-checked `runpack_<run_id>.zip` (demo today; adapters capture real runs)
 - **Regress**: turn runpacks into deterministic CI tests (with stable exit codes and optional JUnit)
-- **Gate**: enforce policy on *structured tool-call intent* (not prompts) and emit signed trace records
+- **Gate**: enforce policy on *structured tool-call intent* (not prompts), support rollout simulation and approval chains, and emit signed trace records
 - **Doctor**: first-5-minutes diagnostics with stable `--json`
 
 The durable product contract is **artifacts, schemas, and exit codes**, not a hosted UI.
@@ -37,6 +37,12 @@ Replay deterministically (stubs by default):
 
 ```bash
 gait run replay run_demo --json
+```
+
+Real replay guardrails require explicit unsafe flags, allowlisted tools, and an environment interlock:
+
+```bash
+GAIT_ALLOW_REAL_REPLAY=1 gait run replay run_demo --real-tools --unsafe-real-tools --allow-tools tool.write --json
 ```
 
 CLI note: flags can be placed before or after positional arguments (for example `gait verify run_demo --json` and `gait verify --json run_demo` are both supported).
@@ -152,7 +158,7 @@ gait run reduce --from <run_id_or_path> --predicate missing_result --json
 
 ### 3) Gate High-Risk Tools (Policy At The Tool Boundary)
 
-Gate evaluates **structured tool-call intent** (tool name, args, declared targets/destinations, context). Prompts and retrieved content are not policy inputs.
+Gate evaluates **structured tool-call intent** (tool name, args, declared targets/destinations, data classes, provenance, context). Prompts and retrieved content are not policy inputs.
 
 Policy test flow (offline):
 
@@ -167,6 +173,39 @@ Exit codes:
 - `0`: allow
 - `3`: block
 - `4`: require approval
+
+Non-enforcing rollout simulation:
+
+```bash
+gait gate eval --policy examples/policy-test/block.yaml --intent examples/policy-test/intent.json --simulate --json
+```
+
+Example v1.2 policy controls:
+
+```yaml
+default_verdict: allow
+rules:
+  - name: sensitive-egress
+    effect: require_approval
+    min_approvals: 2
+    require_broker_credential: true
+    broker_reference: egress
+    broker_scopes: [export]
+    rate_limit:
+      requests: 10
+      window: hour
+      scope: tool_identity
+    dataflow:
+      enabled: true
+      tainted_sources: [external, tool_output]
+      destination_kinds: [host]
+      destination_operations: [write]
+      action: require_approval
+      reason_code: dataflow_tainted_egress
+      violation: tainted_egress
+    match:
+      tool_names: [tool.write]
+```
 
 #### Why Gate Exists (Enterprise Context)
 
@@ -193,11 +232,31 @@ When policy requires approval, mint a scoped approval token:
 gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl 1h --scope tool.write --approver you@company --reason-code change_ticket_123 --json
 ```
 
+For multi-party approval flows, pass additional tokens with `--approval-token-chain` and inspect `approval_audit_<trace_id>.json`:
+
+```bash
+gait gate eval --policy <policy.yaml> --intent <intent.json> --approval-token token_a.json --approval-token-chain token_b.json --json
+```
+
+Policies can also require broker-issued credentials before allowing selected tools:
+
+```bash
+gait gate eval --policy <policy.yaml> --intent <intent.json> --credential-broker env --credential-env-prefix GAIT_BROKER_TOKEN_ --json
+```
+
+For a real integration path, use a command broker:
+
+```bash
+gait gate eval --policy <policy.yaml> --intent <intent.json> --credential-broker command --credential-command ./broker --credential-command-args issue,token --json
+```
+
 Every gate decision can produce a trace record. Verify trace integrity offline:
 
 ```bash
 gait trace verify ./trace_<trace_id>.json --json --public-key ./public.key
 ```
+
+When Gate emits `approval_audit_*.json` and `credential_evidence_*.json`, `gait guard pack --run <run_id_or_path>` auto-discovers and includes them in the evidence pack manifest.
 
 ### 5) Explain Command Intent
 

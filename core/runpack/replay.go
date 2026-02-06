@@ -1,8 +1,11 @@
 package runpack
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 type ReplayMode string
@@ -16,6 +19,7 @@ type ReplayStep struct {
 	IntentID     string `json:"intent_id"`
 	ToolName     string `json:"tool_name"`
 	Status       string `json:"status"`
+	StubType     string `json:"stub_type,omitempty"`
 	ResultDigest string `json:"result_digest,omitempty"`
 }
 
@@ -62,8 +66,15 @@ func ReplayStub(path string) (ReplayResult, error) {
 			step.Status = recorded.Status
 			step.ResultDigest = recorded.ResultDigest
 		} else {
-			step.Status = "missing_result"
-			missing = append(missing, intent.IntentID)
+			stubType := classifyStubType(intent.ToolName)
+			if stubType == "" {
+				step.Status = "missing_result"
+				missing = append(missing, intent.IntentID)
+			} else {
+				step.Status = "stubbed"
+				step.StubType = stubType
+				step.ResultDigest = stubDigest(pack.Run.RunID, intent.IntentID, intent.ToolName, intent.ArgsDigest, stubType)
+			}
 		}
 		steps = append(steps, step)
 	}
@@ -75,4 +86,25 @@ func ReplayStub(path string) (ReplayResult, error) {
 		Steps:          steps,
 		MissingResults: missing,
 	}, nil
+}
+
+func classifyStubType(toolName string) string {
+	name := strings.ToLower(strings.TrimSpace(toolName))
+	switch {
+	case strings.Contains(name, "http"), strings.Contains(name, "fetch"), strings.Contains(name, "url"):
+		return "http"
+	case strings.Contains(name, "file"), strings.Contains(name, "path"), strings.Contains(name, "fs"), strings.Contains(name, "write"):
+		return "file"
+	case strings.Contains(name, "db"), strings.Contains(name, "sql"), strings.Contains(name, "query"), strings.Contains(name, "table"):
+		return "db"
+	case strings.Contains(name, "queue"), strings.Contains(name, "topic"), strings.Contains(name, "publish"), strings.Contains(name, "kafka"):
+		return "queue"
+	default:
+		return ""
+	}
+}
+
+func stubDigest(runID string, intentID string, toolName string, argsDigest string, stubType string) string {
+	sum := sha256.Sum256([]byte(runID + ":" + intentID + ":" + strings.ToLower(strings.TrimSpace(toolName)) + ":" + strings.ToLower(strings.TrimSpace(argsDigest)) + ":" + stubType))
+	return hex.EncodeToString(sum[:])
 }

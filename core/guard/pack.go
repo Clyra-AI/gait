@@ -25,13 +25,16 @@ import (
 )
 
 type BuildOptions struct {
-	RunpackPath     string
-	OutputPath      string
-	CaseID          string
-	InventoryPaths  []string
-	TracePaths      []string
-	RegressPaths    []string
-	ProducerVersion string
+	RunpackPath             string
+	OutputPath              string
+	CaseID                  string
+	InventoryPaths          []string
+	TracePaths              []string
+	RegressPaths            []string
+	ApprovalAuditPaths      []string
+	CredentialEvidencePaths []string
+	AutoDiscoverV12         bool
+	ProducerVersion         string
 }
 
 type BuildResult struct {
@@ -114,6 +117,37 @@ func BuildPack(options BuildOptions) (BuildResult, error) {
 	}
 	if len(regressSummary) > 0 {
 		evidenceFiles["regress_summary.json"] = regressSummary
+	}
+
+	approvalAuditPaths := options.ApprovalAuditPaths
+	credentialEvidencePaths := options.CredentialEvidencePaths
+	if options.AutoDiscoverV12 || (len(approvalAuditPaths) == 0 && len(credentialEvidencePaths) == 0) {
+		discoveredAudits, discoveredCredentials, err := discoverV12EvidencePaths(filepath.Dir(options.RunpackPath))
+		if err != nil {
+			return BuildResult{}, err
+		}
+		if len(approvalAuditPaths) == 0 {
+			approvalAuditPaths = discoveredAudits
+		}
+		if len(credentialEvidencePaths) == 0 {
+			credentialEvidencePaths = discoveredCredentials
+		}
+	}
+
+	approvalAudits, err := readApprovalAuditRecords(approvalAuditPaths)
+	if err != nil {
+		return BuildResult{}, err
+	}
+	for index, payload := range approvalAudits {
+		evidenceFiles[fmt.Sprintf("approval_audit_%02d.json", index+1)] = payload
+	}
+
+	credentialEvidence, err := readBrokerCredentialRecords(credentialEvidencePaths)
+	if err != nil {
+		return BuildResult{}, err
+	}
+	for index, payload := range credentialEvidence {
+		evidenceFiles[fmt.Sprintf("credential_evidence_%02d.json", index+1)] = payload
 	}
 
 	contents := make([]schemaguard.PackEntry, 0, len(evidenceFiles))
@@ -417,6 +451,68 @@ func buildRegressSummary(paths []string) ([]byte, error) {
 		Total:        len(lines),
 	}
 	return marshalCanonicalJSON(payload)
+}
+
+func discoverV12EvidencePaths(rootDir string) ([]string, []string, error) {
+	approvalAuditPaths, err := filepath.Glob(filepath.Join(rootDir, "approval_audit_*.json"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("discover approval audits: %w", err)
+	}
+	credentialEvidencePaths, err := filepath.Glob(filepath.Join(rootDir, "credential_evidence_*.json"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("discover credential evidence: %w", err)
+	}
+	return uniqueSortedStrings(approvalAuditPaths), uniqueSortedStrings(credentialEvidencePaths), nil
+}
+
+func readApprovalAuditRecords(paths []string) ([][]byte, error) {
+	normalized := normalizePaths(paths)
+	if len(normalized) == 0 {
+		return nil, nil
+	}
+	out := make([][]byte, 0, len(normalized))
+	for _, path := range normalized {
+		// #nosec G304 -- user-supplied local file path.
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read approval audit %s: %w", path, err)
+		}
+		var record schemagate.ApprovalAuditRecord
+		if err := json.Unmarshal(raw, &record); err != nil {
+			return nil, fmt.Errorf("parse approval audit %s: %w", path, err)
+		}
+		encoded, err := marshalCanonicalJSON(record)
+		if err != nil {
+			return nil, fmt.Errorf("encode approval audit %s: %w", path, err)
+		}
+		out = append(out, encoded)
+	}
+	return out, nil
+}
+
+func readBrokerCredentialRecords(paths []string) ([][]byte, error) {
+	normalized := normalizePaths(paths)
+	if len(normalized) == 0 {
+		return nil, nil
+	}
+	out := make([][]byte, 0, len(normalized))
+	for _, path := range normalized {
+		// #nosec G304 -- user-supplied local file path.
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read broker credential record %s: %w", path, err)
+		}
+		var record schemagate.BrokerCredentialRecord
+		if err := json.Unmarshal(raw, &record); err != nil {
+			return nil, fmt.Errorf("parse broker credential record %s: %w", path, err)
+		}
+		encoded, err := marshalCanonicalJSON(record)
+		if err != nil {
+			return nil, fmt.Errorf("encode broker credential record %s: %w", path, err)
+		}
+		out = append(out, encoded)
+	}
+	return out, nil
 }
 
 func normalizePaths(paths []string) []string {

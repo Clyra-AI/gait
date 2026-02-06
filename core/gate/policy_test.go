@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davidahmann/gait/core/jcs"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 )
 
@@ -93,6 +94,39 @@ fail_closed:
   required_fields: [targets, unknown]
 `,
 		},
+		{
+			name: "invalid_rate_limit_scope",
+			yaml: `
+rules:
+  - name: bad-rate-limit
+    effect: allow
+    rate_limit:
+      requests: 1
+      scope: unknown
+`,
+		},
+		{
+			name: "invalid_rate_limit_window",
+			yaml: `
+rules:
+  - name: bad-rate-limit-window
+    effect: allow
+    rate_limit:
+      requests: 1
+      window: day
+`,
+		},
+		{
+			name: "invalid_dataflow_action",
+			yaml: `
+rules:
+  - name: bad-dataflow
+    effect: allow
+    dataflow:
+      enabled: true
+      action: allow
+`,
+		},
 	}
 
 	for _, testCase := range tests {
@@ -127,7 +161,7 @@ rules:
 	intent.ToolName = "TOOL.WRITE"
 	intent.Context.RiskClass = "HIGH"
 	intent.Targets = []schemagate.IntentTarget{
-		{Kind: "host", Value: "api.external.com"},
+		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential"},
 	}
 
 	first, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
@@ -296,7 +330,7 @@ rules:
 		{ArgPath: "args.path", Source: "external"},
 	}
 	intent.Targets = []schemagate.IntentTarget{
-		{Kind: "host", Value: "api.external.com"},
+		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential"},
 	}
 
 	result, err := EvaluatePolicy(policy, intent, EvalOptions{})
@@ -319,7 +353,7 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		{ArgPath: "args.path", Source: "external"},
 	}
 	intent.Targets = []schemagate.IntentTarget{
-		{Kind: "host", Value: "api.external.com"},
+		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential"},
 	}
 
 	matching := PolicyMatch{
@@ -327,6 +361,10 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		RiskClasses:       []string{"high"},
 		TargetKinds:       []string{"host"},
 		TargetValues:      []string{"api.external.com"},
+		DataClasses:       []string{"confidential"},
+		DestinationKinds:  []string{"host"},
+		DestinationValues: []string{"api.external.com"},
+		DestinationOps:    []string{"write"},
 		ProvenanceSources: []string{"external"},
 		Identities:        []string{"alice"},
 		WorkspacePrefixes: []string{"/repo"},
@@ -340,6 +378,10 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		{RiskClasses: []string{"low"}},
 		{TargetKinds: []string{"path"}},
 		{TargetValues: []string{"/tmp/out.txt"}},
+		{DataClasses: []string{"public"}},
+		{DestinationKinds: []string{"bucket"}},
+		{DestinationValues: []string{"internal.local"}},
+		{DestinationOps: []string{"read"}},
 		{ProvenanceSources: []string{"user"}},
 		{Identities: []string{"bob"}},
 		{WorkspacePrefixes: []string{"/other"}},
@@ -372,6 +414,358 @@ func TestShouldFailClosedAndBuildGateResultDefaults(t *testing.T) {
 	}
 	if !reflect.DeepEqual(result.ReasonCodes, []string{"reason_a", "reason_b"}) {
 		t.Fatalf("unexpected sorted reason codes: %#v", result.ReasonCodes)
+	}
+}
+
+func TestEvaluatePolicyDetailedRuleMetadata(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: approval-with-controls
+    priority: 1
+    effect: require_approval
+    min_approvals: 2
+    require_broker_credential: true
+    broker_reference: "egress"
+    broker_scopes: [export]
+    rate_limit:
+      requests: 3
+      scope: tool_identity
+      window: minute
+    match:
+      tool_names: [tool.write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy detailed: %v", err)
+	}
+	if outcome.Result.Verdict != "require_approval" {
+		t.Fatalf("unexpected verdict: %#v", outcome.Result)
+	}
+	if outcome.MatchedRule != "approval-with-controls" {
+		t.Fatalf("unexpected matched rule: %s", outcome.MatchedRule)
+	}
+	if outcome.MinApprovals != 2 {
+		t.Fatalf("unexpected min approvals: %d", outcome.MinApprovals)
+	}
+	if !outcome.RequireDistinctApprovers {
+		t.Fatalf("expected distinct approvers for min_approvals > 1")
+	}
+	if !outcome.RequireBrokerCredential {
+		t.Fatalf("expected broker credential requirement")
+	}
+	if outcome.BrokerReference != "egress" {
+		t.Fatalf("unexpected broker reference: %s", outcome.BrokerReference)
+	}
+	if !reflect.DeepEqual(outcome.BrokerScopes, []string{"export"}) {
+		t.Fatalf("unexpected broker scopes: %#v", outcome.BrokerScopes)
+	}
+	if outcome.RateLimit.Requests != 3 || outcome.RateLimit.Scope != "tool_identity" || outcome.RateLimit.Window != "minute" {
+		t.Fatalf("unexpected rate limit: %#v", outcome.RateLimit)
+	}
+}
+
+func TestEvaluatePolicyDataflowConstraint(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: tainted-egress
+    effect: allow
+    dataflow:
+      enabled: true
+      tainted_sources: [external, tool_output]
+      destination_kinds: [host]
+      destination_operations: [write]
+      action: require_approval
+      reason_code: dataflow_tainted_egress
+      violation: tainted_egress
+    match:
+      tool_names: [tool.write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	intent.Targets = []schemagate.IntentTarget{{
+		Kind:      "host",
+		Value:     "api.external.com",
+		Operation: "write",
+	}}
+	intent.ArgProvenance = []schemagate.IntentArgProvenance{{
+		ArgPath: "$.path",
+		Source:  "external",
+	}}
+
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy with dataflow: %v", err)
+	}
+	if outcome.Result.Verdict != "require_approval" {
+		t.Fatalf("expected dataflow-triggered require_approval, got %#v", outcome.Result)
+	}
+	if !contains(outcome.Result.ReasonCodes, "dataflow_tainted_egress") {
+		t.Fatalf("expected dataflow reason code in result: %#v", outcome.Result.ReasonCodes)
+	}
+	if !contains(outcome.Result.Violations, "tainted_egress") {
+		t.Fatalf("expected dataflow violation in result: %#v", outcome.Result.Violations)
+	}
+	if !outcome.DataflowTriggered {
+		t.Fatalf("expected dataflow trigger metadata")
+	}
+}
+
+func TestPolicyDigestLegacyCompatibility(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: block
+fail_closed:
+  enabled: true
+  risk_classes: [high]
+  required_fields: [targets]
+rules:
+  - name: allow-tool
+    priority: 1
+    effect: allow
+    match:
+      tool_names: [tool.write]
+      risk_classes: [high]
+      target_kinds: [host]
+      target_values: [api.external.com]
+      provenance_sources: [external]
+      identities: [alice]
+      workspace_prefixes: [/repo]
+    reason_codes: [allow_tool]
+    violations: [none]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	type legacyFailClosed struct {
+		Enabled        bool
+		RiskClasses    []string
+		RequiredFields []string
+	}
+	type legacyPolicyMatch struct {
+		ToolNames         []string
+		RiskClasses       []string
+		TargetKinds       []string
+		TargetValues      []string
+		ProvenanceSources []string
+		Identities        []string
+		WorkspacePrefixes []string
+	}
+	type legacyPolicyRule struct {
+		Name        string
+		Priority    int
+		Effect      string
+		Match       legacyPolicyMatch
+		ReasonCodes []string
+		Violations  []string
+	}
+	type legacyPolicy struct {
+		SchemaID       string
+		SchemaVersion  string
+		DefaultVerdict string
+		FailClosed     legacyFailClosed
+		Rules          []legacyPolicyRule
+	}
+
+	legacy := legacyPolicy{
+		SchemaID:       policy.SchemaID,
+		SchemaVersion:  policy.SchemaVersion,
+		DefaultVerdict: policy.DefaultVerdict,
+		FailClosed: legacyFailClosed{
+			Enabled:        policy.FailClosed.Enabled,
+			RiskClasses:    policy.FailClosed.RiskClasses,
+			RequiredFields: policy.FailClosed.RequiredFields,
+		},
+		Rules: make([]legacyPolicyRule, 0, len(policy.Rules)),
+	}
+	for _, rule := range policy.Rules {
+		legacy.Rules = append(legacy.Rules, legacyPolicyRule{
+			Name:     rule.Name,
+			Priority: rule.Priority,
+			Effect:   rule.Effect,
+			Match: legacyPolicyMatch{
+				ToolNames:         rule.Match.ToolNames,
+				RiskClasses:       rule.Match.RiskClasses,
+				TargetKinds:       rule.Match.TargetKinds,
+				TargetValues:      rule.Match.TargetValues,
+				ProvenanceSources: rule.Match.ProvenanceSources,
+				Identities:        rule.Match.Identities,
+				WorkspacePrefixes: rule.Match.WorkspacePrefixes,
+			},
+			ReasonCodes: rule.ReasonCodes,
+			Violations:  rule.Violations,
+		})
+	}
+
+	legacyRaw, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatalf("marshal legacy policy: %v", err)
+	}
+	legacyDigest, err := jcs.DigestJCS(legacyRaw)
+	if err != nil {
+		t.Fatalf("digest legacy policy: %v", err)
+	}
+	digest, err := PolicyDigest(policy)
+	if err != nil {
+		t.Fatalf("policy digest: %v", err)
+	}
+	if digest != legacyDigest {
+		t.Fatalf("expected digest compatibility with legacy payload, got=%s want=%s", digest, legacyDigest)
+	}
+}
+
+func TestEvaluatePolicyDataflowDefaultEgressKinds(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: tainted-default-egress
+    effect: allow
+    dataflow:
+      enabled: true
+      tainted_sources: [external]
+      action: block
+      reason_code: tainted_default_egress
+      violation: tainted_egress
+    match:
+      tool_names: [tool.write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	intent.Targets = []schemagate.IntentTarget{{
+		Kind:      "url",
+		Value:     "https://external.invalid",
+		Operation: "write",
+	}}
+	intent.ArgProvenance = []schemagate.IntentArgProvenance{{
+		ArgPath: "$.payload",
+		Source:  "external",
+	}}
+
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+	if outcome.Result.Verdict != "block" {
+		t.Fatalf("expected block verdict from default egress dataflow, got %#v", outcome.Result)
+	}
+	if !contains(outcome.Result.ReasonCodes, "tainted_default_egress") {
+		t.Fatalf("expected default egress reason code, got %#v", outcome.Result.ReasonCodes)
+	}
+}
+
+func TestEvaluatePolicyDataflowDoesNotTriggerForNonEgressKind(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: tainted-default-egress
+    effect: allow
+    dataflow:
+      enabled: true
+      tainted_sources: [external]
+      action: block
+      reason_code: tainted_default_egress
+      violation: tainted_egress
+    match:
+      tool_names: [tool.write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	intent.Targets = []schemagate.IntentTarget{{
+		Kind:      "path",
+		Value:     "/tmp/out.txt",
+		Operation: "write",
+	}}
+	intent.ArgProvenance = []schemagate.IntentArgProvenance{{
+		ArgPath: "$.payload",
+		Source:  "external",
+	}}
+
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+	if outcome.Result.Verdict != "allow" {
+		t.Fatalf("expected allow verdict when destination is non-egress kind, got %#v", outcome.Result)
+	}
+	if contains(outcome.Result.ReasonCodes, "tainted_default_egress") {
+		t.Fatalf("unexpected dataflow reason code for non-egress destination: %#v", outcome.Result.ReasonCodes)
+	}
+}
+
+func TestPolicyDigestPayloadIncludesExtendedFields(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: rich-rule
+    effect: require_approval
+    min_approvals: 2
+    require_distinct_approvers: true
+    require_broker_credential: true
+    broker_reference: egress
+    broker_scopes: [export]
+    rate_limit:
+      requests: 2
+      window: hour
+      scope: tool_identity
+    dataflow:
+      enabled: true
+      tainted_sources: [external, tool_output]
+      destination_kinds: [host]
+      destination_values: [api.external.com]
+      destination_operations: [write]
+      action: require_approval
+      reason_code: tainted_route
+      violation: tainted_route
+    match:
+      tool_names: [tool.write]
+      data_classes: [confidential]
+      destination_kinds: [host]
+      destination_values: [api.external.com]
+      destination_operations: [write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	payload := policyDigestPayload(policy)
+	rulesAny, ok := payload["Rules"].([]any)
+	if !ok || len(rulesAny) != 1 {
+		t.Fatalf("unexpected payload rules: %#v", payload["Rules"])
+	}
+	ruleAny, ok := rulesAny[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected rule payload type: %#v", rulesAny[0])
+	}
+	if _, ok := ruleAny["RateLimit"]; !ok {
+		t.Fatalf("expected rate_limit payload to be present: %#v", ruleAny)
+	}
+	if _, ok := ruleAny["Dataflow"]; !ok {
+		t.Fatalf("expected dataflow payload to be present: %#v", ruleAny)
+	}
+	if _, ok := ruleAny["BrokerScopes"]; !ok {
+		t.Fatalf("expected broker_scopes payload to be present: %#v", ruleAny)
+	}
+	if _, ok := ruleAny["MinApprovals"]; !ok {
+		t.Fatalf("expected min_approvals payload to be present: %#v", ruleAny)
 	}
 }
 

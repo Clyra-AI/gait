@@ -54,12 +54,14 @@ func runGuardPack(arguments []string) int {
 		return writeExplain("Build an evidence_pack zip with a canonical pack_manifest.json and evidence summaries.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
-		"run":       true,
-		"out":       true,
-		"case-id":   true,
-		"inventory": true,
-		"trace":     true,
-		"regress":   true,
+		"run":                 true,
+		"out":                 true,
+		"case-id":             true,
+		"inventory":           true,
+		"trace":               true,
+		"regress":             true,
+		"approval-audit":      true,
+		"credential-evidence": true,
 	})
 	flagSet := flag.NewFlagSet("guard-pack", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -70,6 +72,8 @@ func runGuardPack(arguments []string) int {
 	var inventoryCSV string
 	var traceCSV string
 	var regressCSV string
+	var approvalAuditCSV string
+	var credentialEvidenceCSV string
 	var jsonOutput bool
 	var helpFlag bool
 
@@ -79,6 +83,8 @@ func runGuardPack(arguments []string) int {
 	flagSet.StringVar(&inventoryCSV, "inventory", "", "comma-separated inventory snapshot paths")
 	flagSet.StringVar(&traceCSV, "trace", "", "comma-separated gate trace paths")
 	flagSet.StringVar(&regressCSV, "regress", "", "comma-separated regress result paths")
+	flagSet.StringVar(&approvalAuditCSV, "approval-audit", "", "comma-separated approval audit record paths")
+	flagSet.StringVar(&credentialEvidenceCSV, "credential-evidence", "", "comma-separated broker credential evidence paths")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -103,13 +109,16 @@ func runGuardPack(arguments []string) int {
 		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitInvalidInput)
 	}
 	result, err := guard.BuildPack(guard.BuildOptions{
-		RunpackPath:     resolvedRunPath,
-		OutputPath:      outPath,
-		CaseID:          caseID,
-		InventoryPaths:  parseCSVList(inventoryCSV),
-		TracePaths:      parseCSVList(traceCSV),
-		RegressPaths:    parseCSVList(regressCSV),
-		ProducerVersion: version,
+		RunpackPath:             resolvedRunPath,
+		OutputPath:              outPath,
+		CaseID:                  caseID,
+		InventoryPaths:          parseCSVList(inventoryCSV),
+		TracePaths:              parseCSVList(traceCSV),
+		RegressPaths:            parseCSVList(regressCSV),
+		ApprovalAuditPaths:      parseCSVList(approvalAuditCSV),
+		CredentialEvidencePaths: parseCSVList(credentialEvidenceCSV),
+		AutoDiscoverV12:         true,
+		ProducerVersion:         version,
 	})
 	if err != nil {
 		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitInvalidInput)
@@ -220,13 +229,13 @@ func writeGuardVerifyOutput(jsonOutput bool, output guardVerifyOutput, exitCode 
 
 func printGuardUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--out <evidence_pack.zip>] [--case-id <id>] [--json] [--explain]")
+	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--approval-audit <csv>] [--credential-evidence <csv>] [--out <evidence_pack.zip>] [--case-id <id>] [--json] [--explain]")
 	fmt.Println("  gait guard verify <evidence_pack.zip> [--json] [--explain]")
 }
 
 func printGuardPackUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--out <evidence_pack.zip>] [--case-id <id>] [--json] [--explain]")
+	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--approval-audit <csv>] [--credential-evidence <csv>] [--out <evidence_pack.zip>] [--case-id <id>] [--json] [--explain]")
 }
 
 func printGuardVerifyUsage() {

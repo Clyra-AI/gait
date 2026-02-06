@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/davidahmann/gait/core/doctor"
+	gatecore "github.com/davidahmann/gait/core/gate"
 	"github.com/davidahmann/gait/core/jcs"
 	"github.com/davidahmann/gait/core/runpack"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
@@ -785,6 +786,213 @@ func TestValidationBranches(t *testing.T) {
 	}
 }
 
+func TestGateEvalApprovalChainAndSimulation(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+
+	policyPath := filepath.Join(workDir, "policy_chain.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: approval-chain",
+		"    effect: require_approval",
+		"    min_approvals: 2",
+		"    match:",
+		"      tool_names: [tool.write]",
+	}, "\n")+"\n")
+
+	policy, err := gatecore.LoadPolicyFile(policyPath)
+	if err != nil {
+		t.Fatalf("load policy: %v", err)
+	}
+	intent, err := readIntentRequest(intentPath)
+	if err != nil {
+		t.Fatalf("read intent: %v", err)
+	}
+	policyDigest, intentDigest, _, err := gatecore.ApprovalContext(policy, intent)
+	if err != nil {
+		t.Fatalf("approval context: %v", err)
+	}
+	privateKeyPath := filepath.Join(workDir, "approval_private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	tokenAPath := filepath.Join(workDir, "approval_a.json")
+	if code := runApprove([]string{
+		"--intent-digest", intentDigest,
+		"--policy-digest", policyDigest,
+		"--ttl", "1h",
+		"--scope", "tool:tool.write",
+		"--approver", "alice",
+		"--reason-code", "ticket-123",
+		"--out", tokenAPath,
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runApprove token A: expected %d got %d", exitOK, code)
+	}
+	tokenBPath := filepath.Join(workDir, "approval_b.json")
+	if code := runApprove([]string{
+		"--intent-digest", intentDigest,
+		"--policy-digest", policyDigest,
+		"--ttl", "1h",
+		"--scope", "tool:tool.write",
+		"--approver", "bob",
+		"--reason-code", "ticket-123",
+		"--out", tokenBPath,
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runApprove token B: expected %d got %d", exitOK, code)
+	}
+
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--approval-token", tokenAPath,
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--approval-private-key", privateKeyPath,
+		"--json",
+	}); code != exitApprovalRequired {
+		t.Fatalf("runGateEval single token: expected %d got %d", exitApprovalRequired, code)
+	}
+
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--approval-token", tokenAPath,
+		"--approval-token-chain", tokenBPath,
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--approval-private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval token chain: expected %d got %d", exitOK, code)
+	}
+
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--simulate",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval simulate mode: expected %d got %d", exitOK, code)
+	}
+}
+
+func TestRunReplayUnsafeRequiresAllowToolsAndEnv(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+	if code := runDemo(nil); code != exitOK {
+		t.Fatalf("runDemo setup: expected %d got %d", exitOK, code)
+	}
+
+	if code := runReplay([]string{"--json", "--real-tools", "--unsafe-real-tools", "run_demo"}); code != exitUnsafeReplay {
+		t.Fatalf("runReplay missing --allow-tools: expected %d got %d", exitUnsafeReplay, code)
+	}
+
+	if code := runReplay([]string{"--json", "--real-tools", "--unsafe-real-tools", "--allow-tools", "tool.write", "run_demo"}); code != exitUnsafeReplay {
+		t.Fatalf("runReplay missing env interlock: expected %d got %d", exitUnsafeReplay, code)
+	}
+
+	t.Setenv("GAIT_ALLOW_REAL_REPLAY", "1")
+	if code := runReplay([]string{"--json", "--real-tools", "--unsafe-real-tools", "--allow-tools", "tool.write", "run_demo"}); code != exitOK {
+		t.Fatalf("runReplay with env interlock: expected %d got %d", exitOK, code)
+	}
+}
+
+func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+
+	policyPath := filepath.Join(workDir, "policy_gate_v12.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: protected-write",
+		"    effect: allow",
+		"    require_broker_credential: true",
+		"    broker_reference: egress",
+		"    broker_scopes: [export]",
+		"    rate_limit:",
+		"      requests: 1",
+		"      scope: tool_identity",
+		"      window: minute",
+		"    match:",
+		"      tool_names: [tool.write]",
+	}, "\n")+"\n")
+
+	brokerPath := filepath.Join(workDir, "broker.sh")
+	mustWriteFile(t, brokerPath, "#!/bin/sh\necho '{\"issued_by\":\"command\",\"credential_ref\":\"cmd:token\"}'\n")
+	if err := os.Chmod(brokerPath, 0o700); err != nil {
+		t.Fatalf("chmod broker script: %v", err)
+	}
+
+	rateStatePath := filepath.Join(workDir, "rate_state.json")
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--credential-broker", "command",
+		"--credential-command", brokerPath,
+		"--rate-limit-state", rateStatePath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval first call: expected %d got %d", exitOK, code)
+	}
+	credentialEvidence, err := filepath.Glob(filepath.Join(workDir, "credential_evidence_*.json"))
+	if err != nil {
+		t.Fatalf("glob credential evidence: %v", err)
+	}
+	if len(credentialEvidence) != 1 {
+		t.Fatalf("expected one credential evidence artifact, got %d", len(credentialEvidence))
+	}
+
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--credential-broker", "command",
+		"--credential-command", brokerPath,
+		"--rate-limit-state", rateStatePath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval second call: expected %d got %d", exitOK, code)
+	}
+	credentialEvidence, err = filepath.Glob(filepath.Join(workDir, "credential_evidence_*.json"))
+	if err != nil {
+		t.Fatalf("glob credential evidence after rate limit: %v", err)
+	}
+	if len(credentialEvidence) != 1 {
+		t.Fatalf("expected rate-limited run to avoid new credential artifact, got %d", len(credentialEvidence))
+	}
+
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--credential-broker", "unknown",
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval invalid broker: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--credential-broker", "command",
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval command broker missing command: expected %d got %d", exitInvalidInput, code)
+	}
+}
+
 func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	if code := writeApproveOutput(true, approveOutput{OK: true, TokenPath: "token.json"}, exitOK); code != exitOK {
 		t.Fatalf("writeApproveOutput json: expected %d got %d", exitOK, code)
@@ -946,6 +1154,39 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 		SignatureErrors: []string{"bad sig"},
 	}, exitVerifyFailed); code != exitVerifyFailed {
 		t.Fatalf("writeVerifyOutput text fail: expected %d got %d", exitVerifyFailed, code)
+	}
+
+	if code := writeGuardPackOutput(true, guardPackOutput{OK: true, PackPath: "evidence.zip"}, exitOK); code != exitOK {
+		t.Fatalf("writeGuardPackOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeGuardPackOutput(false, guardPackOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeGuardPackOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeGuardVerifyOutput(true, guardVerifyOutput{OK: true, Path: "evidence.zip"}, exitOK); code != exitOK {
+		t.Fatalf("writeGuardVerifyOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeGuardVerifyOutput(false, guardVerifyOutput{OK: false, Path: "evidence.zip"}, exitVerifyFailed); code != exitVerifyFailed {
+		t.Fatalf("writeGuardVerifyOutput text fail: expected %d got %d", exitVerifyFailed, code)
+	}
+
+	if code := writeRegistryInstallOutput(true, registryInstallOutput{OK: true, PackName: "pack", PackVersion: "1.0.0"}, exitOK); code != exitOK {
+		t.Fatalf("writeRegistryInstallOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeRegistryInstallOutput(false, registryInstallOutput{OK: false, Error: "bad"}, exitVerifyFailed); code != exitVerifyFailed {
+		t.Fatalf("writeRegistryInstallOutput text err: expected %d got %d", exitVerifyFailed, code)
+	}
+
+	if code := writeScoutSnapshotOutput(true, scoutSnapshotOutput{OK: true, SnapshotPath: "snapshot.json"}, exitOK); code != exitOK {
+		t.Fatalf("writeScoutSnapshotOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeScoutSnapshotOutput(false, scoutSnapshotOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeScoutSnapshotOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeScoutDiffOutput(true, scoutDiffOutput{OK: true, Left: "a", Right: "b"}, exitOK); code != exitOK {
+		t.Fatalf("writeScoutDiffOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeScoutDiffOutput(false, scoutDiffOutput{OK: false, Left: "a", Right: "b"}, exitVerifyFailed); code != exitVerifyFailed {
+		t.Fatalf("writeScoutDiffOutput text changed: expected %d got %d", exitVerifyFailed, code)
 	}
 
 	printUsage()

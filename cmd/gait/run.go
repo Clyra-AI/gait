@@ -183,11 +183,15 @@ func runReplay(arguments []string) int {
 	var jsonOutput bool
 	var realTools bool
 	var unsafeReal bool
+	var allowToolsCSV string
+	var unsafeRealToolsEnv string
 	var helpFlag bool
 
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&realTools, "real-tools", false, "attempt real tool execution")
 	flagSet.BoolVar(&unsafeReal, "unsafe-real-tools", false, "allow real tool execution")
+	flagSet.StringVar(&allowToolsCSV, "allow-tools", "", "comma-separated tools explicitly allowed for real replay")
+	flagSet.StringVar(&unsafeRealToolsEnv, "unsafe-real-tools-env", "GAIT_ALLOW_REAL_REPLAY", "env var that must be set to 1 for real replay")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
@@ -202,12 +206,29 @@ func runReplay(arguments []string) int {
 		return writeReplayOutput(jsonOutput, replayOutput{OK: false, Error: "expected run_id or path"}, exitInvalidInput)
 	}
 
+	allowTools := parseCSV(allowToolsCSV)
 	if realTools && !unsafeReal {
 		return writeReplayOutput(jsonOutput, replayOutput{
 			OK:              false,
 			Error:           "real tool execution requires --unsafe-real-tools",
 			RequestedUnsafe: false,
 		}, exitUnsafeReplay)
+	}
+	if realTools && unsafeReal {
+		if len(allowTools) == 0 {
+			return writeReplayOutput(jsonOutput, replayOutput{
+				OK:              false,
+				Error:           "real tool execution requires --allow-tools with explicit tool names",
+				RequestedUnsafe: true,
+			}, exitUnsafeReplay)
+		}
+		if strings.TrimSpace(os.Getenv(strings.TrimSpace(unsafeRealToolsEnv))) != "1" {
+			return writeReplayOutput(jsonOutput, replayOutput{
+				OK:              false,
+				Error:           fmt.Sprintf("real tool execution requires %s=1", strings.TrimSpace(unsafeRealToolsEnv)),
+				RequestedUnsafe: true,
+			}, exitUnsafeReplay)
+		}
 	}
 
 	runpackPath, err := resolveRunpackPath(remaining[0])
@@ -218,6 +239,7 @@ func runReplay(arguments []string) int {
 	warnings := []string{}
 	if realTools && unsafeReal {
 		warnings = append(warnings, "real tools not implemented; replaying stubs")
+		warnings = append(warnings, "allow_tools="+strings.Join(allowTools, ","))
 	}
 
 	result, err := runpack.ReplayStub(runpackPath)
@@ -284,7 +306,7 @@ func printRunUsage() {
 
 func printReplayUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools] [--explain]")
+	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain]")
 }
 
 func runReduce(arguments []string) int {

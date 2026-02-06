@@ -20,15 +20,17 @@ const (
 	approvalTokenSchemaID = "gait.gate.approval_token"
 	approvalTokenSchemaV1 = "1.0.0"
 
-	ApprovalReasonMissingToken  = "approval_token_missing"
-	ApprovalReasonGranted       = "approval_granted"
-	ApprovalCodeSchemaInvalid   = "approval_token_invalid"
-	ApprovalCodeSignatureMiss   = "approval_token_signature_missing"
-	ApprovalCodeSignatureFailed = "approval_token_signature_invalid"
-	ApprovalCodeExpired         = "approval_token_expired"
-	ApprovalCodeIntentMismatch  = "approval_token_intent_mismatch"
-	ApprovalCodePolicyMismatch  = "approval_token_policy_mismatch"
-	ApprovalCodeScopeMismatch   = "approval_token_scope_mismatch"
+	ApprovalReasonMissingToken      = "approval_token_missing"
+	ApprovalReasonGranted           = "approval_granted"
+	ApprovalReasonChainInsufficient = "approval_chain_insufficient"
+	ApprovalReasonDistinctApprovers = "approval_distinct_approvers_required"
+	ApprovalCodeSchemaInvalid       = "approval_token_invalid"
+	ApprovalCodeSignatureMiss       = "approval_token_signature_missing"
+	ApprovalCodeSignatureFailed     = "approval_token_signature_invalid"
+	ApprovalCodeExpired             = "approval_token_expired"
+	ApprovalCodeIntentMismatch      = "approval_token_intent_mismatch"
+	ApprovalCodePolicyMismatch      = "approval_token_policy_mismatch"
+	ApprovalCodeScopeMismatch       = "approval_token_scope_mismatch"
 )
 
 type MintApprovalTokenOptions struct {

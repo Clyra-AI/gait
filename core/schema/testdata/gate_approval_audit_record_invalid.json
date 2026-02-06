@@ -1,0 +1,19 @@
+{
+  "schema_id": "gait.gate.approval_audit_record",
+  "schema_version": "1.0.0",
+  "created_at": "not-a-date",
+  "producer_version": "0.0.0-dev",
+  "trace_id": "",
+  "tool_name": "tool.write",
+  "intent_digest": "bad",
+  "policy_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "required_approvals": -1,
+  "valid_approvals": 1,
+  "approved": true,
+  "entries": [
+    {
+      "valid": true,
+      "unexpected": "field"
+    }
+  ]
+}

@@ -55,6 +55,8 @@ var requiredSchemaPaths = []string{
 	"schemas/v1/gate/gate_result.schema.json",
 	"schemas/v1/gate/trace_record.schema.json",
 	"schemas/v1/gate/approval_token.schema.json",
+	"schemas/v1/gate/approval_audit_record.schema.json",
+	"schemas/v1/gate/broker_credential_record.schema.json",
 	"schemas/v1/policytest/policy_test_result.schema.json",
 	"schemas/v1/regress/regress_result.schema.json",
 	"schemas/v1/scout/inventory_snapshot.schema.json",

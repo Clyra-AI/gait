@@ -86,3 +86,43 @@ type ApprovalToken struct {
 	ExpiresAt        time.Time  `json:"expires_at"`
 	Signature        *Signature `json:"signature,omitempty"`
 }
+
+type ApprovalAuditEntry struct {
+	TokenID          string    `json:"token_id,omitempty"`
+	ApproverIdentity string    `json:"approver_identity,omitempty"`
+	ReasonCode       string    `json:"reason_code,omitempty"`
+	Scope            []string  `json:"scope,omitempty"`
+	ExpiresAt        time.Time `json:"expires_at,omitempty"`
+	Valid            bool      `json:"valid"`
+	ErrorCode        string    `json:"error_code,omitempty"`
+}
+
+type ApprovalAuditRecord struct {
+	SchemaID          string               `json:"schema_id"`
+	SchemaVersion     string               `json:"schema_version"`
+	CreatedAt         time.Time            `json:"created_at"`
+	ProducerVersion   string               `json:"producer_version"`
+	TraceID           string               `json:"trace_id"`
+	ToolName          string               `json:"tool_name"`
+	IntentDigest      string               `json:"intent_digest"`
+	PolicyDigest      string               `json:"policy_digest"`
+	RequiredApprovals int                  `json:"required_approvals"`
+	ValidApprovals    int                  `json:"valid_approvals"`
+	Approved          bool                 `json:"approved"`
+	Approvers         []string             `json:"approvers,omitempty"`
+	Entries           []ApprovalAuditEntry `json:"entries"`
+}
+
+type BrokerCredentialRecord struct {
+	SchemaID        string    `json:"schema_id"`
+	SchemaVersion   string    `json:"schema_version"`
+	CreatedAt       time.Time `json:"created_at"`
+	ProducerVersion string    `json:"producer_version"`
+	TraceID         string    `json:"trace_id"`
+	ToolName        string    `json:"tool_name"`
+	Identity        string    `json:"identity"`
+	Broker          string    `json:"broker"`
+	Reference       string    `json:"reference,omitempty"`
+	Scope           []string  `json:"scope,omitempty"`
+	CredentialRef   string    `json:"credential_ref"`
+}

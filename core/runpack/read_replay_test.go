@@ -92,6 +92,35 @@ func TestReplayStubMissingResult(t *testing.T) {
 	}
 }
 
+func TestReplayStubUsesDeterministicFidelityStubForKnownTools(t *testing.T) {
+	intents := []schemarunpack.IntentRecord{{
+		IntentID:   "intent_http_1",
+		ToolName:   "tool.http.fetch",
+		ArgsDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Args:       map[string]any{"url": "https://example.local"},
+	}}
+	path := writeTestRunpackWithIntents(t, "run_stubbed", intents, nil)
+
+	first, err := ReplayStub(path)
+	if err != nil {
+		t.Fatalf("replay stub first run: %v", err)
+	}
+	second, err := ReplayStub(path)
+	if err != nil {
+		t.Fatalf("replay stub second run: %v", err)
+	}
+
+	if len(first.MissingResults) != 0 {
+		t.Fatalf("expected no missing results for known stub type, got %#v", first.MissingResults)
+	}
+	if first.Steps[0].Status != "stubbed" || first.Steps[0].StubType != "http" {
+		t.Fatalf("expected stubbed http step, got %#v", first.Steps[0])
+	}
+	if first.Steps[0].ResultDigest == "" || first.Steps[0].ResultDigest != second.Steps[0].ResultDigest {
+		t.Fatalf("expected deterministic stub digest, first=%s second=%s", first.Steps[0].ResultDigest, second.Steps[0].ResultDigest)
+	}
+}
+
 func TestReplayStubDuplicateIntent(t *testing.T) {
 	intents := []schemarunpack.IntentRecord{
 		buildIntent("intent_dup"),

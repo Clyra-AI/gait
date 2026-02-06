@@ -1,0 +1,161 @@
+package gate
+
+import (
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
+	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+)
+
+func TestEnforceRateLimitBlocksAfterLimit(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "rate_state.json")
+	intent := rateLimitTestIntent()
+	now := time.Date(2026, time.February, 5, 10, 0, 0, 0, time.UTC)
+
+	limit := RateLimitPolicy{Requests: 2, Scope: "tool_identity", Window: "minute"}
+	first, err := EnforceRateLimit(statePath, limit, intent, now)
+	if err != nil {
+		t.Fatalf("first enforce: %v", err)
+	}
+	if !first.Allowed || first.Used != 1 || first.Remaining != 1 {
+		t.Fatalf("unexpected first decision: %#v", first)
+	}
+
+	second, err := EnforceRateLimit(statePath, limit, intent, now)
+	if err != nil {
+		t.Fatalf("second enforce: %v", err)
+	}
+	if !second.Allowed || second.Used != 2 || second.Remaining != 0 {
+		t.Fatalf("unexpected second decision: %#v", second)
+	}
+
+	third, err := EnforceRateLimit(statePath, limit, intent, now)
+	if err != nil {
+		t.Fatalf("third enforce: %v", err)
+	}
+	if third.Allowed || third.Used != 2 || third.Remaining != 0 {
+		t.Fatalf("unexpected third decision: %#v", third)
+	}
+}
+
+func TestEnforceRateLimitIdentityScope(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "rate_state.json")
+	now := time.Date(2026, time.February, 5, 11, 0, 0, 0, time.UTC)
+	limit := RateLimitPolicy{Requests: 1, Scope: "identity", Window: "minute"}
+
+	intentA := rateLimitTestIntent()
+	intentB := rateLimitTestIntent()
+	intentB.ToolName = "tool.other"
+
+	decisionA, err := EnforceRateLimit(statePath, limit, intentA, now)
+	if err != nil {
+		t.Fatalf("identity scope first enforce: %v", err)
+	}
+	if !decisionA.Allowed {
+		t.Fatalf("expected first identity-scoped decision to allow: %#v", decisionA)
+	}
+
+	decisionB, err := EnforceRateLimit(statePath, limit, intentB, now)
+	if err != nil {
+		t.Fatalf("identity scope second enforce: %v", err)
+	}
+	if decisionB.Allowed {
+		t.Fatalf("expected second identity-scoped decision to block: %#v", decisionB)
+	}
+}
+
+func TestEnforceRateLimitUnsupportedScope(t *testing.T) {
+	_, err := EnforceRateLimit("", RateLimitPolicy{Requests: 1, Scope: "bad", Window: "minute"}, rateLimitTestIntent(), time.Now().UTC())
+	if err == nil {
+		t.Fatalf("expected unsupported scope error")
+	}
+}
+
+func TestEnforceRateLimitHourWindowResets(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "rate_state.json")
+	intent := rateLimitTestIntent()
+	limit := RateLimitPolicy{Requests: 1, Scope: "tool_identity", Window: "hour"}
+
+	first, err := EnforceRateLimit(statePath, limit, intent, time.Date(2026, time.February, 5, 10, 30, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("first enforce: %v", err)
+	}
+	if !first.Allowed {
+		t.Fatalf("expected first hour bucket request to allow: %#v", first)
+	}
+
+	second, err := EnforceRateLimit(statePath, limit, intent, time.Date(2026, time.February, 5, 10, 45, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("second enforce: %v", err)
+	}
+	if second.Allowed {
+		t.Fatalf("expected second request in same hour to block: %#v", second)
+	}
+
+	third, err := EnforceRateLimit(statePath, limit, intent, time.Date(2026, time.February, 5, 11, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("third enforce: %v", err)
+	}
+	if !third.Allowed {
+		t.Fatalf("expected next-hour request to allow: %#v", third)
+	}
+}
+
+func TestEnforceRateLimitConcurrentLocking(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "rate_state.json")
+	intent := rateLimitTestIntent()
+	limit := RateLimitPolicy{Requests: 2, Scope: "tool_identity", Window: "minute"}
+	now := time.Date(2026, time.February, 5, 12, 0, 0, 0, time.UTC)
+
+	const workers = 10
+	allowed := 0
+	blocked := 0
+	var mutex sync.Mutex
+	var group sync.WaitGroup
+	group.Add(workers)
+
+	for index := 0; index < workers; index++ {
+		go func() {
+			defer group.Done()
+			decision, err := EnforceRateLimit(statePath, limit, intent, now)
+			if err != nil {
+				t.Errorf("enforce concurrent rate limit: %v", err)
+				return
+			}
+			mutex.Lock()
+			if decision.Allowed {
+				allowed++
+			} else {
+				blocked++
+			}
+			mutex.Unlock()
+		}()
+	}
+
+	group.Wait()
+	if allowed != 2 {
+		t.Fatalf("expected exactly 2 allowed decisions, got %d (blocked=%d)", allowed, blocked)
+	}
+	if blocked != workers-2 {
+		t.Fatalf("expected %d blocked decisions, got %d", workers-2, blocked)
+	}
+}
+
+func rateLimitTestIntent() schemagate.IntentRequest {
+	return schemagate.IntentRequest{
+		SchemaID:        "gait.gate.intent_request",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "0.0.0-dev",
+		ToolName:        "tool.write",
+		Args:            map[string]any{"x": "y"},
+		Targets:         []schemagate.IntentTarget{{Kind: "host", Value: "api.external.com"}},
+		Context: schemagate.IntentContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+		},
+	}
+}

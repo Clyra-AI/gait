@@ -33,6 +33,19 @@ var (
 		"targets":        {},
 		"arg_provenance": {},
 	}
+	allowedRateLimitScopes = map[string]struct{}{
+		"tool":          {},
+		"identity":      {},
+		"tool_identity": {},
+	}
+	allowedRateLimitWindows = map[string]struct{}{
+		"minute": {},
+		"hour":   {},
+	}
+	allowedDataflowActions = map[string]struct{}{
+		"block":            {},
+		"require_approval": {},
+	}
 )
 
 type Policy struct {
@@ -50,12 +63,36 @@ type FailClosedPolicy struct {
 }
 
 type PolicyRule struct {
-	Name        string      `yaml:"name"`
-	Priority    int         `yaml:"priority"`
-	Effect      string      `yaml:"effect"`
-	Match       PolicyMatch `yaml:"match"`
-	ReasonCodes []string    `yaml:"reason_codes"`
-	Violations  []string    `yaml:"violations"`
+	Name                     string          `yaml:"name"`
+	Priority                 int             `yaml:"priority"`
+	Effect                   string          `yaml:"effect"`
+	Match                    PolicyMatch     `yaml:"match"`
+	ReasonCodes              []string        `yaml:"reason_codes"`
+	Violations               []string        `yaml:"violations"`
+	MinApprovals             int             `yaml:"min_approvals"`
+	RequireDistinctApprovers bool            `yaml:"require_distinct_approvers"`
+	RequireBrokerCredential  bool            `yaml:"require_broker_credential"`
+	BrokerReference          string          `yaml:"broker_reference"`
+	BrokerScopes             []string        `yaml:"broker_scopes"`
+	RateLimit                RateLimitPolicy `yaml:"rate_limit"`
+	Dataflow                 DataflowPolicy  `yaml:"dataflow"`
+}
+
+type RateLimitPolicy struct {
+	Requests int    `yaml:"requests"`
+	Window   string `yaml:"window"`
+	Scope    string `yaml:"scope"`
+}
+
+type DataflowPolicy struct {
+	Enabled               bool     `yaml:"enabled"`
+	TaintedSources        []string `yaml:"tainted_sources"`
+	DestinationKinds      []string `yaml:"destination_kinds"`
+	DestinationValues     []string `yaml:"destination_values"`
+	DestinationOperations []string `yaml:"destination_operations"`
+	Action                string   `yaml:"action"`
+	ReasonCode            string   `yaml:"reason_code"`
+	Violation             string   `yaml:"violation"`
 }
 
 type PolicyMatch struct {
@@ -63,6 +100,10 @@ type PolicyMatch struct {
 	RiskClasses       []string `yaml:"risk_classes"`
 	TargetKinds       []string `yaml:"target_kinds"`
 	TargetValues      []string `yaml:"target_values"`
+	DataClasses       []string `yaml:"data_classes"`
+	DestinationKinds  []string `yaml:"destination_kinds"`
+	DestinationValues []string `yaml:"destination_values"`
+	DestinationOps    []string `yaml:"destination_operations"`
 	ProvenanceSources []string `yaml:"provenance_sources"`
 	Identities        []string `yaml:"identities"`
 	WorkspacePrefixes []string `yaml:"workspace_prefixes"`
@@ -70,6 +111,18 @@ type PolicyMatch struct {
 
 type EvalOptions struct {
 	ProducerVersion string
+}
+
+type EvalOutcome struct {
+	Result                   schemagate.GateResult
+	MatchedRule              string
+	MinApprovals             int
+	RequireDistinctApprovers bool
+	RequireBrokerCredential  bool
+	BrokerReference          string
+	BrokerScopes             []string
+	RateLimit                RateLimitPolicy
+	DataflowTriggered        bool
 }
 
 func LoadPolicyFile(path string) (Policy, error) {
@@ -90,23 +143,35 @@ func ParsePolicyYAML(data []byte) (Policy, error) {
 }
 
 func EvaluatePolicy(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (schemagate.GateResult, error) {
-	normalizedPolicy, err := normalizePolicy(policy)
+	outcome, err := EvaluatePolicyDetailed(policy, intent, opts)
 	if err != nil {
 		return schemagate.GateResult{}, err
+	}
+	return outcome.Result, nil
+}
+
+func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (EvalOutcome, error) {
+	normalizedPolicy, err := normalizePolicy(policy)
+	if err != nil {
+		return EvalOutcome{}, err
 	}
 
 	normalizedIntent, err := NormalizeIntent(intent)
 	if err != nil {
 		if shouldFailClosed(normalizedPolicy.FailClosed, strings.ToLower(strings.TrimSpace(intent.Context.RiskClass))) {
-			return buildGateResult(normalizedPolicy, intent, opts, "block", []string{"fail_closed_intent_invalid"}, []string{"intent_not_evaluable"}), nil
+			return EvalOutcome{
+				Result: buildGateResult(normalizedPolicy, intent, opts, "block", []string{"fail_closed_intent_invalid"}, []string{"intent_not_evaluable"}),
+			}, nil
 		}
-		return schemagate.GateResult{}, fmt.Errorf("normalize intent: %w", err)
+		return EvalOutcome{}, fmt.Errorf("normalize intent: %w", err)
 	}
 
 	if shouldFailClosed(normalizedPolicy.FailClosed, normalizedIntent.Context.RiskClass) {
 		reasons, violations := evaluateFailClosedRequiredFields(normalizedPolicy.FailClosed.RequiredFields, normalizedIntent)
 		if len(reasons) > 0 {
-			return buildGateResult(normalizedPolicy, normalizedIntent, opts, "block", reasons, violations), nil
+			return EvalOutcome{
+				Result: buildGateResult(normalizedPolicy, normalizedIntent, opts, "block", reasons, violations),
+			}, nil
 		}
 	}
 
@@ -114,21 +179,50 @@ func EvaluatePolicy(policy Policy, intent schemagate.IntentRequest, opts EvalOpt
 		if !ruleMatches(rule.Match, normalizedIntent) {
 			continue
 		}
+		effect := rule.Effect
 		reasons := uniqueSorted(rule.ReasonCodes)
+		violations := uniqueSorted(rule.Violations)
 		if len(reasons) == 0 {
 			reasons = []string{"matched_rule_" + sanitizeName(rule.Name)}
 		}
-		return buildGateResult(normalizedPolicy, normalizedIntent, opts, rule.Effect, reasons, uniqueSorted(rule.Violations)), nil
+		dataflowTriggered, dataflowEffect, dataflowReasons, dataflowViolations := evaluateDataflowConstraint(rule.Dataflow, normalizedIntent)
+		if dataflowTriggered {
+			effect = dataflowEffect
+			reasons = mergeUniqueSorted(reasons, dataflowReasons)
+			violations = mergeUniqueSorted(violations, dataflowViolations)
+		}
+		minApprovals := rule.MinApprovals
+		if effect == "require_approval" && minApprovals == 0 {
+			minApprovals = 1
+		}
+		return EvalOutcome{
+			Result:                   buildGateResult(normalizedPolicy, normalizedIntent, opts, effect, reasons, violations),
+			MatchedRule:              rule.Name,
+			MinApprovals:             minApprovals,
+			RequireDistinctApprovers: rule.RequireDistinctApprovers,
+			RequireBrokerCredential:  rule.RequireBrokerCredential,
+			BrokerReference:          rule.BrokerReference,
+			BrokerScopes:             uniqueSorted(rule.BrokerScopes),
+			RateLimit:                rule.RateLimit,
+			DataflowTriggered:        dataflowTriggered,
+		}, nil
 	}
 
-	return buildGateResult(
-		normalizedPolicy,
-		normalizedIntent,
-		opts,
-		normalizedPolicy.DefaultVerdict,
-		[]string{"default_" + normalizedPolicy.DefaultVerdict},
-		[]string{},
-	), nil
+	minApprovals := 0
+	if normalizedPolicy.DefaultVerdict == "require_approval" {
+		minApprovals = 1
+	}
+	return EvalOutcome{
+		Result: buildGateResult(
+			normalizedPolicy,
+			normalizedIntent,
+			opts,
+			normalizedPolicy.DefaultVerdict,
+			[]string{"default_" + normalizedPolicy.DefaultVerdict},
+			[]string{},
+		),
+		MinApprovals: minApprovals,
+	}, nil
 }
 
 func PolicyDigest(policy Policy) (string, error) {
@@ -136,7 +230,7 @@ func PolicyDigest(policy Policy) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	raw, err := json.Marshal(normalized)
+	raw, err := json.Marshal(policyDigestPayload(normalized))
 	if err != nil {
 		return "", fmt.Errorf("marshal normalized policy: %w", err)
 	}
@@ -145,6 +239,96 @@ func PolicyDigest(policy Policy) (string, error) {
 		return "", fmt.Errorf("digest policy: %w", err)
 	}
 	return digest, nil
+}
+
+func policyDigestPayload(policy Policy) map[string]any {
+	rules := make([]any, 0, len(policy.Rules))
+	for _, rule := range policy.Rules {
+		matchPayload := map[string]any{
+			"ToolNames":         rule.Match.ToolNames,
+			"RiskClasses":       rule.Match.RiskClasses,
+			"TargetKinds":       rule.Match.TargetKinds,
+			"TargetValues":      rule.Match.TargetValues,
+			"ProvenanceSources": rule.Match.ProvenanceSources,
+			"Identities":        rule.Match.Identities,
+			"WorkspacePrefixes": rule.Match.WorkspacePrefixes,
+		}
+		if len(rule.Match.DataClasses) > 0 {
+			matchPayload["DataClasses"] = rule.Match.DataClasses
+		}
+		if len(rule.Match.DestinationKinds) > 0 {
+			matchPayload["DestinationKinds"] = rule.Match.DestinationKinds
+		}
+		if len(rule.Match.DestinationValues) > 0 {
+			matchPayload["DestinationValues"] = rule.Match.DestinationValues
+		}
+		if len(rule.Match.DestinationOps) > 0 {
+			matchPayload["DestinationOps"] = rule.Match.DestinationOps
+		}
+
+		rulePayload := map[string]any{
+			"Name":        rule.Name,
+			"Priority":    rule.Priority,
+			"Effect":      rule.Effect,
+			"Match":       matchPayload,
+			"ReasonCodes": rule.ReasonCodes,
+			"Violations":  rule.Violations,
+		}
+		if rule.MinApprovals > 0 {
+			rulePayload["MinApprovals"] = rule.MinApprovals
+		}
+		if rule.RequireDistinctApprovers {
+			rulePayload["RequireDistinctApprovers"] = rule.RequireDistinctApprovers
+		}
+		if rule.RequireBrokerCredential {
+			rulePayload["RequireBrokerCredential"] = rule.RequireBrokerCredential
+		}
+		if rule.BrokerReference != "" {
+			rulePayload["BrokerReference"] = rule.BrokerReference
+		}
+		if len(rule.BrokerScopes) > 0 {
+			rulePayload["BrokerScopes"] = rule.BrokerScopes
+		}
+		if rule.RateLimit.Requests > 0 {
+			rulePayload["RateLimit"] = map[string]any{
+				"Requests": rule.RateLimit.Requests,
+				"Window":   rule.RateLimit.Window,
+				"Scope":    rule.RateLimit.Scope,
+			}
+		}
+		if rule.Dataflow.Enabled {
+			dataflowPayload := map[string]any{
+				"Enabled":        rule.Dataflow.Enabled,
+				"TaintedSources": rule.Dataflow.TaintedSources,
+				"Action":         rule.Dataflow.Action,
+				"ReasonCode":     rule.Dataflow.ReasonCode,
+				"Violation":      rule.Dataflow.Violation,
+			}
+			if len(rule.Dataflow.DestinationKinds) > 0 {
+				dataflowPayload["DestinationKinds"] = rule.Dataflow.DestinationKinds
+			}
+			if len(rule.Dataflow.DestinationValues) > 0 {
+				dataflowPayload["DestinationValues"] = rule.Dataflow.DestinationValues
+			}
+			if len(rule.Dataflow.DestinationOperations) > 0 {
+				dataflowPayload["DestinationOperations"] = rule.Dataflow.DestinationOperations
+			}
+			rulePayload["Dataflow"] = dataflowPayload
+		}
+		rules = append(rules, rulePayload)
+	}
+
+	return map[string]any{
+		"SchemaID":       policy.SchemaID,
+		"SchemaVersion":  policy.SchemaVersion,
+		"DefaultVerdict": policy.DefaultVerdict,
+		"FailClosed": map[string]any{
+			"Enabled":        policy.FailClosed.Enabled,
+			"RiskClasses":    policy.FailClosed.RiskClasses,
+			"RequiredFields": policy.FailClosed.RequiredFields,
+		},
+		"Rules": rules,
+	}
 }
 
 func normalizePolicy(input Policy) (Policy, error) {
@@ -201,11 +385,71 @@ func normalizePolicy(input Policy) (Policy, error) {
 		rule.Match.RiskClasses = normalizeStringListLower(rule.Match.RiskClasses)
 		rule.Match.TargetKinds = normalizeStringListLower(rule.Match.TargetKinds)
 		rule.Match.TargetValues = normalizeStringList(rule.Match.TargetValues)
+		rule.Match.DataClasses = normalizeStringListLower(rule.Match.DataClasses)
+		rule.Match.DestinationKinds = normalizeStringListLower(rule.Match.DestinationKinds)
+		rule.Match.DestinationValues = normalizeStringList(rule.Match.DestinationValues)
+		rule.Match.DestinationOps = normalizeStringListLower(rule.Match.DestinationOps)
 		rule.Match.ProvenanceSources = normalizeStringListLower(rule.Match.ProvenanceSources)
 		rule.Match.Identities = normalizeStringList(rule.Match.Identities)
 		rule.Match.WorkspacePrefixes = normalizeStringList(rule.Match.WorkspacePrefixes)
 		rule.ReasonCodes = uniqueSorted(rule.ReasonCodes)
 		rule.Violations = uniqueSorted(rule.Violations)
+		if rule.MinApprovals < 0 {
+			return Policy{}, fmt.Errorf("min_approvals must be >= 0 for %s", rule.Name)
+		}
+		if rule.MinApprovals > 1 && !rule.RequireDistinctApprovers {
+			rule.RequireDistinctApprovers = true
+		}
+		rule.BrokerReference = strings.TrimSpace(rule.BrokerReference)
+		rule.BrokerScopes = normalizeStringListLower(rule.BrokerScopes)
+		if rule.RateLimit.Requests < 0 {
+			return Policy{}, fmt.Errorf("rate_limit.requests must be >= 0 for %s", rule.Name)
+		}
+		rule.RateLimit.Window = strings.ToLower(strings.TrimSpace(rule.RateLimit.Window))
+		rule.RateLimit.Scope = strings.ToLower(strings.TrimSpace(rule.RateLimit.Scope))
+		if rule.RateLimit.Requests > 0 {
+			if rule.RateLimit.Window == "" {
+				rule.RateLimit.Window = "minute"
+			}
+			if _, ok := allowedRateLimitWindows[rule.RateLimit.Window]; !ok {
+				return Policy{}, fmt.Errorf("unsupported rate_limit.window %q for %s", rule.RateLimit.Window, rule.Name)
+			}
+			if rule.RateLimit.Scope == "" {
+				rule.RateLimit.Scope = "tool_identity"
+			}
+			if _, ok := allowedRateLimitScopes[rule.RateLimit.Scope]; !ok {
+				return Policy{}, fmt.Errorf("unsupported rate_limit.scope %q for %s", rule.RateLimit.Scope, rule.Name)
+			}
+		}
+		rule.Dataflow.TaintedSources = normalizeStringListLower(rule.Dataflow.TaintedSources)
+		rule.Dataflow.DestinationKinds = normalizeStringListLower(rule.Dataflow.DestinationKinds)
+		rule.Dataflow.DestinationValues = normalizeStringList(rule.Dataflow.DestinationValues)
+		rule.Dataflow.DestinationOperations = normalizeStringListLower(rule.Dataflow.DestinationOperations)
+		rule.Dataflow.Action = strings.ToLower(strings.TrimSpace(rule.Dataflow.Action))
+		rule.Dataflow.ReasonCode = strings.TrimSpace(rule.Dataflow.ReasonCode)
+		rule.Dataflow.Violation = strings.TrimSpace(rule.Dataflow.Violation)
+		if rule.Dataflow.Enabled ||
+			len(rule.Dataflow.TaintedSources) > 0 ||
+			len(rule.Dataflow.DestinationKinds) > 0 ||
+			len(rule.Dataflow.DestinationValues) > 0 ||
+			len(rule.Dataflow.DestinationOperations) > 0 {
+			rule.Dataflow.Enabled = true
+			if len(rule.Dataflow.TaintedSources) == 0 {
+				rule.Dataflow.TaintedSources = []string{"external", "tool_output"}
+			}
+			if rule.Dataflow.Action == "" {
+				rule.Dataflow.Action = "require_approval"
+			}
+			if _, ok := allowedDataflowActions[rule.Dataflow.Action]; !ok {
+				return Policy{}, fmt.Errorf("unsupported dataflow.action %q for %s", rule.Dataflow.Action, rule.Name)
+			}
+			if rule.Dataflow.ReasonCode == "" {
+				rule.Dataflow.ReasonCode = "dataflow_tainted_destination"
+			}
+			if rule.Dataflow.Violation == "" {
+				rule.Dataflow.Violation = "tainted_dataflow"
+			}
+		}
 	}
 
 	sort.Slice(output.Rules, func(i, j int) bool {
@@ -263,6 +507,54 @@ func ruleMatches(match PolicyMatch, intent schemagate.IntentRequest) bool {
 			return false
 		}
 	}
+	if len(match.DataClasses) > 0 {
+		dataClassMatched := false
+		for _, target := range intent.Targets {
+			if contains(match.DataClasses, target.Sensitivity) {
+				dataClassMatched = true
+				break
+			}
+		}
+		if !dataClassMatched {
+			return false
+		}
+	}
+	if len(match.DestinationKinds) > 0 {
+		destinationKindMatched := false
+		for _, target := range intent.Targets {
+			if contains(match.DestinationKinds, target.Kind) {
+				destinationKindMatched = true
+				break
+			}
+		}
+		if !destinationKindMatched {
+			return false
+		}
+	}
+	if len(match.DestinationValues) > 0 {
+		destinationValueMatched := false
+		for _, target := range intent.Targets {
+			if contains(match.DestinationValues, target.Value) {
+				destinationValueMatched = true
+				break
+			}
+		}
+		if !destinationValueMatched {
+			return false
+		}
+	}
+	if len(match.DestinationOps) > 0 {
+		destinationOpsMatched := false
+		for _, target := range intent.Targets {
+			if contains(match.DestinationOps, target.Operation) {
+				destinationOpsMatched = true
+				break
+			}
+		}
+		if !destinationOpsMatched {
+			return false
+		}
+	}
 	if len(match.ProvenanceSources) > 0 {
 		provenanceMatched := false
 		for _, provenance := range intent.ArgProvenance {
@@ -276,6 +568,65 @@ func ruleMatches(match PolicyMatch, intent schemagate.IntentRequest) bool {
 		}
 	}
 	return true
+}
+
+func evaluateDataflowConstraint(dataflow DataflowPolicy, intent schemagate.IntentRequest) (bool, string, []string, []string) {
+	if !dataflow.Enabled {
+		return false, "", nil, nil
+	}
+	if !hasTaintedProvenance(intent.ArgProvenance, dataflow.TaintedSources) {
+		return false, "", nil, nil
+	}
+	if !matchesDataflowDestination(dataflow, intent.Targets) {
+		return false, "", nil, nil
+	}
+	return true, dataflow.Action, []string{dataflow.ReasonCode}, []string{dataflow.Violation}
+}
+
+func hasTaintedProvenance(provenance []schemagate.IntentArgProvenance, taintedSources []string) bool {
+	for _, entry := range provenance {
+		if contains(taintedSources, entry.Source) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesDataflowDestination(dataflow DataflowPolicy, targets []schemagate.IntentTarget) bool {
+	if len(targets) == 0 {
+		return false
+	}
+	if len(dataflow.DestinationKinds) == 0 && len(dataflow.DestinationValues) == 0 && len(dataflow.DestinationOperations) == 0 {
+		for _, target := range targets {
+			if isDefaultEgressTargetKind(target.Kind) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, target := range targets {
+		if len(dataflow.DestinationKinds) > 0 && !contains(dataflow.DestinationKinds, target.Kind) {
+			continue
+		}
+		if len(dataflow.DestinationValues) > 0 && !contains(dataflow.DestinationValues, target.Value) {
+			continue
+		}
+		if len(dataflow.DestinationOperations) > 0 && !contains(dataflow.DestinationOperations, target.Operation) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func isDefaultEgressTargetKind(kind string) bool {
+	switch kind {
+	case "host", "url", "bucket", "queue", "topic":
+		return true
+	default:
+		return false
+	}
 }
 
 func shouldFailClosed(policy FailClosedPolicy, riskClass string) bool {
@@ -378,6 +729,13 @@ func uniqueSorted(values []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func mergeUniqueSorted(values []string, extra []string) []string {
+	merged := make([]string, 0, len(values)+len(extra))
+	merged = append(merged, values...)
+	merged = append(merged, extra...)
+	return uniqueSorted(merged)
 }
 
 func contains(values []string, wanted string) bool {

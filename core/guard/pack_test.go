@@ -102,6 +102,44 @@ func TestBuildAndVerifyPack(t *testing.T) {
 	regressPath := filepath.Join(workDir, "regress.json")
 	mustWriteJSON(t, regressPath, regress)
 
+	approvalAuditPath := filepath.Join(workDir, "approval_audit_trace_1.json")
+	mustWriteJSON(t, approvalAuditPath, schemagate.ApprovalAuditRecord{
+		SchemaID:          "gait.gate.approval_audit_record",
+		SchemaVersion:     "1.0.0",
+		CreatedAt:         now,
+		ProducerVersion:   "0.0.0-dev",
+		TraceID:           "trace_1",
+		ToolName:          "tool.delete",
+		IntentDigest:      strings.Repeat("a", 64),
+		PolicyDigest:      strings.Repeat("b", 64),
+		RequiredApprovals: 1,
+		ValidApprovals:    1,
+		Approved:          true,
+		Approvers:         []string{"alice"},
+		Entries: []schemagate.ApprovalAuditEntry{{
+			TokenID:          "token_1",
+			ApproverIdentity: "alice",
+			ReasonCode:       "ticket",
+			Scope:            []string{"tool:tool.delete"},
+			ExpiresAt:        now.Add(time.Hour),
+			Valid:            true,
+		}},
+	})
+	credentialEvidencePath := filepath.Join(workDir, "credential_evidence_trace_1.json")
+	mustWriteJSON(t, credentialEvidencePath, schemagate.BrokerCredentialRecord{
+		SchemaID:        "gait.gate.broker_credential_record",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       now,
+		ProducerVersion: "0.0.0-dev",
+		TraceID:         "trace_1",
+		ToolName:        "tool.delete",
+		Identity:        "alice",
+		Broker:          "env",
+		Reference:       "egress",
+		Scope:           []string{"export"},
+		CredentialRef:   "env:GAIT_BROKER_TOKEN_EGRESS:deadbeef",
+	})
+
 	packPath := filepath.Join(workDir, "evidence_pack.zip")
 	buildResult, err := BuildPack(BuildOptions{
 		RunpackPath:    runpackPath,
@@ -116,6 +154,19 @@ func TestBuildAndVerifyPack(t *testing.T) {
 	}
 	if buildResult.Manifest.PackID == "" {
 		t.Fatalf("expected pack id")
+	}
+	foundAudit := false
+	foundCredential := false
+	for _, entry := range buildResult.Manifest.Contents {
+		if entry.Path == "approval_audit_01.json" {
+			foundAudit = true
+		}
+		if entry.Path == "credential_evidence_01.json" {
+			foundCredential = true
+		}
+	}
+	if !foundAudit || !foundCredential {
+		t.Fatalf("expected auto-discovered v1.2 evidence files in pack manifest: %#v", buildResult.Manifest.Contents)
 	}
 
 	verifyResult, err := VerifyPack(packPath)
@@ -220,6 +271,9 @@ func TestGuardHelperBranches(t *testing.T) {
 	if _, err := readInventorySnapshots([]string{invalidInventoryPath}); err == nil {
 		t.Fatalf("expected invalid inventory parse error")
 	}
+	if _, _, err := discoverV12EvidencePaths(filepath.Join(workDir, "missing", "dir")); err != nil {
+		t.Fatalf("discoverV12EvidencePaths should tolerate missing directories, got: %v", err)
+	}
 
 	tracePath := filepath.Join(workDir, "trace.json")
 	mustWriteJSON(t, tracePath, schemagate.TraceRecord{
@@ -255,6 +309,12 @@ func TestGuardHelperBranches(t *testing.T) {
 	}
 	if _, err := buildRegressSummary([]string{filepath.Join(workDir, "missing_regress.json")}); err == nil {
 		t.Fatalf("expected buildRegressSummary missing file error")
+	}
+	if records, err := readApprovalAuditRecords(nil); err != nil || records != nil {
+		t.Fatalf("readApprovalAuditRecords nil input: records=%#v err=%v", records, err)
+	}
+	if records, err := readBrokerCredentialRecords(nil); err != nil || records != nil {
+		t.Fatalf("readBrokerCredentialRecords nil input: records=%#v err=%v", records, err)
 	}
 
 	if got := inferPackEntryType("runpack_summary.json"); got != "runpack" {
