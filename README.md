@@ -476,6 +476,7 @@ pre-commit install --hook-type pre-commit --hook-type pre-push
 - Integration checklist: `docs/integration_checklist.md`
 - Policy rollout guide: `docs/policy_rollout.md`
 - Approval runbook: `docs/approval_runbook.md`
+- CI regress kit: `docs/ci_regress_kit.md`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
 - Roadmap: `product/ROADMAP.md`

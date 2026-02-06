@@ -1,0 +1,59 @@
+name: adoption-regress-template
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  regress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build gait
+        shell: bash
+        run: go build -o ./gait ./cmd/gait
+
+      - name: Restore deterministic fixture
+        shell: bash
+        run: |
+          if [[ -f fixtures/run_demo/runpack.zip && -f gait.yaml ]]; then
+            echo "using existing fixtures/run_demo/runpack.zip"
+          else
+            ./gait demo
+            ./gait regress init --from run_demo --json
+          fi
+
+      - name: Run regress and enforce stable exit codes
+        shell: bash
+        run: |
+          mkdir -p gait-out
+          set +e
+          ./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
+          status=$?
+          set -e
+          if [[ "$status" -eq 0 ]]; then
+            echo "regression passed"
+            exit 0
+          fi
+          if [[ "$status" -eq 5 ]]; then
+            echo "regression failed with stable exit code 5"
+            exit 5
+          fi
+          echo "unexpected regress exit code: $status"
+          exit "$status"
+
+      - name: Upload regress artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gait-regress-artifacts
+          path: |
+            gait-out/regress_result.json
+            gait-out/junit.xml
+            gait.yaml
+            fixtures/
