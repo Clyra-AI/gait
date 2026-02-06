@@ -185,7 +185,10 @@ func TestDoctorHelperBranches(t *testing.T) {
 		t.Fatalf("chmod private key: %v", err)
 	}
 	check = checkKeyFilePermissions(sign.KeyConfig{PrivateKeyPath: privateKeyPath})
-	if check.Status != statusWarn {
+	if runtime.GOOS == "windows" && check.Status != statusPass && check.Status != statusWarn {
+		t.Fatalf("expected key permission pass/warn on windows for writable key file: %#v", check)
+	}
+	if runtime.GOOS != "windows" && check.Status != statusWarn {
 		t.Fatalf("expected key permission warning for writable key file: %#v", check)
 	}
 	if err := os.Chmod(privateKeyPath, 0o600); err != nil {

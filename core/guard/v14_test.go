@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -338,14 +339,22 @@ func TestGuardV14HelperBranches(t *testing.T) {
 		t.Fatalf("expected invalid env key length error")
 	}
 	commandKey := base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
-	key, keySource, err := resolveEncryptionKey("", "/bin/sh", []string{"-c", "printf '%s' '" + commandKey + "'"})
+	commandPath := "/bin/sh"
+	commandArgs := []string{"-c", "printf '%s' '" + commandKey + "'"}
+	invalidCommandArgs := []string{"-c", "printf '%s' not_base64"}
+	if runtime.GOOS == "windows" {
+		commandPath = "powershell.exe"
+		commandArgs = []string{"-NoProfile", "-Command", "[Console]::Write('" + commandKey + "')"}
+		invalidCommandArgs = []string{"-NoProfile", "-Command", "[Console]::Write('not_base64')"}
+	}
+	key, keySource, err := resolveEncryptionKey("", commandPath, commandArgs)
 	if err != nil {
 		t.Fatalf("resolve command key: %v", err)
 	}
 	if len(key) != 32 || keySource.Mode != "command" {
 		t.Fatalf("unexpected command key source: key=%d source=%#v", len(key), keySource)
 	}
-	if _, _, err := resolveEncryptionKey("", "/bin/sh", []string{"-c", "printf '%s' not_base64"}); err == nil {
+	if _, _, err := resolveEncryptionKey("", commandPath, invalidCommandArgs); err == nil {
 		t.Fatalf("expected command key decode error")
 	}
 
