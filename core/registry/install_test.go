@@ -200,7 +200,7 @@ func TestRegistryHelperBranches(t *testing.T) {
 	if cacheDir, err := resolveCacheDir(" /tmp/x "); err != nil || cacheDir != expectedCacheDir {
 		t.Fatalf("resolveCacheDir explicit mismatch: got=%s expected=%s err=%v", cacheDir, expectedCacheDir, err)
 	}
-	if cacheDir, err := resolveCacheDir(""); err != nil || !strings.Contains(cacheDir, ".gait/registry") {
+	if cacheDir, err := resolveCacheDir(""); err != nil || !strings.Contains(filepath.ToSlash(cacheDir), ".gait/registry") {
 		t.Fatalf("resolveCacheDir default mismatch: %s err=%v", cacheDir, err)
 	}
 
