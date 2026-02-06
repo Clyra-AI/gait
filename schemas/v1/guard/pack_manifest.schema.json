@@ -21,7 +21,62 @@
     "pack_id": { "type": "string" },
     "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
     "case_id": { "type": "string" },
+    "template_id": { "type": "string" },
     "generated_at": { "type": "string", "format": "date-time" },
+    "control_index": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["control_id", "title", "evidence_paths"],
+        "properties": {
+          "control_id": { "type": "string" },
+          "title": { "type": "string" },
+          "evidence_paths": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidence_pointers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pointer_id", "path", "type", "sha256"],
+        "properties": {
+          "pointer_id": { "type": "string" },
+          "path": { "type": "string" },
+          "type": { "type": "string", "enum": ["runpack", "trace", "report", "evidence"] },
+          "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "incident_window": {
+      "type": "object",
+      "required": ["from", "to", "window_seconds"],
+      "properties": {
+        "from": { "type": "string", "format": "date-time" },
+        "to": { "type": "string", "format": "date-time" },
+        "window_seconds": { "type": "integer", "minimum": 0 },
+        "selection_anchor": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "rendered_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["format", "path", "sha256"],
+        "properties": {
+          "format": { "type": "string", "enum": ["pdf"] },
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    },
     "contents": {
       "type": "array",
       "items": {

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/guard/retention_report.schema.json",
+  "title": "Guard Retention Report",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "root_path",
+    "dry_run",
+    "trace_ttl_seconds",
+    "pack_ttl_seconds",
+    "scanned_files",
+    "deleted_files",
+    "kept_files"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.guard.retention_report" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "root_path": { "type": "string" },
+    "dry_run": { "type": "boolean" },
+    "trace_ttl_seconds": { "type": "integer" },
+    "pack_ttl_seconds": { "type": "integer" },
+    "scanned_files": { "type": "integer", "minimum": 0 },
+    "deleted_files": { "$ref": "#/$defs/events" },
+    "kept_files": { "$ref": "#/$defs/events" }
+  },
+  "$defs": {
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind", "modified_at", "age_seconds", "action"],
+        "properties": {
+          "path": { "type": "string" },
+          "kind": { "type": "string", "enum": ["trace", "pack"] },
+          "modified_at": { "type": "string", "format": "date-time" },
+          "age_seconds": { "type": "integer", "minimum": 0 },
+          "action": { "type": "string", "enum": ["kept", "deleted"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

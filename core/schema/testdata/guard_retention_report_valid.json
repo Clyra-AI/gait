@@ -1,0 +1,29 @@
+{
+  "schema_id": "gait.guard.retention_report",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-06T12:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "root_path": ".",
+  "dry_run": true,
+  "trace_ttl_seconds": 86400,
+  "pack_ttl_seconds": 2592000,
+  "scanned_files": 2,
+  "deleted_files": [
+    {
+      "path": "trace_old.json",
+      "kind": "trace",
+      "modified_at": "2026-02-01T00:00:00Z",
+      "age_seconds": 500000,
+      "action": "deleted"
+    }
+  ],
+  "kept_files": [
+    {
+      "path": "evidence_pack_recent.zip",
+      "kind": "pack",
+      "modified_at": "2026-02-06T10:00:00Z",
+      "age_seconds": 7200,
+      "action": "kept"
+    }
+  ]
+}

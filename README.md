@@ -281,6 +281,33 @@ Optional proxy artifacts:
 
 Adapter lifecycle is composable by default: for each supported adapter payload, use `gait mcp proxy --runpack-out ...` for capture and `gait regress init --from <runpack.zip>` to create deterministic regress fixtures.
 
+### 4.6) Guard v1.4 Audit And Incident Workflows
+
+Generate an audit-oriented pack with a template and optional summary PDF:
+
+```bash
+gait guard pack --run <run_id|path> --template soc2 --render-pdf --case-id INC-2026-42 --json
+```
+
+Build a one-command incident pack around a run and time window:
+
+```bash
+gait incident pack --from <run_id|path> --window 24h --template incident_response --json
+```
+
+Apply deterministic retention policies for trace and pack artifacts:
+
+```bash
+gait guard retain --root ./gait-out --trace-ttl 168h --pack-ttl 720h --dry-run --report-out retention_report.json --json
+```
+
+Encrypt and decrypt local artifacts with key hooks:
+
+```bash
+gait guard encrypt --in ./gait-out/evidence_pack_<id>.zip --key-env GAIT_GUARD_KEY --json
+gait guard decrypt --in ./gait-out/evidence_pack_<id>.zip.gaitenc --key-env GAIT_GUARD_KEY --json
+```
+
 ### 5) Explain Command Intent
 
 Every major command supports `--explain` for short, stable intent text:

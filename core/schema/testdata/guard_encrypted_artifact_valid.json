@@ -1,0 +1,15 @@
+{
+  "schema_id": "gait.guard.encrypted_artifact",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-06T12:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "algorithm": "aes-256-gcm",
+  "key_source": {
+    "mode": "env",
+    "ref": "GAIT_GUARD_KEY"
+  },
+  "nonce": "AAAAAAAAAAAAAAAAAAAAAA==",
+  "ciphertext": "AQIDBA==",
+  "plain_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "plain_size": 4
+}

@@ -41,6 +41,8 @@ func run(arguments []string) int {
 		return runScout(arguments[2:])
 	case "guard":
 		return runGuard(arguments[2:])
+	case "incident":
+		return runIncident(arguments[2:])
 	case "registry":
 		return runRegistry(arguments[2:])
 	case "migrate":

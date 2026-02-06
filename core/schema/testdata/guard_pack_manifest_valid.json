@@ -6,7 +6,39 @@
   "pack_id": "pack_001",
   "run_id": "run_demo",
   "case_id": "INC-123",
+  "template_id": "soc2",
   "generated_at": "2026-02-05T00:00:30Z",
+  "control_index": [
+    {
+      "control_id": "CC6.6",
+      "title": "Change Management",
+      "evidence_paths": [
+        "trace_summary.json",
+        "approval_audit_01.json"
+      ]
+    }
+  ],
+  "evidence_pointers": [
+    {
+      "pointer_id": "ev_001",
+      "path": "runpack_run_demo.zip",
+      "type": "runpack",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "incident_window": {
+    "from": "2026-02-05T00:00:00Z",
+    "to": "2026-02-05T00:30:00Z",
+    "window_seconds": 1800,
+    "selection_anchor": "run_demo"
+  },
+  "rendered_artifacts": [
+    {
+      "format": "pdf",
+      "path": "summary.pdf",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
   "contents": [
     {
       "path": "runpack_run_demo.zip",

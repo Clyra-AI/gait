@@ -28,11 +28,15 @@ type BuildOptions struct {
 	RunpackPath             string
 	OutputPath              string
 	CaseID                  string
+	TemplateID              string
 	InventoryPaths          []string
 	TracePaths              []string
 	RegressPaths            []string
 	ApprovalAuditPaths      []string
 	CredentialEvidencePaths []string
+	ExtraEvidenceFiles      map[string][]byte
+	RenderPDF               bool
+	IncidentWindow          *schemaguard.Window
 	AutoDiscoverV12         bool
 	ProducerVersion         string
 }
@@ -150,17 +154,54 @@ func BuildPack(options BuildOptions) (BuildResult, error) {
 		evidenceFiles[fmt.Sprintf("credential_evidence_%02d.json", index+1)] = payload
 	}
 
-	contents := make([]schemaguard.PackEntry, 0, len(evidenceFiles))
-	for path, data := range evidenceFiles {
-		contents = append(contents, schemaguard.PackEntry{
-			Path:   path,
-			SHA256: sha256Hex(data),
-			Type:   inferPackEntryType(path),
-		})
+	if len(options.ExtraEvidenceFiles) > 0 {
+		extraPaths := make([]string, 0, len(options.ExtraEvidenceFiles))
+		for path := range options.ExtraEvidenceFiles {
+			extraPaths = append(extraPaths, path)
+		}
+		sort.Strings(extraPaths)
+		for _, path := range extraPaths {
+			normalizedPath, err := normalizePackPath(path)
+			if err != nil {
+				return BuildResult{}, fmt.Errorf("invalid extra evidence path %q: %w", path, err)
+			}
+			payload := options.ExtraEvidenceFiles[path]
+			if payload == nil {
+				payload = []byte{}
+			}
+			evidenceFiles[normalizedPath] = payload
+		}
 	}
-	sort.Slice(contents, func(i, j int) bool {
-		return contents[i].Path < contents[j].Path
-	})
+
+	templateID := normalizeTemplateID(options.TemplateID)
+	if options.RenderPDF {
+		pdfPayload, err := renderAuditSummaryPDF(auditSummaryPDFOptions{
+			RunID:         runpackData.Run.RunID,
+			CaseID:        strings.TrimSpace(options.CaseID),
+			TemplateID:    templateID,
+			GeneratedAt:   runpackData.Run.CreatedAt.UTC(),
+			EvidenceFiles: evidenceFiles,
+		})
+		if err != nil {
+			return BuildResult{}, fmt.Errorf("render summary pdf: %w", err)
+		}
+		evidenceFiles["summary.pdf"] = pdfPayload
+	}
+
+	contents := buildPackEntries(evidenceFiles)
+	controlIndex := buildControlIndex(templateID, contents)
+	evidencePointers := buildEvidencePointers(contents)
+	controlIndexPayload, err := marshalCanonicalJSON(controlIndex)
+	if err != nil {
+		return BuildResult{}, fmt.Errorf("encode control_index.json: %w", err)
+	}
+	evidencePointersPayload, err := marshalCanonicalJSON(evidencePointers)
+	if err != nil {
+		return BuildResult{}, fmt.Errorf("encode evidence_pointers.json: %w", err)
+	}
+	evidenceFiles["control_index.json"] = controlIndexPayload
+	evidenceFiles["evidence_pointers.json"] = evidencePointersPayload
+	contents = buildPackEntries(evidenceFiles)
 
 	manifestTime := runpackData.Run.CreatedAt.UTC()
 	if manifestTime.IsZero() {
@@ -177,6 +218,16 @@ func BuildPack(options BuildOptions) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("compute pack id: %w", err)
 	}
+
+	renderedArtifacts := []schemaguard.Rendered{}
+	if pdfPayload, ok := evidenceFiles["summary.pdf"]; ok {
+		renderedArtifacts = append(renderedArtifacts, schemaguard.Rendered{
+			Format: "pdf",
+			Path:   "summary.pdf",
+			SHA256: sha256Hex(pdfPayload),
+		})
+	}
+
 	manifest := schemaguard.PackManifest{
 		SchemaID:        "gait.guard.pack_manifest",
 		SchemaVersion:   "1.0.0",
@@ -185,7 +236,12 @@ func BuildPack(options BuildOptions) (BuildResult, error) {
 		PackID:          packID,
 		RunID:           runpackData.Run.RunID,
 		CaseID:          strings.TrimSpace(options.CaseID),
+		TemplateID:      templateID,
 		GeneratedAt:     manifestTime,
+		ControlIndex:    controlIndex,
+		EvidencePtrs:    evidencePointers,
+		IncidentWindow:  normalizeIncidentWindow(options.IncidentWindow),
+		Rendered:        renderedArtifacts,
 		Contents:        contents,
 	}
 
@@ -529,13 +585,30 @@ func normalizePaths(paths []string) []string {
 	return uniqueSortedStrings(normalized)
 }
 
+func buildPackEntries(evidenceFiles map[string][]byte) []schemaguard.PackEntry {
+	contents := make([]schemaguard.PackEntry, 0, len(evidenceFiles))
+	for path, data := range evidenceFiles {
+		contents = append(contents, schemaguard.PackEntry{
+			Path:   path,
+			SHA256: sha256Hex(data),
+			Type:   inferPackEntryType(path),
+		})
+	}
+	sort.Slice(contents, func(i, j int) bool {
+		return contents[i].Path < contents[j].Path
+	})
+	return contents
+}
+
 func inferPackEntryType(path string) string {
 	switch path {
 	case "runpack_summary.json":
 		return "runpack"
 	case "trace_summary.json":
 		return "trace"
-	case "regress_summary.json":
+	case "regress_summary.json", "control_index.json", "evidence_pointers.json", "policy_digests.json":
+		return "report"
+	case "summary.pdf":
 		return "report"
 	default:
 		return "evidence"

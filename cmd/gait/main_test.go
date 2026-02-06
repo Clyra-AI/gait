@@ -75,6 +75,18 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "guard", "verify", "--help"}); code != exitOK {
 		t.Fatalf("run guard verify help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "guard", "retain", "--help"}); code != exitOK {
+		t.Fatalf("run guard retain help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "guard", "encrypt", "--help"}); code != exitOK {
+		t.Fatalf("run guard encrypt help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "guard", "decrypt", "--help"}); code != exitOK {
+		t.Fatalf("run guard decrypt help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "incident", "pack", "--help"}); code != exitOK {
+		t.Fatalf("run incident pack help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "registry", "install", "--help"}); code != exitOK {
 		t.Fatalf("run registry install help: expected %d got %d", exitOK, code)
 	}

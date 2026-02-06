@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/guard/encrypted_artifact.schema.json",
+  "title": "Guard Encrypted Artifact",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "algorithm",
+    "key_source",
+    "nonce",
+    "ciphertext",
+    "plain_sha256",
+    "plain_size"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.guard.encrypted_artifact" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "algorithm": { "type": "string", "const": "aes-256-gcm" },
+    "key_source": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["env", "command"] },
+        "ref": { "type": "string" },
+        "command": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "nonce": { "type": "string" },
+    "ciphertext": { "type": "string" },
+    "plain_sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "plain_size": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}
