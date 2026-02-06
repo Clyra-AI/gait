@@ -1,12 +1,14 @@
 package gate
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	coreerrors "github.com/davidahmann/gait/core/errors"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 )
 
@@ -159,6 +161,44 @@ func TestEnforceRateLimitStateFilePermissions(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("expected state mode 0600 got %#o", info.Mode().Perm())
+	}
+}
+
+func TestEnforceRateLimitRecoversStaleLock(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "rate_state.json")
+	lockPath := statePath + ".lock"
+	staleMetadata := fmt.Sprintf("{\"schema_id\":\"gait.gate.rate_limit_lock\",\"schema_version\":\"1.0.0\",\"pid\":1,\"created_at\":\"%s\"}\n", time.Now().UTC().Add(-2*rateLimitLockStaleAfter).Format(time.RFC3339))
+	if err := os.WriteFile(lockPath, []byte(staleMetadata), 0o600); err != nil {
+		t.Fatalf("write stale lock: %v", err)
+	}
+	intent := rateLimitTestIntent()
+	limit := RateLimitPolicy{Requests: 1, Scope: "tool_identity", Window: "minute"}
+	decision, err := EnforceRateLimit(statePath, limit, intent, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("enforce with stale lock: %v", err)
+	}
+	if !decision.Allowed {
+		t.Fatalf("expected stale lock recovery to allow request: %#v", decision)
+	}
+}
+
+func TestWithRateLimitLockTimeoutCategory(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "rate_state.json")
+	lockPath := statePath + ".lock"
+	if err := os.WriteFile(lockPath, []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write lock file: %v", err)
+	}
+	_, err := withRateLimitLock(statePath, func() (RateLimitDecision, error) {
+		return RateLimitDecision{Allowed: true}, nil
+	})
+	if err == nil {
+		t.Fatalf("expected lock timeout error")
+	}
+	if coreerrors.CategoryOf(err) != coreerrors.CategoryStateContention {
+		t.Fatalf("expected state_contention category got %s", coreerrors.CategoryOf(err))
+	}
+	if !coreerrors.RetryableOf(err) {
+		t.Fatalf("expected contention timeout to be retryable")
 	}
 }
 

@@ -9,15 +9,17 @@ import (
 	"strings"
 	"time"
 
+	coreerrors "github.com/davidahmann/gait/core/errors"
 	"github.com/davidahmann/gait/core/fsx"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 )
 
 const (
-	rateLimitStateSchemaID = "gait.gate.rate_limit_state"
-	rateLimitStateSchemaV1 = "1.0.0"
-	rateLimitLockTimeout   = 3 * time.Second
-	rateLimitLockRetry     = 15 * time.Millisecond
+	rateLimitStateSchemaID  = "gait.gate.rate_limit_state"
+	rateLimitStateSchemaV1  = "1.0.0"
+	rateLimitLockTimeout    = 3 * time.Second
+	rateLimitLockRetry      = 15 * time.Millisecond
+	rateLimitLockStaleAfter = 15 * time.Second
 )
 
 type RateLimitDecision struct {
@@ -38,6 +40,13 @@ type persistedRateLimitState struct {
 type persistedRateLimitBucket struct {
 	Key   string `json:"key"`
 	Count int    `json:"count"`
+}
+
+type rateLimitLockMetadata struct {
+	SchemaID      string    `json:"schema_id"`
+	SchemaVersion string    `json:"schema_version"`
+	PID           int       `json:"pid"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 func EnforceRateLimit(statePath string, limit RateLimitPolicy, intent schemagate.IntentRequest, now time.Time) (RateLimitDecision, error) {
@@ -226,6 +235,17 @@ func withRateLimitLock(statePath string, fn func() (RateLimitDecision, error)) (
 		// #nosec G304 -- lock path is derived from explicit local state path configuration.
 		lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
+			if writeErr := writeRateLimitLockMetadata(lockFile, time.Now().UTC()); writeErr != nil {
+				_ = lockFile.Close()
+				_ = os.Remove(lockPath)
+				return RateLimitDecision{}, coreerrors.Wrap(
+					fmt.Errorf("write rate limit lock metadata: %w", writeErr),
+					coreerrors.CategoryIOFailure,
+					"rate_limit_lock_write_failed",
+					"check write permissions for the rate limit state directory",
+					false,
+				)
+			}
 			_ = lockFile.Close()
 			defer func() {
 				_ = os.Remove(lockPath)
@@ -233,11 +253,76 @@ func withRateLimitLock(statePath string, fn func() (RateLimitDecision, error)) (
 			return fn()
 		}
 		if !os.IsExist(err) {
-			return RateLimitDecision{}, fmt.Errorf("acquire rate limit lock: %w", err)
+			return RateLimitDecision{}, coreerrors.Wrap(
+				fmt.Errorf("acquire rate limit lock: %w", err),
+				coreerrors.CategoryIOFailure,
+				"rate_limit_lock_acquire_failed",
+				"check write permissions for the rate limit state directory",
+				false,
+			)
+		}
+		stale, staleErr := isRateLimitLockStale(lockPath, time.Now().UTC())
+		if staleErr == nil && stale {
+			_ = os.Remove(lockPath)
+			continue
 		}
 		if time.Now().After(deadline) {
-			return RateLimitDecision{}, fmt.Errorf("acquire rate limit lock: timeout")
+			return RateLimitDecision{}, coreerrors.Wrap(
+				fmt.Errorf("acquire rate limit lock: timeout"),
+				coreerrors.CategoryStateContention,
+				"rate_limit_lock_timeout",
+				"retry after contention subsides",
+				true,
+			)
 		}
 		time.Sleep(rateLimitLockRetry)
 	}
+}
+
+func writeRateLimitLockMetadata(lockFile *os.File, createdAt time.Time) error {
+	metadata := rateLimitLockMetadata{
+		SchemaID:      "gait.gate.rate_limit_lock",
+		SchemaVersion: "1.0.0",
+		PID:           os.Getpid(),
+		CreatedAt:     createdAt.UTC(),
+	}
+	encoded, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("marshal lock metadata: %w", err)
+	}
+	encoded = append(encoded, '\n')
+	if _, err := lockFile.Write(encoded); err != nil {
+		return fmt.Errorf("write lock metadata: %w", err)
+	}
+	if err := lockFile.Sync(); err != nil {
+		return fmt.Errorf("sync lock metadata: %w", err)
+	}
+	return nil
+}
+
+func isRateLimitLockStale(lockPath string, now time.Time) (bool, error) {
+	info, err := os.Stat(lockPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	lockAge := now.Sub(info.ModTime().UTC())
+	if lockAge > rateLimitLockStaleAfter {
+		return true, nil
+	}
+	// #nosec G304 -- lock path is derived from explicit local state path configuration.
+	content, err := os.ReadFile(lockPath)
+	if err != nil {
+		return false, err
+	}
+	metadata := rateLimitLockMetadata{}
+	if err := json.Unmarshal(content, &metadata); err != nil {
+		return lockAge > rateLimitLockStaleAfter, nil
+	}
+	if metadata.CreatedAt.IsZero() {
+		return lockAge > rateLimitLockStaleAfter, nil
+	}
+	return now.Sub(metadata.CreatedAt.UTC()) > rateLimitLockStaleAfter, nil
 }
