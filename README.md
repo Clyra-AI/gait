@@ -436,6 +436,7 @@ Python is an adoption layer only: serialization and subprocess boundary, no poli
 - Package: `sdk/python/gait/`
 - Tests: `sdk/python/tests/`
 - Canonical example: `examples/python/reference_adapter_demo.py`
+- Integration self-audit: `docs/integration_checklist.md`
 
 Minimum integration contract:
 
@@ -467,6 +468,7 @@ pre-commit install --hook-type pre-commit --hook-type pre-push
 - Security policy: `SECURITY.md`
 - Contributing: `CONTRIBUTING.md`
 - Code of conduct: `CODE_OF_CONDUCT.md`
+- Integration checklist: `docs/integration_checklist.md`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
 - Roadmap: `product/ROADMAP.md`
