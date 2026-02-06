@@ -47,6 +47,43 @@ GAIT_ALLOW_REAL_REPLAY=1 gait run replay run_demo --real-tools --unsafe-real-too
 
 CLI note: flags can be placed before or after positional arguments (for example `gait verify run_demo --json` and `gait verify --json run_demo` are both supported).
 
+## Onboarding Troubleshooting (Top 10)
+
+Run this first when onboarding fails:
+
+```bash
+gait doctor --json
+```
+
+Use these deterministic fixes for common failures:
+
+1. `gait: command not found`
+   `go build -o ./gait ./cmd/gait && export PATH="$PWD:$PATH"`
+2. `scripts/quickstart.sh: Permission denied`
+   `chmod +x scripts/quickstart.sh`
+3. `doctor` reports missing schema files
+   `git restore --source=HEAD -- schemas`
+4. `verify error: open ./gait-out/runpack_run_demo.zip: no such file`
+   `gait demo`
+5. `gate eval` missing policy or intent input
+   `gait policy test examples/policy-test/allow.yaml examples/policy-test/intent.json --json`
+6. `regress init` missing source runpack
+   `gait regress init --from run_demo --json`
+7. `regress run` fails because fixtures/config are missing
+   `gait regress init --from run_demo --json`
+8. `output directory not writable`
+   `mkdir -p ./gait-out && chmod u+rwx ./gait-out`
+9. pre-push hook fails on checks
+   `make lint && make test`
+10. integration examples missing from local checkout
+    `git restore --source=HEAD -- scripts/quickstart.sh examples/integrations`
+
+For adoption milestone visibility from local logs:
+
+```bash
+gait doctor adoption --from ./gait-out/adoption.jsonl --json
+```
+
 ## The Receipt You Paste Into Tickets
 
 The `ticket_footer` line is a copy/paste receipt designed for incident threads, PRs, and CI logs:

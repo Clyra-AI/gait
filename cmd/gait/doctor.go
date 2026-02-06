@@ -38,7 +38,7 @@ func runDoctor(arguments []string) int {
 		return runDoctorAdoption(arguments[1:])
 	}
 	if hasExplainFlag(arguments) {
-		return writeExplain("Diagnose local environment issues for Gait workflows and return stable fix suggestions.")
+		return writeExplain("Diagnose local environment and onboarding issues for Gait workflows and return stable fix suggestions.")
 	}
 	flagSet := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)

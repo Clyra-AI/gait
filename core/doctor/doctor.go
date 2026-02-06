@@ -3,6 +3,7 @@ package doctor
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -65,6 +66,13 @@ var requiredSchemaPaths = []string{
 	"schemas/v1/scout/adoption_event.schema.json",
 }
 
+var requiredOnboardingPaths = []string{
+	"scripts/quickstart.sh",
+	"examples/integrations/openai_agents/quickstart.py",
+	"examples/integrations/langchain/quickstart.py",
+	"examples/integrations/autogen/quickstart.py",
+}
+
 func Run(opts Options) Result {
 	workDir := strings.TrimSpace(opts.WorkDir)
 	if workDir == "" {
@@ -87,6 +95,8 @@ func Run(opts Options) Result {
 		checkWorkDirWritable(workDir),
 		checkOutputDir(outputDir),
 		checkSchemaFiles(workDir),
+		checkOnboardingBinary(workDir),
+		checkOnboardingAssets(workDir),
 		checkKeyConfig(opts.KeyMode, opts.KeyConfig),
 	}
 
@@ -232,6 +242,66 @@ func checkSchemaFiles(workDir string) Check {
 		Name:    "schema_files",
 		Status:  statusPass,
 		Message: "required schema files are present",
+	}
+}
+
+func checkOnboardingBinary(workDir string) Check {
+	if _, err := exec.LookPath("gait"); err == nil {
+		return Check{
+			Name:    "onboarding_binary",
+			Status:  statusPass,
+			Message: "gait binary is available on PATH",
+		}
+	}
+
+	localBinaryPath := filepath.Join(workDir, "gait")
+	info, err := os.Stat(localBinaryPath)
+	if err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0 {
+		return Check{
+			Name:    "onboarding_binary",
+			Status:  statusPass,
+			Message: "local gait binary is executable",
+		}
+	}
+
+	return Check{
+		Name:       "onboarding_binary",
+		Status:     statusWarn,
+		Message:    "gait binary not found; onboarding commands may fail",
+		FixCommand: "go build -o ./gait ./cmd/gait",
+	}
+}
+
+func checkOnboardingAssets(workDir string) Check {
+	missing := make([]string, 0, len(requiredOnboardingPaths))
+	for _, relativePath := range requiredOnboardingPaths {
+		fullPath := filepath.Join(workDir, filepath.FromSlash(relativePath))
+		info, err := os.Stat(fullPath)
+		if err != nil || info.IsDir() {
+			missing = append(missing, relativePath)
+			continue
+		}
+		if relativePath == "scripts/quickstart.sh" && info.Mode().Perm()&0o111 == 0 {
+			return Check{
+				Name:       "onboarding_assets",
+				Status:     statusWarn,
+				Message:    "scripts/quickstart.sh is not executable",
+				FixCommand: "chmod +x scripts/quickstart.sh",
+			}
+		}
+	}
+	if len(missing) > 0 {
+		return Check{
+			Name:       "onboarding_assets",
+			Status:     statusWarn,
+			Message:    fmt.Sprintf("missing onboarding assets: %s", strings.Join(missing, ",")),
+			FixCommand: "git restore --source=HEAD -- scripts/quickstart.sh examples/integrations",
+		}
+	}
+	return Check{
+		Name:    "onboarding_assets",
+		Status:  statusPass,
+		Message: "onboarding assets are present",
 	}
 }
 

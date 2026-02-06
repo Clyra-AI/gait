@@ -51,8 +51,14 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	if result.NonFixable {
 		t.Fatalf("expected non-fixable to be false")
 	}
-	if len(result.Checks) != 4 {
+	if len(result.Checks) != 6 {
 		t.Fatalf("unexpected checks count: %d", len(result.Checks))
+	}
+	if !checkStatus(result.Checks, "onboarding_binary", statusPass) {
+		t.Fatalf("expected onboarding_binary pass check")
+	}
+	if !checkStatus(result.Checks, "onboarding_assets", statusPass) {
+		t.Fatalf("expected onboarding_assets pass check")
 	}
 }
 
@@ -155,6 +161,60 @@ func TestDoctorHelperBranches(t *testing.T) {
 	})
 	if check.Status != statusPass {
 		t.Fatalf("prod mode valid keys should pass: %#v", check)
+	}
+}
+
+func TestOnboardingChecks(t *testing.T) {
+	workDir := t.TempDir()
+
+	check := checkOnboardingBinary(workDir)
+	if check.Status != statusWarn {
+		t.Fatalf("expected onboarding binary warning, got %#v", check)
+	}
+	if !strings.Contains(check.FixCommand, "go build -o ./gait ./cmd/gait") {
+		t.Fatalf("unexpected binary fix command: %#v", check)
+	}
+
+	check = checkOnboardingAssets(workDir)
+	if check.Status != statusWarn {
+		t.Fatalf("expected onboarding assets warning, got %#v", check)
+	}
+	if !strings.Contains(check.FixCommand, "git restore --source=HEAD -- scripts/quickstart.sh examples/integrations") {
+		t.Fatalf("unexpected assets fix command: %#v", check)
+	}
+
+	quickstartPath := filepath.Join(workDir, "scripts", "quickstart.sh")
+	if err := os.MkdirAll(filepath.Dir(quickstartPath), 0o750); err != nil {
+		t.Fatalf("mkdir scripts dir: %v", err)
+	}
+	if err := os.WriteFile(quickstartPath, []byte("#!/usr/bin/env bash\n"), 0o600); err != nil {
+		t.Fatalf("write quickstart: %v", err)
+	}
+	for _, relativePath := range []string{
+		"examples/integrations/openai_agents/quickstart.py",
+		"examples/integrations/langchain/quickstart.py",
+		"examples/integrations/autogen/quickstart.py",
+	} {
+		fullPath := filepath.Join(workDir, filepath.FromSlash(relativePath))
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
+			t.Fatalf("mkdir integration dir: %v", err)
+		}
+		if err := os.WriteFile(fullPath, []byte("print('ok')\n"), 0o600); err != nil {
+			t.Fatalf("write integration quickstart: %v", err)
+		}
+	}
+
+	check = checkOnboardingAssets(workDir)
+	if check.Status != statusWarn || !strings.Contains(check.FixCommand, "chmod +x scripts/quickstart.sh") {
+		t.Fatalf("expected onboarding quickstart chmod warning, got %#v", check)
+	}
+
+	if err := os.Chmod(quickstartPath, 0o755); err != nil {
+		t.Fatalf("chmod quickstart: %v", err)
+	}
+	check = checkOnboardingAssets(workDir)
+	if check.Status != statusPass {
+		t.Fatalf("expected onboarding assets pass, got %#v", check)
 	}
 }
 
