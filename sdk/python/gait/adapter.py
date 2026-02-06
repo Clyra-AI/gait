@@ -74,11 +74,13 @@ class ToolAdapter:
     ) -> AdapterOutcome:
         decision = self.gate_intent(intent=intent, cwd=cwd, trace_out=trace_out)
 
-        if decision.verdict in {"block", "require_approval"}:
+        if not decision.ok:
             raise GateEnforcementError(decision)
+        if decision.verdict == "allow":
+            return AdapterOutcome(decision=decision, executed=True, result=executor(intent))
         if decision.verdict == "dry_run":
             return AdapterOutcome(decision=decision, executed=False, result=None)
-        return AdapterOutcome(decision=decision, executed=True, result=executor(intent))
+        raise GateEnforcementError(decision)
 
     def capture_runpack(self, *, cwd: str | Path | None = None) -> DemoCapture:
         return capture_demo_runpack(gait_bin=self.gait_bin, cwd=cwd)

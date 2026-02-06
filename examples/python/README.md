@@ -7,6 +7,12 @@ This example shows the recommended high-risk execution path:
 3. Execute side effects only after an `allow` verdict.
 4. Capture a runpack and create a regress fixture for CI.
 
+Non-negotiable wrapper rules:
+
+- Only wrapped tools are registered with the agent.
+- Any non-`allow` decision blocks execution (fail-closed).
+- Approval tokens and keys stay outside prompt/model context.
+
 Run from repo root:
 
 ```bash

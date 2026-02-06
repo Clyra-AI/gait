@@ -435,6 +435,14 @@ Python is an adoption layer only: serialization and subprocess boundary, no poli
 
 - Package: `sdk/python/gait/`
 - Tests: `sdk/python/tests/`
+- Canonical example: `examples/python/reference_adapter_demo.py`
+
+Minimum integration contract:
+
+- Expose only wrapped tools to the agent runtime.
+- Call `ToolAdapter.execute(...)` for every side-effecting tool invocation.
+- Fail closed: do not execute unless gate verdict is explicitly `allow`.
+- Keep credentials out of model context; pass approvals and key material through process/env boundaries only.
 
 ## Development
 
