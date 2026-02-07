@@ -1,182 +1,518 @@
-DO NOT IMPLEMENT YET!!!
+# PLAN_ENT: Fleet Operator Platform (ENT v2)
 
-# PLAN_ENT: Enterprise Expansion Roadmap (Post-OSS)
+Date: 2026-02-07
+Source of truth: `product/PRD.md`, `product/ROADMAP.md`, `product/PLAN_v1.6.md`, current OSS implementation
+Scope: enterprise add-on roadmap after OSS wedge maturity. This is a strategic execution plan, not immediate OSS scope.
 
-## Purpose
-Define a coherent enterprise roadmap that preserves the OSS contract and introduces paid capabilities as additive infrastructure, not a replacement runtime.
+---
+
+## Thesis
+
+Gait Enterprise is the fleet operator platform for agent actions.
+
+It manages policy, safety, and reliability across many teams and agent stacks by combining three durable primitives:
+- execution-boundary enforcement (`gate`)
+- verifiable artifact standard (`runpack` plus `trace`)
+- incident-to-regression safety loop (`regress`)
+
+Enterprise value is additive control-plane infrastructure, not a replacement runtime.
+
+---
 
 ## Product Position
-Gait enterprise is a buyer-hosted control-plane add-on for production agent governance:
-- policy distribution and approvals
-- evidence retention and compliance workflows
-- fleet-level operations across many repos/environments
 
-Gait OSS remains the adoption and trust wedge:
-- runpack, regress, gate basics, doctor, offline verification
+### OSS v1.x (wedge)
+
+OSS remains the trust engine:
+- offline-first CLI
+- deterministic artifacts and verification
+- local enforcement and regressions
+- vendor-neutral integration contract
+
+### ENT v2 (platform)
+
+Enterprise adds fleet operations:
+- centralized policy distribution with RBAC
+- fleet posture and compliance metrics
+- retention, legal hold, and evidence workflows at scale
+- incident and drift signal prioritization across repos and environments
+
+---
 
 ## Non-Negotiable Constraints
-- Artifact-first permanence: runpack and gate trace artifacts remain the core contract.
-- OSS continuity: offline verification must remain independently possible.
-- Additive architecture: enterprise services consume and index artifacts; they do not redefine them.
-- Buyer-hosted model: no required vendor-hosted SaaS.
-- Licensing orthogonality: entitlement checks do not leak into artifact semantics.
 
-## Current State Baseline (for planning only)
-- Least privilege is partial: credential broker exists (`stub|env|command`) but is policy/flag driven, not globally mandatory.
-- Tamper evidence is partial: signatures are supported but not universally required across all artifact paths.
-- Integrations are CLI-first: no native managed IAM/ticketing/SIEM connector layer yet.
-- Replay safety is stub-first: real-tool replay remains intentionally constrained.
+- Artifact contract permanence: enterprise cannot redefine runpack/trace semantics.
+- Offline verification continuity: enterprise outputs must remain independently verifiable.
+- Additive architecture: enterprise consumes indexed artifacts; it does not become a required action executor.
+- Vendor neutrality: first-class support for multi-model, multi-framework, multi-cloud environments.
+- Buyer-hosted first: default deployment path is customer-controlled infrastructure.
 
-## Stage A: Expansion Triggers (A8)
-Objective: define when to move from pure self-serve to sales-assisted engagement.
+---
 
-### Story A8.1: PQL thresholds
+## Why This Wins
+
+Enterprises with agent proliferation need one operating model for:
+- who can do what
+- under what policy and approval
+- with what proof
+- and with what drift risk
+
+The budget category is not "prompt monitoring." It is production action control and evidence operations for autonomous systems.
+
+---
+
+## Current Baseline (Observed)
+
+Strong OSS foundation already present:
+- gate/regress/runpack/trace command path in `cmd/gait/*`
+- stable schemas and types for intent, result, trace, runpack in `core/schema/v1/*`
+- CI and acceptance suites across OS matrix in `.github/workflows/ci.yml`
+- adoption and hardening docs and scripts in `docs/` and `scripts/`
+
+Enterprise gaps (expected):
+- no multi-tenant control-plane service
+- no org-level RBAC and policy distribution service
+- no fleet-scale signal engine and incident clustering service
+- no enterprise artifact registry and retention APIs
+- no marketplace entitlement and enterprise deployment packaging
+
+---
+
+## Entry Gate (When to Start ENT v2 Build)
+
+Proceed only when OSS wedge signals are strong:
+- `>= 10` active repos using Gait weekly
+- `>= 3` teams running `regress` in CI
+- `>= 1` repeatable security/compliance review using runpack plus trace artifacts
+- stable primitive contract for two consecutive minor releases
+
+---
+
+## v2 Architecture Model
+
+### Plane 1: Execution Plane (distributed, OSS)
+
+Runs in customer repos/runtimes:
+- wrapper/sidecar emits intent
+- gate evaluates locally
+- runpack/trace artifacts generated locally
+- regress runs locally and in CI
+
+### Plane 2: Control Plane (enterprise add-on)
+
+Runs buyer-hosted:
+- policy lifecycle and rollout orchestration
+- RBAC and approval governance
+- posture analytics and incident prioritization
+- artifact indexing and retention control
+
+### Plane 3: Evidence Plane (shared contract)
+
+Immutable record system:
+- artifact registry/index over runpack/trace/regress outputs
+- verification and provenance metadata
+- compliance exports and audit bundles
+
+---
+
+## v2.0 Objectives
+
+1. Centralize governance without breaking OSS autonomy.
+2. Make fleet posture and drift legible and actionable.
+3. Convert incident toil into deterministic prioritized operations.
+4. Preserve vendor-neutral, buyer-hosted deployment posture.
+
+---
+
+## Epic E0: Enterprise Readiness and Design Locks
+
+Objective: lock interfaces and boundaries before implementation.
+
+### Story E0.1: Enterprise capability boundary spec
+
 Tasks:
-- define measurable PQL criteria:
-  - `>= N` active repos
-  - `>= N` high-risk gated tools
-  - `>= N` weekly regress runs
-  - adoption of approval/evidence artifacts
-- define handoff protocol from self-serve to enterprise motion
+- Define exact OSS vs ENT boundary in one contract doc.
+- Specify what data crosses execution plane to control plane.
+
+Repo paths:
+- `docs/enterprise/boundary.md`
+- `CONTRIBUTING.md`
 
 Acceptance criteria:
-- PQL rules are explicit, queryable, and stable from product signals.
-- Handoff path has owners, SLA, and qualification checklist.
+- No enterprise capability requires changing OSS artifact semantics.
 
-### Story A8.2: Paid boundary packaging
+### Story E0.2: Control-plane API contracts
+
 Tasks:
-- document OSS vs paid boundary:
-  - OSS core: runpack/regress/gate basics/doctor
-  - enterprise: policy distribution, governance workflows, compliance templates, fleet controls
-- keep boundary value-aligned, not artificially restrictive
+- Define API contracts for:
+  - policy distribution
+  - approval governance
+  - artifact indexing
+  - posture queries
+- Include versioning and backward-compatibility rules.
+
+Repo paths:
+- `docs/enterprise/apis/`
+- `schemas/` (new enterprise API schemas if needed)
 
 Acceptance criteria:
-- packaging logic maps to real adoption pain points.
-- no paid feature weakens offline artifact verification in OSS.
+- APIs are explicit enough for independent client/server implementation.
 
-### Story A8.3: Enterprise onboarding blueprint
+### Story E0.3: Threat model and trust boundaries
+
 Tasks:
-- define 30-day pilot blueprint:
-  - pilot repo selection
-  - policy governance ownership
-  - approval key ownership
-  - evidence lifecycle and retention policy
+- Add enterprise threat model for control plane and data flows.
+- Define trust boundaries between execution and control planes.
+
+Repo paths:
+- `docs/enterprise/threat_model.md`
 
 Acceptance criteria:
-- pilot runbook can be executed by one platform team with clear success metrics.
+- Security review can identify trust assumptions and residual risks.
 
-## Stage Gate: Entry Criteria for v2.0
-Proceed to v2.0 only when:
-- A8.1 through A8.3 are complete.
-- at least one repeatable enterprise pilot pattern exists.
-- OSS artifact contract remains stable and trusted.
+---
 
-## v2.0 Objective
-Move from single-repo tooling to enterprise control-plane infrastructure while keeping artifacts as the immutable contract.
+## Epic E1: Multi-Tenant Control Plane Foundation
 
-## v2.0 Scope (Phased)
+Objective: create tenant-safe platform core.
 
-### Phase E1: Control Plane Foundation
-Deliverables:
-- centralized policy/artifact registry (buyer-hosted deployment)
-- org/project tenancy model
-- RBAC for policy authors, approvers, auditors
-- fleet policy distribution model
+### Story E1.1: Tenancy model and isolation
+
+Tasks:
+- Implement org/project/environment tenancy model.
+- Define isolation guarantees for data and policy operations.
 
 Acceptance criteria:
-- policies can be managed centrally and distributed across multiple repos/environments.
-- artifact verification remains possible with offline CLI tooling.
+- Cross-tenant access is denied by design and verified in tests.
 
-### Phase E2: Identity and Approval Governance
-Deliverables:
-- enterprise identity integration (OIDC-first)
-- signed operator identities for approvals/policy changes
-- approval workflow primitives for high-risk actions
+### Story E1.2: RBAC core
 
-Acceptance criteria:
-- approval provenance is attributable to enterprise identities.
-- policy-change and approval audit trails are deterministic and exportable.
-
-### Phase E3: Evidence, Retention, and Compliance Operations
-Deliverables:
-- retention policy engine for long-lived evidence management
-- encryption/KMS backend abstraction
-- compliance-ready evidence packaging templates
+Tasks:
+- Implement roles for:
+  - policy author
+  - approver
+  - auditor
+  - platform admin
+- Enforce least-privilege permissions per role.
 
 Acceptance criteria:
-- evidence lifecycle can be centrally governed without changing artifact schemas.
-- retention and key ownership can be mapped to enterprise controls.
+- Privilege tests cover deny and allow paths for every role.
 
-### Phase E4: Fleet Operations and Integrations
-Deliverables:
-- fleet rollout orchestration and posture reporting
-- prioritized connector set (policy-governed) for enterprise surfaces
-- operational exports for enterprise audit/security workflows
+### Story E1.3: Audit log foundation
+
+Tasks:
+- Add immutable audit events for policy changes, approvals, and retention actions.
 
 Acceptance criteria:
-- multiple teams can operate under centralized governance with distributed enforcement.
-- posture and rollout state are reportable at fleet level.
+- Every privileged operation emits a signed or tamper-evident audit event.
 
-### Phase E5: Packaging and Commercialization
-Deliverables:
-- enterprise add-on packaging as Kubernetes appliance (`Helm` first)
-- entitlement provider interface:
+---
+
+## Epic E2: Policy Distribution and Rollout Orchestration
+
+Objective: manage policy at fleet scale without service disruption.
+
+### Story E2.1: Policy registry and version graph
+
+Tasks:
+- Build central policy registry with immutable versions and digests.
+- Support environment pinning and rollback.
+
+Acceptance criteria:
+- Teams can pin to known-good policy versions and rollback deterministically.
+
+### Story E2.2: Staged rollout engine
+
+Tasks:
+- Support rollout stages:
+  - observe
+  - dry_run
+  - enforce
+- Add blast-radius controls and rollback triggers.
+
+Acceptance criteria:
+- Rollouts can target subsets of repos/environments safely.
+
+### Story E2.3: Policy conformance status
+
+Tasks:
+- Report per-repo conformance against required policy baseline.
+
+Acceptance criteria:
+- Non-conforming repos are identifiable with remediation guidance.
+
+---
+
+## Epic E3: Identity, Approvals, and Governance
+
+Objective: enterprise-grade accountability for privileged actions.
+
+### Story E3.1: Enterprise identity integration
+
+Tasks:
+- Add OIDC-first identity integration for operator attribution.
+- Map identity groups to RBAC roles.
+
+Acceptance criteria:
+- Approval and policy actions are attributable to enterprise identities.
+
+### Story E3.2: Approval governance service
+
+Tasks:
+- Manage approval policies (scope, TTL, quorum, separation-of-duties).
+- Validate approval chain policy centrally.
+
+Acceptance criteria:
+- High-risk actions require configured approval policy compliance.
+
+### Story E3.3: Key and signing governance
+
+Tasks:
+- Add key lifecycle controls for enterprise signing and verification paths.
+- Define rotation and revocation behavior.
+
+Acceptance criteria:
+- Key rotation does not break verification continuity.
+
+---
+
+## Epic E4: Fleet Posture and Coverage
+
+Objective: provide clear fleet-level control posture.
+
+### Story E4.1: Fleet coverage model
+
+Tasks:
+- Aggregate coverage metrics:
+  - gated tool coverage
+  - high-risk ungated paths
+  - approval-required path health
+
+Acceptance criteria:
+- Leadership and security can view posture by org/project/environment.
+
+### Story E4.2: Compliance posture views
+
+Tasks:
+- Build posture queries and exportable reports for audit/compliance workflows.
+
+Acceptance criteria:
+- Reports map directly to evidence and policy versions, not inferred summaries.
+
+### Story E4.3: Drift and regression posture
+
+Tasks:
+- Track regress pass/fail rates and drift trends by team.
+
+Acceptance criteria:
+- Teams can identify recurring drift hotspots from fleet views.
+
+---
+
+## Epic E5: Fleet Signal Engine
+
+Objective: reduce noise and prioritize what matters now.
+
+### Story E5.1: Incident family deduplication
+
+Tasks:
+- Cluster events/runs by deterministic fingerprint.
+- Surface one canonical incident family record.
+
+Acceptance criteria:
+- Duplicate incidents collapse into stable families with representative artifacts.
+
+### Story E5.2: Drift attribution engine
+
+Tasks:
+- Attribute drift to deterministic causes:
+  - policy change
+  - tool output/schema change
+  - reference set change
+  - config/runtime change
+
+Acceptance criteria:
+- Top drift causes are explicit and actionable.
+
+### Story E5.3: Priority scoring
+
+Tasks:
+- Rank by blast radius and privilege posture, not alert volume.
+- Use explainable deterministic scoring inputs.
+
+Acceptance criteria:
+- Critical destructive/high-risk patterns outrank low-risk noisy changes.
+
+### Story E5.4: Next-best-fix automation
+
+Tasks:
+- Auto-suggest:
+  - policy fixture additions
+  - regress fixture additions
+  - rollback candidates
+
+Acceptance criteria:
+- Suggestions are reproducible and linked to artifacts.
+
+---
+
+## Epic E6: Artifact Registry and Evidence Operations
+
+Objective: run evidence workflows at scale.
+
+### Story E6.1: Artifact index and retrieval API
+
+Tasks:
+- Build index over runpack/trace/regress artifacts with digest integrity pointers.
+
+Acceptance criteria:
+- Artifacts are queryable by run_id, digest, policy version, and incident family.
+
+### Story E6.2: Retention and legal hold
+
+Tasks:
+- Add retention classes, immutable hold rules, and deletion reports.
+
+Acceptance criteria:
+- Retention actions are policy-governed and auditable.
+
+### Story E6.3: Compliance bundle automation
+
+Tasks:
+- Generate scenario-based compliance bundles from indexed artifacts.
+
+Acceptance criteria:
+- Compliance evidence can be produced without manual artifact hunting.
+
+---
+
+## Epic E7: Incident Automation and Workflow Integrations
+
+Objective: integrate enterprise operations without locking runtime behavior.
+
+### Story E7.1: Ticketing and SOAR integration adapters
+
+Tasks:
+- Add outbound integration adapters that attach canonical receipts and evidence references.
+
+Acceptance criteria:
+- Integrations consume standard artifact references, not custom payload contracts.
+
+### Story E7.2: SIEM and log export connectors
+
+Tasks:
+- Export normalized posture and incident signals to SIEM pipelines.
+
+Acceptance criteria:
+- Export format is stable and documented.
+
+### Story E7.3: Change-management gates
+
+Tasks:
+- Add deployment gate checks for policy conformance and regression posture.
+
+Acceptance criteria:
+- Risky rollouts can be blocked automatically by control-plane policy.
+
+---
+
+## Epic E8: Deployment and Commercial Packaging
+
+Objective: deliver buyer-hosted enterprise with low procurement friction.
+
+### Story E8.1: Kubernetes appliance packaging
+
+Tasks:
+- Package enterprise control plane as deployable Kubernetes stack (`Helm` first).
+
+Acceptance criteria:
+- Enterprise install is repeatable in customer-owned environments.
+
+### Story E8.2: Entitlement architecture
+
+Tasks:
+- Support entitlement providers:
   - marketplace entitlement
   - offline signed license file
-- pricing plans aligned to enterprise procurement motion
+- Keep entitlement checks orthogonal to artifact semantics.
 
 Acceptance criteria:
-- installation is low-ops in customer environment.
-- entitlement model does not alter artifact compatibility or verification semantics.
+- Licensing does not alter runtime artifact compatibility.
 
-## Deployment and GTM Model
+### Story E8.3: Marketplace motion (AWS first)
 
-### Product packaging
-- `Gait OSS Core` (free): CLI + schemas + runpack/regress/gate basics/doctor.
-- `Gait Enterprise Add-on` (paid): fleet governance features, delivered buyer-hosted.
+Tasks:
+- Publish deployment/procurement runbook for AWS marketplace first, then Azure/GCP.
 
-### Commercial model
-- free OSS core is permanent.
-- paid enterprise capabilities are enabled via entitlement.
-- trial path should exist where marketplace mechanics support it.
+Acceptance criteria:
+- Procurement can complete without custom architecture branches.
 
-### Cloud sequence
-1. AWS first (primary wedge): Kubernetes appliance + marketplace procurement path.
-2. Azure second: same architecture and entitlement abstraction.
-3. GCP third: same architecture and entitlement abstraction.
+---
 
-## Architectural Rules to Prevent Refactors
-- Storage backend abstraction: local FS, object storage, future vaults.
-- KMS backend abstraction: provider-agnostic key operations.
-- Identity backend abstraction: OIDC-first, cloud-provider mapping behind interface.
-- Product logic branches on capability interfaces, not cloud vendor names.
+## Epic E9: Reliability and Security Hardening for Control Plane
 
-## Explicit Non-Goals (Current Plan)
-- building a large always-on hosted SaaS control plane.
-- replacing OSS artifact contracts with proprietary runtime formats.
-- implementing all enterprise connectors in a single release.
+Objective: make enterprise platform operationally trustworthy.
 
-## 30-Day Enterprise Pilot Blueprint (Target Shape)
-- Week 1: scope and governance setup
-  - pick pilot repos/workflows
-  - assign policy and approval owners
-- Week 2: enforcement and evidence setup
-  - enable policy distribution
-  - define approval and evidence lifecycle paths
-- Week 3: operational hardening
-  - run failure drills and replay/verification drills
-  - validate reporting/retention behaviors
-- Week 4: decision checkpoint
-  - assess outcomes vs success criteria
-  - decide expand/iterate/stop
+### Story E9.1: Control-plane SLOs and runbooks
 
-Pilot success criteria:
-- measurable reduction in uncontrolled high-risk actions
-- reproducible evidence path for security/audit questions
-- no regression in OSS verification guarantees
+Tasks:
+- Define SLOs for policy distribution, approval operations, and evidence query latency.
+- Add incident runbooks.
 
-## Decision Summary
-- Keep OSS as the trust and adoption engine.
-- Make enterprise an additive, buyer-hosted control plane.
-- Use marketplace procurement as distribution wedge, not as architecture driver.
-- Keep artifacts and offline verification as permanent product contract.
+Acceptance criteria:
+- SLO breaches are measurable and actionable.
+
+### Story E9.2: Disaster recovery and backup
+
+Tasks:
+- Add backup/restore strategy for control-plane state and artifact indexes.
+
+Acceptance criteria:
+- Recovery process is tested and documented.
+
+### Story E9.3: Security hardening and external review
+
+Tasks:
+- Add platform penetration testing and security controls verification process.
+
+Acceptance criteria:
+- External review findings are tracked to closure before GA.
+
+---
+
+## Monetization Model
+
+- Enterprise platform subscription by fleet scale and governance capabilities.
+- Retention and evidence storage tiers for long-lived operations.
+- Premium signal analytics and incident automation modules.
+
+Pricing principle:
+- charge for fleet governance and enterprise operations value.
+- do not degrade OSS core verification and enforcement trust surface.
+
+---
+
+## Moat Statement
+
+Durable moat is operational control at scale on top of the runpack and trace standard:
+- execution chokepoint neutrality across suites
+- independent verifiability of artifacts
+- deterministic regression and incident signal loops
+
+---
+
+## Explicit Non-Goals (ENT v2)
+
+- replacing OSS CLI with a hosted-only workflow
+- proprietary artifact formats that break OSS verification
+- dashboard-first development without action-level control outcomes
+
+---
+
+## v2 GA Exit Criteria
+
+- Multi-tenant RBAC and policy distribution proven in production pilots.
+- Fleet posture and signal engine reduce actionable queue size measurably.
+- Compliance/evidence workflows operate from indexed artifacts with retention controls.
+- Buyer-hosted deployment and entitlement paths are stable and supportable.
+- OSS and enterprise artifact verification interoperability remains intact.
