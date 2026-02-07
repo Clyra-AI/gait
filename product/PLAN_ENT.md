@@ -1,208 +1,182 @@
 DO NOT IMPLEMENT YET!!!
 
-## Epic A8: Enterprise Expansion Triggers (Post-Activation) 
+# PLAN_ENT: Enterprise Expansion Roadmap (Post-OSS)
 
-Objective: define when to transition from pure self-serve to sales-assisted motion.
+## Purpose
+Define a coherent enterprise roadmap that preserves the OSS contract and introduces paid capabilities as additive infrastructure, not a replacement runtime.
 
-### Story A8.1: Product-qualified lead (PQL) thresholds
+## Product Position
+Gait enterprise is a buyer-hosted control-plane add-on for production agent governance:
+- policy distribution and approvals
+- evidence retention and compliance workflows
+- fleet-level operations across many repos/environments
 
+Gait OSS remains the adoption and trust wedge:
+- runpack, regress, gate basics, doctor, offline verification
+
+## Non-Negotiable Constraints
+- Artifact-first permanence: runpack and gate trace artifacts remain the core contract.
+- OSS continuity: offline verification must remain independently possible.
+- Additive architecture: enterprise services consume and index artifacts; they do not redefine them.
+- Buyer-hosted model: no required vendor-hosted SaaS.
+- Licensing orthogonality: entitlement checks do not leak into artifact semantics.
+
+## Current State Baseline (for planning only)
+- Least privilege is partial: credential broker exists (`stub|env|command`) but is policy/flag driven, not globally mandatory.
+- Tamper evidence is partial: signatures are supported but not universally required across all artifact paths.
+- Integrations are CLI-first: no native managed IAM/ticketing/SIEM connector layer yet.
+- Replay safety is stub-first: real-tool replay remains intentionally constrained.
+
+## Stage A: Expansion Triggers (A8)
+Objective: define when to move from pure self-serve to sales-assisted engagement.
+
+### Story A8.1: PQL thresholds
 Tasks:
-- Define PQL criteria:
-  - >= N active repos
-  - >= N high-risk gated tools
-  - >= N weekly regress runs
+- define measurable PQL criteria:
+  - `>= N` active repos
+  - `>= N` high-risk gated tools
+  - `>= N` weekly regress runs
   - adoption of approval/evidence artifacts
-- Document handoff protocol for enterprise engagement.
+- define handoff protocol from self-serve to enterprise motion
 
 Acceptance criteria:
-- PQL rules are explicit and measured from product signals.
+- PQL rules are explicit, queryable, and stable from product signals.
+- Handoff path has owners, SLA, and qualification checklist.
 
 ### Story A8.2: Paid boundary packaging
-
 Tasks:
-- Document free vs paid boundary:
+- document OSS vs paid boundary:
   - OSS core: runpack/regress/gate basics/doctor
   - enterprise: policy distribution, governance workflows, compliance templates, fleet controls
-- Keep boundary aligned with user value, not artificial limits.
+- keep boundary value-aligned, not artificially restrictive
 
 Acceptance criteria:
-- Pricing/packaging logic is coherent with actual adoption behavior.
+- packaging logic maps to real adoption pain points.
+- no paid feature weakens offline artifact verification in OSS.
 
 ### Story A8.3: Enterprise onboarding blueprint
-
 Tasks:
-- Add enterprise rollout blueprint:
+- define 30-day pilot blueprint:
   - pilot repo selection
-  - policy governance owners
+  - policy governance ownership
   - approval key ownership
-  - evidence lifecycle
+  - evidence lifecycle and retention policy
 
 Acceptance criteria:
-- Enterprise team can run a 30-day pilot with clear success criteria.
+- pilot runbook can be executed by one platform team with clear success metrics.
 
----
+## Stage Gate: Entry Criteria for v2.0
+Proceed to v2.0 only when:
+- A8.1 through A8.3 are complete.
+- at least one repeatable enterprise pilot pattern exists.
+- OSS artifact contract remains stable and trusted.
 
-v2.0: Enterprise ACP Platform Expansion
+## v2.0 Objective
+Move from single-repo tooling to enterprise control-plane infrastructure while keeping artifacts as the immutable contract.
 
-Primary objective
-Move from “tooling for artifacts” to “control plane infrastructure,” while keeping artifacts as the contract.
+## v2.0 Scope (Phased)
 
-Key capabilities
-	1.	Central policy and artifact registry (optional hosted, self-hostable)
+### Phase E1: Control Plane Foundation
+Deliverables:
+- centralized policy/artifact registry (buyer-hosted deployment)
+- org/project tenancy model
+- RBAC for policy authors, approvers, auditors
+- fleet policy distribution model
 
-	•	Multi-tenant registry for policy packs, adapters, graders, and signed releases.
-	•	Organization RBAC for policy authors, approvers, and auditors.
-	•	Fleet policy distribution to many environments.
+Acceptance criteria:
+- policies can be managed centrally and distributed across multiple repos/environments.
+- artifact verification remains possible with offline CLI tooling.
 
-	2.	Enterprise identity integration
+### Phase E2: Identity and Approval Governance
+Deliverables:
+- enterprise identity integration (OIDC-first)
+- signed operator identities for approvals/policy changes
+- approval workflow primitives for high-risk actions
 
-	•	SSO and RBAC bindings to enterprise identity providers.
-	•	Signed operator identities for approvals and policy changes.
+Acceptance criteria:
+- approval provenance is attributable to enterprise identities.
+- policy-change and approval audit trails are deterministic and exportable.
 
-	3.	Multi-language capture surfaces
+### Phase E3: Evidence, Retention, and Compliance Operations
+Deliverables:
+- retention policy engine for long-lived evidence management
+- encryption/KMS backend abstraction
+- compliance-ready evidence packaging templates
 
-	•	Additional SDKs beyond Python for intent capture and gate invocation.
-	•	Maintain “decision in Go core” invariant.
+Acceptance criteria:
+- evidence lifecycle can be centrally governed without changing artifact schemas.
+- retention and key ownership can be mapped to enterprise controls.
 
-	4.	Advanced minimization and replay determinism
+### Phase E4: Fleet Operations and Integrations
+Deliverables:
+- fleet rollout orchestration and posture reporting
+- prioritized connector set (policy-governed) for enterprise surfaces
+- operational exports for enterprise audit/security workflows
 
-	•	Smarter minimization with deterministic failure predicates and step selection.
-	•	Differential replay to isolate root causes across model and prompt versions.
+Acceptance criteria:
+- multiple teams can operate under centralized governance with distributed enforcement.
+- posture and rollout state are reportable at fleet level.
 
-	5.	Commercial packaging options
+### Phase E5: Packaging and Commercialization
+Deliverables:
+- enterprise add-on packaging as Kubernetes appliance (`Helm` first)
+- entitlement provider interface:
+  - marketplace entitlement
+  - offline signed license file
+- pricing plans aligned to enterprise procurement motion
 
-	•	Enterprise support, policy registry, approval workflows, credential brokering integrations, long retention, compliance templates, and fleet management as the monetizable layer.
+Acceptance criteria:
+- installation is low-ops in customer environment.
+- entitlement model does not alter artifact compatibility or verification semantics.
 
-Acceptance criteria
-	•	Enterprises can run Gait as a platform across multiple teams and environments with centralized control and distributed enforcement.
-	•	Artifact verification remains possible offline and independently.
+## Deployment and GTM Model
 
+### Product packaging
+- `Gait OSS Core` (free): CLI + schemas + runpack/regress/gate basics/doctor.
+- `Gait Enterprise Add-on` (paid): fleet governance features, delivered buyer-hosted.
 
-Reality check
+### Commercial model
+- free OSS core is permanent.
+- paid enterprise capabilities are enabled via entitlement.
+- trial path should exist where marketplace mechanics support it.
 
-If customers “do not want to host anything,” you only have two viable outcomes:
-	1.	Vendor-hosted SaaS. You said no.
-	2.	Customer-hosted deployment that feels “managed” (low ops, uses managed cloud services, upgrades are boring, uninstall is easy).
+### Cloud sequence
+1. AWS first (primary wedge): Kubernetes appliance + marketplace procurement path.
+2. Azure second: same architecture and entitlement abstraction.
+3. GCP third: same architecture and entitlement abstraction.
 
-In enterprise security, the second is often preferred anyway. They want the control plane in their account and under their keys.
+## Architectural Rules to Prevent Refactors
+- Storage backend abstraction: local FS, object storage, future vaults.
+- KMS backend abstraction: provider-agnostic key operations.
+- Identity backend abstraction: OIDC-first, cloud-provider mapping behind interface.
+- Product logic branches on capability interfaces, not cloud vendor names.
 
-So your strategy should be: buyer-hosted, marketplace-billed, low-ops appliance.
+## Explicit Non-Goals (Current Plan)
+- building a large always-on hosted SaaS control plane.
+- replacing OSS artifact contracts with proprietary runtime formats.
+- implementing all enterprise connectors in a single release.
 
-Recommended tech and distribution strategy
+## 30-Day Enterprise Pilot Blueprint (Target Shape)
+- Week 1: scope and governance setup
+  - pick pilot repos/workflows
+  - assign policy and approval owners
+- Week 2: enforcement and evidence setup
+  - enable policy distribution
+  - define approval and evidence lifecycle paths
+- Week 3: operational hardening
+  - run failure drills and replay/verification drills
+  - validate reporting/retention behaviors
+- Week 4: decision checkpoint
+  - assess outcomes vs success criteria
+  - decide expand/iterate/stop
 
-1) Product packaging
-	1.	Gait OSS Core (free, Vision 1 and 2 core)
+Pilot success criteria:
+- measurable reduction in uncontrolled high-risk actions
+- reproducible evidence path for security/audit questions
+- no regression in OSS verification guarantees
 
-	•	CLI + schemas + runpack, regress, gate, doctor.
-	•	Distributed via GitHub releases + package managers.
-	•	No licensing logic.
-
-	2.	Gait Enterprise Add-on (paid, “Fleet” capabilities without SaaS)
-
-	•	A Kubernetes add-on delivered as Helm and, where possible, a native managed add-on experience. AWS Marketplace explicitly supports fulfillment via Helm charts and Amazon EKS add-ons for container products.  ￼
-	•	Runs inside the customer cluster, stores state in cloud-native managed services (object storage, KMS, logs) or remains mostly stateless where possible.
-
-What “Enterprise” should mean in a no-host model
-	•	Central policy distribution (GitOps-friendly)
-	•	Artifact retention and encryption at rest
-	•	Org RBAC for approvals and policy changes (implemented via the customer’s IdP integrations where possible)
-	•	Fleet rollouts, posture reporting, and pack generation at scale
-	•	Premium connectors and credential brokering
-
-2) Licensing and monetization model
-
-Your proposed model is viable:
-	1.	Free core always
-
-	•	Keep runpack verification, diff, stub replay, regress basics, and baseline gate free. That builds standardization and adoption.
-
-	2.	Paid enterprise features unlocked by entitlement
-
-	•	Annual subscription, plus optional usage-based for trials and smaller teams. AWS Marketplace supports annual pricing models and contract-style durations, and container offerings support contract pricing via AWS License Manager integration.  ￼
-
-	3.	Trial mechanics
-
-	•	For AWS Marketplace, container products can have free trials, including for EKS pods, with trial duration and included pod count set by the seller (buyer still pays infra).  ￼
-	•	For Google Cloud Marketplace, free product trials are a supported concept.  ￼
-	•	Azure Marketplace supports transactable container offers and metering models; you can structure “trial-like” entry via plans and billing approaches, but the exact implementation varies by offer type.  ￼
-
-3) How to avoid refactors later
-
-Design the enterprise add-on as additive services that consume v1 artifacts, not a replacement.
-
-Non-negotiable architectural constraints
-	1.	Artifact-first permanence
-
-	•	Runpack and gate trace schemas remain the core contract forever. Enterprise services only index, retain, and package them.
-
-	2.	Plug-in backends, not rewrites
-
-	•	Storage backend interface: local FS (v1), S3/GCS/Blob (v1.1+), customer vaults later.
-	•	KMS backend interface: AWS KMS, Azure Key Vault, GCP KMS.
-	•	Identity backend interface: OIDC plus cloud-native identity.
-
-	3.	Licensing is orthogonal
-
-	•	License checks sit behind a single EntitlementProvider interface:
-	•	Marketplace entitlement (when running in a cloud account that can call entitlement APIs)
-	•	Offline signed license file (for airgapped or on-prem)
-	•	Your product logic never branches on “AWS vs Azure vs GCP,” only on “entitlement provider available.”
-
-Hyperscaler marketplace plan
-
-AWS: your best first bet
-
-Why
-	•	Strong support for container products delivered via Helm and EKS add-ons.  ￼
-	•	Clear patterns for hourly or pod-based metering and contract entitlements.  ￼
-	•	Free trial support for container products exists.  ￼
-
-Recommended AWS offer structure
-	1.	OSS: GitHub + Homebrew
-	2.	Paid: AWS Marketplace EKS add-on (preferred) plus Helm fulfillment (fallback)
-	3.	Pricing: start with hourly or usage-based for trial motion, then push annual contract for enterprise procurement
-	4.	Entitlement: AWS License Manager integration for contract pricing where you want clean entitlements.  ￼
-
-Azure: “Kubernetes apps” and transactable offers
-	•	Azure supports deploying Kubernetes applications from Azure Marketplace into AKS through the portal experience.  ￼
-	•	Azure container offers support usage-based monthly billing plans or BYOL patterns depending on offer configuration.  ￼
-
-Recommended Azure approach
-	•	Ship the same Helm chart, wrapped as the Azure Marketplace Kubernetes application offer.
-	•	Keep billing marketplace-driven, not your own.
-
-GCP: Kubernetes apps via Cloud Marketplace
-	•	Cloud Marketplace supports Kubernetes apps deployment flows and supports free trials for Marketplace products.  ￼
-
-Recommended GCP approach
-	•	Publish as a Kubernetes app; keep the artifact and licensing model identical.
-
-The simplest “no-host enterprise” story that actually sells
-	1.	“Runs in your cluster, under your keys.”
-	2.	“Installed from your cloud marketplace, billed on your cloud bill.”
-	3.	“No new SaaS vendor risk surface.”
-	4.	“Artifacts remain verifiable offline, even if you uninstall us.”
-
-AWS Marketplace explicitly positions container products as deployable across EKS and beyond, using Helm charts or EKS add-ons after subscription, which fits this story cleanly.  ￼
-
-Execution sequencing
-	1.	Nail OSS v1 adoption (runpack is the viral primitive).
-	2.	Ship AWS Marketplace first (EKS add-on if possible).
-	3.	Only then replicate to Azure and GCP using the same chart and entitlement interface.
-	4.	Treat “Fleet” as paid, but keep it lightweight: policy distribution, artifact retention, approvals, posture reporting, pack generation.
-
-One hard recommendation
-
-Do not try to make “Fleet” a big always-on platform in v2. Make it a small appliance that makes enterprise procurement easy and risk acceptable. Marketplaces are the procurement wedge; artifacts are the trust wedge; Kubernetes is the delivery wedge.
-
-If you want, I can translate this into a concrete v2 packaging spec: chart layout, components, required managed services per cloud, and the exact entitlement provider interface.
-
-Least privilege by default is only partial: broker exists (stub|env|command) but is policy/flag driven, not globally mandatory in providers.go (line 146) and gate.go (line 294).
-Tamper-evident ledger is strong but not complete: signatures are optional for runpacks, and guard packs are hash-verified but not signed as first-class provenance chain in verify.go (line 108) and pack.go (line 288).
-Enterprise-native integration is partial: CI and exports exist, but no native IAM/ticketing/SIEM connectors yet (repo is still CLI-first with one binary surface in main.go (line 42) and framework examples under /Users/davidahmann/Projects/gait/examples/integrations).
-Execution chokepoint depth: replay is safely stub-first, but real-tool replay is intentionally not implemented yet ("real tools not implemented; replaying stubs") in run.go (line 233).
-
-Centralized multi-tenant control plane.
-Native IAM/SSO/ticketing/SIEM managed connectors.
-Hosted approval workflows and fleet policy distribution.
-Long-term managed retention/compliance operations.
+## Decision Summary
+- Keep OSS as the trust and adoption engine.
+- Make enterprise an additive, buyer-hosted control plane.
+- Use marketplace procurement as distribution wedge, not as architecture driver.
+- Keep artifacts and offline verification as permanent product contract.
