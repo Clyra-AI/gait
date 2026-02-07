@@ -288,13 +288,14 @@ func printRunUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait run record --input <run_record.json> [--out-dir gait-out] [--run-id <run_id>] [--capture-mode reference|raw] [--json] [--explain]")
 	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json] [--explain]")
-	fmt.Println("  gait run replay <run_id|path> [--json] [--explain]")
+	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain] (stub replay only; real tools not implemented)")
 	fmt.Println("  gait run reduce --from <run_id|path> [--predicate missing_result|non_ok_status] [--out reduced.zip] [--report-out reduce_report.json] [--json] [--explain]")
 }
 
 func printReplayUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain]")
+	fmt.Println("  note: replay executes deterministic stubs; real tool execution is intentionally not implemented.")
 }
 
 func runReduce(arguments []string) int {

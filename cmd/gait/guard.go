@@ -213,6 +213,7 @@ func runGuardVerify(arguments []string) int {
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
 		"path":            true,
+		"profile":         true,
 		"public-key":      true,
 		"public-key-env":  true,
 		"private-key":     true,
@@ -222,6 +223,7 @@ func runGuardVerify(arguments []string) int {
 	flagSet.SetOutput(io.Discard)
 
 	var pathValue string
+	var profile string
 	var requireSignature bool
 	var publicKeyPath string
 	var publicKeyEnv string
@@ -231,6 +233,7 @@ func runGuardVerify(arguments []string) int {
 	var helpFlag bool
 
 	flagSet.StringVar(&pathValue, "path", "", "path to evidence_pack zip")
+	flagSet.StringVar(&profile, "profile", string(verifyProfileStandard), "verify profile: standard|strict")
 	flagSet.BoolVar(&requireSignature, "require-signature", false, "require valid pack manifest signatures")
 	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
@@ -254,6 +257,13 @@ func runGuardVerify(arguments []string) int {
 	if strings.TrimSpace(pathValue) == "" || len(remaining) > 0 {
 		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: "expected <evidence_pack.zip>"}, exitInvalidInput)
 	}
+	resolvedProfile, err := parseArtifactVerifyProfile(profile)
+	if err != nil {
+		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	if resolvedProfile == verifyProfileStrict {
+		requireSignature = true
+	}
 
 	var publicKey ed25519.PublicKey
 	keyConfig := sign.KeyConfig{
@@ -261,6 +271,12 @@ func runGuardVerify(arguments []string) int {
 		PublicKeyEnv:   publicKeyEnv,
 		PrivateKeyPath: privateKeyPath,
 		PrivateKeyEnv:  privateKeyEnv,
+	}
+	if resolvedProfile == verifyProfileStrict && !hasAnyKeySource(keyConfig) {
+		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{
+			OK:    false,
+			Error: "strict verify profile requires --public-key/--public-key-env or private key source",
+		}, exitInvalidInput)
 	}
 	if hasAnyKeySource(keyConfig) {
 		loadedKey, keyErr := sign.LoadVerifyKey(keyConfig)
@@ -571,7 +587,7 @@ func writeGuardDecryptOutput(jsonOutput bool, output guardDecryptOutput, exitCod
 func printGuardUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--approval-audit <csv>] [--credential-evidence <csv>] [--template soc2|pci|incident_response] [--render-pdf] [--out <evidence_pack.zip>] [--case-id <id>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
-	fmt.Println("  gait guard verify <evidence_pack.zip> [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait guard verify <evidence_pack.zip> [--profile standard|strict] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait guard retain [--root <dir>] [--trace-ttl <duration>] [--pack-ttl <duration>] [--dry-run] [--report-out <path>] [--json] [--explain]")
 	fmt.Println("  gait guard encrypt --in <artifact> [--out <artifact.gaitenc>] [--key-env <ENV>|--key-command <cmd> --key-command-args <csv>] [--json] [--explain]")
 	fmt.Println("  gait guard decrypt --in <artifact.gaitenc> [--out <artifact>] [--key-env <ENV>|--key-command <cmd> --key-command-args <csv>] [--json] [--explain]")
@@ -584,7 +600,7 @@ func printGuardPackUsage() {
 
 func printGuardVerifyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait guard verify <evidence_pack.zip> [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait guard verify <evidence_pack.zip> [--profile standard|strict] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 }
 
 func printGuardRetainUsage() {

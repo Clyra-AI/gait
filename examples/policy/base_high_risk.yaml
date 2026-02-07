@@ -14,6 +14,9 @@ rules:
     effect: require_approval
     min_approvals: 2
     require_distinct_approvers: true
+    require_broker_credential: true
+    broker_reference: highrisk-egress
+    broker_scopes: [write]
     match:
       tool_names: [tool.write]
     reason_codes: [approval_required_for_write]

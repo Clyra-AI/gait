@@ -150,6 +150,38 @@ func EvaluatePolicy(policy Policy, intent schemagate.IntentRequest, opts EvalOpt
 	return outcome.Result, nil
 }
 
+func PolicyHasHighRiskUnbrokeredActions(policy Policy) bool {
+	normalizedPolicy, err := normalizePolicy(policy)
+	if err != nil {
+		return false
+	}
+	for _, rule := range normalizedPolicy.Rules {
+		if !isHighRiskActionRule(rule) {
+			continue
+		}
+		if !rule.RequireBrokerCredential {
+			return true
+		}
+	}
+	return false
+}
+
+func PolicyRequiresBrokerForHighRisk(policy Policy) bool {
+	normalizedPolicy, err := normalizePolicy(policy)
+	if err != nil {
+		return false
+	}
+	for _, rule := range normalizedPolicy.Rules {
+		if !isHighRiskActionRule(rule) {
+			continue
+		}
+		if rule.RequireBrokerCredential {
+			return true
+		}
+	}
+	return false
+}
+
 func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (EvalOutcome, error) {
 	normalizedPolicy, err := normalizePolicy(policy)
 	if err != nil {
@@ -329,6 +361,18 @@ func policyDigestPayload(policy Policy) map[string]any {
 		},
 		"Rules": rules,
 	}
+}
+
+func isHighRiskActionRule(rule PolicyRule) bool {
+	if rule.Effect == "block" {
+		return false
+	}
+	for _, riskClass := range rule.Match.RiskClasses {
+		if riskClass == "high" || riskClass == "critical" {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizePolicy(input Policy) (Policy, error) {

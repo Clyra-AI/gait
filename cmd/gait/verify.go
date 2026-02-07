@@ -48,6 +48,13 @@ type verifyChainOutput struct {
 	Error string             `json:"error,omitempty"`
 }
 
+type artifactVerifyProfile string
+
+const (
+	verifyProfileStandard artifactVerifyProfile = "standard"
+	verifyProfileStrict   artifactVerifyProfile = "strict"
+)
+
 func runVerify(arguments []string) int {
 	if len(arguments) > 0 && arguments[0] == "chain" {
 		return runVerifyChain(arguments[1:])
@@ -64,11 +71,13 @@ func runVerifyRunpack(arguments []string) int {
 		"public-key-env":  true,
 		"private-key":     true,
 		"private-key-env": true,
+		"profile":         true,
 	})
 	flagSet := flag.NewFlagSet("verify", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
 	var jsonOutput bool
+	var profile string
 	var requireSignature bool
 	var publicKeyPath string
 	var publicKeyEnv string
@@ -77,6 +86,7 @@ func runVerifyRunpack(arguments []string) int {
 	var helpFlag bool
 
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.StringVar(&profile, "profile", string(verifyProfileStandard), "verify profile: standard|strict")
 	flagSet.BoolVar(&requireSignature, "require-signature", false, "require valid signatures")
 	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
@@ -95,12 +105,25 @@ func runVerifyRunpack(arguments []string) int {
 	if len(remaining) != 1 {
 		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: "expected run_id or path"}, exitInvalidInput)
 	}
+	resolvedProfile, err := parseArtifactVerifyProfile(profile)
+	if err != nil {
+		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	if resolvedProfile == verifyProfileStrict {
+		requireSignature = true
+	}
 
 	keyConfig := sign.KeyConfig{
 		PublicKeyPath:  publicKeyPath,
 		PublicKeyEnv:   publicKeyEnv,
 		PrivateKeyPath: privateKeyPath,
 		PrivateKeyEnv:  privateKeyEnv,
+	}
+	if resolvedProfile == verifyProfileStrict && !hasAnyKeySource(keyConfig) {
+		return writeVerifyOutput(jsonOutput, verifyOutput{
+			OK:    false,
+			Error: "strict verify profile requires --public-key/--public-key-env or private key source",
+		}, exitInvalidInput)
 	}
 	publicKey, err := loadOptionalVerifyKey(keyConfig)
 	if err != nil {
@@ -126,6 +149,7 @@ func runVerifyChain(arguments []string) int {
 		"run":             true,
 		"trace":           true,
 		"pack":            true,
+		"profile":         true,
 		"public-key":      true,
 		"public-key-env":  true,
 		"private-key":     true,
@@ -137,6 +161,7 @@ func runVerifyChain(arguments []string) int {
 	var runPath string
 	var tracePath string
 	var packPath string
+	var profile string
 	var requireSignature bool
 	var publicKeyPath string
 	var publicKeyEnv string
@@ -148,6 +173,7 @@ func runVerifyChain(arguments []string) int {
 	flagSet.StringVar(&runPath, "run", "", "run_id or runpack path")
 	flagSet.StringVar(&tracePath, "trace", "", "path to trace record")
 	flagSet.StringVar(&packPath, "pack", "", "path to evidence pack zip")
+	flagSet.StringVar(&profile, "profile", string(verifyProfileStandard), "verify profile: standard|strict")
 	flagSet.BoolVar(&requireSignature, "require-signature", false, "require valid signatures for runpack/pack")
 	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
@@ -169,12 +195,25 @@ func runVerifyChain(arguments []string) int {
 	if strings.TrimSpace(runPath) == "" {
 		return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Error: "--run is required"}, exitInvalidInput)
 	}
+	resolvedProfile, err := parseArtifactVerifyProfile(profile)
+	if err != nil {
+		return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	if resolvedProfile == verifyProfileStrict {
+		requireSignature = true
+	}
 
 	keyConfig := sign.KeyConfig{
 		PublicKeyPath:  publicKeyPath,
 		PublicKeyEnv:   publicKeyEnv,
 		PrivateKeyPath: privateKeyPath,
 		PrivateKeyEnv:  privateKeyEnv,
+	}
+	if resolvedProfile == verifyProfileStrict && !hasAnyKeySource(keyConfig) {
+		return writeVerifyChainOutput(jsonOutput, verifyChainOutput{
+			OK:    false,
+			Error: "strict verify profile requires --public-key/--public-key-env or private key source",
+		}, exitInvalidInput)
 	}
 	publicKey, err := loadOptionalVerifyKey(keyConfig)
 	if err != nil {
@@ -332,6 +371,19 @@ func hasAnyKeySource(cfg sign.KeyConfig) bool {
 		cfg.PublicKeyEnv != ""
 }
 
+func parseArtifactVerifyProfile(value string) (artifactVerifyProfile, error) {
+	profile := strings.ToLower(strings.TrimSpace(value))
+	if profile == "" {
+		return verifyProfileStandard, nil
+	}
+	switch artifactVerifyProfile(profile) {
+	case verifyProfileStandard, verifyProfileStrict:
+		return artifactVerifyProfile(profile), nil
+	default:
+		return "", fmt.Errorf("unsupported --profile value %q (expected standard or strict)", value)
+	}
+}
+
 func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 	if jsonOutput {
 		return writeJSONOutput(output, exitCode)
@@ -411,7 +463,7 @@ func printUsage() {
 	fmt.Println("  gait scout snapshot [--roots <csv>] [--policy <csv>] [--json] [--explain]")
 	fmt.Println("  gait scout diff <left_snapshot.json> <right_snapshot.json> [--json] [--explain]")
 	fmt.Println("  gait guard pack --run <run_id|path> [--json] [--explain]")
-	fmt.Println("  gait guard verify <evidence_pack.zip> [--json] [--explain]")
+	fmt.Println("  gait guard verify <evidence_pack.zip> [--profile standard|strict] [--json] [--explain]")
 	fmt.Println("  gait guard retain [--root <dir>] [--trace-ttl <duration>] [--pack-ttl <duration>] [--dry-run] [--json] [--explain]")
 	fmt.Println("  gait guard encrypt --in <artifact> [--out <artifact.gaitenc>] [--json] [--explain]")
 	fmt.Println("  gait guard decrypt --in <artifact.gaitenc> [--out <artifact>] [--json] [--explain]")
@@ -423,20 +475,20 @@ func printUsage() {
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--json] [--explain]")
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--json] [--explain]")
 	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
-	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait version")
 }
 
 func printVerifyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait verify <run_id|path> [--json] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
-	fmt.Println("  gait verify <run_id|path> [--json] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
-	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
-	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify <run_id|path> [--json] [--profile standard|strict] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify <run_id|path> [--json] [--profile standard|strict] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
 }
 
 func printVerifyChainUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--json] [--explain]")
-	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--json] [--explain]")
 }

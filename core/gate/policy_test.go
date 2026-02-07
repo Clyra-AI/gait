@@ -471,6 +471,49 @@ rules:
 	}
 }
 
+func TestPolicyHighRiskBrokerRequirements(t *testing.T) {
+	withoutBroker, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: high-risk-allow
+    effect: allow
+    match:
+      risk_classes: [high]
+`))
+	if err != nil {
+		t.Fatalf("parse policy without broker: %v", err)
+	}
+	if !PolicyHasHighRiskUnbrokeredActions(withoutBroker) {
+		t.Fatalf("expected unbrokered high-risk detection")
+	}
+	if PolicyRequiresBrokerForHighRisk(withoutBroker) {
+		t.Fatalf("unexpected broker-required detection")
+	}
+
+	withBroker, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: high-risk-approval
+    effect: require_approval
+    require_broker_credential: true
+    match:
+      risk_classes: [critical]
+  - name: high-risk-block
+    effect: block
+    match:
+      risk_classes: [high]
+`))
+	if err != nil {
+		t.Fatalf("parse policy with broker: %v", err)
+	}
+	if PolicyHasHighRiskUnbrokeredActions(withBroker) {
+		t.Fatalf("unexpected unbrokered high-risk detection")
+	}
+	if !PolicyRequiresBrokerForHighRisk(withBroker) {
+		t.Fatalf("expected broker-required high-risk detection")
+	}
+}
+
 func TestEvaluatePolicyDataflowConstraint(t *testing.T) {
 	policy, err := ParsePolicyYAML([]byte(`
 default_verdict: allow

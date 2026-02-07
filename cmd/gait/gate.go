@@ -181,6 +181,20 @@ func runGateEval(arguments []string) int {
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
+	if resolvedProfile == gateProfileOSSProd {
+		if gate.PolicyHasHighRiskUnbrokeredActions(policy) {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{
+				OK:    false,
+				Error: "oss-prod profile requires high-risk allow/approval rules to set require_broker_credential: true",
+			}, exitInvalidInput)
+		}
+		if gate.PolicyRequiresBrokerForHighRisk(policy) && resolvedBroker == nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{
+				OK:    false,
+				Error: "oss-prod profile requires --credential-broker for high-risk policies",
+			}, exitInvalidInput)
+		}
+	}
 
 	evalStart := time.Now()
 	outcome, err := gate.EvaluatePolicyDetailed(policy, intent, gate.EvalOptions{ProducerVersion: version})

@@ -43,6 +43,7 @@ Run the offline first-win loop:
 ```bash
 gait demo
 gait verify run_demo
+bash scripts/quickstart.sh
 ```
 
 Sample `gait demo` output:
@@ -107,6 +108,8 @@ Then evaluate real tool intents through Gate:
 gait gate eval \
   --policy examples/policy/base_high_risk.yaml \
   --intent examples/policy/intents/intent_delete.json \
+  --profile oss-prod \
+  --credential-broker stub \
   --trace-out ./gait-out/trace_delete.json \
   --json
 ```
@@ -163,8 +166,8 @@ Use `docs/integration_checklist.md` for the implementation checklist.
 
 ```text
 gait demo
-gait verify <run_id|path>
-gait run replay <run_id|path> [--real-tools --unsafe-real-tools --allow-tools ...]
+gait verify <run_id|path> [--profile standard|strict]
+gait run replay <run_id|path> [--real-tools --unsafe-real-tools --allow-tools ...]  # stub replay only
 gait run diff <left> <right>
 gait regress init --from <run_id|path>
 gait regress run [--junit junit.xml]
@@ -176,6 +179,11 @@ gait doctor --json
 ```
 
 All major commands support `--json`. Most support `--explain`.
+
+Security posture tips:
+
+- Use `gait verify --profile strict ...` (or `gait guard verify --profile strict ...`) to require signatures plus explicit verify keys.
+- In `oss-prod`, high-risk allow/approval policy rules must require broker credentials and runtime eval must pass `--credential-broker`.
 
 ## Contracts You Can Build On
 

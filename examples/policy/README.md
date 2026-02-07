@@ -33,3 +33,19 @@ Expected verdict matrix:
 - `intent_read.json` => `allow` (exit `0`)
 - `intent_write.json` => `require_approval` (exit `4`)
 - `intent_delete.json` => `block` (exit `3`)
+
+High-risk note:
+
+- `base_high_risk.yaml` marks write actions with `require_broker_credential: true` for least-privilege brokering.
+- For runtime checks in hardened mode, evaluate with `--profile oss-prod` and an explicit broker, for example:
+
+```bash
+gait gate eval \
+  --policy examples/policy/base_high_risk.yaml \
+  --intent examples/policy/intents/intent_write.json \
+  --profile oss-prod \
+  --key-mode prod \
+  --private-key ./prod_signing.key \
+  --credential-broker stub \
+  --json
+```

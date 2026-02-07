@@ -1010,6 +1010,58 @@ func TestGateEvalOSSProdProfile(t *testing.T) {
 		t.Fatalf("runGateEval oss-prod allow: expected %d got %d", exitOK, code)
 	}
 
+	highRiskNoBrokerPolicyPath := filepath.Join(workDir, "policy_high_risk_no_broker.yaml")
+	mustWriteFile(t, highRiskNoBrokerPolicyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: high-risk-allow",
+		"    effect: allow",
+		"    match:",
+		"      risk_classes: [high]",
+	}, "\n")+"\n")
+	if code := runGateEval([]string{
+		"--policy", highRiskNoBrokerPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval oss-prod high-risk without broker requirement: expected %d got %d", exitInvalidInput, code)
+	}
+
+	highRiskWithBrokerPolicyPath := filepath.Join(workDir, "policy_high_risk_with_broker.yaml")
+	mustWriteFile(t, highRiskWithBrokerPolicyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: high-risk-allow",
+		"    effect: allow",
+		"    require_broker_credential: true",
+		"    match:",
+		"      risk_classes: [high]",
+	}, "\n")+"\n")
+	if code := runGateEval([]string{
+		"--policy", highRiskWithBrokerPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval oss-prod high-risk missing broker runtime: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGateEval([]string{
+		"--policy", highRiskWithBrokerPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--credential-broker", "stub",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval oss-prod high-risk with broker runtime: expected %d got %d", exitOK, code)
+	}
+
 	approvalPolicyPath := filepath.Join(workDir, "policy_approval.yaml")
 	mustWriteFile(t, approvalPolicyPath, strings.Join([]string{
 		"default_verdict: allow",
@@ -1102,6 +1154,46 @@ func TestVerifyChainRunTracePack(t *testing.T) {
 		"--json",
 	}); code != exitVerifyFailed {
 		t.Fatalf("runVerify chain require-signature: expected %d got %d", exitVerifyFailed, code)
+	}
+}
+
+func TestStrictVerifyProfiles(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	if code := runDemo(nil); code != exitOK {
+		t.Fatalf("runDemo setup: expected %d got %d", exitOK, code)
+	}
+
+	privateKeyPath := filepath.Join(workDir, "private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	if code := runVerify([]string{"--profile", "strict", "--json", "run_demo"}); code != exitInvalidInput {
+		t.Fatalf("runVerify strict missing key: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runVerify([]string{"--profile", "strict", "--private-key", privateKeyPath, "--json", "run_demo"}); code != exitVerifyFailed {
+		t.Fatalf("runVerify strict signature enforcement: expected %d got %d", exitVerifyFailed, code)
+	}
+	if code := runVerify([]string{"chain", "--run", "run_demo", "--profile", "strict", "--json"}); code != exitInvalidInput {
+		t.Fatalf("runVerify chain strict missing key: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runVerify([]string{"chain", "--run", "run_demo", "--profile", "strict", "--private-key", privateKeyPath, "--json"}); code != exitVerifyFailed {
+		t.Fatalf("runVerify chain strict signature enforcement: expected %d got %d", exitVerifyFailed, code)
+	}
+
+	packPath := filepath.Join(workDir, "evidence_pack_strict.zip")
+	if code := runGuardPack([]string{
+		"--run", "run_demo",
+		"--out", packPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGuardPack strict profile fixture: expected %d got %d", exitOK, code)
+	}
+	if code := runGuardVerify([]string{packPath, "--profile", "strict", "--json"}); code != exitInvalidInput {
+		t.Fatalf("runGuardVerify strict missing key: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGuardVerify([]string{packPath, "--profile", "strict", "--private-key", privateKeyPath, "--json"}); code != exitVerifyFailed {
+		t.Fatalf("runGuardVerify strict signature enforcement: expected %d got %d", exitVerifyFailed, code)
 	}
 }
 
