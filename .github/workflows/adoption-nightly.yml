@@ -20,6 +20,7 @@ jobs:
 
       - name: Full lint and deterministic tests
         run: |
+          git config core.hooksPath .githooks
           make lint
           make test
 
