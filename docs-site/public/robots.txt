@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://davidahmann.github.io/gait/sitemap.xml
+Sitemap: https://davidahmann.github.io/gait/ai-sitemap.xml

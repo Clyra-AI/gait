@@ -15,6 +15,7 @@ BENCH_BASELINE ?= perf/bench_baseline.json
 
 .PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula
 .PHONY: hooks
+.PHONY: docs-site-install docs-site-build docs-site-lint
 
 fmt:
 	gofmt -w .
@@ -131,3 +132,12 @@ demo-90s: build
 homebrew-formula:
 	@if [ -z "$(VERSION)" ]; then echo "VERSION is required (example: make homebrew-formula VERSION=v1.7.0)"; exit 2; fi
 	bash scripts/render_homebrew_formula.sh --version "$(VERSION)" --checksums dist/checksums.txt --out dist/gait.rb
+
+docs-site-install:
+	cd docs-site && npm ci
+
+docs-site-build:
+	cd docs-site && npm run build
+
+docs-site-lint:
+	cd docs-site && npm run lint

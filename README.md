@@ -2,6 +2,8 @@
 
 Your AI agent broke prod. Gait gives you the signed artifact to prove what happened, the regression to make sure it never happens again, and the policy gate to block it at the boundary.
 
+Public docs + marketing site: `https://davidahmann.github.io/gait/`
+
 ## Install And First Win (60 Seconds)
 
 ```bash
@@ -257,6 +259,8 @@ make test-contracts
 make test-hardening-acceptance
 make test-release-smoke
 make test-uat-local
+make docs-site-install
+make docs-site-build
 ```
 
 90-second terminal demo: `bash scripts/demo_90s.sh`

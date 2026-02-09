@@ -6,6 +6,8 @@ This index defines documentation ownership so docs stay aligned with code and av
 
 - Product-first overview and first win: `README.md`
 - Documentation entrypoint and ownership map: `docs/README.md`
+- Public docs and marketing site source: `docs-site/`
+- GitHub Pages deployment workflow: `.github/workflows/docs.yml`
 - System architecture and component boundaries: `docs/architecture.md`
 - End-to-end runtime and operational flows: `docs/flows.md`
 - Core concepts and terminology: `docs/concepts/mental_model.md`
@@ -37,6 +39,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - Contract docs align with schema packages under `core/schema/v1` and validators under `core/schema/validate`.
 - Integration docs align with current adapter examples under `examples/integrations/*`.
 - Installer docs align with `scripts/install.sh` support: Linux/macOS script path and Windows manual path.
+- `docs-site` ingests docs markdown directly from this repository and renders static pages for `https://davidahmann.github.io/gait/`.
 
 ## Suggested Reading Order
 

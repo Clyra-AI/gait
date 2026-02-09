@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://davidahmann.github.io/gait/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/install/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/integration_checklist/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/policy_rollout/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/contracts/primitive_contract/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/slo/runtime_slo/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/llms/</loc></url>
+</urlset>

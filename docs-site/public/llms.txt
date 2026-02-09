@@ -1,0 +1,27 @@
+# Gait
+
+> Offline-first, default-safe CLI for controllable and debuggable production AI agent runs.
+
+## Canonical
+- https://github.com/davidahmann/gait
+- https://davidahmann.github.io/gait/
+
+## Core Commands
+- gait demo
+- gait verify <run_id|path>
+- gait regress init --from <run_id|path>
+- gait regress run --json --junit <path>
+- gait policy test <policy.yaml> <intent.json>
+- gait gate eval --policy <policy.yaml> --intent <intent.json>
+- gait doctor --json
+
+## Safety Model
+- Fail-closed in high-risk modes.
+- Offline verification for runpacks and traces.
+- Structured intent policy evaluation (not free-form prompt filtering).
+
+## LLM Resources
+- /llm/product.md
+- /llm/quickstart.md
+- /llm/security.md
+- /llm/contracts.md

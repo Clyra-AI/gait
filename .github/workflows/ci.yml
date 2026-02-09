@@ -55,6 +55,22 @@ jobs:
           python -m uv run --extra dev mypy
           python -m uv run --extra dev bandit -q -r gait
 
+  docs-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: docs-site/package-lock.json
+      - name: Build docs site
+        run: |
+          cd docs-site
+          npm ci
+          npm run lint
+          npm run build
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:

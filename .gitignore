@@ -26,3 +26,6 @@ perf/command_budget_report.json
 /gait.yaml
 /regress_result.json
 /fixtures/
+docs-site/node_modules/
+docs-site/.next/
+docs-site/out/

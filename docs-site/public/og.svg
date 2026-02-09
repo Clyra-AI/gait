@@ -1,0 +1,18 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#030712"/>
+  <rect x="40" y="40" width="1120" height="550" rx="24" fill="#0F172A" stroke="#1F2937"/>
+  <circle cx="180" cy="160" r="46" fill="url(#paint0_linear)"/>
+  <path d="M171 177V143H189V155H181V160H188V172H181V177H171Z" fill="white"/>
+  <text x="260" y="170" fill="white" font-size="60" font-family="Arial, Helvetica, sans-serif" font-weight="700">Gait</text>
+  <text x="260" y="235" fill="#93C5FD" font-size="34" font-family="Arial, Helvetica, sans-serif">Control and prove AI agent actions</text>
+  <text x="100" y="340" fill="#D1D5DB" font-size="28" font-family="Arial, Helvetica, sans-serif">Runpack • Regress • Gate • Doctor</text>
+  <text x="100" y="390" fill="#9CA3AF" font-size="24" font-family="Arial, Helvetica, sans-serif">Offline-first, deterministic, fail-closed by default</text>
+  <rect x="100" y="450" width="350" height="60" rx="10" fill="#06B6D4"/>
+  <text x="128" y="488" fill="#020617" font-size="28" font-family="Arial, Helvetica, sans-serif" font-weight="700">github.com/davidahmann/gait</text>
+  <defs>
+    <linearGradient id="paint0_linear" x1="134" y1="114" x2="226" y2="206" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+</svg>
