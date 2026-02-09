@@ -42,6 +42,16 @@ Why artifact-first + execution-boundary-first:
 - portable artifacts are the durable evidence contract across incidents, CI, and audits
 - deterministic regressions turn one incident into a permanent safety test
 
+## OSS And Enterprise Boundary
+
+- OSS v1 is the free forever execution substrate: runpack, regress, gate, doctor, scout, and adapter/CI kits.
+- Enterprise is a separate control-plane layer for fleet operations and governance at scale, consuming OSS artifacts.
+- OSS runtime semantics and artifact contracts remain stable and vendor-neutral regardless of enterprise adoption.
+
+Boundary details:
+
+- `docs/packaging.md`
+
 ## Start Here (Single Install Path)
 
 Use one path for first use: install a release binary with checksum verification.
@@ -57,6 +67,18 @@ gait doctor --json
 gait demo
 gait verify run_demo
 gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+```
+
+One-command quickstart after install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/quickstart.sh | bash
+```
+
+If you are inside this repository:
+
+```bash
+bash scripts/quickstart.sh
 ```
 
 Install options, pinned versions, and source-build fallback are documented in `docs/install.md`.
@@ -125,6 +147,12 @@ When regress fails, output is actionable without opening large JSON first:
 - `artifact_paths`
 
 ## Gate High-Risk Tools
+
+Start from a baseline scaffold in one command:
+
+```bash
+gait policy init baseline-highrisk --out ./gait-out/policy_highrisk.yaml --json
+```
 
 Start with deterministic policy fixture tests:
 
@@ -247,6 +275,7 @@ Gait keeps ecosystem growth explicit and reviewable through a public index plus 
 - Contribution funnel: `docs/ecosystem/contribute.md`
 - Machine-readable index: `docs/ecosystem/community_index.json`
 - Deterministic validator: `python3 scripts/validate_community_index.py`
+- Release summary renderer: `python3 scripts/render_ecosystem_release_notes.py`
 
 Proposal templates:
 
@@ -323,15 +352,16 @@ Read in this order:
 1. `README.md`
 2. `docs/contracts/primitive_contract.md`
 3. `docs/positioning.md`
-4. `docs/integration_checklist.md`
-5. `docs/policy_rollout.md`
-6. `docs/approval_runbook.md`
-7. `docs/ci_regress_kit.md`
-8. `docs/evidence_templates.md`
-9. `docs/install.md`
-10. `docs/ecosystem/awesome.md`
-11. `docs/ecosystem/contribute.md`
-12. `docs/launch/README.md`
+4. `docs/packaging.md`
+5. `docs/integration_checklist.md`
+6. `docs/policy_rollout.md`
+7. `docs/approval_runbook.md`
+8. `docs/ci_regress_kit.md`
+9. `docs/evidence_templates.md`
+10. `docs/install.md`
+11. `docs/ecosystem/awesome.md`
+12. `docs/ecosystem/contribute.md`
+13. `docs/launch/README.md`
 
 ## Development
 

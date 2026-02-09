@@ -6,6 +6,12 @@ These templates provide baseline policy packs by risk tier:
 - `base_medium_risk.yaml`
 - `base_high_risk.yaml`
 
+Scaffold a baseline file directly from the CLI:
+
+```bash
+gait policy init baseline-highrisk --out ./gait.policy.yaml --json
+```
+
 Each template includes explicit examples for all three verdicts:
 
 - `allow`

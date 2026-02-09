@@ -233,6 +233,24 @@ jobs:
         run: |
           make test-adapter-parity
 
+  ecosystem-automation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run ecosystem contribution/release automation checks
+        shell: bash
+        run: |
+          make test-ecosystem-automation
+      - name: Upload ecosystem release notes artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecosystem-release-notes-${{ github.run_id }}
+          path: gait-out/ecosystem_release_notes.md
+
   skill-supply-chain:
     runs-on: ubuntu-latest
     steps:

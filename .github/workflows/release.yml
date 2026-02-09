@@ -115,6 +115,10 @@ jobs:
           if subject_digest != digest:
               raise SystemExit("provenance digest mismatch")
           PY
+      - name: Generate ecosystem release notes
+        run: |
+          python scripts/render_ecosystem_release_notes.py docs/ecosystem/community_index.json gait-out/ecosystem_release_notes.md
+          test -s gait-out/ecosystem_release_notes.md
       - name: Upload integrity artifacts to release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -123,6 +127,7 @@ jobs:
             sbom.spdx.json \
             grype.json \
             provenance.json \
+            gait-out/ecosystem_release_notes.md \
             dist/checksums.txt.pem \
             dist/checksums.txt.sig \
             dist/checksums.txt.intoto.jsonl \

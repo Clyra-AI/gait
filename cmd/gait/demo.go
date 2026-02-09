@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,26 +19,52 @@ import (
 const demoRunID = "run_demo"
 const demoOutDir = "gait-out"
 
+type demoOutput struct {
+	OK           bool   `json:"ok"`
+	RunID        string `json:"run_id,omitempty"`
+	Bundle       string `json:"bundle,omitempty"`
+	TicketFooter string `json:"ticket_footer,omitempty"`
+	Verify       string `json:"verify,omitempty"`
+	DurationMS   int64  `json:"duration_ms,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
+
 func runDemo(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Run a fully offline deterministic demo and emit a shareable runpack receipt for verification.")
 	}
-	if len(arguments) > 0 && (arguments[0] == "-h" || arguments[0] == "--help") {
+	arguments = reorderInterspersedFlags(arguments, nil)
+
+	flagSet := flag.NewFlagSet("demo", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeDemoOutput(jsonOutput, demoOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
 		printDemoUsage()
 		return exitOK
 	}
+	if len(flagSet.Args()) > 0 {
+		return writeDemoOutput(jsonOutput, demoOutput{OK: false, Error: "unexpected positional arguments"}, exitInvalidInput)
+	}
 
+	startedAt := time.Now()
 	outDir := filepath.Join(".", demoOutDir)
 	if err := os.MkdirAll(outDir, 0o750); err != nil {
-		fmt.Printf("demo error: %v\n", err)
-		return exitInvalidInput
+		return writeDemoOutput(jsonOutput, demoOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	zipPath := filepath.Join(outDir, fmt.Sprintf("runpack_%s.zip", demoRunID))
 
 	run, intents, results, refs, err := buildDemoRunpack()
 	if err != nil {
-		fmt.Printf("demo error: %v\n", err)
-		return exitInvalidInput
+		return writeDemoOutput(jsonOutput, demoOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	recordResult, err := runpack.WriteRunpack(zipPath, runpack.RecordOptions{
@@ -47,33 +75,47 @@ func runDemo(arguments []string) int {
 		CaptureMode: "reference",
 	})
 	if err != nil {
-		fmt.Printf("demo error: %v\n", err)
-		return exitInvalidInput
+		return writeDemoOutput(jsonOutput, demoOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	verifyResult, err := runpack.VerifyZip(zipPath, runpack.VerifyOptions{
 		RequireSignature: false,
 	})
 	if err != nil {
-		fmt.Printf("demo error: %v\n", err)
-		return exitInvalidInput
+		return writeDemoOutput(jsonOutput, demoOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if len(verifyResult.MissingFiles) > 0 || len(verifyResult.HashMismatches) > 0 || verifyResult.SignatureStatus == "failed" {
-		fmt.Printf("demo error: verification failed\n")
-		return exitVerifyFailed
+		return writeDemoOutput(jsonOutput, demoOutput{OK: false, Error: "verification failed"}, exitVerifyFailed)
 	}
 
-	fmt.Printf("run_id=%s\n", demoRunID)
-	fmt.Printf("bundle=./%s/runpack_%s.zip\n", demoOutDir, demoRunID)
-	fmt.Printf("ticket_footer=%s\n", formatTicketFooter(demoRunID, recordResult.Manifest.ManifestDigest))
-	fmt.Println("verify=ok")
-
-	return exitOK
+	return writeDemoOutput(jsonOutput, demoOutput{
+		OK:           true,
+		RunID:        demoRunID,
+		Bundle:       fmt.Sprintf("./%s/runpack_%s.zip", demoOutDir, demoRunID),
+		TicketFooter: formatTicketFooter(demoRunID, recordResult.Manifest.ManifestDigest),
+		Verify:       "ok",
+		DurationMS:   time.Since(startedAt).Milliseconds(),
+	}, exitOK)
 }
 
 func printDemoUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait demo [--explain]")
+	fmt.Println("  gait demo [--json] [--explain]")
+}
+
+func writeDemoOutput(jsonOutput bool, output demoOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+	if output.OK {
+		fmt.Printf("run_id=%s\n", output.RunID)
+		fmt.Printf("bundle=%s\n", output.Bundle)
+		fmt.Printf("ticket_footer=%s\n", output.TicketFooter)
+		fmt.Printf("verify=%s\n", output.Verify)
+		return exitCode
+	}
+	fmt.Printf("demo error: %s\n", output.Error)
+	return exitCode
 }
 
 func buildDemoRunpack() (schemarunpack.Run, []schemarunpack.IntentRecord, []schemarunpack.ResultRecord, schemarunpack.Refs, error) {

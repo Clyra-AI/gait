@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-adoption test-adapter-parity test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract build bench bench-check bench-budgets skills-validate ecosystem-validate demo-90s
+.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s
 .PHONY: hooks
 
 fmt:
@@ -71,6 +71,9 @@ test-adoption:
 test-adapter-parity:
 	bash scripts/test_adapter_parity.sh
 
+test-ecosystem-automation:
+	bash scripts/test_ecosystem_release_automation.sh
+
 test-release-smoke: build
 	bash scripts/test_release_smoke.sh ./gait
 
@@ -115,6 +118,9 @@ skills-validate:
 
 ecosystem-validate:
 	$(PYTHON) scripts/validate_community_index.py
+
+ecosystem-release-notes:
+	$(PYTHON) scripts/render_ecosystem_release_notes.py
 
 demo-90s: build
 	bash scripts/demo_90s.sh

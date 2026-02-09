@@ -64,3 +64,13 @@ A contribution is listed in `docs/ecosystem/awesome.md` once:
 - index entry validates in CI
 - reviewer confirms deterministic/no-bypass behavior
 - documentation includes install and quickstart commands
+
+## 5) Release Automation Artifact
+
+Before a tagged release, generate the ecosystem release summary from the index:
+
+```bash
+python3 scripts/render_ecosystem_release_notes.py
+```
+
+This produces a deterministic markdown summary under `gait-out/` for release notes and launch distribution.

@@ -759,8 +759,14 @@ func TestValidationBranches(t *testing.T) {
 	if code := runDemo([]string{"--help"}); code != exitOK {
 		t.Fatalf("runDemo help: expected %d got %d", exitOK, code)
 	}
+	if code := runPolicyInit([]string{"--help"}); code != exitOK {
+		t.Fatalf("runPolicyInit help: expected %d got %d", exitOK, code)
+	}
 	if code := runGateEval([]string{}); code != exitInvalidInput {
 		t.Fatalf("runGateEval missing args: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runPolicyInit([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runPolicyInit missing template: expected %d got %d", exitInvalidInput, code)
 	}
 	if code := runPolicyTest([]string{"--json"}); code != exitInvalidInput {
 		t.Fatalf("runPolicyTest missing positional args: expected %d got %d", exitInvalidInput, code)
@@ -815,6 +821,9 @@ func TestValidationBranches(t *testing.T) {
 	}
 	if code := runDemo(nil); code != exitOK {
 		t.Fatalf("runDemo setup: expected %d got %d", exitOK, code)
+	}
+	if code := runDemo([]string{"--json"}); code != exitOK {
+		t.Fatalf("runDemo json: expected %d got %d", exitOK, code)
 	}
 	if code := runVerify([]string{"run_demo", "--json"}); code != exitOK {
 		t.Fatalf("runVerify trailing json flag: expected %d got %d", exitOK, code)
@@ -874,6 +883,88 @@ func TestValidationBranches(t *testing.T) {
 	mustWriteFile(t, gaitOutAsFile, "not-a-dir\n")
 	if code := runDemo(nil); code != exitInvalidInput {
 		t.Fatalf("runDemo with invalid output dir: expected %d got %d", exitInvalidInput, code)
+	}
+}
+
+func TestPolicyInitScaffolds(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy-highrisk.yaml")
+	var initCode int
+	initOutputRaw := captureStdout(t, func() {
+		initCode = runPolicyInit([]string{"baseline-highrisk", "--out", policyPath, "--json"})
+	})
+	if initCode != exitOK {
+		t.Fatalf("runPolicyInit: expected %d got %d", exitOK, initCode)
+	}
+
+	var initOutput policyInitOutput
+	if err := json.Unmarshal([]byte(initOutputRaw), &initOutput); err != nil {
+		t.Fatalf("decode policy init output: %v", err)
+	}
+	if !initOutput.OK {
+		t.Fatalf("policy init returned ok=false: %#v", initOutput)
+	}
+	if initOutput.Template != "baseline-highrisk" {
+		t.Fatalf("unexpected policy template: %s", initOutput.Template)
+	}
+	if initOutput.PolicyPath != policyPath {
+		t.Fatalf("unexpected policy path: %s", initOutput.PolicyPath)
+	}
+
+	loadedPolicy, err := gatecore.LoadPolicyFile(policyPath)
+	if err != nil {
+		t.Fatalf("load generated policy: %v", err)
+	}
+	if loadedPolicy.DefaultVerdict != "block" {
+		t.Fatalf("unexpected default verdict: %s", loadedPolicy.DefaultVerdict)
+	}
+
+	intentPath := filepath.Join(workDir, "intent_write.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+	if code := runPolicyTest([]string{policyPath, intentPath, "--json"}); code != exitApprovalRequired {
+		t.Fatalf("generated policy should require approval for write: expected %d got %d", exitApprovalRequired, code)
+	}
+
+	if code := runPolicyInit([]string{"baseline-highrisk", "--out", policyPath, "--json"}); code != exitInvalidInput {
+		t.Fatalf("expected existing output guard to fail without force, got %d", code)
+	}
+	if code := runPolicyInit([]string{"baseline_high_risk", "--out", policyPath, "--force", "--json"}); code != exitOK {
+		t.Fatalf("expected alias + force overwrite to succeed, got %d", code)
+	}
+}
+
+func TestDemoJSONOutput(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	var demoCode int
+	demoOutputRaw := captureStdout(t, func() {
+		demoCode = runDemo([]string{"--json"})
+	})
+	if demoCode != exitOK {
+		t.Fatalf("runDemo json: expected %d got %d", exitOK, demoCode)
+	}
+
+	var decodedDemo demoOutput
+	if err := json.Unmarshal([]byte(demoOutputRaw), &decodedDemo); err != nil {
+		t.Fatalf("decode demo output: %v", err)
+	}
+	if !decodedDemo.OK {
+		t.Fatalf("demo json output returned ok=false: %#v", decodedDemo)
+	}
+	if decodedDemo.RunID != "run_demo" {
+		t.Fatalf("unexpected demo run_id: %s", decodedDemo.RunID)
+	}
+	if decodedDemo.Verify != "ok" {
+		t.Fatalf("unexpected demo verify status: %s", decodedDemo.Verify)
+	}
+	if decodedDemo.Bundle != "./gait-out/runpack_run_demo.zip" {
+		t.Fatalf("unexpected demo bundle path: %s", decodedDemo.Bundle)
+	}
+	if decodedDemo.DurationMS < 0 {
+		t.Fatalf("unexpected negative demo duration: %d", decodedDemo.DurationMS)
 	}
 }
 
@@ -1664,6 +1755,7 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printGateUsage()
 	printGateEvalUsage()
 	printPolicyUsage()
+	printPolicyInitUsage()
 	printPolicyTestUsage()
 	printTraceUsage()
 	printTraceVerifyUsage()

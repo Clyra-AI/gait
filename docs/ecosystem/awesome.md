@@ -9,6 +9,7 @@ Source of truth:
 Validation:
 
 - `python3 scripts/validate_community_index.py`
+- `python3 scripts/render_ecosystem_release_notes.py`
 
 ## Official Integrations
 

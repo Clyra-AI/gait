@@ -17,6 +17,12 @@ DEFAULT_RUNTIME_SLO_BUDGETS: dict[str, Any] = {
     "schema_version": "1.0.0",
     "repeats": 7,
     "commands": {
+        "demo": {
+            "p50_ms": 1000.0,
+            "p95_ms": 1700.0,
+            "p99_ms": 2100.0,
+            "max_error_rate": 0.0,
+        },
         "verify": {
             "p50_ms": 1000.0,
             "p95_ms": 1800.0,
@@ -310,6 +316,7 @@ def main() -> int:
         run_checked([str(gait_path), "regress", "init", "--from", "run_demo", "--json"], work_dir)
 
         command_map = {
+            "demo": [str(gait_path), "demo", "--json"],
             "verify": [str(gait_path), "verify", "run_demo", "--json"],
             "regress_run": [str(gait_path), "regress", "run", "--json"],
             "guard_pack": [

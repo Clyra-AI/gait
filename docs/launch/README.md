@@ -24,6 +24,7 @@ Demo asset:
 Suggested launch sequence:
 
 1. Run `scripts/demo_90s.sh` and capture terminal recording.
-2. Publish release with `github_release_template.md`.
-3. Post HN thread using `hn_post.md`.
-4. Monitor metrics in `kpi_scorecard.md`.
+2. Generate ecosystem release summary with `python3 scripts/render_ecosystem_release_notes.py`.
+3. Publish release with `github_release_template.md`.
+4. Post HN thread using `hn_post.md`.
+5. Monitor metrics in `kpi_scorecard.md`.

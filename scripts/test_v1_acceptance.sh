@@ -56,6 +56,20 @@ if match.group(1) != match.group(3):
     raise SystemExit("ticket_footer run_id mismatch")
 PY
 
+DEMO_JSON="$("$BIN_PATH" demo --json)"
+python3 - "$DEMO_JSON" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+if not payload.get("ok"):
+    raise SystemExit("demo --json returned ok=false")
+if payload.get("run_id") != "run_demo":
+    raise SystemExit(f"unexpected demo run_id: {payload.get('run_id')}")
+if payload.get("verify") != "ok":
+    raise SystemExit(f"unexpected demo verify status: {payload.get('verify')}")
+PY
+
 VERIFY_OUT="$("$BIN_PATH" verify run_demo)"
 echo "$VERIFY_OUT"
 [[ "$VERIFY_OUT" == *"verify ok"* ]]
@@ -120,6 +134,20 @@ if [[ $ALLOW_CODE -ne 0 ]]; then
   echo "unexpected allow exit code: $ALLOW_CODE" >&2
   exit 1
 fi
+
+"$BIN_PATH" policy init baseline-highrisk --out generated_policy.yaml --json > policy_init.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path("policy_init.json").read_text(encoding="utf-8"))
+if not payload.get("ok"):
+    raise SystemExit("policy init returned ok=false")
+if payload.get("template") != "baseline-highrisk":
+    raise SystemExit(f"unexpected template: {payload.get('template')}")
+if payload.get("policy_path") != "generated_policy.yaml":
+    raise SystemExit(f"unexpected policy path: {payload.get('policy_path')}")
+PY
 
 set +e
 "$BIN_PATH" policy test block.yaml intent.json --json > block.json

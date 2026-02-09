@@ -29,6 +29,14 @@ gait demo
 gait verify run_demo
 ```
 
+## One-Command Quickstart
+
+After installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/quickstart.sh | bash
+```
+
 ## Advanced: Build From Source
 
 Use this only when developing Gait itself.

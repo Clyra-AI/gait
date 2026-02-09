@@ -6,6 +6,7 @@ This document defines the measurable runtime contract for Gate evaluation in OSS
 
 Applies to local, offline Gate execution and related safety checks in the default OSS lane:
 
+- `gait demo`
 - `gait gate eval`
 - `gait verify`
 - `gait regress run`

@@ -448,10 +448,11 @@ func writeVerifyChainOutput(jsonOutput bool, output verifyChainOutput, exitCode 
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--json] [--explain]")
-	fmt.Println("  gait demo [--explain]")
+	fmt.Println("  gait demo [--json] [--explain]")
 	fmt.Println("  gait doctor [--json] [--explain]")
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--credential-broker off|stub|env|command] [--json] [--explain]")
+	fmt.Println("  gait policy init <baseline-lowrisk|baseline-mediumrisk|baseline-highrisk> [--out gait.policy.yaml] [--force] [--json] [--explain]")
 	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
 	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait regress init --from <run_id|path> [--json] [--explain]")
