@@ -177,26 +177,46 @@ fi
 os="$(detect_os)"
 arch="$(detect_arch)"
 
-asset_name="gait_${version}_${os}_${arch}.tar.gz"
+version_normalized="${version#v}"
+asset_candidates=(
+  "gait_${version}_${os}_${arch}.tar.gz"
+)
+if [[ "${version_normalized}" != "${version}" ]]; then
+  asset_candidates+=("gait_${version_normalized}_${os}_${arch}.tar.gz")
+fi
 release_base_url="${GAIT_RELEASE_BASE_URL:-https://github.com/${repo}/releases/download/${version}}"
 
 work_dir="$(mktemp -d)"
 trap 'rm -rf "$work_dir"' EXIT
 
 checksums_path="${work_dir}/checksums.txt"
-asset_path="${work_dir}/${asset_name}"
 
 echo "==> Downloading checksums: ${release_base_url}/checksums.txt"
 download_file "${release_base_url}/checksums.txt" "$checksums_path"
+
+asset_name=""
+for candidate in "${asset_candidates[@]}"; do
+  if awk -v file="$candidate" '$2 == file {found=1} END {exit found ? 0 : 1}' "$checksums_path"; then
+    asset_name="$candidate"
+    break
+  fi
+done
+
+if [[ -z "$asset_name" ]]; then
+  echo "error: checksum entry not found for any candidate asset name" >&2
+  echo "tried:" >&2
+  for candidate in "${asset_candidates[@]}"; do
+    echo "  - ${candidate}" >&2
+  done
+  exit 2
+fi
+
+asset_path="${work_dir}/${asset_name}"
 
 echo "==> Downloading asset: ${release_base_url}/${asset_name}"
 download_file "${release_base_url}/${asset_name}" "$asset_path"
 
 expected="$(awk -v file="$asset_name" '$2 == file {print $1}' "$checksums_path")"
-if [[ -z "$expected" ]]; then
-  echo "error: checksum entry not found for ${asset_name}" >&2
-  exit 2
-fi
 
 actual="$(sha256_file "$asset_path")"
 if [[ "$actual" != "$expected" ]]; then

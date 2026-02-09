@@ -21,6 +21,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - Packaging boundary (OSS vs Enterprise): `docs/packaging.md`
 - Installer and platform support: `docs/install.md`
 - Homebrew tap publishing path: `docs/homebrew.md`
+- Local UAT and functional testing plan: `docs/uat_functional_plan.md`
 
 ## Overlap Rules
 

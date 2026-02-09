@@ -10,6 +10,13 @@ Gait is an offline-first, default-safe CLI that makes production AI agent runs *
 - **Regress**: turn runpacks into deterministic CI regressions
 - **Gate**: evaluate tool-call intent against YAML policy, with approvals and signed traces
 - **Doctor**: first-5-minutes diagnostics (stable JSON + fixes)
+- **Scout**: local snapshot/diff/signal reporting for drift and incident clustering
+- **Guard / Incident**: deterministic evidence bundles, verification, retention, and incident packaging
+
+Supporting OSS surfaces shipped in v1:
+
+- **Registry**: signed/pinned skill pack install + verify workflows
+- **MCP bridge/proxy**: tool-call boundary adapters that route through Gate policy evaluation
 
 The durable product contract is **artifacts and schemas**, not a hosted UI.
 
@@ -26,7 +33,10 @@ The durable product contract is **artifacts and schemas**, not a hosted UI.
 
 - **Go is authoritative** for: schemas, canonicalization, hashing, signing/verification, zip packaging, diffing, stub replay, policy evaluation, and CLI output.
 - **Python is an adoption layer only**: capture intent, call local Go, return structured results. No policy parsing/logic in Python.
+- **Wrappers and sidecars are transport only**: all enforce/allow/block decisions come from Go (`gait gate eval`), never framework-local logic.
 - **Node/TypeScript are not part of the v1 core**. If used later, keep it in adapters or tooling, not the core CLI path.
+
+Current reference adapter set (keep parity): `openai_agents`, `langchain`, `autogen`, `openclaw`, `autogpt`, and the canonical sidecar path.
 
 ## Canonicalization, hashing, and artifacts
 
@@ -63,9 +73,10 @@ The durable product contract is **artifacts and schemas**, not a hosted UI.
 
 ## Tooling expectations (don’t pin versions here)
 
-- CI should run Go linting + security scans (e.g. `golangci-lint`, `go vet`, `gosec`, `govulncheck`) and Python checks for wrapper code (`ruff`, `mypy`, `pytest`).
+- CI should run Go linting + security scans (e.g. `golangci-lint`, `go vet`, `gosec`, `govulncheck`) and Python checks for wrapper code (`ruff`, `mypy`, `bandit`, `pytest`).
 - Prefer a cross-platform CI matrix (macOS/Linux/Windows) and path-filtered workflows for speed.
 - Releases should produce checksums, SBOMs, and signed provenance/attestations; treat release integrity separately from runpack/trace signing.
+- Keep pre-commit and pre-push enforcement active (`make hooks`), with pre-push running `make lint` and `make test`.
 
 ## Tests (what to add as the repo grows)
 
@@ -76,6 +87,8 @@ The durable product contract is **artifacts and schemas**, not a hosted UI.
   - JCS canonicalization and digest stability
   - zip determinism (same inputs => same bytes)
   - policy evaluation determinism
+- Maintain deterministic integration/e2e/acceptance suites for adapters, policy compliance, hardening, and release smoke paths.
+- Keep coverage gates at **>= 85%** for Go core/CLI and Python SDK in CI.
 - Tests must be offline and hermetic by default (no network, no cloud accounts).
 
 ## Repo hygiene

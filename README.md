@@ -256,6 +256,7 @@ make test-adoption
 make test-contracts
 make test-hardening-acceptance
 make test-release-smoke
+make test-uat-local
 ```
 
 90-second terminal demo: `bash scripts/demo_90s.sh`
@@ -269,5 +270,6 @@ Enable hooks: `pre-commit install --hook-type pre-commit --hook-type pre-push`
 - `CODE_OF_CONDUCT.md`
 - `docs/hardening/contracts.md`
 - `docs/hardening/release_checklist.md`
+- `docs/uat_functional_plan.md`
 - `product/PRD.md`
 - `product/ROADMAP.md`

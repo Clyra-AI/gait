@@ -12,6 +12,7 @@ Thanks for your interest in contributing. This repo is optimized for **determini
    - `make test-hardening`
    - `make test-hardening-acceptance`
    - `make test-adoption`
+   - `make test-uat-local` (full local install-path UAT matrix; longer running)
 
 ## Pre-commit
 
