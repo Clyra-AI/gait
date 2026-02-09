@@ -169,7 +169,7 @@ class ${formula_class} < Formula
   end
 
   test do
-    output = shell_output("\#{bin}/${project} demo --json")
+    output = shell_output("#{bin}/${project} demo --json")
     assert_match "\"run_id\"", output
   end
 end
