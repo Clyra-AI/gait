@@ -253,6 +253,25 @@ Proposal templates:
 - Adapter proposal: `.github/ISSUE_TEMPLATE/adapter.yml`
 - Skill proposal: `.github/ISSUE_TEMPLATE/skill.yml`
 
+## Launch And Distribution Kit
+
+Use the launch kit for repeatable OSS release distribution and messaging:
+
+- `docs/launch/README.md`
+- `docs/launch/narrative_one_liner.md`
+- `docs/launch/hn_post.md`
+- `docs/launch/github_release_template.md`
+- `docs/launch/faq_objections.md`
+- `docs/launch/kpi_scorecard.md`
+
+Deterministic 90-second terminal demo script:
+
+```bash
+bash scripts/demo_90s.sh
+```
+
+By default this script runs in `gait-out/demo_90s/workspace` so it does not create root-level fixture/config artifacts.
+
 ## Core Commands
 
 ```text
@@ -312,6 +331,7 @@ Read in this order:
 9. `docs/install.md`
 10. `docs/ecosystem/awesome.md`
 11. `docs/ecosystem/contribute.md`
+12. `docs/launch/README.md`
 
 ## Development
 

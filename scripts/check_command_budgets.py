@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +75,7 @@ DEFAULT_RUNTIME_SLO_BUDGETS: dict[str, Any] = {
 }
 
 DEFAULT_BUDGET_PATH = Path("perf/runtime_slo_budgets.json")
+UTC = timezone.utc
 
 
 def run_checked(command: list[str], cwd: Path) -> None:

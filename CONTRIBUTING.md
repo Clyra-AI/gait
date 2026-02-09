@@ -188,6 +188,7 @@ uv self update
 - Avoid adding network dependencies to core flows.
 - Review hardening contracts for reliability-impacting changes: `docs/hardening/contracts.md`.
 - Use `docs/hardening/release_checklist.md` for release-impacting changes.
+- Use `docs/launch/README.md` and linked launch templates when proposing messaging/distribution updates.
 - Record architecture-impacting decisions in `docs/adr/`.
 
 ## Triage and labels
