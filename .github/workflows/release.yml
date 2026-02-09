@@ -37,6 +37,7 @@ jobs:
           set -euo pipefail
           attempts=4
           for attempt in $(seq 1 "${attempts}"); do
+            gh release delete "${GITHUB_REF_NAME}" --yes >/dev/null 2>&1 || true
             log_file="$(mktemp)"
             set +e
             goreleaser release --clean 2>&1 | tee "${log_file}"
