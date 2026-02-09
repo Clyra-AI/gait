@@ -21,3 +21,4 @@ perf/bench_report.json
 perf/resource_budget_report.json
 perf/command_budget_report.json
 /product/PLAN_ENT.md
+/trace_*.json

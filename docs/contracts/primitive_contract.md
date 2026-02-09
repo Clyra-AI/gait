@@ -153,3 +153,14 @@ Consumer obligations:
   - policy evaluation
   - artifact verification
 - Integrations MUST pass through these primitive contracts unchanged in meaning.
+
+## Enterprise consumer compatibility guard
+
+- Enterprise control-plane consumers are downstream readers of OSS artifacts.
+- Enterprise consumers MUST treat OSS primitive contracts as append-only within major `v1.x`.
+- Enterprise consumers MUST ignore additive unknown fields.
+- OSS MUST remain executable without any enterprise control plane dependency.
+
+CI proof point:
+
+- `scripts/test_ent_consumer_contract.sh` generates live v1.7 artifacts (`runpack`, `trace`, `regress_result`, `signal_report`) and validates deterministic enterprise-style ingestion plus additive-field tolerance.

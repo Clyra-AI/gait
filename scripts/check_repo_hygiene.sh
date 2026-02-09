@@ -10,7 +10,7 @@ required_product_docs=(
   "product/PRD.md"
   "product/ROADMAP.md"
   "product/PLAN_v1.md"
-  "product/PLAN_v1_5.md"
+  "product/PLAN_v1.7.md"
   "product/PLAN_ADOPTION.md"
   "product/PLAN_HARDENING.md"
 )
