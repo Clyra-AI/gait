@@ -117,6 +117,20 @@ jobs:
         run: |
           make test-v1-6-acceptance
 
+  v1-7-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: V1.7 wedge acceptance checks
+        run: |
+          make test-v1-7-acceptance
+
   release-smoke:
     runs-on: ubuntu-latest
     steps:

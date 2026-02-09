@@ -10,7 +10,7 @@ rules:
     endpoint:
       enabled: true
       path_denylist: [/etc/**, /var/lib/**]
-      domain_denylist: [*.external.example]
+      domain_denylist: ["*.external.example"]
       action: block
       reason_code: endpoint_policy_violation
       violation: endpoint_policy_violation
