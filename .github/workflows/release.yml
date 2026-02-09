@@ -117,6 +117,8 @@ jobs:
           cosign verify-blob \
             --certificate dist/checksums.txt.pem \
             --signature dist/checksums.txt.sig \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/.*$" \
             dist/checksums.txt
 
           python - <<'PY'
