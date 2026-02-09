@@ -61,10 +61,30 @@ If it fails, remove tracked generated files with `git rm --cached <path>` and re
 
 Use these paths to keep adapter, policy, and fixture contributions reviewable and deterministic.
 
+## Adapter Neutrality Contract (Required)
+
+Gait stays vendor-neutral only if every adapter follows the same execution contract.
+
+Non-negotiable adapter rules:
+
+- No privileged bypasses for any framework. Tool execution must pass through `gait gate eval`.
+- No framework-specific policy semantics. Policy behavior is owned by Go core and shared across adapters.
+- No adapter-specific weakening of fail-closed behavior on gate evaluation errors.
+- No adapter with materially stronger capabilities than others without parity plan and tracking issue.
+
+Acceptance bar for a new adapter under `examples/integrations/<adapter>/`:
+
+- `README.md` with copy/paste `allow` and `block` commands.
+- Runnable quickstart that emits normalized intent and evaluates with `gait gate eval`.
+- Explicit fail-closed behavior (`executed=false`) when verdict is `block`, `require_approval`, `dry_run`, or evaluation fails.
+- Deterministic local artifact paths under `gait-out/integrations/<adapter>/`.
+- Included in `scripts/test_adoption_smoke.sh` before merge.
+
 ### Adapter examples (`examples/integrations/<adapter>/`)
 
 Required in each adapter folder:
 
+- Follow parity contract in `examples/integrations/README.md`.
 - `README.md` with copy/paste commands and expected outputs.
 - A runnable entrypoint (for example `quickstart.py`) that routes tool calls through `gait gate eval`.
 - At least one allow and one block/approval example policy file.

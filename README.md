@@ -22,6 +22,26 @@ Gait answers that with portable artifacts instead of screenshots and guesswork:
 - compliance teams get verifiable evidence packs and stable outputs
 - agent developers get a fast loop from bug report to deterministic regression
 
+## Category Positioning
+
+What Gait is:
+
+- an artifact-first Agent Control Plane for production tool execution
+- an execution-boundary guard (`gate`) plus verifiable receipts (`runpack`) plus deterministic regressions (`regress`)
+- a vendor-neutral CLI contract that works across frameworks and model providers
+
+What Gait is not:
+
+- not a hosted governance dashboard
+- not prompt-only filtering
+- not a replacement for your identity provider, SIEM, or ticketing system
+
+Why artifact-first + execution-boundary-first:
+
+- tool calls are where authority is exercised, so control must happen there
+- portable artifacts are the durable evidence contract across incidents, CI, and audits
+- deterministic regressions turn one incident into a permanent safety test
+
 ## Start Here (Single Install Path)
 
 Use one path for first use: build from source.
@@ -255,11 +275,12 @@ Read in this order:
 
 1. `/Users/davidahmann/Projects/gait/README.md`
 2. `docs/contracts/primitive_contract.md`
-3. `docs/integration_checklist.md`
-4. `docs/policy_rollout.md`
-5. `docs/approval_runbook.md`
-6. `docs/ci_regress_kit.md`
-7. `docs/evidence_templates.md`
+3. `docs/positioning.md`
+4. `docs/integration_checklist.md`
+5. `docs/policy_rollout.md`
+6. `docs/approval_runbook.md`
+7. `docs/ci_regress_kit.md`
+8. `docs/evidence_templates.md`
 
 ## Development
 
