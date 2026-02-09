@@ -95,26 +95,51 @@ if [[ ! -f "$checksums_path" ]]; then
   exit 2
 fi
 
-asset_amd64="${project}_${version}_darwin_amd64.tar.gz"
-asset_arm64="${project}_${version}_darwin_arm64.tar.gz"
+version_no_v="${version#v}"
 
-checksum_for() {
-  local file="$1"
+resolve_asset_and_checksum() {
+  local descriptor="$1"
+  shift
+
+  local candidate
   local sum
-  sum="$(awk -v f="$file" '$2 == f {print $1; exit}' "$checksums_path")"
-  if [[ -z "$sum" ]]; then
-    echo "error: checksum not found for ${file} in ${checksums_path}" >&2
-    exit 2
-  fi
-  if [[ ! "$sum" =~ ^[a-f0-9]{64}$ ]]; then
-    echo "error: invalid checksum format for ${file}: ${sum}" >&2
-    exit 2
-  fi
-  printf '%s\n' "$sum"
+  for candidate in "$@"; do
+    sum="$(awk -v f="$candidate" '$2 == f {print $1; exit}' "$checksums_path")"
+    if [[ -n "$sum" ]]; then
+      if [[ ! "$sum" =~ ^[a-f0-9]{64}$ ]]; then
+        echo "error: invalid checksum format for ${candidate}: ${sum}" >&2
+        exit 2
+      fi
+      printf '%s|%s\n' "$candidate" "$sum"
+      return 0
+    fi
+  done
+
+  echo "error: checksum not found for ${descriptor} in ${checksums_path}" >&2
+  echo "tried:" >&2
+  for candidate in "$@"; do
+    echo "  - ${candidate}" >&2
+  done
+  exit 2
 }
 
-sha_amd64="$(checksum_for "$asset_amd64")"
-sha_arm64="$(checksum_for "$asset_arm64")"
+amd64_resolved="$(
+  resolve_asset_and_checksum \
+    "darwin amd64 archive" \
+    "${project}_${version_no_v}_darwin_amd64.tar.gz" \
+    "${project}_${version}_darwin_amd64.tar.gz"
+)"
+arm64_resolved="$(
+  resolve_asset_and_checksum \
+    "darwin arm64 archive" \
+    "${project}_${version_no_v}_darwin_arm64.tar.gz" \
+    "${project}_${version}_darwin_arm64.tar.gz"
+)"
+
+asset_amd64="${amd64_resolved%%|*}"
+sha_amd64="${amd64_resolved##*|}"
+asset_arm64="${arm64_resolved%%|*}"
+sha_arm64="${arm64_resolved##*|}"
 
 homepage="https://github.com/${repo}"
 release_base="https://github.com/${repo}/releases/download/${version}"
