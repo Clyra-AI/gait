@@ -7,6 +7,7 @@ This doc defines the Homebrew strategy for Gait.
 - GitHub Releases are the release source of truth.
 - Homebrew is a distribution adapter, not the release system.
 - Publish to a custom tap first (`homebrew/core` later, only after stability proof).
+- Current tap repo: `davidahmann/homebrew-tap` (tap alias `davidahmann/tap`).
 
 ## Preconditions (Release Gate)
 
@@ -50,14 +51,16 @@ bash scripts/render_homebrew_formula.sh \
   --out Formula/gait.rb
 ```
 
-4. Commit formula in tap repo (`<owner>/homebrew-gait`).
-5. Open PR, require macOS CI green.
+4. Commit formula in tap repo (`davidahmann/homebrew-tap`, `Formula/gait.rb`).
+5. Open PR (or direct push if you own the tap), require macOS verification green.
 6. Merge and verify:
 
 ```bash
 brew update
-brew install <owner>/gait/gait
-gait --help
+brew tap davidahmann/tap
+brew reinstall davidahmann/tap/gait
+brew test davidahmann/tap/gait
+gait demo --json
 ```
 
 ## Rollback

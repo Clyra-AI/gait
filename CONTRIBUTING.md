@@ -234,7 +234,7 @@ Triage flow:
 
 ## Homebrew tap release process (gated)
 
-Homebrew publishing is deferred until the v1 install and contract stability gate is met.
+Homebrew tap publishing is active and remains release-gated.
 
 Gate criteria:
 
@@ -247,12 +247,14 @@ Formula update workflow:
 1. Cut and publish a signed GitHub release tag (`vX.Y.Z`).
 2. Render formula from release checksums:
    - `bash scripts/render_homebrew_formula.sh --repo davidahmann/gait --version vX.Y.Z --checksums dist/checksums.txt --out Formula/gait.rb`
-3. Update tap formula (`Formula/gait.rb`) in tap repo.
-4. Open PR in tap repo and require CI pass on macOS.
+3. Update tap formula (`Formula/gait.rb`) in `davidahmann/homebrew-tap`.
+4. Open PR in tap repo (or direct push if maintainer-owned) and require macOS verification pass.
 5. Merge and verify:
    - `brew update`
-   - `brew install <tap>/gait`
-   - `gait --help`
+   - `brew tap davidahmann/tap`
+   - `brew reinstall davidahmann/tap/gait`
+   - `brew test davidahmann/tap/gait`
+   - `gait demo --json`
 
 Reference:
 

@@ -9,7 +9,14 @@ curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/insta
 ```
 
 Linux and macOS. Windows: see `docs/install.md`.
-Homebrew path (tap-first strategy): `docs/homebrew.md`.
+Homebrew (tap) alternative:
+
+```bash
+brew tap davidahmann/tap
+brew install gait
+```
+
+Tap-first release details: `docs/homebrew.md`.
 
 ```bash
 gait demo

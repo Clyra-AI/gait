@@ -21,6 +21,20 @@ What the script does:
 - verifies SHA-256 checksum before install
 - installs `gait` to `~/.local/bin` by default
 
+## Homebrew Path (Tap)
+
+```bash
+brew tap davidahmann/tap
+brew install gait
+```
+
+Validate install:
+
+```bash
+brew test davidahmann/tap/gait
+gait demo --json
+```
+
 ## PATH Setup (Common First-Run Fix)
 
 If `gait` is not found after install, add `~/.local/bin` to your shell PATH:
