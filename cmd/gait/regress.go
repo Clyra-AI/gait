@@ -23,14 +23,34 @@ type regressInitOutput struct {
 }
 
 type regressRunOutput struct {
-	OK         bool   `json:"ok"`
-	Status     string `json:"status,omitempty"`
-	FixtureSet string `json:"fixture_set,omitempty"`
-	Graders    int    `json:"graders,omitempty"`
-	Failed     int    `json:"failed,omitempty"`
-	Output     string `json:"output,omitempty"`
-	JUnit      string `json:"junit,omitempty"`
-	Error      string `json:"error,omitempty"`
+	OK               bool     `json:"ok"`
+	Status           string   `json:"status,omitempty"`
+	FixtureSet       string   `json:"fixture_set,omitempty"`
+	Graders          int      `json:"graders,omitempty"`
+	Failed           int      `json:"failed,omitempty"`
+	TopFailureReason string   `json:"top_failure_reason,omitempty"`
+	NextCommand      string   `json:"next_command,omitempty"`
+	ArtifactPaths    []string `json:"artifact_paths,omitempty"`
+	Output           string   `json:"output,omitempty"`
+	JUnit            string   `json:"junit,omitempty"`
+	Error            string   `json:"error,omitempty"`
+}
+
+type regressBootstrapOutput struct {
+	OK               bool     `json:"ok"`
+	RunID            string   `json:"run_id,omitempty"`
+	FixtureName      string   `json:"fixture_name,omitempty"`
+	FixtureDir       string   `json:"fixture_dir,omitempty"`
+	RunpackPath      string   `json:"runpack_path,omitempty"`
+	ConfigPath       string   `json:"config_path,omitempty"`
+	Status           string   `json:"status,omitempty"`
+	Failed           int      `json:"failed,omitempty"`
+	TopFailureReason string   `json:"top_failure_reason,omitempty"`
+	NextCommand      string   `json:"next_command,omitempty"`
+	ArtifactPaths    []string `json:"artifact_paths,omitempty"`
+	Output           string   `json:"output,omitempty"`
+	JUnit            string   `json:"junit,omitempty"`
+	Error            string   `json:"error,omitempty"`
 }
 
 func runRegress(arguments []string) int {
@@ -46,6 +66,8 @@ func runRegress(arguments []string) int {
 		return runRegressInit(arguments[1:])
 	case "run":
 		return runRegressRun(arguments[1:])
+	case "bootstrap":
+		return runRegressBootstrap(arguments[1:])
 	default:
 		printRegressUsage()
 		return exitInvalidInput
@@ -179,20 +201,128 @@ func runRegressRun(arguments []string) int {
 		return writeRegressRunOutput(jsonOutput, regressRunOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
-	exitCode := exitOK
 	ok := result.Result.Status == regressStatusPass
+	exitCode := exitOK
 	if !ok {
 		exitCode = exitRegressFailed
 	}
+	topFailureReason := firstFailureReason(result)
+	nextCommand := ""
+	if !ok {
+		nextCommand = regressNextCommand(configPath)
+	}
+	artifactPaths := regressArtifactPaths(result.OutputPath, result.JUnitPath)
 
 	return writeRegressRunOutput(jsonOutput, regressRunOutput{
-		OK:         ok,
-		Status:     result.Result.Status,
-		FixtureSet: result.Result.FixtureSet,
-		Graders:    len(result.Result.Graders),
-		Failed:     result.FailedGraders,
-		Output:     result.OutputPath,
-		JUnit:      result.JUnitPath,
+		OK:               ok,
+		Status:           result.Result.Status,
+		FixtureSet:       result.Result.FixtureSet,
+		Graders:          len(result.Result.Graders),
+		Failed:           result.FailedGraders,
+		TopFailureReason: topFailureReason,
+		NextCommand:      nextCommand,
+		ArtifactPaths:    artifactPaths,
+		Output:           result.OutputPath,
+		JUnit:            result.JUnitPath,
+	}, exitCode)
+}
+
+func runRegressBootstrap(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Initialize a fixture from a runpack and execute regress in one command for incident-to-regression bootstrap.")
+	}
+	flagSet := flag.NewFlagSet("regress-bootstrap", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var from string
+	var name string
+	var configPath string
+	var outputPath string
+	var junitPath string
+	var jsonOutput bool
+	var allowNondeterministic bool
+	var helpFlag bool
+
+	flagSet.StringVar(&from, "from", "", "run_id or path")
+	flagSet.StringVar(&name, "name", "", "fixture name override")
+	flagSet.StringVar(&configPath, "config", "gait.yaml", "path to regress config")
+	flagSet.StringVar(&outputPath, "output", "regress_result.json", "path to result JSON")
+	flagSet.StringVar(&junitPath, "junit", "", "path to optional junit xml report")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&allowNondeterministic, "allow-nondeterministic", false, "allow non-deterministic graders")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printRegressBootstrapUsage()
+		return exitOK
+	}
+	if len(flagSet.Args()) > 0 {
+		return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{
+			OK:    false,
+			Error: "unexpected positional arguments",
+		}, exitInvalidInput)
+	}
+	if strings.TrimSpace(from) == "" {
+		return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{
+			OK:    false,
+			Error: "missing required --from <run_id|path>",
+		}, exitInvalidInput)
+	}
+
+	runpackPath, err := resolveRunpackPath(from)
+	if err != nil {
+		return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	initResult, err := regress.InitFixture(regress.InitOptions{
+		SourceRunpackPath: runpackPath,
+		FixtureName:       name,
+		WorkDir:           ".",
+	})
+	if err != nil {
+		return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	runResult, err := regress.Run(regress.RunOptions{
+		ConfigPath:            configPath,
+		OutputPath:            outputPath,
+		JUnitPath:             junitPath,
+		WorkDir:               ".",
+		ProducerVersion:       version,
+		AllowNondeterministic: allowNondeterministic,
+	})
+	if err != nil {
+		return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	ok := runResult.Result.Status == regressStatusPass
+	exitCode := exitOK
+	if !ok {
+		exitCode = exitRegressFailed
+	}
+	topFailureReason := firstFailureReason(runResult)
+	nextCommand := ""
+	if !ok {
+		nextCommand = regressNextCommand(configPath)
+	}
+	artifactPaths := regressArtifactPaths(runResult.OutputPath, runResult.JUnitPath)
+
+	return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{
+		OK:               ok,
+		RunID:            initResult.RunID,
+		FixtureName:      initResult.FixtureName,
+		FixtureDir:       initResult.FixtureDir,
+		RunpackPath:      initResult.RunpackPath,
+		ConfigPath:       initResult.ConfigPath,
+		Status:           runResult.Result.Status,
+		Failed:           runResult.FailedGraders,
+		TopFailureReason: topFailureReason,
+		NextCommand:      nextCommand,
+		ArtifactPaths:    artifactPaths,
+		Output:           runResult.OutputPath,
+		JUnit:            runResult.JUnitPath,
 	}, exitCode)
 }
 
@@ -214,6 +344,15 @@ func writeRegressRunOutput(jsonOutput bool, output regressRunOutput, exitCode in
 		return exitCode
 	}
 	fmt.Printf("regress run failed: fixture_set=%s failed=%d\n", output.FixtureSet, output.Failed)
+	if output.TopFailureReason != "" {
+		fmt.Printf("top_failure_reason: %s\n", output.TopFailureReason)
+	}
+	if output.NextCommand != "" {
+		fmt.Printf("next: %s\n", output.NextCommand)
+	}
+	if len(output.ArtifactPaths) > 0 {
+		fmt.Printf("artifacts: %s\n", strings.Join(output.ArtifactPaths, ", "))
+	}
 	fmt.Printf("output: %s\n", output.Output)
 	if output.JUnit != "" {
 		fmt.Printf("junit: %s\n", output.JUnit)
@@ -221,10 +360,73 @@ func writeRegressRunOutput(jsonOutput bool, output regressRunOutput, exitCode in
 	return exitCode
 }
 
+func writeRegressBootstrapOutput(jsonOutput bool, output regressBootstrapOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+
+	if output.OK {
+		fmt.Printf("regress bootstrap ok: run_id=%s fixture=%s\n", output.RunID, output.FixtureName)
+		fmt.Printf("output: %s\n", output.Output)
+		if output.JUnit != "" {
+			fmt.Printf("junit: %s\n", output.JUnit)
+		}
+		return exitCode
+	}
+	if output.Error != "" {
+		fmt.Printf("regress bootstrap error: %s\n", output.Error)
+		return exitCode
+	}
+	fmt.Printf("regress bootstrap failed: run_id=%s fixture=%s failed=%d\n", output.RunID, output.FixtureName, output.Failed)
+	if output.TopFailureReason != "" {
+		fmt.Printf("top_failure_reason: %s\n", output.TopFailureReason)
+	}
+	if output.NextCommand != "" {
+		fmt.Printf("next: %s\n", output.NextCommand)
+	}
+	if len(output.ArtifactPaths) > 0 {
+		fmt.Printf("artifacts: %s\n", strings.Join(output.ArtifactPaths, ", "))
+	}
+	return exitCode
+}
+
+func firstFailureReason(result regress.RunResult) string {
+	for _, grader := range result.Result.Graders {
+		if grader.Status == regressStatusPass {
+			continue
+		}
+		if len(grader.ReasonCodes) > 0 {
+			return grader.ReasonCodes[0]
+		}
+		return "grader_failed"
+	}
+	return ""
+}
+
+func regressNextCommand(configPath string) string {
+	trimmed := strings.TrimSpace(configPath)
+	if trimmed == "" || trimmed == "gait.yaml" {
+		return "gait regress run --json"
+	}
+	return fmt.Sprintf("gait regress run --config %s --json", trimmed)
+}
+
+func regressArtifactPaths(outputPath string, junitPath string) []string {
+	paths := []string{}
+	if strings.TrimSpace(outputPath) != "" {
+		paths = append(paths, strings.TrimSpace(outputPath))
+	}
+	if strings.TrimSpace(junitPath) != "" {
+		paths = append(paths, strings.TrimSpace(junitPath))
+	}
+	return paths
+}
+
 func printRegressUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait regress init --from <run_id|path> [--name <fixture_name>] [--json] [--explain]")
 	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
+	fmt.Println("  gait regress bootstrap --from <run_id|path> [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
 }
 
 func printRegressInitUsage() {
@@ -235,4 +437,9 @@ func printRegressInitUsage() {
 func printRegressRunUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--explain]")
+}
+
+func printRegressBootstrapUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait regress bootstrap --from <run_id|path> [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--explain]")
 }

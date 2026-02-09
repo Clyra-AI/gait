@@ -13,7 +13,7 @@ Use `.github/workflows/adoption-regress-template.yml` as the baseline workflow.
 Template flow:
 
 1. Build local `gait` binary.
-2. Restore fixture (`fixtures/run_demo/runpack.zip` + `gait.yaml`) or initialize via demo.
+2. Restore fixture (`fixtures/run_demo/runpack.zip` + `gait.yaml`) or bootstrap from a run artifact.
 3. Run `gait regress run --json --junit=...`.
 4. Fail with stable exit codes (`5` for deterministic regression failure).
 5. Upload `regress_result.json`, `junit.xml`, and fixture artifacts.
@@ -26,15 +26,19 @@ Use this in non-GitHub providers (Jenkins, Buildkite, CircleCI, etc.):
 set -euo pipefail
 
 go build -o ./gait ./cmd/gait
+mkdir -p gait-out
 
 if [[ ! -f fixtures/run_demo/runpack.zip || ! -f gait.yaml ]]; then
   ./gait demo
-  ./gait regress init --from run_demo --json
+  ./gait regress bootstrap --from run_demo --json --junit=./gait-out/junit.xml
+else
+  ./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
 fi
 
-mkdir -p gait-out
 set +e
-./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
+if [[ ! -f ./gait-out/regress_result.json ]]; then
+  ./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
+fi
 status=$?
 set -e
 

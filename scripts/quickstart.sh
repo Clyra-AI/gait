@@ -47,4 +47,4 @@ fi
 echo "==> Running gait verify ${RUN_ID}"
 "${GAIT_BIN}" verify "${RUN_ID}"
 
-echo "next: ${GAIT_BIN} regress init --from ${RUN_ID}"
+echo "next: ${GAIT_BIN} regress bootstrap --from ${RUN_ID} --json"

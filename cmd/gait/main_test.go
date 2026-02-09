@@ -51,6 +51,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "regress", "run", "--help"}); code != exitOK {
 		t.Fatalf("run regress run help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "regress", "bootstrap", "--help"}); code != exitOK {
+		t.Fatalf("run regress bootstrap help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "run", "replay", "--help"}); code != exitOK {
 		t.Fatalf("run replay help: expected %d got %d", exitOK, code)
 	}
@@ -773,6 +776,12 @@ func TestValidationBranches(t *testing.T) {
 	if code := runRegressRun([]string{"--json", "extra"}); code != exitInvalidInput {
 		t.Fatalf("runRegressRun positional args: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := runRegressBootstrap([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runRegressBootstrap missing --from: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runRegressBootstrap([]string{"--from", "run_demo", "--json", "extra"}); code != exitInvalidInput {
+		t.Fatalf("runRegressBootstrap positional args: expected %d got %d", exitInvalidInput, code)
+	}
 	if code := runRecord([]string{"--json"}); code != exitInvalidInput {
 		t.Fatalf("runRecord missing input: expected %d got %d", exitInvalidInput, code)
 	}
@@ -1440,6 +1449,23 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	if code := writeRegressRunOutput(false, regressRunOutput{OK: false, FixtureSet: "default", Failed: 1}, exitRegressFailed); code != exitRegressFailed {
 		t.Fatalf("writeRegressRunOutput text fail: expected %d got %d", exitRegressFailed, code)
 	}
+	if code := writeRegressBootstrapOutput(true, regressBootstrapOutput{OK: true, FixtureName: "fixture"}, exitOK); code != exitOK {
+		t.Fatalf("writeRegressBootstrapOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeRegressBootstrapOutput(false, regressBootstrapOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeRegressBootstrapOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeRegressBootstrapOutput(false, regressBootstrapOutput{
+		OK:               false,
+		RunID:            "run_demo",
+		FixtureName:      "run_demo",
+		Failed:           1,
+		TopFailureReason: "unexpected_exit_code",
+		NextCommand:      "gait regress run --json",
+		ArtifactPaths:    []string{"regress_result.json", "junit.xml"},
+	}, exitRegressFailed); code != exitRegressFailed {
+		t.Fatalf("writeRegressBootstrapOutput text fail: expected %d got %d", exitRegressFailed, code)
+	}
 
 	if code := writeDiffOutput(true, diffOutput{OK: true}, exitOK); code != exitOK {
 		t.Fatalf("writeDiffOutput json: expected %d got %d", exitOK, code)
@@ -1614,6 +1640,7 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printRegressUsage()
 	printRegressInitUsage()
 	printRegressRunUsage()
+	printRegressBootstrapUsage()
 	printRunUsage()
 	printRecordUsage()
 	printRunReceiptUsage()

@@ -73,7 +73,13 @@ gait run receipt --from <run_id|path>
 
 ## Incident To Regression (Deterministic CI Path)
 
-Convert a captured run into CI checks:
+Fast path (one command):
+
+```bash
+gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+```
+
+Equivalent explicit path:
 
 ```bash
 gait regress init --from run_demo --json
@@ -96,6 +102,12 @@ Stable exit behavior is CI-friendly:
 
 - `0` success
 - `5` regression failed
+
+When regress fails, output is actionable without opening large JSON first:
+
+- `top_failure_reason`
+- `next_command`
+- `artifact_paths`
 
 ## Gate High-Risk Tools
 
@@ -187,6 +199,7 @@ gait run replay <run_id|path> [--real-tools --unsafe-real-tools --allow-tools ..
 gait run diff <left> <right>
 gait run receipt --from <run_id|path>
 gait regress init --from <run_id|path>
+gait regress bootstrap --from <run_id|path> [--junit junit.xml]
 gait regress run [--junit junit.xml]
 gait policy test <policy.yaml> <intent_fixture.json>
 gait gate eval --policy <policy.yaml> --intent <intent.json>
