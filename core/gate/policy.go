@@ -118,6 +118,8 @@ type PolicyMatch struct {
 	TargetKinds       []string `yaml:"target_kinds"`
 	TargetValues      []string `yaml:"target_values"`
 	EndpointClasses   []string `yaml:"endpoint_classes"`
+	SkillPublishers   []string `yaml:"skill_publishers"`
+	SkillSources      []string `yaml:"skill_sources"`
 	DataClasses       []string `yaml:"data_classes"`
 	DestinationKinds  []string `yaml:"destination_kinds"`
 	DestinationValues []string `yaml:"destination_values"`
@@ -315,6 +317,12 @@ func policyDigestPayload(policy Policy) map[string]any {
 		if len(rule.Match.EndpointClasses) > 0 {
 			matchPayload["EndpointClasses"] = rule.Match.EndpointClasses
 		}
+		if len(rule.Match.SkillPublishers) > 0 {
+			matchPayload["SkillPublishers"] = rule.Match.SkillPublishers
+		}
+		if len(rule.Match.SkillSources) > 0 {
+			matchPayload["SkillSources"] = rule.Match.SkillSources
+		}
 		if len(rule.Match.DataClasses) > 0 {
 			matchPayload["DataClasses"] = rule.Match.DataClasses
 		}
@@ -480,6 +488,8 @@ func normalizePolicy(input Policy) (Policy, error) {
 				return Policy{}, fmt.Errorf("unsupported match endpoint_class %q for %s", endpointClass, rule.Name)
 			}
 		}
+		rule.Match.SkillPublishers = normalizeStringListLower(rule.Match.SkillPublishers)
+		rule.Match.SkillSources = normalizeStringListLower(rule.Match.SkillSources)
 		rule.Match.DataClasses = normalizeStringListLower(rule.Match.DataClasses)
 		rule.Match.DestinationKinds = normalizeStringListLower(rule.Match.DestinationKinds)
 		rule.Match.DestinationValues = normalizeStringList(rule.Match.DestinationValues)
@@ -654,6 +664,16 @@ func ruleMatches(match PolicyMatch, intent schemagate.IntentRequest) bool {
 			}
 		}
 		if !endpointClassMatched {
+			return false
+		}
+	}
+	if len(match.SkillPublishers) > 0 {
+		if intent.SkillProvenance == nil || !contains(match.SkillPublishers, strings.ToLower(strings.TrimSpace(intent.SkillProvenance.Publisher))) {
+			return false
+		}
+	}
+	if len(match.SkillSources) > 0 {
+		if intent.SkillProvenance == nil || !contains(match.SkillSources, strings.ToLower(strings.TrimSpace(intent.SkillProvenance.Source))) {
 			return false
 		}
 	}

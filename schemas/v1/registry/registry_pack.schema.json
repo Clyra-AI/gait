@@ -19,6 +19,9 @@
     "producer_version": { "type": "string" },
     "pack_name": { "type": "string" },
     "pack_version": { "type": "string" },
+    "pack_type": { "type": "string" },
+    "publisher": { "type": "string" },
+    "source": { "type": "string" },
     "risk_class": { "type": "string" },
     "use_case": { "type": "string" },
     "compatibility": {

@@ -132,6 +132,18 @@ func TestRegistryHelperBranches(t *testing.T) {
 	if hosts := normalizeAllowHosts([]string{" EXAMPLE.com,example.com", "api.example.com"}); strings.Join(hosts, ",") != "api.example.com,example.com" {
 		t.Fatalf("normalizeAllowHosts mismatch: %#v", hosts)
 	}
+	if publishers := normalizePublisherAllowlist([]string{" Acme,acme ", "partner"}); strings.Join(publishers, ",") != "acme,partner" {
+		t.Fatalf("normalizePublisherAllowlist mismatch: %#v", publishers)
+	}
+	if err := enforcePublisherAllowlist("acme", []string{"acme"}); err != nil {
+		t.Fatalf("enforcePublisherAllowlist expected pass: %v", err)
+	}
+	if err := enforcePublisherAllowlist("", []string{"acme"}); err == nil {
+		t.Fatalf("expected missing publisher error")
+	}
+	if err := enforcePublisherAllowlist("unknown", []string{"acme"}); err == nil {
+		t.Fatalf("expected publisher mismatch error")
+	}
 	if !isRemoteSource("https://example.com/pack.json") || !isRemoteSource("http://example.com/pack.json") {
 		t.Fatalf("isRemoteSource should detect http/https")
 	}
@@ -281,6 +293,15 @@ func TestInstallLocalAndErrorBranches(t *testing.T) {
 		PublicKey: keyPair.Public,
 	}); err != nil {
 		t.Fatalf("Install local source: %v", err)
+	}
+
+	if _, err := Install(context.Background(), InstallOptions{
+		Source:             manifestPath,
+		CacheDir:           filepath.Join(workDir, "cache-allowlist"),
+		PublicKey:          keyPair.Public,
+		PublisherAllowlist: []string{"acme"},
+	}); err == nil {
+		t.Fatalf("expected install to fail when publisher allowlist is configured but manifest publisher is empty")
 	}
 
 	if _, err := Install(context.Background(), InstallOptions{

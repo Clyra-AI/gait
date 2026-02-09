@@ -3,21 +3,22 @@ package gate
 import "time"
 
 type TraceRecord struct {
-	SchemaID         string     `json:"schema_id"`
-	SchemaVersion    string     `json:"schema_version"`
-	CreatedAt        time.Time  `json:"created_at"`
-	ProducerVersion  string     `json:"producer_version"`
-	TraceID          string     `json:"trace_id"`
-	CorrelationID    string     `json:"correlation_id,omitempty"`
-	ToolName         string     `json:"tool_name"`
-	ArgsDigest       string     `json:"args_digest"`
-	IntentDigest     string     `json:"intent_digest"`
-	PolicyDigest     string     `json:"policy_digest"`
-	Verdict          string     `json:"verdict"`
-	Violations       []string   `json:"violations,omitempty"`
-	LatencyMS        float64    `json:"latency_ms,omitempty"`
-	ApprovalTokenRef string     `json:"approval_token_ref,omitempty"`
-	Signature        *Signature `json:"signature,omitempty"`
+	SchemaID         string           `json:"schema_id"`
+	SchemaVersion    string           `json:"schema_version"`
+	CreatedAt        time.Time        `json:"created_at"`
+	ProducerVersion  string           `json:"producer_version"`
+	TraceID          string           `json:"trace_id"`
+	CorrelationID    string           `json:"correlation_id,omitempty"`
+	ToolName         string           `json:"tool_name"`
+	ArgsDigest       string           `json:"args_digest"`
+	IntentDigest     string           `json:"intent_digest"`
+	PolicyDigest     string           `json:"policy_digest"`
+	Verdict          string           `json:"verdict"`
+	Violations       []string         `json:"violations,omitempty"`
+	LatencyMS        float64          `json:"latency_ms,omitempty"`
+	ApprovalTokenRef string           `json:"approval_token_ref,omitempty"`
+	SkillProvenance  *SkillProvenance `json:"skill_provenance,omitempty"`
+	Signature        *Signature       `json:"signature,omitempty"`
 }
 
 type Signature struct {
@@ -38,6 +39,7 @@ type IntentRequest struct {
 	IntentDigest    string                `json:"intent_digest,omitempty"`
 	Targets         []IntentTarget        `json:"targets"`
 	ArgProvenance   []IntentArgProvenance `json:"arg_provenance,omitempty"`
+	SkillProvenance *SkillProvenance      `json:"skill_provenance,omitempty"`
 	Context         IntentContext         `json:"context"`
 }
 
@@ -64,6 +66,15 @@ type IntentContext struct {
 	RiskClass string `json:"risk_class"`
 	SessionID string `json:"session_id,omitempty"`
 	RequestID string `json:"request_id,omitempty"`
+}
+
+type SkillProvenance struct {
+	SkillName      string `json:"skill_name"`
+	SkillVersion   string `json:"skill_version,omitempty"`
+	Source         string `json:"source"`
+	Publisher      string `json:"publisher"`
+	Digest         string `json:"digest,omitempty"`
+	SignatureKeyID string `json:"signature_key_id,omitempty"`
 }
 
 type GateResult struct {

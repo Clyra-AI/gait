@@ -35,6 +35,14 @@ rules:
 	intent.Targets = []schemagate.IntentTarget{
 		{Kind: "host", Value: "api.external.com"},
 	}
+	intent.SkillProvenance = &schemagate.SkillProvenance{
+		SkillName:      "safe-curl",
+		SkillVersion:   "1.0.0",
+		Source:         "registry",
+		Publisher:      "acme",
+		Digest:         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		SignatureKeyID: "key_demo",
+	}
 	result, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
 	if err != nil {
 		t.Fatalf("evaluate policy: %v", err)
@@ -66,6 +74,9 @@ rules:
 	}
 	if emitted.Trace.Signature == nil {
 		t.Fatalf("expected trace signature to be set")
+	}
+	if emitted.Trace.SkillProvenance == nil || emitted.Trace.SkillProvenance.SkillName != "safe-curl" {
+		t.Fatalf("expected skill provenance copied to trace: %#v", emitted.Trace.SkillProvenance)
 	}
 
 	readTrace, err := ReadTraceRecord(tracePath)

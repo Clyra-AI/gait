@@ -71,6 +71,24 @@ Rollout gate:
 
 - Move forward only when approval workflow latency and operability are acceptable.
 
+## Stage 3B: Skill Trust Guardrails
+
+When skills initiate tool calls, add trust conditions:
+
+- `skill_publishers` for known publishers
+- `skill_sources` for approved distribution channels (`registry` preferred)
+
+Example checks:
+
+```bash
+gait policy test examples/policy/skills/allow_trusted.yaml examples/policy-test/intent.json --json
+gait policy test examples/policy/skills/block_untrusted.yaml examples/policy-test/intent.json --json
+```
+
+Rollout gate:
+
+- Require explicit approval or block for unknown publisher/source combinations before production enforce.
+
 ## Stage 4: Full Enforce Mode
 
 Enforce block/allow decisions at runtime in wrapped tools:

@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-adoption test-release-smoke test-contracts test-live-connectors build bench bench-check bench-budgets skills-validate
+.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-adoption test-release-smoke test-contracts test-live-connectors test-skill-supply-chain build bench bench-check bench-budgets skills-validate
 .PHONY: hooks
 
 fmt:
@@ -71,6 +71,9 @@ test-contracts: build
 
 test-live-connectors:
 	bash scripts/test_live_connectors.sh
+
+test-skill-supply-chain:
+	bash scripts/test_skill_supply_chain.sh
 
 build:
 	$(GO) build ./cmd/gait

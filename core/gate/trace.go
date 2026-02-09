@@ -82,6 +82,7 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		Violations:       uniqueSorted(gateResult.Violations),
 		LatencyMS:        clampLatency(opts.LatencyMS),
 		ApprovalTokenRef: strings.TrimSpace(opts.ApprovalTokenRef),
+		SkillProvenance:  normalizedIntent.SkillProvenance,
 	}
 
 	signable := trace

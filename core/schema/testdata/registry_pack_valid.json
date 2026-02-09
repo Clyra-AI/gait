@@ -5,6 +5,9 @@
   "producer_version": "0.0.0-dev",
   "pack_name": "baseline-highrisk",
   "pack_version": "1.2.3",
+  "pack_type": "skill",
+  "publisher": "acme",
+  "source": "registry",
   "artifacts": [
     {
       "path": "policy.yaml",

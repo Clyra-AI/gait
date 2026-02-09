@@ -1,0 +1,20 @@
+{
+  "schema_id": "gait.registry.verification_report",
+  "schema_version": "1.0.0",
+  "created_at": "1980-01-01T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "pack_name": "safe-curl",
+  "pack_version": "1.0.0",
+  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "metadata_path": "/tmp/registry_pack.json",
+  "pin_path": "/tmp/pins/safe-curl.pin",
+  "pin_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "pin_present": true,
+  "pin_verified": true,
+  "signature_verified": true,
+  "publisher": "acme",
+  "source": "registry",
+  "publisher_allowed": true,
+  "status": "pass",
+  "failure_reasons": []
+}

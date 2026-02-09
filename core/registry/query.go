@@ -24,9 +24,10 @@ type ListOptions struct {
 }
 
 type VerifyOptions struct {
-	MetadataPath string
-	CacheDir     string
-	PublicKey    ed25519.PublicKey
+	MetadataPath       string
+	CacheDir           string
+	PublicKey          ed25519.PublicKey
+	PublisherAllowlist []string
 }
 
 type VerifyResult struct {
@@ -40,6 +41,9 @@ type VerifyResult struct {
 	PinVerified       bool   `json:"pin_verified"`
 	SignatureVerified bool   `json:"signature_verified"`
 	SignatureError    string `json:"signature_error,omitempty"`
+	Publisher         string `json:"publisher,omitempty"`
+	Source            string `json:"source,omitempty"`
+	PublisherAllowed  bool   `json:"publisher_allowed,omitempty"`
 }
 
 func List(options ListOptions) ([]InstalledPack, error) {
@@ -150,6 +154,8 @@ func Verify(options VerifyOptions) (VerifyResult, error) {
 		PackVersion:  manifest.PackVersion,
 		Digest:       digest,
 		MetadataPath: metadataPath,
+		Publisher:    strings.TrimSpace(manifest.Publisher),
+		Source:       strings.TrimSpace(manifest.Source),
 	}
 
 	if sigErr := verifySignatures(manifest.Signatures, options.PublicKey, digest); sigErr != nil {
@@ -157,6 +163,14 @@ func Verify(options VerifyOptions) (VerifyResult, error) {
 		result.SignatureError = sigErr.Error()
 	} else {
 		result.SignatureVerified = true
+	}
+	if err := enforcePublisherAllowlist(manifest.Publisher, options.PublisherAllowlist); err != nil {
+		result.PublisherAllowed = false
+		if result.SignatureError == "" {
+			result.SignatureError = err.Error()
+		}
+	} else {
+		result.PublisherAllowed = true
 	}
 
 	cacheDir := strings.TrimSpace(options.CacheDir)

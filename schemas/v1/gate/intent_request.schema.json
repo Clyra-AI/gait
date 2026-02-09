@@ -70,6 +70,19 @@
         "additionalProperties": false
       }
     },
+    "skill_provenance": {
+      "type": "object",
+      "required": ["skill_name", "source", "publisher"],
+      "properties": {
+        "skill_name": { "type": "string", "minLength": 1 },
+        "skill_version": { "type": "string" },
+        "source": { "type": "string", "minLength": 1 },
+        "publisher": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "signature_key_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
     "context": {
       "type": "object",
       "required": ["identity", "workspace", "risk_class"],

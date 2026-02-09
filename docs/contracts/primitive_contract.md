@@ -40,6 +40,7 @@ Producer obligations:
 - MUST provide a non-empty `tool_name`.
 - MUST provide `context.identity`, `context.workspace`, and `context.risk_class`.
 - SHOULD provide `args_digest` and `intent_digest` when available.
+- SHOULD provide `skill_provenance` when execution originates from a packaged skill.
 
 Consumer obligations:
 
@@ -98,6 +99,7 @@ Producer obligations:
 
 - MUST bind `verdict` to `intent_digest` and `policy_digest`.
 - SHOULD include signature data for tamper-evident traces in production paths.
+- SHOULD carry `skill_provenance` through from intent when present.
 
 Consumer obligations:
 

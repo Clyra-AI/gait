@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/registry/verification_report.schema.json",
+  "title": "Registry Verification Report",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "pack_name",
+    "pack_version",
+    "digest",
+    "metadata_path",
+    "pin_present",
+    "pin_verified",
+    "signature_verified",
+    "publisher_allowed",
+    "status"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.registry.verification_report" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "pack_name": { "type": "string", "minLength": 1 },
+    "pack_version": { "type": "string", "minLength": 1 },
+    "digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "metadata_path": { "type": "string", "minLength": 1 },
+    "pin_path": { "type": "string" },
+    "pin_digest": { "type": "string" },
+    "pin_present": { "type": "boolean" },
+    "pin_verified": { "type": "boolean" },
+    "signature_verified": { "type": "boolean" },
+    "publisher": { "type": "string" },
+    "source": { "type": "string" },
+    "publisher_allowed": { "type": "boolean" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "failure_reasons": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}

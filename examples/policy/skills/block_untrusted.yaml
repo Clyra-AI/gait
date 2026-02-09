@@ -1,0 +1,12 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: allow
+rules:
+  - name: block-untrusted-publisher
+    priority: 10
+    effect: block
+    match:
+      tool_names: [tool.write]
+      skill_publishers: [unknown, compromised]
+    reason_codes: [skill_untrusted_publisher]
+    violations: [skill_untrusted_publisher]

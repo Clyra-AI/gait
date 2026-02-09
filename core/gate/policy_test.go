@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -381,6 +382,12 @@ rules:
 	intent.ArgProvenance = []schemagate.IntentArgProvenance{
 		{ArgPath: "args.path", Source: "external"},
 	}
+	intent.SkillProvenance = &schemagate.SkillProvenance{
+		SkillName:    "safe-curl",
+		Source:       "registry",
+		Publisher:    "acme",
+		SkillVersion: "1.2.0",
+	}
 	intent.Targets = []schemagate.IntentTarget{
 		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential", EndpointClass: "net.http"},
 	}
@@ -404,6 +411,12 @@ func TestRuleMatchesCoverage(t *testing.T) {
 	intent.ArgProvenance = []schemagate.IntentArgProvenance{
 		{ArgPath: "args.path", Source: "external"},
 	}
+	intent.SkillProvenance = &schemagate.SkillProvenance{
+		SkillName:    "safe-curl",
+		SkillVersion: "1.2.0",
+		Source:       "registry",
+		Publisher:    "acme",
+	}
 	intent.Targets = []schemagate.IntentTarget{
 		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential", EndpointClass: "net.http"},
 	}
@@ -422,6 +435,8 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		DestinationValues: []string{"api.external.com"},
 		DestinationOps:    []string{"write"},
 		EndpointClasses:   []string{"net.http"},
+		SkillPublishers:   []string{"acme"},
+		SkillSources:      []string{"registry"},
 		ProvenanceSources: []string{"external"},
 		Identities:        []string{"alice"},
 		WorkspacePrefixes: []string{"/repo"},
@@ -440,6 +455,8 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		{DestinationValues: []string{"internal.local"}},
 		{DestinationOps: []string{"read"}},
 		{EndpointClasses: []string{"fs.delete"}},
+		{SkillPublishers: []string{"unknown"}},
+		{SkillSources: []string{"git"}},
 		{ProvenanceSources: []string{"user"}},
 		{Identities: []string{"bob"}},
 		{WorkspacePrefixes: []string{"/other"}},
@@ -700,6 +717,61 @@ rules:
 	}
 	if !contains(outcome.Result.ReasonCodes, "endpoint_destructive_operation") {
 		t.Fatalf("expected destructive reason code, got %#v", outcome.Result.ReasonCodes)
+	}
+}
+
+func TestEvaluatePolicySkillTrustHooks(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: trusted-skill
+    priority: 1
+    effect: allow
+    match:
+      skill_publishers: [acme]
+      skill_sources: [registry]
+      tool_names: [tool.write]
+    reason_codes: [skill_trusted]
+  - name: untrusted-skill
+    priority: 5
+    effect: require_approval
+    match:
+      skill_sources: [git]
+      tool_names: [tool.write]
+    reason_codes: [skill_untrusted_source]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	intent.SkillProvenance = &schemagate.SkillProvenance{
+		SkillName:    "safe-curl",
+		SkillVersion: "1.0.0",
+		Source:       "registry",
+		Publisher:    "acme",
+		Digest:       strings.Repeat("a", 64),
+	}
+
+	allowResult, err := EvaluatePolicy(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy allow: %v", err)
+	}
+	if allowResult.Verdict != "allow" {
+		t.Fatalf("expected allow for trusted skill, got %#v", allowResult)
+	}
+	if !contains(allowResult.ReasonCodes, "skill_trusted") {
+		t.Fatalf("expected trusted reason code, got %#v", allowResult.ReasonCodes)
+	}
+
+	intent.SkillProvenance.Source = "git"
+	approvalResult, err := EvaluatePolicy(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy approval: %v", err)
+	}
+	if approvalResult.Verdict != "require_approval" {
+		t.Fatalf("expected require_approval for untrusted skill source, got %#v", approvalResult)
 	}
 }
 

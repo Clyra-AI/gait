@@ -1,0 +1,26 @@
+{
+  "schema_id": "gait.registry.pack",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-09T00:00:00Z",
+  "producer_version": "0.0.0-example",
+  "pack_name": "safe-curl",
+  "pack_version": "1.0.0",
+  "pack_type": "skill",
+  "publisher": "acme",
+  "source": "registry",
+  "artifacts": [
+    {
+      "path": "skill.yaml",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "media_type": "application/yaml"
+    }
+  ],
+  "signatures": [
+    {
+      "alg": "ed25519",
+      "key_id": "key_demo",
+      "sig": "replace_with_real_signature",
+      "signed_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

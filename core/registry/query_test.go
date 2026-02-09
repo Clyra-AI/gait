@@ -56,6 +56,9 @@ func TestListAndVerifyInstalledPack(t *testing.T) {
 	if !verifyResult.PinPresent || !verifyResult.PinVerified {
 		t.Fatalf("expected verified pin, got: %#v", verifyResult)
 	}
+	if verifyResult.Publisher != "acme" || verifyResult.Source != "registry" || !verifyResult.PublisherAllowed {
+		t.Fatalf("expected publisher/source verification metadata, got %#v", verifyResult)
+	}
 }
 
 func TestVerifyBranchesAndHelpers(t *testing.T) {
@@ -113,6 +116,19 @@ func TestVerifyBranchesAndHelpers(t *testing.T) {
 		t.Fatalf("expected signature error string")
 	}
 
+	publisherDeniedResult, err := Verify(VerifyOptions{
+		MetadataPath:       result.MetadataPath,
+		CacheDir:           cacheDir,
+		PublicKey:          publicKey,
+		PublisherAllowlist: []string{"other"},
+	})
+	if err != nil {
+		t.Fatalf("verify with publisher allowlist should return non-fatal status: %v", err)
+	}
+	if publisherDeniedResult.PublisherAllowed {
+		t.Fatalf("expected publisher allowlist mismatch")
+	}
+
 	if _, ok := inferCacheDirFromMetadataPath(result.MetadataPath, "pack-branches", "1.0.0", result.Digest); !ok {
 		t.Fatalf("expected inferCacheDirFromMetadataPath to succeed")
 	}
@@ -142,6 +158,9 @@ func mustWriteSignedRegistryManifest(t *testing.T, dir string, packName string, 
 		ProducerVersion: "0.0.0-test",
 		PackName:        packName,
 		PackVersion:     packVersion,
+		PackType:        "skill",
+		Publisher:       "acme",
+		Source:          "registry",
 		Artifacts: []schemaregistry.PackArtifact{{
 			Path:   "policy.yaml",
 			SHA256: strings.Repeat("a", 64),

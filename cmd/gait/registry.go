@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -18,6 +22,8 @@ type registryInstallOutput struct {
 	PackName     string `json:"pack_name,omitempty"`
 	PackVersion  string `json:"pack_version,omitempty"`
 	Digest       string `json:"digest,omitempty"`
+	Publisher    string `json:"publisher,omitempty"`
+	PackSource   string `json:"pack_source,omitempty"`
 	MetadataPath string `json:"metadata_path,omitempty"`
 	PinPath      string `json:"pin_path,omitempty"`
 	FallbackUsed bool   `json:"fallback_used,omitempty"`
@@ -43,7 +49,32 @@ type registryVerifyOutput struct {
 	PinVerified       bool   `json:"pin_verified,omitempty"`
 	SignatureVerified bool   `json:"signature_verified,omitempty"`
 	SignatureError    string `json:"signature_error,omitempty"`
+	Publisher         string `json:"publisher,omitempty"`
+	PackSource        string `json:"pack_source,omitempty"`
+	PublisherAllowed  bool   `json:"publisher_allowed,omitempty"`
+	ReportPath        string `json:"report_path,omitempty"`
 	Error             string `json:"error,omitempty"`
+}
+
+type registryVerificationReport struct {
+	SchemaID          string    `json:"schema_id"`
+	SchemaVersion     string    `json:"schema_version"`
+	CreatedAt         time.Time `json:"created_at"`
+	ProducerVersion   string    `json:"producer_version"`
+	PackName          string    `json:"pack_name"`
+	PackVersion       string    `json:"pack_version"`
+	Digest            string    `json:"digest"`
+	MetadataPath      string    `json:"metadata_path"`
+	PinPath           string    `json:"pin_path,omitempty"`
+	PinDigest         string    `json:"pin_digest,omitempty"`
+	PinPresent        bool      `json:"pin_present"`
+	PinVerified       bool      `json:"pin_verified"`
+	SignatureVerified bool      `json:"signature_verified"`
+	Publisher         string    `json:"publisher,omitempty"`
+	Source            string    `json:"source,omitempty"`
+	PublisherAllowed  bool      `json:"publisher_allowed"`
+	Status            string    `json:"status"`
+	FailureReasons    []string  `json:"failure_reasons,omitempty"`
 }
 
 func runRegistry(arguments []string) int {
@@ -75,6 +106,7 @@ func runRegistryInstall(arguments []string) int {
 		"source":                true,
 		"cache-dir":             true,
 		"allow-host":            true,
+		"publisher-allowlist":   true,
 		"pin":                   true,
 		"public-key":            true,
 		"public-key-env":        true,
@@ -91,6 +123,7 @@ func runRegistryInstall(arguments []string) int {
 	var source string
 	var cacheDir string
 	var allowHostsCSV string
+	var publisherAllowlistCSV string
 	var pinDigest string
 	var publicKeyPath string
 	var publicKeyEnv string
@@ -106,6 +139,7 @@ func runRegistryInstall(arguments []string) int {
 	flagSet.StringVar(&source, "source", "", "registry pack source (path or URL)")
 	flagSet.StringVar(&cacheDir, "cache-dir", "", "registry cache directory (default ~/.gait/registry)")
 	flagSet.StringVar(&allowHostsCSV, "allow-host", "", "comma-separated remote host allowlist")
+	flagSet.StringVar(&publisherAllowlistCSV, "publisher-allowlist", "", "comma-separated trusted publishers")
 	flagSet.StringVar(&pinDigest, "pin", "", "expected digest (sha256:<hex>)")
 	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
@@ -149,6 +183,7 @@ func runRegistryInstall(arguments []string) int {
 		CacheDir:            cacheDir,
 		PublicKey:           publicKey,
 		AllowHosts:          parseCSVList(allowHostsCSV),
+		PublisherAllowlist:  parseCSVList(publisherAllowlistCSV),
 		PinDigest:           pinDigest,
 		RetryMaxAttempts:    retryMaxAttempts,
 		RetryBaseDelay:      retryBaseDelay,
@@ -164,6 +199,8 @@ func runRegistryInstall(arguments []string) int {
 		PackName:     result.PackName,
 		PackVersion:  result.PackVersion,
 		Digest:       result.Digest,
+		Publisher:    strings.TrimSpace(result.Manifest.Publisher),
+		PackSource:   strings.TrimSpace(result.Manifest.Source),
 		MetadataPath: result.MetadataPath,
 		PinPath:      result.PinPath,
 		FallbackUsed: result.FallbackUsed,
@@ -215,18 +252,22 @@ func runRegistryVerify(arguments []string) int {
 		return writeExplain("Verify a cached registry manifest signature and optional local pin digest deterministically.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
-		"path":            true,
-		"cache-dir":       true,
-		"public-key":      true,
-		"public-key-env":  true,
-		"private-key":     true,
-		"private-key-env": true,
+		"path":                true,
+		"cache-dir":           true,
+		"publisher-allowlist": true,
+		"report-out":          true,
+		"public-key":          true,
+		"public-key-env":      true,
+		"private-key":         true,
+		"private-key-env":     true,
 	})
 	flagSet := flag.NewFlagSet("registry-verify", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
 	var metadataPath string
 	var cacheDir string
+	var publisherAllowlistCSV string
+	var reportOut string
 	var publicKeyPath string
 	var publicKeyEnv string
 	var privateKeyPath string
@@ -236,6 +277,8 @@ func runRegistryVerify(arguments []string) int {
 
 	flagSet.StringVar(&metadataPath, "path", "", "path to registry_pack.json")
 	flagSet.StringVar(&cacheDir, "cache-dir", "", "registry cache directory for pin verification")
+	flagSet.StringVar(&publisherAllowlistCSV, "publisher-allowlist", "", "comma-separated trusted publishers")
+	flagSet.StringVar(&reportOut, "report-out", "", "path to write verification report JSON")
 	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private key (derive public)")
@@ -258,6 +301,7 @@ func runRegistryVerify(arguments []string) int {
 	if metadataPath == "" || len(remaining) > 0 {
 		return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: "expected --path <registry_pack.json>"}, exitInvalidInput)
 	}
+	publisherAllowlist := parseCSVList(publisherAllowlistCSV)
 
 	publicKey, err := sign.LoadVerifyKey(sign.KeyConfig{
 		PublicKeyPath:  publicKeyPath,
@@ -270,15 +314,26 @@ func runRegistryVerify(arguments []string) int {
 	}
 
 	result, err := registry.Verify(registry.VerifyOptions{
-		MetadataPath: metadataPath,
-		CacheDir:     cacheDir,
-		PublicKey:    publicKey,
+		MetadataPath:       metadataPath,
+		CacheDir:           cacheDir,
+		PublicKey:          publicKey,
+		PublisherAllowlist: publisherAllowlist,
 	})
 	if err != nil {
 		return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	ok := result.SignatureVerified && (!result.PinPresent || result.PinVerified)
+	if len(publisherAllowlist) > 0 {
+		ok = ok && result.PublisherAllowed
+	}
+	reportPath := ""
+	if strings.TrimSpace(reportOut) != "" {
+		reportPath, err = writeRegistryVerificationReport(reportOut, result, ok)
+		if err != nil {
+			return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		}
+	}
 	exitCode := exitOK
 	if !ok {
 		exitCode = exitVerifyFailed
@@ -295,7 +350,65 @@ func runRegistryVerify(arguments []string) int {
 		PinVerified:       result.PinVerified,
 		SignatureVerified: result.SignatureVerified,
 		SignatureError:    result.SignatureError,
+		Publisher:         result.Publisher,
+		PackSource:        result.Source,
+		PublisherAllowed:  result.PublisherAllowed,
+		ReportPath:        reportPath,
 	}, exitCode)
+}
+
+func writeRegistryVerificationReport(pathValue string, result registry.VerifyResult, ok bool) (string, error) {
+	reportPath := filepath.Clean(strings.TrimSpace(pathValue))
+	if reportPath == "" {
+		return "", fmt.Errorf("report path is required")
+	}
+	status := "pass"
+	failureReasons := []string{}
+	if !result.SignatureVerified {
+		failureReasons = append(failureReasons, "signature_not_verified")
+	}
+	if result.PinPresent && !result.PinVerified {
+		failureReasons = append(failureReasons, "pin_mismatch")
+	}
+	if !result.PublisherAllowed {
+		failureReasons = append(failureReasons, "publisher_not_allowed")
+	}
+	if !ok {
+		status = "fail"
+	}
+	report := registryVerificationReport{
+		SchemaID:          "gait.registry.verification_report",
+		SchemaVersion:     "1.0.0",
+		CreatedAt:         time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC),
+		ProducerVersion:   version,
+		PackName:          result.PackName,
+		PackVersion:       result.PackVersion,
+		Digest:            result.Digest,
+		MetadataPath:      result.MetadataPath,
+		PinPath:           result.PinPath,
+		PinDigest:         result.PinDigest,
+		PinPresent:        result.PinPresent,
+		PinVerified:       result.PinVerified,
+		SignatureVerified: result.SignatureVerified,
+		Publisher:         result.Publisher,
+		Source:            result.Source,
+		PublisherAllowed:  result.PublisherAllowed,
+		Status:            status,
+		FailureReasons:    uniqueSortedStrings(failureReasons),
+	}
+
+	encoded, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal registry verification report: %w", err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.MkdirAll(filepath.Dir(reportPath), 0o750); err != nil {
+		return "", fmt.Errorf("create registry report directory: %w", err)
+	}
+	if err := os.WriteFile(reportPath, encoded, 0o600); err != nil {
+		return "", fmt.Errorf("write registry verification report: %w", err)
+	}
+	return reportPath, nil
 }
 
 func writeRegistryInstallOutput(jsonOutput bool, output registryInstallOutput, exitCode int) int {
@@ -335,6 +448,12 @@ func writeRegistryVerifyOutput(jsonOutput bool, output registryVerifyOutput, exi
 	}
 	if output.OK {
 		fmt.Printf("registry verify ok: %s@%s sha256:%s\n", output.PackName, output.PackVersion, output.Digest)
+		if strings.TrimSpace(output.Publisher) != "" {
+			fmt.Printf("publisher: %s\n", output.Publisher)
+		}
+		if strings.TrimSpace(output.ReportPath) != "" {
+			fmt.Printf("report: %s\n", output.ReportPath)
+		}
 		return exitCode
 	}
 	if strings.TrimSpace(output.Error) != "" {
@@ -351,14 +470,14 @@ func writeRegistryVerifyOutput(jsonOutput bool, output registryVerifyOutput, exi
 
 func printRegistryUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--pin sha256:<hex>] [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--retry-max-attempts <n>] [--retry-base-delay <duration>] [--allow-cached-fallback] [--allow-insecure-http] [--json] [--explain]")
+	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--publisher-allowlist <csv>] [--pin sha256:<hex>] [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--retry-max-attempts <n>] [--retry-base-delay <duration>] [--allow-cached-fallback] [--allow-insecure-http] [--json] [--explain]")
 	fmt.Println("  gait registry list [--cache-dir <path>] [--json] [--explain]")
-	fmt.Println("  gait registry verify --path <registry_pack.json> [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait registry verify --path <registry_pack.json> [--cache-dir <path>] [--publisher-allowlist <csv>] [--report-out <path>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 }
 
 func printRegistryInstallUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--pin sha256:<hex>] [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--retry-max-attempts <n>] [--retry-base-delay <duration>] [--allow-cached-fallback] [--allow-insecure-http] [--json] [--explain]")
+	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--publisher-allowlist <csv>] [--pin sha256:<hex>] [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--retry-max-attempts <n>] [--retry-base-delay <duration>] [--allow-cached-fallback] [--allow-insecure-http] [--json] [--explain]")
 }
 
 func printRegistryListUsage() {
@@ -368,5 +487,26 @@ func printRegistryListUsage() {
 
 func printRegistryVerifyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait registry verify --path <registry_pack.json> [--cache-dir <path>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait registry verify --path <registry_pack.json> [--cache-dir <path>] [--publisher-allowlist <csv>] [--report-out <path>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+}
+
+func uniqueSortedStrings(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	return out
 }

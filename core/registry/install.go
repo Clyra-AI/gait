@@ -26,6 +26,7 @@ type InstallOptions struct {
 	CacheDir            string
 	PublicKey           ed25519.PublicKey
 	AllowHosts          []string
+	PublisherAllowlist  []string
 	PinDigest           string
 	HTTPClient          *http.Client
 	RetryMaxAttempts    int
@@ -101,6 +102,9 @@ func installManifest(cacheDir string, source string, rawManifest []byte, options
 	if err != nil {
 		return InstallResult{}, err
 	}
+	if err := enforcePublisherAllowlist(manifest.Publisher, options.PublisherAllowlist); err != nil {
+		return InstallResult{}, err
+	}
 	signableDigest, _, err := digestSignableManifest(manifest)
 	if err != nil {
 		return InstallResult{}, err
@@ -170,6 +174,44 @@ func normalizeAllowHosts(allowHosts []string) []string {
 		}
 	}
 	return dedup
+}
+
+func normalizePublisherAllowlist(allowlist []string) []string {
+	out := make([]string, 0, len(allowlist))
+	for _, value := range allowlist {
+		for _, segment := range strings.Split(value, ",") {
+			trimmed := strings.ToLower(strings.TrimSpace(segment))
+			if trimmed == "" {
+				continue
+			}
+			out = append(out, trimmed)
+		}
+	}
+	sort.Strings(out)
+	dedup := make([]string, 0, len(out))
+	for _, value := range out {
+		if len(dedup) == 0 || dedup[len(dedup)-1] != value {
+			dedup = append(dedup, value)
+		}
+	}
+	return dedup
+}
+
+func enforcePublisherAllowlist(publisher string, allowlist []string) error {
+	normalizedAllowlist := normalizePublisherAllowlist(allowlist)
+	if len(normalizedAllowlist) == 0 {
+		return nil
+	}
+	normalizedPublisher := strings.ToLower(strings.TrimSpace(publisher))
+	if normalizedPublisher == "" {
+		return fmt.Errorf("publisher allowlist configured but manifest publisher is empty")
+	}
+	for _, allowed := range normalizedAllowlist {
+		if normalizedPublisher == allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("manifest publisher %s is not in allowlist", normalizedPublisher)
 }
 
 func isRemoteSource(source string) bool {
@@ -350,6 +392,14 @@ func parseRegistryManifest(raw []byte) (schemaregistry.RegistryPack, error) {
 	}
 	if strings.TrimSpace(manifest.PackVersion) == "" {
 		return schemaregistry.RegistryPack{}, fmt.Errorf("pack_version is required")
+	}
+	manifest.PackType = strings.ToLower(strings.TrimSpace(manifest.PackType))
+	manifest.Publisher = strings.ToLower(strings.TrimSpace(manifest.Publisher))
+	manifest.Source = strings.ToLower(strings.TrimSpace(manifest.Source))
+	if manifest.PackType == "skill" {
+		if manifest.Publisher == "" || manifest.Source == "" {
+			return schemaregistry.RegistryPack{}, fmt.Errorf("skill pack requires publisher and source")
+		}
 	}
 	return manifest, nil
 }

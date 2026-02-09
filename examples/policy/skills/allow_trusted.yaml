@@ -1,0 +1,12 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+rules:
+  - name: allow-trusted-skill
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [tool.write]
+      skill_publishers: [acme]
+      skill_sources: [registry]
+    reason_codes: [skill_trusted]

@@ -53,11 +53,12 @@ var (
 )
 
 type normalizedIntent struct {
-	ToolName      string                           `json:"tool_name"`
-	Args          map[string]any                   `json:"args"`
-	Targets       []schemagate.IntentTarget        `json:"targets"`
-	ArgProvenance []schemagate.IntentArgProvenance `json:"arg_provenance,omitempty"`
-	Context       schemagate.IntentContext         `json:"context"`
+	ToolName        string                           `json:"tool_name"`
+	Args            map[string]any                   `json:"args"`
+	Targets         []schemagate.IntentTarget        `json:"targets"`
+	ArgProvenance   []schemagate.IntentArgProvenance `json:"arg_provenance,omitempty"`
+	SkillProvenance *schemagate.SkillProvenance      `json:"skill_provenance,omitempty"`
+	Context         schemagate.IntentContext         `json:"context"`
 }
 
 func NormalizeIntent(input schemagate.IntentRequest) (schemagate.IntentRequest, error) {
@@ -88,6 +89,7 @@ func NormalizeIntent(input schemagate.IntentRequest) (schemagate.IntentRequest, 
 	output.IntentDigest = intentDigest
 	output.Targets = normalized.Targets
 	output.ArgProvenance = normalized.ArgProvenance
+	output.SkillProvenance = normalized.SkillProvenance
 	output.Context = normalized.Context
 	return output, nil
 }
@@ -147,17 +149,22 @@ func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
 	if err != nil {
 		return normalizedIntent{}, err
 	}
+	skillProvenance, err := normalizeSkillProvenance(input.SkillProvenance)
+	if err != nil {
+		return normalizedIntent{}, err
+	}
 	context, err := normalizeContext(input.Context)
 	if err != nil {
 		return normalizedIntent{}, err
 	}
 
 	return normalizedIntent{
-		ToolName:      toolName,
-		Args:          args,
-		Targets:       targets,
-		ArgProvenance: provenance,
-		Context:       context,
+		ToolName:        toolName,
+		Args:            args,
+		Targets:         targets,
+		ArgProvenance:   provenance,
+		SkillProvenance: skillProvenance,
+		Context:         context,
 	}, nil
 }
 
@@ -384,6 +391,31 @@ func normalizeArgProvenance(provenance []schemagate.IntentArgProvenance) ([]sche
 		return out[i].IntegrityDigest < out[j].IntegrityDigest
 	})
 	return out, nil
+}
+
+func normalizeSkillProvenance(input *schemagate.SkillProvenance) (*schemagate.SkillProvenance, error) {
+	if input == nil {
+		return nil, nil
+	}
+	skillName := strings.TrimSpace(input.SkillName)
+	source := strings.ToLower(strings.TrimSpace(input.Source))
+	publisher := strings.TrimSpace(input.Publisher)
+	if skillName == "" || source == "" || publisher == "" {
+		return nil, fmt.Errorf("skill provenance requires skill_name, source, and publisher")
+	}
+	digest := strings.ToLower(strings.TrimSpace(input.Digest))
+	if digest != "" && !hexDigestPattern.MatchString(digest) {
+		return nil, fmt.Errorf("invalid skill provenance digest: %s", digest)
+	}
+	output := &schemagate.SkillProvenance{
+		SkillName:      skillName,
+		SkillVersion:   strings.TrimSpace(input.SkillVersion),
+		Source:         source,
+		Publisher:      publisher,
+		Digest:         digest,
+		SignatureKeyID: strings.TrimSpace(input.SignatureKeyID),
+	}
+	return output, nil
 }
 
 func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContext, error) {

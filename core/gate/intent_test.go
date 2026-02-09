@@ -169,6 +169,43 @@ func TestNormalizeIntentEndpointClassification(t *testing.T) {
 	}
 }
 
+func TestNormalizeIntentSkillProvenance(t *testing.T) {
+	intent := schemagate.IntentRequest{
+		ToolName: "tool.write",
+		Args:     map[string]any{"path": "/tmp/out.txt"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt", Operation: "write"},
+		},
+		SkillProvenance: &schemagate.SkillProvenance{
+			SkillName:      "safe-curl",
+			SkillVersion:   "1.0.1",
+			Source:         " Registry ",
+			Publisher:      " Acme ",
+			Digest:         strings.Repeat("A", 64),
+			SignatureKeyID: " key-1 ",
+		},
+		Context: schemagate.IntentContext{
+			Identity:  "alice",
+			Workspace: "/tmp/work",
+			RiskClass: "high",
+		},
+	}
+
+	normalized, err := NormalizeIntent(intent)
+	if err != nil {
+		t.Fatalf("normalize intent: %v", err)
+	}
+	if normalized.SkillProvenance == nil {
+		t.Fatalf("expected skill provenance in normalized intent")
+	}
+	if normalized.SkillProvenance.Source != "registry" || normalized.SkillProvenance.Publisher != "Acme" {
+		t.Fatalf("unexpected normalized skill provenance %#v", normalized.SkillProvenance)
+	}
+	if normalized.SkillProvenance.Digest != strings.Repeat("a", 64) {
+		t.Fatalf("expected lowercased skill digest, got %q", normalized.SkillProvenance.Digest)
+	}
+}
+
 func TestNormalizeIntentValidationErrors(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -217,6 +254,33 @@ func TestNormalizeIntentValidationErrors(t *testing.T) {
 				Args:     map[string]any{},
 				ArgProvenance: []schemagate.IntentArgProvenance{
 					{ArgPath: "args.x", Source: "external", IntegrityDigest: "short"},
+				},
+				Context: schemagate.IntentContext{Identity: "u", Workspace: "/tmp", RiskClass: "low"},
+			},
+		},
+		{
+			name: "invalid_skill_provenance_missing_required",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.demo",
+				Args:     map[string]any{},
+				SkillProvenance: &schemagate.SkillProvenance{
+					SkillName: "",
+					Source:    "registry",
+					Publisher: "acme",
+				},
+				Context: schemagate.IntentContext{Identity: "u", Workspace: "/tmp", RiskClass: "low"},
+			},
+		},
+		{
+			name: "invalid_skill_provenance_digest",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.demo",
+				Args:     map[string]any{},
+				SkillProvenance: &schemagate.SkillProvenance{
+					SkillName: "safe-curl",
+					Source:    "registry",
+					Publisher: "acme",
+					Digest:    "bad",
 				},
 				Context: schemagate.IntentContext{Identity: "u", Workspace: "/tmp", RiskClass: "low"},
 			},

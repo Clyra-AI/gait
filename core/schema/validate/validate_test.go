@@ -75,6 +75,12 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_intent_request_endpoint_invalid.json"),
 		},
 		{
+			name:       "gate_intent_request_skill_provenance",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "intent_request.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_intent_request_skill_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_intent_request_skill_invalid.json"),
+		},
+		{
 			name:       "gate_result",
 			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "gate_result.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_result_valid.json"),
@@ -85,6 +91,12 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "trace_record.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_trace_record_valid.json"),
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_trace_record_invalid.json"),
+		},
+		{
+			name:       "gate_trace_record_skill_provenance",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "trace_record.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_trace_record_skill_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_trace_record_skill_invalid.json"),
 		},
 		{
 			name:       "gate_approval_token",
@@ -169,6 +181,12 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			schemaPath: filepath.Join(root, "schemas", "v1", "registry", "registry_pack.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "registry_pack_valid.json"),
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "registry_pack_invalid.json"),
+		},
+		{
+			name:       "registry_verification_report",
+			schemaPath: filepath.Join(root, "schemas", "v1", "registry", "verification_report.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "registry_verification_report_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "registry_verification_report_invalid.json"),
 		},
 	}
 

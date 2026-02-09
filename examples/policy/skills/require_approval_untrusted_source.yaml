@@ -1,0 +1,12 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: allow
+rules:
+  - name: require-approval-non-registry-source
+    priority: 10
+    effect: require_approval
+    match:
+      tool_names: [tool.write]
+      skill_sources: [git, local]
+    reason_codes: [skill_untrusted_source]
+    violations: [skill_untrusted_source]
