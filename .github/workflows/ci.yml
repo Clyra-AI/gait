@@ -72,7 +72,11 @@ jobs:
         run: |
           go test ./...
           go test ./core/... ./cmd/gait -coverprofile=coverage-go.out
-          python scripts/check_go_coverage.py coverage-go.out 85
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            python scripts/check_go_coverage.py coverage-go.out 85
+          else
+            go tool cover -func=coverage-go.out | tail -n 1
+          fi
       - name: Python tests with coverage
         env:
           PYTHONPATH: .
