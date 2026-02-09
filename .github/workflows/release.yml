@@ -19,6 +19,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -32,7 +34,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          goreleaser release --clean
+          set -euo pipefail
+          attempts=4
+          for attempt in $(seq 1 "${attempts}"); do
+            log_file="$(mktemp)"
+            set +e
+            goreleaser release --clean 2>&1 | tee "${log_file}"
+            status=${PIPESTATUS[0]}
+            set -e
+
+            if [ "${status}" -eq 0 ]; then
+              rm -f "${log_file}"
+              exit 0
+            fi
+
+            if grep -q " 429 " "${log_file}" && [ "${attempt}" -lt "${attempts}" ]; then
+              sleep_seconds=$((attempt * 60))
+              echo "GoReleaser hit GitHub API throttling (attempt ${attempt}/${attempts}); retrying in ${sleep_seconds}s..."
+              rm -f "${log_file}"
+              sleep "${sleep_seconds}"
+              continue
+            fi
+
+            rm -f "${log_file}"
+            exit "${status}"
+          done
+          exit 1
       - name: Generate SBOM (syft)
         run: |
           go install github.com/anchore/syft/cmd/syft@${SYFT_VERSION}
@@ -133,13 +160,38 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${GITHUB_REF_NAME}" \
-            sbom.spdx.json \
-            grype.json \
-            provenance.json \
-            gait-out/ecosystem_release_notes.md \
-            dist/gait.rb \
-            dist/checksums.txt.pem \
-            dist/checksums.txt.sig \
-            dist/checksums.txt.intoto.jsonl \
-            --clobber
+          set -euo pipefail
+          attempts=4
+          for attempt in $(seq 1 "${attempts}"); do
+            log_file="$(mktemp)"
+            set +e
+            gh release upload "${GITHUB_REF_NAME}" \
+              sbom.spdx.json \
+              grype.json \
+              provenance.json \
+              gait-out/ecosystem_release_notes.md \
+              dist/gait.rb \
+              dist/checksums.txt.pem \
+              dist/checksums.txt.sig \
+              dist/checksums.txt.intoto.jsonl \
+              --clobber 2>&1 | tee "${log_file}"
+            status=${PIPESTATUS[0]}
+            set -e
+
+            if [ "${status}" -eq 0 ]; then
+              rm -f "${log_file}"
+              exit 0
+            fi
+
+            if grep -q " 429 " "${log_file}" && [ "${attempt}" -lt "${attempts}" ]; then
+              sleep_seconds=$((attempt * 30))
+              echo "gh release upload hit GitHub API throttling (attempt ${attempt}/${attempts}); retrying in ${sleep_seconds}s..."
+              rm -f "${log_file}"
+              sleep "${sleep_seconds}"
+              continue
+            fi
+
+            rm -f "${log_file}"
+            exit "${status}"
+          done
+          exit 1
