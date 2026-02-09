@@ -239,6 +239,20 @@ Canonical integration paths:
 
 Use `docs/integration_checklist.md` for the implementation checklist and conformance checks.
 
+## Ecosystem Surface (Public Contribution Path)
+
+Gait keeps ecosystem growth explicit and reviewable through a public index plus deterministic contribution checks.
+
+- Discovery index: `docs/ecosystem/awesome.md`
+- Contribution funnel: `docs/ecosystem/contribute.md`
+- Machine-readable index: `docs/ecosystem/community_index.json`
+- Deterministic validator: `python3 scripts/validate_community_index.py`
+
+Proposal templates:
+
+- Adapter proposal: `.github/ISSUE_TEMPLATE/adapter.yml`
+- Skill proposal: `.github/ISSUE_TEMPLATE/skill.yml`
+
 ## Core Commands
 
 ```text
@@ -296,6 +310,8 @@ Read in this order:
 7. `docs/ci_regress_kit.md`
 8. `docs/evidence_templates.md`
 9. `docs/install.md`
+10. `docs/ecosystem/awesome.md`
+11. `docs/ecosystem/contribute.md`
 
 ## Development
 

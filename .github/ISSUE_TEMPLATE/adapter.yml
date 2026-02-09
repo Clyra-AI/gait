@@ -1,0 +1,52 @@
+name: Adapter proposal
+description: Propose a new framework adapter for the public Gait ecosystem index
+title: "[adapter] "
+labels: ["feature", "needs-triage"]
+body:
+  - type: input
+    id: framework
+    attributes:
+      label: Framework or runtime
+      description: Name the target framework/runtime (for example OpenClaw, CrewAI).
+      placeholder: OpenClaw
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What recurring integration pain does this adapter remove?
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Execution contract mapping
+      description: Explain how tool calls map to `IntentRequest` and `gait gate eval`.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Fail-closed behavior
+      description: Describe behavior for `block`, `require_approval`, `dry_run`, and eval errors.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Deterministic test plan
+      description: Include commands and expected artifacts/paths.
+      placeholder: |
+        make test-adoption
+        make test-adapter-parity
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: Repository URL
+      description: Public GitHub repository for this adapter.
+      placeholder: https://github.com/<owner>/<repo>
+    validations:
+      required: true

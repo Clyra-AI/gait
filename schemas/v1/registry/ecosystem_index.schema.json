@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/registry/ecosystem_index.schema.json",
+  "title": "Gait Ecosystem Index",
+  "type": "object",
+  "required": ["schema_id", "schema_version", "updated_at", "entries"],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.registry.ecosystem_index" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "name", "summary", "repo", "source", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+          "kind": {
+            "type": "string",
+            "enum": ["skill", "adapter", "policy_pack", "tooling"]
+          },
+          "name": { "type": "string", "minLength": 3, "maxLength": 80 },
+          "summary": { "type": "string", "minLength": 10, "maxLength": 280 },
+          "repo": {
+            "type": "string",
+            "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+          },
+          "source": { "type": "string", "enum": ["official", "community"] },
+          "status": {
+            "type": "string",
+            "enum": ["experimental", "stable", "deprecated"]
+          },
+          "integration": { "type": "string" },
+          "maintainers": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 3 },
+            "maxItems": 5
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

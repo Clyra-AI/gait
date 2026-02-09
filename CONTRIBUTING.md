@@ -61,6 +61,18 @@ If it fails, remove tracked generated files with `git rm --cached <path>` and re
 
 Use these paths to keep adapter, policy, and fixture contributions reviewable and deterministic.
 
+Public ecosystem listing and contribution funnel:
+
+- Discovery index: `docs/ecosystem/awesome.md`
+- Contribution workflow: `docs/ecosystem/contribute.md`
+- Index data contract: `docs/ecosystem/community_index.json`
+- Validation command: `python3 scripts/validate_community_index.py`
+
+Use the dedicated proposal templates when adding new ecosystem entries:
+
+- Adapter proposal: `.github/ISSUE_TEMPLATE/adapter.yml`
+- Skill proposal: `.github/ISSUE_TEMPLATE/skill.yml`
+
 ## Adapter Neutrality Contract (Required)
 
 Gait stays vendor-neutral only if every adapter follows the same execution contract.

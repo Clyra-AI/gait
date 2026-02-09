@@ -9,6 +9,7 @@ Run on every pull request:
 - `make lint`
 - `make test`
 - `make test-adoption` for onboarding and integration-path smoke checks
+- `python3 scripts/validate_community_index.py` for ecosystem listing contract checks
 - `bash scripts/policy_compliance_ci.sh` for canonical policy fixtures and reason-code summaries
 - `gait regress run --json --junit=...` when regress fixtures are in scope
 

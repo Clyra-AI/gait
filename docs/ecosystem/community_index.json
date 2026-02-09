@@ -1,0 +1,84 @@
+{
+  "schema_id": "gait.registry.ecosystem_index",
+  "schema_version": "1.0.0",
+  "updated_at": "2026-02-09T00:00:00Z",
+  "entries": [
+    {
+      "id": "adapter-autogen-official",
+      "kind": "adapter",
+      "name": "AutoGen Adapter Example",
+      "summary": "Reference integration that routes tool calls through Gate with deterministic traces.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable",
+      "integration": "autogen"
+    },
+    {
+      "id": "adapter-autogpt-official",
+      "kind": "adapter",
+      "name": "AutoGPT Adapter Example",
+      "summary": "Reference integration for AutoGPT with fail-closed verdict handling and parity checks.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable",
+      "integration": "autogpt"
+    },
+    {
+      "id": "adapter-langchain-official",
+      "kind": "adapter",
+      "name": "LangChain Adapter Example",
+      "summary": "Reference integration showing wrapper-based tool interception and Gate evaluation flow.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable",
+      "integration": "langchain"
+    },
+    {
+      "id": "adapter-openai-agents-official",
+      "kind": "adapter",
+      "name": "OpenAI Agents Adapter Example",
+      "summary": "Reference OpenAI Agents integration preserving no-bypass execution-boundary controls.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable",
+      "integration": "openai_agents"
+    },
+    {
+      "id": "adapter-openclaw-official",
+      "kind": "adapter",
+      "name": "OpenClaw Adapter Example",
+      "summary": "Reference OpenClaw integration that normalizes intents and emits deterministic artifacts.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable",
+      "integration": "openclaw"
+    },
+    {
+      "id": "skill-capture-runpack-official",
+      "kind": "skill",
+      "name": "Capture Runpack Skill",
+      "summary": "Codex skill for deterministic runpack capture and ticket-ready evidence output.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable"
+    },
+    {
+      "id": "skill-incident-regression-official",
+      "kind": "skill",
+      "name": "Incident To Regression Skill",
+      "summary": "Codex skill to convert run artifacts into deterministic regression fixtures and reports.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable"
+    },
+    {
+      "id": "skill-policy-rollout-official",
+      "kind": "skill",
+      "name": "Policy Rollout Skill",
+      "summary": "Codex skill to validate policy deltas and staged rollout outcomes with stable reason codes.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable"
+    }
+  ]
+}

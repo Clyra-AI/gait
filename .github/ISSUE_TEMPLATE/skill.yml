@@ -1,0 +1,52 @@
+name: Skill proposal
+description: Propose a new skill for the public Gait ecosystem index
+title: "[skill] "
+labels: ["feature", "needs-triage"]
+body:
+  - type: input
+    id: skill_name
+    attributes:
+      label: Skill name
+      description: Stable name for this skill.
+      placeholder: my-skill-name
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What workflow does the skill simplify?
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Command contract
+      description: List the `gait` commands the skill executes with `--json` outputs.
+    validations:
+      required: true
+  - type: textarea
+    id: provenance
+    attributes:
+      label: Provenance and trust metadata
+      description: Describe publisher/source metadata and signing or pinning strategy.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Deterministic test plan
+      description: Include commands and expected artifacts.
+      placeholder: |
+        make lint
+        make test-skill-supply-chain
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: Repository URL
+      description: Public GitHub repository for this skill package.
+      placeholder: https://github.com/<owner>/<repo>
+    validations:
+      required: true

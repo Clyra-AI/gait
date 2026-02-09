@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-adoption test-adapter-parity test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract build bench bench-check bench-budgets skills-validate
+.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-adoption test-adapter-parity test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract build bench bench-check bench-budgets skills-validate ecosystem-validate
 .PHONY: hooks
 
 fmt:
@@ -22,6 +22,7 @@ fmt:
 
 lint:
 	$(PYTHON) scripts/validate_repo_skills.py
+	$(PYTHON) scripts/validate_community_index.py
 	bash scripts/check_repo_hygiene.sh
 	bash scripts/check_hooks_config.sh
 	$(GO) vet ./...
@@ -111,3 +112,6 @@ hooks:
 
 skills-validate:
 	$(PYTHON) scripts/validate_repo_skills.py
+
+ecosystem-validate:
+	$(PYTHON) scripts/validate_community_index.py
