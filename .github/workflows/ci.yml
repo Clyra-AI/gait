@@ -10,10 +10,15 @@ on:
     paths-ignore:
       - "LICENSE"
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ${{ matrix.os }}
     strategy:
+      max-parallel: 2
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -53,6 +58,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      max-parallel: 2
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -86,6 +92,7 @@ jobs:
   e2e:
     runs-on: ${{ matrix.os }}
     strategy:
+      max-parallel: 2
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -156,6 +163,7 @@ jobs:
   install-smoke:
     runs-on: ${{ matrix.os }}
     strategy:
+      max-parallel: 2
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
