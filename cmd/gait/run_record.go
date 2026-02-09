@@ -145,12 +145,7 @@ func runRecord(arguments []string) int {
 		}, exitVerifyFailed)
 	}
 
-	ticketFooter := fmt.Sprintf(
-		"GAIT run_id=%s manifest=sha256:%s verify=\"gait verify %s\"",
-		recordInput.Run.RunID,
-		result.Manifest.ManifestDigest,
-		recordInput.Run.RunID,
-	)
+	ticketFooter := formatTicketFooter(recordInput.Run.RunID, result.Manifest.ManifestDigest)
 
 	return writeRunRecordOutput(jsonOutput, runRecordOutput{
 		OK:             true,

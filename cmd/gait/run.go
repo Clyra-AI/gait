@@ -59,6 +59,8 @@ func runCommand(arguments []string) int {
 		return runReplay(arguments[1:])
 	case "reduce":
 		return runReduce(arguments[1:])
+	case "receipt":
+		return runReceipt(arguments[1:])
 	default:
 		printRunUsage()
 		return exitInvalidInput
@@ -290,6 +292,7 @@ func printRunUsage() {
 	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json] [--explain]")
 	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain] (stub replay only; real tools not implemented)")
 	fmt.Println("  gait run reduce --from <run_id|path> [--predicate missing_result|non_ok_status] [--out reduced.zip] [--report-out reduce_report.json] [--json] [--explain]")
+	fmt.Println("  gait run receipt --from <run_id|path> [--json] [--explain]")
 }
 
 func printReplayUsage() {

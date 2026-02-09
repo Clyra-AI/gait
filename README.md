@@ -65,6 +65,12 @@ The `ticket_footer` line is the shareable contract across incident tickets, PRs,
 
 This is how teams move from "we think the agent did X" to "here is the exact verifiable artifact."
 
+To regenerate a one-line footer from an existing artifact:
+
+```bash
+gait run receipt --from <run_id|path>
+```
+
 ## Incident To Regression (Deterministic CI Path)
 
 Convert a captured run into CI checks:
@@ -179,6 +185,7 @@ gait demo
 gait verify <run_id|path> [--profile standard|strict]
 gait run replay <run_id|path> [--real-tools --unsafe-real-tools --allow-tools ...]  # stub replay only
 gait run diff <left> <right>
+gait run receipt --from <run_id|path>
 gait regress init --from <run_id|path>
 gait regress run [--junit junit.xml]
 gait policy test <policy.yaml> <intent_fixture.json>

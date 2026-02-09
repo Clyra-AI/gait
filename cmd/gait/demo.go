@@ -65,7 +65,7 @@ func runDemo(arguments []string) int {
 
 	fmt.Printf("run_id=%s\n", demoRunID)
 	fmt.Printf("bundle=./%s/runpack_%s.zip\n", demoOutDir, demoRunID)
-	fmt.Printf("ticket_footer=GAIT run_id=%s manifest=sha256:%s verify=\"gait verify %s\"\n", demoRunID, recordResult.Manifest.ManifestDigest, demoRunID)
+	fmt.Printf("ticket_footer=%s\n", formatTicketFooter(demoRunID, recordResult.Manifest.ManifestDigest))
 	fmt.Println("verify=ok")
 
 	return exitOK

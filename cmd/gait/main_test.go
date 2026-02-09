@@ -63,6 +63,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "run", "reduce", "--help"}); code != exitOK {
 		t.Fatalf("run reduce help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "run", "receipt", "--help"}); code != exitOK {
+		t.Fatalf("run receipt help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "scout", "snapshot", "--help"}); code != exitOK {
 		t.Fatalf("run scout snapshot help: expected %d got %d", exitOK, code)
 	}
@@ -209,6 +212,9 @@ func TestDemoVerifyReplayDiffAndRegressFlow(t *testing.T) {
 	}
 	if code := runRegressRun([]string{"--json", "--junit", "junit.xml"}); code != exitOK {
 		t.Fatalf("regress run pass: expected %d got %d", exitOK, code)
+	}
+	if code := runReceipt([]string{"--json", "--from", "run_demo"}); code != exitOK {
+		t.Fatalf("run receipt pass: expected %d got %d", exitOK, code)
 	}
 
 	fixturePath := filepath.Join(workDir, "fixtures", "run_demo", "fixture.json")
@@ -1476,6 +1482,15 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	if code := writeRunRecordOutput(false, runRecordOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
 		t.Fatalf("writeRunRecordOutput text err: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := writeRunReceiptOutput(true, runReceiptOutput{OK: true, TicketFooter: "x"}, exitOK); code != exitOK {
+		t.Fatalf("writeRunReceiptOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeRunReceiptOutput(false, runReceiptOutput{OK: true, TicketFooter: "x"}, exitOK); code != exitOK {
+		t.Fatalf("writeRunReceiptOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writeRunReceiptOutput(false, runReceiptOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeRunReceiptOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
 
 	if code := writeMigrateOutput(true, migrateOutput{OK: true, Input: "a", Output: "b"}, exitOK); code != exitOK {
 		t.Fatalf("writeMigrateOutput json: expected %d got %d", exitOK, code)
@@ -1601,11 +1616,27 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printRegressRunUsage()
 	printRunUsage()
 	printRecordUsage()
+	printRunReceiptUsage()
 	printReplayUsage()
 	printDiffUsage()
 	printMigrateUsage()
 	printVerifyUsage()
 	printVerifyChainUsage()
+}
+
+func TestTicketFooterContract(t *testing.T) {
+	footer := formatTicketFooter("run_demo", strings.Repeat("a", 64))
+	if !ticketFooterMatchesContract(footer) {
+		t.Fatalf("expected ticket footer to match contract: %s", footer)
+	}
+	if ticketFooterMatchesContract("GAIT run_id=run_demo manifest=sha256:abc verify=\"gait verify run_demo\"") {
+		t.Fatalf("expected short digest to fail contract")
+	}
+	if ticketFooterMatchesContract(
+		"GAIT run_id=run_demo manifest=sha256:" + strings.Repeat("a", 64) + " verify=\"gait verify run_other\"",
+	) {
+		t.Fatalf("expected mismatched run_id verify target to fail contract")
+	}
 }
 
 func withWorkingDir(t *testing.T, path string) {

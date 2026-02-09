@@ -33,10 +33,48 @@ echo "$DEMO_OUT"
 [[ "$DEMO_OUT" == *"run_id=run_demo"* ]]
 [[ "$DEMO_OUT" == *"ticket_footer=GAIT run_id=run_demo"* ]]
 [[ "$DEMO_OUT" == *"verify=ok"* ]]
+python3 - "$DEMO_OUT" <<'PY'
+import re
+import sys
+
+output = sys.argv[1]
+ticket_footer = ""
+for line in output.splitlines():
+    if line.startswith("ticket_footer="):
+        ticket_footer = line.removeprefix("ticket_footer=").strip()
+        break
+if not ticket_footer:
+    raise SystemExit("ticket_footer line missing")
+
+pattern = re.compile(
+    r'^GAIT run_id=([A-Za-z0-9_-]+) manifest=sha256:([a-f0-9]{64}) verify="gait verify ([A-Za-z0-9_-]+)"$'
+)
+match = pattern.match(ticket_footer)
+if match is None:
+    raise SystemExit(f"ticket_footer format mismatch: {ticket_footer}")
+if match.group(1) != match.group(3):
+    raise SystemExit("ticket_footer run_id mismatch")
+PY
 
 VERIFY_OUT="$("$BIN_PATH" verify run_demo)"
 echo "$VERIFY_OUT"
 [[ "$VERIFY_OUT" == *"verify ok"* ]]
+
+RECEIPT_OUT="$("$BIN_PATH" run receipt --from run_demo)"
+python3 - "$RECEIPT_OUT" <<'PY'
+import re
+import sys
+
+ticket_footer = sys.argv[1].strip()
+pattern = re.compile(
+    r'^GAIT run_id=([A-Za-z0-9_-]+) manifest=sha256:([a-f0-9]{64}) verify="gait verify ([A-Za-z0-9_-]+)"$'
+)
+match = pattern.match(ticket_footer)
+if match is None:
+    raise SystemExit(f"run receipt output mismatch: {ticket_footer}")
+if match.group(1) != match.group(3):
+    raise SystemExit("run receipt run_id mismatch")
+PY
 
 REPLAY_A="$("$BIN_PATH" run replay --json run_demo)"
 REPLAY_B="$("$BIN_PATH" run replay --json run_demo)"
