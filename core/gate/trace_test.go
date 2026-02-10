@@ -228,6 +228,122 @@ func TestWriteTraceRecordRejectsParentTraversal(t *testing.T) {
 	}
 }
 
+func TestWriteTraceRecordRelativePath(t *testing.T) {
+	workDir := t.TempDir()
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(originalWD)
+	})
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+
+	minimal := schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		TraceID:         "trace_relative",
+		ToolName:        "tool.demo",
+		ArgsDigest:      "2222222222222222222222222222222222222222222222222222222222222222",
+		IntentDigest:    "1111111111111111111111111111111111111111111111111111111111111111",
+		PolicyDigest:    "3333333333333333333333333333333333333333333333333333333333333333",
+		Verdict:         "allow",
+	}
+	relativePath := filepath.Join("nested", "trace_relative.json")
+	if err := WriteTraceRecord(relativePath, minimal); err != nil {
+		t.Fatalf("write relative trace: %v", err)
+	}
+	absolutePath := filepath.Join(workDir, relativePath)
+	if _, err := os.Stat(absolutePath); err != nil {
+		t.Fatalf("stat relative trace: %v", err)
+	}
+}
+
+func TestWriteTraceRecordCreateDirectoryError(t *testing.T) {
+	workDir := t.TempDir()
+	blockerPath := filepath.Join(workDir, "nested")
+	if err := os.WriteFile(blockerPath, []byte("blocker\n"), 0o600); err != nil {
+		t.Fatalf("write blocker: %v", err)
+	}
+
+	minimal := schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		TraceID:         "trace_mkdir_error",
+		ToolName:        "tool.demo",
+		ArgsDigest:      "2222222222222222222222222222222222222222222222222222222222222222",
+		IntentDigest:    "1111111111111111111111111111111111111111111111111111111111111111",
+		PolicyDigest:    "3333333333333333333333333333333333333333333333333333333333333333",
+		Verdict:         "allow",
+	}
+	if err := WriteTraceRecord(filepath.Join(blockerPath, "trace.json"), minimal); err == nil {
+		t.Fatalf("expected create directory error")
+	}
+}
+
+func TestWriteTraceRecordCreateDirectoryErrorRelative(t *testing.T) {
+	workDir := t.TempDir()
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(originalWD)
+	})
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	if err := os.WriteFile("nested", []byte("blocker\n"), 0o600); err != nil {
+		t.Fatalf("write blocker: %v", err)
+	}
+
+	minimal := schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		TraceID:         "trace_mkdir_error_relative",
+		ToolName:        "tool.demo",
+		ArgsDigest:      "2222222222222222222222222222222222222222222222222222222222222222",
+		IntentDigest:    "1111111111111111111111111111111111111111111111111111111111111111",
+		PolicyDigest:    "3333333333333333333333333333333333333333333333333333333333333333",
+		Verdict:         "allow",
+	}
+	if err := WriteTraceRecord(filepath.Join("nested", "trace.json"), minimal); err == nil {
+		t.Fatalf("expected create directory error for relative path")
+	}
+}
+
+func TestWriteTraceRecordWriteFileError(t *testing.T) {
+	workDir := t.TempDir()
+	targetPath := filepath.Join(workDir, "existing-dir")
+	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		t.Fatalf("mkdir target: %v", err)
+	}
+
+	minimal := schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		TraceID:         "trace_write_error",
+		ToolName:        "tool.demo",
+		ArgsDigest:      "2222222222222222222222222222222222222222222222222222222222222222",
+		IntentDigest:    "1111111111111111111111111111111111111111111111111111111111111111",
+		PolicyDigest:    "3333333333333333333333333333333333333333333333333333333333333333",
+		Verdict:         "allow",
+	}
+	if err := WriteTraceRecord(targetPath, minimal); err == nil {
+		t.Fatalf("expected write error for directory destination")
+	}
+}
+
 func TestNormalizeTracePath(t *testing.T) {
 	absoluteInput := filepath.Join(t.TempDir(), "nested", "trace.json")
 	absolutePath, err := normalizeTracePath(absoluteInput)
@@ -251,5 +367,8 @@ func TestNormalizeTracePath(t *testing.T) {
 	}
 	if _, err := normalizeTracePath("../gait-out/trace.json"); err == nil {
 		t.Fatalf("expected parent traversal trace path to fail")
+	}
+	if _, err := normalizeTracePath("."); err == nil {
+		t.Fatalf("expected dot trace path to fail")
 	}
 }

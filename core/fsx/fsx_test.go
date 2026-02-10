@@ -229,3 +229,86 @@ func TestWriteFileAtomicOverwritePreservesMode(t *testing.T) {
 		t.Fatalf("expected mode 0600 after overwrite, got %#o", info.Mode().Perm())
 	}
 }
+
+func TestWriteFileAtomicRelativePath(t *testing.T) {
+	workDir := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	if err := os.MkdirAll("nested", 0o755); err != nil {
+		t.Fatalf("mkdir nested: %v", err)
+	}
+
+	if err := WriteFileAtomic(filepath.Join("nested", "state.json"), []byte("ok\n"), 0o600); err != nil {
+		t.Fatalf("write relative path: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(workDir, "nested", "state.json"))
+	if err != nil {
+		t.Fatalf("read relative path output: %v", err)
+	}
+	if string(content) != "ok\n" {
+		t.Fatalf("unexpected content: %q", string(content))
+	}
+}
+
+func TestWriteFileAtomicRejectsTraversalPath(t *testing.T) {
+	if err := WriteFileAtomic(filepath.Join("..", "escape.json"), []byte("x"), 0o600); err == nil {
+		t.Fatal("expected traversal path error")
+	}
+}
+
+func TestRenameWithWindowsFallbackRelativePaths(t *testing.T) {
+	workDir := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+
+	tempPath := "tmp.txt"
+	destPath := "dest.txt"
+	if err := os.WriteFile(tempPath, []byte("data\n"), 0o600); err != nil {
+		t.Fatalf("write temp: %v", err)
+	}
+	if err := renameWithWindowsFallback(tempPath, destPath, "linux"); err != nil {
+		t.Fatalf("rename relative: %v", err)
+	}
+	content, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("read destination: %v", err)
+	}
+	if string(content) != "data\n" {
+		t.Fatalf("unexpected destination content: %q", string(content))
+	}
+}
+
+func TestRenameWithWindowsFallbackRejectsTraversalDestination(t *testing.T) {
+	workDir := t.TempDir()
+	tempPath := filepath.Join(workDir, "tmp.txt")
+	if err := os.WriteFile(tempPath, []byte("data\n"), 0o600); err != nil {
+		t.Fatalf("write temp: %v", err)
+	}
+	if err := renameWithWindowsFallback(tempPath, filepath.Join("..", "dest.txt"), "linux"); err == nil {
+		t.Fatal("expected destination path validation error")
+	}
+}
+
+func TestRenameWithWindowsFallbackRejectsTraversalTempPath(t *testing.T) {
+	workDir := t.TempDir()
+	destPath := filepath.Join(workDir, "dest.txt")
+	if err := renameWithWindowsFallback(filepath.Join("..", "tmp.txt"), destPath, "linux"); err == nil {
+		t.Fatal("expected temp path validation error")
+	}
+}

@@ -151,8 +151,20 @@ func WriteRunpack(path string, options RecordOptions) (RecordResult, error) {
 
 	dir := filepath.Dir(normalizedPath)
 	if dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0o750); err != nil {
-			return RecordResult{}, fmt.Errorf("create runpack directory: %w", err)
+		if filepath.IsLocal(dir) {
+			if err := os.MkdirAll(dir, 0o750); err != nil {
+				return RecordResult{}, fmt.Errorf("create runpack directory: %w", err)
+			}
+		} else if strings.HasPrefix(dir, string(filepath.Separator)) {
+			if err := os.MkdirAll(dir, 0o750); err != nil {
+				return RecordResult{}, fmt.Errorf("create runpack directory: %w", err)
+			}
+		} else if volume := filepath.VolumeName(dir); volume != "" && strings.HasPrefix(dir, volume+string(filepath.Separator)) {
+			if err := os.MkdirAll(dir, 0o750); err != nil {
+				return RecordResult{}, fmt.Errorf("create runpack directory: %w", err)
+			}
+		} else {
+			return RecordResult{}, fmt.Errorf("runpack output directory must be local relative or absolute")
 		}
 	}
 	if err := fsx.WriteFileAtomic(normalizedPath, result.ZipBytes, 0o600); err != nil {

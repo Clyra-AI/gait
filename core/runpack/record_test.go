@@ -363,6 +363,116 @@ func TestWriteRunpack(test *testing.T) {
 	}
 }
 
+func TestWriteRunpackRelativePath(test *testing.T) {
+	workDir := test.TempDir()
+	originalWD, err := os.Getwd()
+	if err != nil {
+		test.Fatalf("getwd: %v", err)
+	}
+	test.Cleanup(func() {
+		_ = os.Chdir(originalWD)
+	})
+	if err := os.Chdir(workDir); err != nil {
+		test.Fatalf("chdir: %v", err)
+	}
+
+	run := schemarunpack.Run{
+		RunID: "run_write_relative",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	relativePath := filepath.Join("nested", "runpack_write_relative.zip")
+	result, err := WriteRunpack(relativePath, RecordOptions{Run: run})
+	if err != nil {
+		test.Fatalf("write relative runpack: %v", err)
+	}
+	if result.RunID != "run_write_relative" {
+		test.Fatalf("unexpected run_id")
+	}
+	absolutePath := filepath.Join(workDir, relativePath)
+	info, err := os.Stat(absolutePath)
+	if err != nil {
+		test.Fatalf("stat relative runpack: %v", err)
+	}
+	if info.Size() == 0 {
+		test.Fatalf("expected non-empty relative zip file")
+	}
+}
+
+func TestWriteRunpackCreateDirectoryError(test *testing.T) {
+	workDir := test.TempDir()
+	blockerPath := filepath.Join(workDir, "nested")
+	if err := os.WriteFile(blockerPath, []byte("blocker\n"), 0o600); err != nil {
+		test.Fatalf("write blocker: %v", err)
+	}
+
+	run := schemarunpack.Run{
+		RunID: "run_write_mkdir_error",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	if _, err := WriteRunpack(filepath.Join(blockerPath, "runpack.zip"), RecordOptions{Run: run}); err == nil {
+		test.Fatalf("expected create directory error")
+	}
+}
+
+func TestWriteRunpackCreateDirectoryErrorRelative(test *testing.T) {
+	workDir := test.TempDir()
+	originalWD, err := os.Getwd()
+	if err != nil {
+		test.Fatalf("getwd: %v", err)
+	}
+	test.Cleanup(func() {
+		_ = os.Chdir(originalWD)
+	})
+	if err := os.Chdir(workDir); err != nil {
+		test.Fatalf("chdir: %v", err)
+	}
+	if err := os.WriteFile("nested", []byte("blocker\n"), 0o600); err != nil {
+		test.Fatalf("write blocker: %v", err)
+	}
+
+	run := schemarunpack.Run{
+		RunID: "run_write_mkdir_error_relative",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	if _, err := WriteRunpack(filepath.Join("nested", "runpack.zip"), RecordOptions{Run: run}); err == nil {
+		test.Fatalf("expected create directory error for relative path")
+	}
+}
+
+func TestWriteRunpackWriteFileError(test *testing.T) {
+	workDir := test.TempDir()
+	targetPath := filepath.Join(workDir, "existing-dir")
+	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		test.Fatalf("mkdir target: %v", err)
+	}
+
+	run := schemarunpack.Run{
+		RunID: "run_write_file_error",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	if _, err := WriteRunpack(targetPath, RecordOptions{Run: run}); err == nil {
+		test.Fatalf("expected write file error for directory destination")
+	}
+}
+
+func TestWriteRunpackRecordError(test *testing.T) {
+	if _, err := WriteRunpack(filepath.Join(test.TempDir(), "bad-runpack.zip"), RecordOptions{Run: schemarunpack.Run{}}); err == nil {
+		test.Fatalf("expected record validation error")
+	}
+}
+
 func TestWriteRunpackRejectsParentTraversal(test *testing.T) {
 	run := schemarunpack.Run{
 		RunID: "run_write_invalid_path",
@@ -399,6 +509,9 @@ func TestNormalizeOutputPath(test *testing.T) {
 	}
 	if _, err := normalizeOutputPath("../gait-out/runpack.zip"); err == nil {
 		test.Fatalf("expected parent traversal output path to fail")
+	}
+	if _, err := normalizeOutputPath("."); err == nil {
+		test.Fatalf("expected dot output path to fail")
 	}
 }
 

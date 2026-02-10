@@ -6,6 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/davidahmann/gait/core/gate"
+	"github.com/davidahmann/gait/core/mcp"
+	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 )
 
 func TestRunMCPProxyBlockWithArtifacts(t *testing.T) {
@@ -262,5 +267,88 @@ func TestSanitizeRunpackOutputPath(t *testing.T) {
 	}
 	if _, err := sanitizeRunpackOutputPath("../gait-out/runpack.zip"); err == nil {
 		t.Fatalf("expected parent traversal runpack path to fail")
+	}
+	if _, err := sanitizeRunpackOutputPath("."); err == nil {
+		t.Fatalf("expected dot runpack path to fail")
+	}
+}
+
+func TestWriteMCPRunpackRelativePath(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	relativePath := filepath.Join("nested", "runpack_mcp_relative.zip")
+	if err := writeMCPRunpack(relativePath, "run_mcp_relative", testMCPEvalResult(), "trace_relative"); err != nil {
+		t.Fatalf("writeMCPRunpack relative path: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, relativePath)); err != nil {
+		t.Fatalf("stat relative runpack output: %v", err)
+	}
+}
+
+func TestWriteMCPRunpackCreateDirectoryError(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	if err := os.WriteFile("nested", []byte("blocker\n"), 0o600); err != nil {
+		t.Fatalf("write blocker: %v", err)
+	}
+
+	if err := writeMCPRunpack(filepath.Join("nested", "runpack.zip"), "run_mcp_mkdir_error", testMCPEvalResult(), "trace_mkdir_error"); err == nil {
+		t.Fatalf("expected create directory error")
+	}
+}
+
+func TestWriteMCPRunpackWriteError(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	targetPath := filepath.Join(workDir, "existing-dir")
+	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		t.Fatalf("mkdir target: %v", err)
+	}
+
+	if err := writeMCPRunpack(targetPath, "run_mcp_write_error", testMCPEvalResult(), "trace_write_error"); err == nil {
+		t.Fatalf("expected write error for directory destination")
+	}
+}
+
+func TestWriteMCPRunpackRejectsTraversalPath(t *testing.T) {
+	if err := writeMCPRunpack(filepath.Join("..", "runpack.zip"), "run_mcp_bad_path", testMCPEvalResult(), "trace_bad_path"); err == nil {
+		t.Fatalf("expected traversal path error")
+	}
+}
+
+func TestWriteMCPRunpackZeroCreatedAtUsesEpochDefault(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	evalResult := testMCPEvalResult()
+	evalResult.Outcome.Result.CreatedAt = time.Time{}
+
+	outputPath := filepath.Join("nested", "runpack_zero_created_at.zip")
+	if err := writeMCPRunpack(outputPath, "run_mcp_zero_time", evalResult, "trace_zero_time"); err != nil {
+		t.Fatalf("writeMCPRunpack zero created_at: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, outputPath)); err != nil {
+		t.Fatalf("stat runpack output: %v", err)
+	}
+}
+
+func testMCPEvalResult() mcp.EvalResult {
+	now := time.Date(2026, time.February, 10, 0, 0, 0, 0, time.UTC)
+	return mcp.EvalResult{
+		Intent: schemagate.IntentRequest{
+			ToolName:   "tool.read",
+			ArgsDigest: strings.Repeat("a", 64),
+			Args:       map[string]any{"path": "README.md"},
+		},
+		Outcome: gate.EvalOutcome{
+			Result: schemagate.GateResult{
+				CreatedAt:   now,
+				Verdict:     "allow",
+				ReasonCodes: []string{"allowed"},
+			},
+		},
 	}
 }
