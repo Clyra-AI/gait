@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.0.2] - 2026-02-10
+
+### Fixed
+
+- Hardened path handling for CodeQL "Uncontrolled data used in path expression" findings across MCP, runpack, trace, and filesystem helpers.
+- Stabilized Windows write-error tests by forcing deterministic directory-write failures across platforms.
+- Improved UAT/release reliability around latest-release resolution and cross-platform script behavior.
+
 ## [1.0.1-rc4] - 2026-02-09
 
 ### Fixed
