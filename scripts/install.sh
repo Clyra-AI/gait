@@ -23,7 +23,7 @@ Environment overrides:
 
 Examples:
   ./scripts/install.sh
-  ./scripts/install.sh --version v1.7.0
+  ./scripts/install.sh --version vX.Y.Z
   ./scripts/install.sh --install-dir /usr/local/bin
 EOF
 }

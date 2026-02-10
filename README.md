@@ -4,7 +4,7 @@ Your AI agent broke prod. Gait gives you the signed artifact to prove what happe
 
 Public docs + marketing site: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)
 Operational wiki (playbooks and troubleshooting): [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)
-Changelog: `CHANGELOG.md`
+Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ## Install And First Win (60 Seconds)
 
@@ -49,22 +49,22 @@ Paste the `ticket_footer` line into any incident ticket or PR. Anyone with the a
 
 Full mental model: `docs/concepts/mental_model.md`
 
-## Runtime Governance vs ACP
-
-- Runtime governance usually observes and alerts.
-- Gait ACP decides at execution time (`allow`/`block`/`require_approval`/`dry_run`) and emits signed proof.
-- Guardrails scan content. Gait evaluates structured action intent before side effects execute.
-
-Reference: `docs/zero_trust_stack.md`
-
 ## Turn That Into A CI Regression (2 Minutes)
+
+Fast path (one command):
+
+```bash
+gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+```
+
+This incident is now a permanent test. If agent behavior drifts, CI fails.
+
+Equivalent explicit path:
 
 ```bash
 gait regress init --from run_demo --json
 gait regress run --json --junit ./gait-out/junit.xml
 ```
-
-This incident is now a permanent test. If agent behavior drifts, CI fails.
 
 What you get:
 
@@ -135,17 +135,21 @@ Gate evaluates structured tool-call intent, not prompt text. If verdict is not `
 - not prompt-only filtering
 - not a replacement for your identity provider, SIEM, or ticketing system
 
+**Runtime governance vs ACP:**
+
+- Runtime governance usually observes and alerts.
+- Gait ACP decides at execution time (`allow`/`block`/`require_approval`/`dry_run`) and emits signed proof.
+- Guardrails scan content. Gait evaluates structured action intent before side effects execute.
+
+Reference: `docs/zero_trust_stack.md`
+
 **Works with your existing stack:**
 
 - identity and vault systems (for example CyberArk, HashiCorp Vault, cloud IAM)
 - AI gateway/guardrail scanners for prompt and output inspection
 - SIEM and observability systems (for example Splunk, Datadog, Elastic)
 
-Integration references:
-
-- `docs/zero_trust_stack.md`
-- `docs/external_tool_registry_policy.md`
-- `docs/siem_ingestion_recipes.md`
+Integration references: `docs/zero_trust_stack.md`, `docs/external_tool_registry_policy.md`, `docs/siem_ingestion_recipes.md`
 
 **Why tool-call boundary, not prompt layer:**
 
@@ -216,7 +220,13 @@ References: `docs/approval_runbook.md`, `docs/policy_rollout.md`, `docs/project_
 Cluster incident families and rank top issues offline:
 
 ```bash
-gait scout signal --runs ./gait-out/runpack_run_demo.zip --regress ./gait-out/regress_result.json --json
+gait scout signal --runs ./gait-out/runpack_run_demo.zip --json
+```
+
+If you also have regress results or traces, pass them for richer analysis:
+
+```bash
+gait scout signal --runs ./gait-out/runpack_run_demo.zip --regress ./gait-out/regress_result.json --traces ./gait-out/trace_delete.json --json
 ```
 
 Output includes deterministic fingerprints, family grouping, ranked top issues with driver attribution (`policy_change`, `tool_result_shape_change`, `reference_set_change`, `configuration_change`), and bounded fix suggestions.
@@ -236,7 +246,9 @@ gait demo                                          # offline first win
 gait verify <run_id|path>                          # offline integrity proof
 gait run replay <run_id|path>                      # deterministic stub replay
 gait run diff <left> <right>                       # artifact diff
-gait regress init --from <run_id|path>             # incident fixture bootstrap
+gait run receipt --from <run_id|path>              # regenerate ticket footer
+gait regress bootstrap --from <run_id|path>        # incident to CI test (one command)
+gait regress init --from <run_id|path>             # create fixture from runpack
 gait regress run [--junit junit.xml]               # run regressions
 gait policy test <policy.yaml> <fixture.json>      # test policy offline
 gait gate eval --policy <p> --intent <i>           # evaluate tool intent
@@ -264,31 +276,50 @@ All commands support `--json`. Most support `--explain`.
 
 ## Docs
 
-1. `docs/README.md`
-2. `docs/concepts/mental_model.md`
-3. `docs/architecture.md`
-4. `docs/flows.md`
-5. `docs/integration_checklist.md`
-6. `docs/project_defaults.md`
-7. `docs/policy_rollout.md`
-8. `docs/approval_runbook.md`
-9. `docs/ci_regress_kit.md`
-10. `docs/contracts/primitive_contract.md`
-11. `docs/evidence_templates.md`
-12. `docs/positioning.md`
-13. `docs/packaging.md`
-14. `docs/install.md`
-15. `docs/ecosystem/awesome.md`
-16. `docs/launch/README.md`
-17. `docs/homebrew.md`
-18. `https://github.com/davidahmann/gait/wiki` (playbook layer synced from `docs/wiki/`)
-19. `docs/zero_trust_stack.md`
-20. `docs/external_tool_registry_policy.md`
-21. `docs/siem_ingestion_recipes.md`
-22. `docs/launch/rfc_openclaw.md`
-23. `docs/launch/rfc_gastown.md`
-24. `docs/launch/secure_deployment_openclaw.md`
-25. `docs/launch/secure_deployment_gastown.md`
+Start here:
+
+- `docs/README.md`
+- `docs/concepts/mental_model.md`
+- `docs/architecture.md`
+- `docs/flows.md`
+
+Integration and operations:
+
+- `docs/integration_checklist.md`
+- `docs/project_defaults.md`
+- `docs/policy_rollout.md`
+- `docs/approval_runbook.md`
+- `docs/ci_regress_kit.md`
+
+Contracts and compliance:
+
+- `docs/contracts/primitive_contract.md`
+- `docs/evidence_templates.md`
+- `docs/slo/runtime_slo.md`
+
+Positioning and distribution:
+
+- `docs/positioning.md`
+- `docs/packaging.md`
+- `docs/install.md`
+- `docs/homebrew.md`
+
+Ecosystem and launch:
+
+- `docs/ecosystem/awesome.md`
+- `docs/launch/README.md`
+- `docs/launch/rfc_openclaw.md`
+- `docs/launch/rfc_gastown.md`
+- `docs/launch/secure_deployment_openclaw.md`
+- `docs/launch/secure_deployment_gastown.md`
+
+External integration:
+
+- `docs/zero_trust_stack.md`
+- `docs/external_tool_registry_policy.md`
+- `docs/siem_ingestion_recipes.md`
+
+Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki) (playbook layer synced from `docs/wiki/`)
 
 ## Development
 
@@ -306,7 +337,7 @@ make docs-site-build
 
 90-second terminal demo: `bash scripts/demo_90s.sh`
 
-Enable hooks: `pre-commit install --hook-type pre-commit --hook-type pre-push`
+Enable required pre-push hook: `make hooks`
 
 ## Links
 

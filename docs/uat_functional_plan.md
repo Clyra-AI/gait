@@ -67,7 +67,7 @@ bash scripts/test_uat_local.sh
 Options:
 
 ```bash
-GAIT_UAT_RELEASE_VERSION=v1.0.0 bash scripts/test_uat_local.sh --output-dir ./gait-out/uat_local
+GAIT_UAT_RELEASE_VERSION=vX.Y.Z bash scripts/test_uat_local.sh --output-dir ./gait-out/uat_local
 bash scripts/test_uat_local.sh --skip-brew
 ```
 

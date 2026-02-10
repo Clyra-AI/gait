@@ -14,15 +14,9 @@ Thanks for your interest in contributing. This repo is optimized for **determini
    - `make test-adoption`
    - `make test-uat-local` (full local install-path UAT matrix; longer running)
 
-## Pre-commit
+## Pre-commit (optional local runner)
 
-Install pre-commit and run:
-
-```
-pre-commit install
-```
-
-Then verify:
+Use pre-commit as a local convenience runner:
 
 ```
 pre-commit run --all-files
@@ -30,7 +24,7 @@ pre-commit run --all-files
 
 ## Pre-push (required)
 
-Enable the repo pre-push hook:
+Enable the repo pre-push hook (authoritative path in this repo):
 
 ```
 make hooks

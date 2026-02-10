@@ -6,7 +6,7 @@ This document explains where Gait fits, what it integrates with, and what it int
 
 Guardrails scan content. Gait evaluates structured action intent before execution and emits verifiable proof.
 
-Short version: camera and scanner plus gate. You want both.
+Short version: scanners and monitoring observe; Gait gates execution. You want both.
 
 ## Layer Model
 

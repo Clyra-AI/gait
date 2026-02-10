@@ -140,7 +140,7 @@ demo-90s: build
 	bash scripts/demo_90s.sh
 
 homebrew-formula:
-	@if [ -z "$(VERSION)" ]; then echo "VERSION is required (example: make homebrew-formula VERSION=v1.7.0)"; exit 2; fi
+	@if [ -z "$(VERSION)" ]; then echo "VERSION is required (example: make homebrew-formula VERSION=vX.Y.Z)"; exit 2; fi
 	bash scripts/render_homebrew_formula.sh --version "$(VERSION)" --checksums dist/checksums.txt --out dist/gait.rb
 
 wiki-publish:

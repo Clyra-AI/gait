@@ -62,7 +62,7 @@ set -U fish_user_paths $HOME/.local/bin $fish_user_paths
 Options:
 
 ```bash
-bash scripts/install.sh --version v1.7.0 --install-dir ~/.local/bin
+bash scripts/install.sh --version vX.Y.Z --install-dir ~/.local/bin
 ```
 
 ## Verify Installation
