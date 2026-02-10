@@ -454,6 +454,9 @@ func TestWriteRunpackWriteFileError(test *testing.T) {
 	if err := os.MkdirAll(targetPath, 0o755); err != nil {
 		test.Fatalf("mkdir target: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(targetPath, "keep.txt"), []byte("keep\n"), 0o600); err != nil {
+		test.Fatalf("write target sentinel: %v", err)
+	}
 
 	run := schemarunpack.Run{
 		RunID: "run_write_file_error",

@@ -307,6 +307,9 @@ func TestWriteMCPRunpackWriteError(t *testing.T) {
 	if err := os.MkdirAll(targetPath, 0o755); err != nil {
 		t.Fatalf("mkdir target: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(targetPath, "keep.txt"), []byte("keep\n"), 0o600); err != nil {
+		t.Fatalf("write target sentinel: %v", err)
+	}
 
 	if err := writeMCPRunpack(targetPath, "run_mcp_write_error", testMCPEvalResult(), "trace_write_error"); err == nil {
 		t.Fatalf("expected write error for directory destination")
