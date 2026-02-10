@@ -208,12 +208,37 @@ uv self update
 - Use `docs/launch/README.md` and linked launch templates when proposing messaging/distribution updates.
 - Record architecture-impacting decisions in `docs/adr/`.
 
+### Issue routing
+
+- Use GitHub Discussions for open-ended ideas or early product exploration.
+- Convert accepted Discussion outcomes into tracked Issues before implementation.
+- Use Issue forms for execution items (`bug`, `feature`, `question`).
+
+### Bug report quality bar (artifact-first)
+
+Good bug reports include:
+
+- `gait --version`
+- exact command used
+- full `--json` output
+- relevant deterministic artifact paths under `gait-out/*`
+- reproducible steps and expected vs actual behavior
+
+Avoid posting secrets or raw sensitive content. Redact values and keep the artifact path references.
+
+### Triage SLA (best effort)
+
+- New Issues: initial maintainer response target is within 3 business days.
+- Reproducible `bug` reports with required artifacts: target classification in 5 business days.
+- `feature` and `question` Issues: target triage decision or routing note in 7 business days.
+
 ## Triage and labels
 
 Use these labels consistently:
 
 - `bug`: defects or regressions
 - `feature`: new behavior or enhancements
+- `question`: usage or integration questions
 - `docs`: documentation-only changes
 - `security`: security-impacting changes
 - `breaking`: incompatible CLI or schema changes

@@ -1,6 +1,8 @@
 name: Release note / changelog entry
 description: Propose a user-facing changelog entry for an upcoming release
 title: "[release-note] "
+labels: ["docs", "needs-triage"]
+assignees: ["davidahmann"]
 body:
   - type: dropdown
     id: change_type

@@ -1,0 +1,40 @@
+name: Question
+description: Ask a usage or integration question
+title: "[question] "
+labels: ["question", "needs-triage"]
+assignees: ["davidahmann"]
+body:
+  - type: input
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: Describe the practical outcome you want.
+      placeholder: Enforce high-risk tool calls in my AutoGen app.
+    validations:
+      required: true
+  - type: input
+    id: gait_version
+    attributes:
+      label: Gait version
+      description: Output of `gait --version` if installed.
+      placeholder: gait version 1.0.0
+    validations:
+      required: false
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What have you already tried?
+      description: Include commands, docs followed, and where you got stuck.
+      placeholder: |
+        Followed docs/integration_checklist.md
+        Ran make test-adapter-parity
+        Error: ...
+    validations:
+      required: true
+  - type: textarea
+    id: outputs
+    attributes:
+      label: Relevant output (`--json` or logs)
+      description: Share sanitized command output and any `gait-out/*` paths.
+    validations:
+      required: true

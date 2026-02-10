@@ -2,6 +2,7 @@ name: Skill proposal
 description: Propose a new skill for the public Gait ecosystem index
 title: "[skill] "
 labels: ["feature", "needs-triage"]
+assignees: ["davidahmann"]
 body:
   - type: input
     id: skill_name

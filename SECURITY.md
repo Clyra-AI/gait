@@ -5,8 +5,15 @@
 Please report security issues privately.
 
 - Email: dahmann@lumyn.cc
+- GitHub Security Advisory: https://github.com/davidahmann/gait/security/advisories/new
 
 Do not open public issues for security vulnerabilities.
+
+Response targets (best effort):
+
+- Initial acknowledgement within 3 business days.
+- Triage severity assessment within 7 business days for reproducible reports.
+- Coordinated disclosure timeline shared after triage.
 
 ## Supported Versions
 

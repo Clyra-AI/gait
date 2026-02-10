@@ -1,8 +1,25 @@
 name: Bug report
 description: Report a defect in Gait
 title: "[bug] "
-labels: ["bug"]
+labels: ["bug", "needs-triage"]
+assignees: ["davidahmann"]
 body:
+  - type: input
+    id: gait_version
+    attributes:
+      label: Gait version
+      description: Output of `gait --version`
+      placeholder: gait version 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Command used
+      description: Exact command that produced the issue.
+      placeholder: gait gate eval --policy ... --intent ... --json
+    validations:
+      required: true
   - type: textarea
     id: summary
     attributes:
@@ -24,7 +41,28 @@ body:
     validations:
       required: true
   - type: textarea
+    id: json_output
+    attributes:
+      label: Structured output (`--json`)
+      description: Paste the full `--json` output if available.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Artifact paths (`gait-out/*`)
+      description: List relevant local artifact paths (runpack, trace, regress result, junit).
+      placeholder: |
+        gait-out/runpack_run_demo.zip
+        gait-out/trace_delete_prod.json
+        gait-out/regress_result.json
+    validations:
+      required: true
+  - type: textarea
     id: logs
     attributes:
       label: Logs/output
-      description: Paste relevant output or attach files.
+      description: Paste relevant output or attach sanitized files (no secrets).
+    validations:
+      required: true

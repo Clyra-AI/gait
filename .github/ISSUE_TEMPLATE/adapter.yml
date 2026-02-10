@@ -2,6 +2,7 @@ name: Adapter proposal
 description: Propose a new framework adapter for the public Gait ecosystem index
 title: "[adapter] "
 labels: ["feature", "needs-triage"]
+assignees: ["davidahmann"]
 body:
   - type: input
     id: framework

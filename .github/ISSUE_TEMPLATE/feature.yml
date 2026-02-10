@@ -1,7 +1,8 @@
 name: Feature request
 description: Propose a change or improvement
 title: "[feature] "
-labels: ["enhancement"]
+labels: ["feature", "needs-triage"]
+assignees: ["davidahmann"]
 body:
   - type: textarea
     id: problem
@@ -15,5 +16,21 @@ body:
     attributes:
       label: Proposal
       description: Describe the change and why it fits Gait.
+    validations:
+      required: true
+  - type: textarea
+    id: user_value
+    attributes:
+      label: User value and success signal
+      description: Who benefits, what changes for them, and how we know it worked.
+      placeholder: Team can integrate in less than 60 minutes and pass `make test-adoption`.
+    validations:
+      required: true
+  - type: textarea
+    id: contract_impact
+    attributes:
+      label: Contract and compatibility impact
+      description: Note impact to CLI flags, exit codes, schemas, or JSON outputs. Use `none` if no impact.
+      placeholder: none
     validations:
       required: true
