@@ -10,9 +10,7 @@ Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 Terminal speaks for itself: control + proof + regression in under a minute.
 
-[![Gait in 60 seconds terminal demo](docs/assets/gait_demo_60s.gif)](docs/assets/gait_demo_60s.mp4)
-
-Full quality video (MP4): [docs/assets/gait_demo_60s.mp4](docs/assets/gait_demo_60s.mp4)
+![Gait in 60 seconds terminal demo](docs/assets/gait_demo_60s.gif)
 
 ## The Problem
 
