@@ -4,6 +4,11 @@ GO ?= go
 PYTHON ?= python3
 GO_COVERAGE_THRESHOLD ?= 85
 PYTHON_COVERAGE_THRESHOLD ?= 85
+GAIT_BINARY ?= ./gait
+
+ifeq ($(OS),Windows_NT)
+GAIT_BINARY := ./gait.exe
+endif
 
 SDK_DIR := sdk/python
 UV_PY := 3.13
@@ -29,8 +34,8 @@ lint:
 	$(GO) vet ./...
 	$(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.1 run ./...
 	$(GO) run github.com/securego/gosec/v2/cmd/gosec@v2.22.0 ./...
-	$(GO) build ./cmd/gait
-	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest -mode=binary ./gait
+	$(GO) build -o $(GAIT_BINARY) ./cmd/gait
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest -mode=binary $(GAIT_BINARY)
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev ruff check)
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev mypy)
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev bandit -q -r gait)
