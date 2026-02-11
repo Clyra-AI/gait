@@ -10,6 +10,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.0.5] - 2026-02-11
+
+### Added
+
+- Added v2.1 runtime surfaces for sessionized execution evidence, including session journal/checkpoint/chain schemas and CLI workflows (`run session` + chain verify/diff flows).
+- Added delegated execution controls across Gate policy evaluation, delegation token/audit artifacts, and policy matching constraints for delegated identities/scope/depth.
+- Added policy helper and session guard test coverage to keep repository-wide release gates at >= 85% while exercising new adoption/hardening branches.
+
+### Changed
+
+- Expanded UAT and local quality coverage paths for plan-audit and release readiness validation.
+- Updated docs and integration examples to reflect sessionized runpack evidence and delegated runtime enforcement patterns.
+
+### Fixed
+
+- Hardened session journal/lock file path handling to resolve CodeQL `go/path-injection` findings in `core/runpack/session.go`.
+
 ## [1.0.4] - 2026-02-11
 
 ### Added
