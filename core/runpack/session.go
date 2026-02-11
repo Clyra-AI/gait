@@ -130,15 +130,41 @@ func StartSession(path string, opts SessionStartOptions) (SessionStatus, error) 
 	}
 
 	if err := withSessionLock(normalizedPath, func() error {
-		if _, statErr := os.Stat(normalizedPath); statErr == nil {
-			journal, readErr := ReadSessionJournal(normalizedPath)
-			if readErr != nil {
-				return readErr
+		if filepath.IsLocal(normalizedPath) {
+			if _, statErr := os.Stat(normalizedPath); statErr == nil {
+				journal, readErr := ReadSessionJournal(normalizedPath)
+				if readErr != nil {
+					return readErr
+				}
+				if journal.SessionID != sessionID || journal.RunID != runID {
+					return fmt.Errorf("session journal already initialized with different session/run")
+				}
+				return nil
 			}
-			if journal.SessionID != sessionID || journal.RunID != runID {
-				return fmt.Errorf("session journal already initialized with different session/run")
+		} else if strings.HasPrefix(normalizedPath, string(filepath.Separator)) {
+			if _, statErr := os.Stat(normalizedPath); statErr == nil {
+				journal, readErr := ReadSessionJournal(normalizedPath)
+				if readErr != nil {
+					return readErr
+				}
+				if journal.SessionID != sessionID || journal.RunID != runID {
+					return fmt.Errorf("session journal already initialized with different session/run")
+				}
+				return nil
 			}
-			return nil
+		} else if volume := filepath.VolumeName(normalizedPath); volume != "" && strings.HasPrefix(normalizedPath, volume+string(filepath.Separator)) {
+			if _, statErr := os.Stat(normalizedPath); statErr == nil {
+				journal, readErr := ReadSessionJournal(normalizedPath)
+				if readErr != nil {
+					return readErr
+				}
+				if journal.SessionID != sessionID || journal.RunID != runID {
+					return fmt.Errorf("session journal already initialized with different session/run")
+				}
+				return nil
+			}
+		} else {
+			return fmt.Errorf("session journal path must be local relative or absolute")
 		}
 		header := schemarunpack.SessionJournal{
 			SchemaID:        sessionJournalSchemaID,
@@ -408,8 +434,19 @@ func ReadSessionJournal(path string) (schemarunpack.SessionJournal, error) {
 	if err != nil {
 		return schemarunpack.SessionJournal{}, err
 	}
-	// #nosec G304 -- journal path is an explicit local path.
-	file, err := os.Open(normalizedPath)
+	var file *os.File
+	if filepath.IsLocal(normalizedPath) {
+		// #nosec G304 -- journal path is an explicit local path.
+		file, err = os.Open(normalizedPath)
+	} else if strings.HasPrefix(normalizedPath, string(filepath.Separator)) {
+		// #nosec G304 -- journal path is an explicit local path.
+		file, err = os.Open(normalizedPath)
+	} else if volume := filepath.VolumeName(normalizedPath); volume != "" && strings.HasPrefix(normalizedPath, volume+string(filepath.Separator)) {
+		// #nosec G304 -- journal path is an explicit local path.
+		file, err = os.Open(normalizedPath)
+	} else {
+		return schemarunpack.SessionJournal{}, fmt.Errorf("session journal path must be local relative or absolute")
+	}
 	if err != nil {
 		return schemarunpack.SessionJournal{}, fmt.Errorf("open session journal: %w", err)
 	}
@@ -717,12 +754,35 @@ func appendJournalRecord(path string, record sessionJournalRecord) error {
 	encoded = append(encoded, '\n')
 	dir := filepath.Dir(path)
 	if dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0o750); err != nil {
-			return fmt.Errorf("create session journal directory: %w", err)
+		if filepath.IsLocal(dir) {
+			if err := os.MkdirAll(dir, 0o750); err != nil {
+				return fmt.Errorf("create session journal directory: %w", err)
+			}
+		} else if strings.HasPrefix(dir, string(filepath.Separator)) {
+			if err := os.MkdirAll(dir, 0o750); err != nil {
+				return fmt.Errorf("create session journal directory: %w", err)
+			}
+		} else if volume := filepath.VolumeName(dir); volume != "" && strings.HasPrefix(dir, volume+string(filepath.Separator)) {
+			if err := os.MkdirAll(dir, 0o750); err != nil {
+				return fmt.Errorf("create session journal directory: %w", err)
+			}
+		} else {
+			return fmt.Errorf("session journal directory must be local relative or absolute")
 		}
 	}
-	// #nosec G304 -- session journal path is explicit local user input.
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	var file *os.File
+	if filepath.IsLocal(path) {
+		// #nosec G304 -- session journal path is explicit local user input.
+		file, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	} else if strings.HasPrefix(path, string(filepath.Separator)) {
+		// #nosec G304 -- session journal path is explicit local user input.
+		file, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	} else if volume := filepath.VolumeName(path); volume != "" && strings.HasPrefix(path, volume+string(filepath.Separator)) {
+		// #nosec G304 -- session journal path is explicit local user input.
+		file, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	} else {
+		return fmt.Errorf("session journal path must be local relative or absolute")
+	}
 	if err != nil {
 		return fmt.Errorf("open session journal: %w", err)
 	}
@@ -775,14 +835,38 @@ func withSessionLock(journalPath string, fn func() error) error {
 	lockPath := journalPath + ".lock"
 	lockDir := filepath.Dir(lockPath)
 	if lockDir != "." && lockDir != "" {
-		if err := os.MkdirAll(lockDir, 0o750); err != nil {
-			return fmt.Errorf("prepare session lock directory: %w", err)
+		if filepath.IsLocal(lockDir) {
+			if err := os.MkdirAll(lockDir, 0o750); err != nil {
+				return fmt.Errorf("prepare session lock directory: %w", err)
+			}
+		} else if strings.HasPrefix(lockDir, string(filepath.Separator)) {
+			if err := os.MkdirAll(lockDir, 0o750); err != nil {
+				return fmt.Errorf("prepare session lock directory: %w", err)
+			}
+		} else if volume := filepath.VolumeName(lockDir); volume != "" && strings.HasPrefix(lockDir, volume+string(filepath.Separator)) {
+			if err := os.MkdirAll(lockDir, 0o750); err != nil {
+				return fmt.Errorf("prepare session lock directory: %w", err)
+			}
+		} else {
+			return fmt.Errorf("session lock directory must be local relative or absolute")
 		}
 	}
 	start := time.Now()
 	for {
-		// #nosec G304 -- lock path is derived from normalized local journal path.
-		lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		var lockFile *os.File
+		var err error
+		if filepath.IsLocal(lockPath) {
+			// #nosec G304 -- lock path is derived from normalized local journal path.
+			lockFile, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		} else if strings.HasPrefix(lockPath, string(filepath.Separator)) {
+			// #nosec G304 -- lock path is derived from normalized local journal path.
+			lockFile, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		} else if volume := filepath.VolumeName(lockPath); volume != "" && strings.HasPrefix(lockPath, volume+string(filepath.Separator)) {
+			// #nosec G304 -- lock path is derived from normalized local journal path.
+			lockFile, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		} else {
+			return fmt.Errorf("session lock path must be local relative or absolute")
+		}
 		if err == nil {
 			now := time.Now().UTC()
 			metadata := map[string]any{
@@ -802,7 +886,15 @@ func withSessionLock(journalPath string, fn func() error) error {
 			return fmt.Errorf("acquire session lock: %w", err)
 		}
 		if shouldRecoverStaleSessionLock(lockPath, time.Now().UTC()) {
-			_ = os.Remove(lockPath)
+			if filepath.IsLocal(lockPath) {
+				_ = os.Remove(lockPath)
+			} else if strings.HasPrefix(lockPath, string(filepath.Separator)) {
+				_ = os.Remove(lockPath)
+			} else if volume := filepath.VolumeName(lockPath); volume != "" && strings.HasPrefix(lockPath, volume+string(filepath.Separator)) {
+				_ = os.Remove(lockPath)
+			} else {
+				return fmt.Errorf("session lock path must be local relative or absolute")
+			}
 			continue
 		}
 		if time.Since(start) >= sessionLockTimeout {
@@ -813,8 +905,22 @@ func withSessionLock(journalPath string, fn func() error) error {
 }
 
 func shouldRecoverStaleSessionLock(lockPath string, now time.Time) bool {
-	// #nosec G304 -- lock path is derived from validated journal path.
-	content, err := os.ReadFile(lockPath)
+	var (
+		content []byte
+		err     error
+	)
+	if filepath.IsLocal(lockPath) {
+		// #nosec G304 -- lock path is derived from validated journal path.
+		content, err = os.ReadFile(lockPath)
+	} else if strings.HasPrefix(lockPath, string(filepath.Separator)) {
+		// #nosec G304 -- lock path is derived from validated journal path.
+		content, err = os.ReadFile(lockPath)
+	} else if volume := filepath.VolumeName(lockPath); volume != "" && strings.HasPrefix(lockPath, volume+string(filepath.Separator)) {
+		// #nosec G304 -- lock path is derived from validated journal path.
+		content, err = os.ReadFile(lockPath)
+	} else {
+		return false
+	}
 	if err != nil {
 		return false
 	}
