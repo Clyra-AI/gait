@@ -8,6 +8,7 @@ from .client import (
     evaluate_gate,
     write_trace,
 )
+from .decorators import gate_tool
 from .models import (
     DemoCapture,
     GateEvalResult,
@@ -38,6 +39,7 @@ __all__ = [
     "capture_intent",
     "create_regress_fixture",
     "evaluate_gate",
+    "gate_tool",
     "write_trace",
 ]
 

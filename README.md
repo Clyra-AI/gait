@@ -190,6 +190,8 @@ bash scripts/install_openclaw_skill.sh
 - `examples/integrations/langchain`
 - `examples/integrations/autogen`
 - `examples/integrations/autogpt`
+- `sdk/python/examples/openai_style_tool_decorator.py`
+- `sdk/python/examples/langchain_style_tool_decorator.py`
 
 Full integration walkthrough: `docs/integration_checklist.md`
 Reduce repeated flags with a project config: `docs/project_defaults.md`

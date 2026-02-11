@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   },
 };
 
-const QUICKSTART = `curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash\ngait demo\ngait verify run_demo\ngait regress init --from run_demo --json\ngait regress run --json --junit ./gait-out/junit.xml`;
+const QUICKSTART = `curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash\ngait demo\ngait verify run_demo\ngait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`;
 
 const features = [
   {
