@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.0.3] - 2026-02-11
+
+### Added
+
+- Added `gait run inspect` for deterministic, human-readable run timeline inspection with `--json` output support.
+- Added transport-specific `gait mcp serve` endpoints for SSE (`/v1/evaluate/sse`) and streamable HTTP/NDJSON (`/v1/evaluate/stream`), with shared policy-evaluation semantics.
+- Added a dedicated nightly Windows lint workflow (`.github/workflows/windows-lint-nightly.yml`) to preserve coverage off the merge-path fast lane.
+
+### Changed
+
+- Updated docs and UAT coverage for `run inspect` and transport-aware MCP serve modes.
+- Removed Windows lint from the primary CI lint matrix to reduce per-push CI latency.
+
 ## [1.0.2] - 2026-02-10
 
 ### Fixed

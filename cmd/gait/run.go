@@ -53,6 +53,8 @@ func runCommand(arguments []string) int {
 	switch arguments[0] {
 	case "record":
 		return runRecord(arguments[1:])
+	case "inspect":
+		return runInspect(arguments[1:])
 	case "diff":
 		return runDiff(arguments[1:])
 	case "replay":
@@ -289,6 +291,7 @@ func writeReplayOutput(jsonOutput bool, output replayOutput, exitCode int) int {
 func printRunUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait run record --input <run_record.json> [--out-dir gait-out] [--run-id <run_id>] [--capture-mode reference|raw] [--json] [--explain]")
+	fmt.Println("  gait run inspect --from <run_id|path> [--json] [--explain]")
 	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json] [--explain]")
 	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain] (stub replay only; real tools not implemented)")
 	fmt.Println("  gait run reduce --from <run_id|path> [--predicate missing_result|non_ok_status] [--out reduced.zip] [--report-out reduce_report.json] [--json] [--explain]")

@@ -14,7 +14,10 @@ Gait must run where the execution decision is made.
 Recommended shape:
 
 - Run `gait mcp serve` as a local process or sidecar.
-- Agent runtime calls `http://127.0.0.1:<port>/v1/evaluate`.
+- Agent runtime calls one of:
+  - `http://127.0.0.1:<port>/v1/evaluate` (JSON)
+  - `http://127.0.0.1:<port>/v1/evaluate/sse` (SSE)
+  - `http://127.0.0.1:<port>/v1/evaluate/stream` (NDJSON)
 - Runtime executes real tools only when verdict is `allow`.
 
 Example service startup:

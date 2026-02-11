@@ -94,7 +94,17 @@ curl -fsS \
   --data-binary "@$WORK_DIR/mcp_request.json" \
   "http://${listen_addr}/v1/evaluate" >"$WORK_DIR/mcp_response.json"
 
-python3 - "$WORK_DIR/mcp_response.json" <<'PY'
+curl -fsS -N \
+  -H "content-type: application/json" \
+  --data-binary "@$WORK_DIR/mcp_request.json" \
+  "http://${listen_addr}/v1/evaluate/sse" >"$WORK_DIR/mcp_response_sse.txt"
+
+curl -fsS -N \
+  -H "content-type: application/json" \
+  --data-binary "@$WORK_DIR/mcp_request.json" \
+  "http://${listen_addr}/v1/evaluate/stream" >"$WORK_DIR/mcp_response_stream.jsonl"
+
+python3 - "$WORK_DIR/mcp_response.json" "$WORK_DIR/mcp_response_sse.txt" "$WORK_DIR/mcp_response_stream.jsonl" <<'PY'
 from __future__ import annotations
 
 import json
@@ -113,8 +123,52 @@ if not trace_path:
     raise SystemExit("mcp serve response missing trace_path")
 if not pathlib.Path(trace_path).exists():
     raise SystemExit(f"mcp serve trace_path does not exist: {trace_path}")
+
+sse_raw = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+sse_data = None
+for line in sse_raw.splitlines():
+    if line.startswith("data: "):
+        sse_data = line[len("data: "):]
+        break
+if sse_data is None:
+    raise SystemExit(f"mcp serve sse response missing data line: {sse_raw!r}")
+sse_payload = json.loads(sse_data)
+if sse_payload.get("verdict") != "allow":
+    raise SystemExit(f"mcp serve sse verdict mismatch: {sse_payload.get('verdict')}")
+if sse_payload.get("exit_code") != 0:
+    raise SystemExit(f"mcp serve sse exit code mismatch: {sse_payload.get('exit_code')}")
+
+stream_lines = [line for line in pathlib.Path(sys.argv[3]).read_text(encoding="utf-8").splitlines() if line.strip()]
+if len(stream_lines) != 1:
+    raise SystemExit(f"mcp serve stream expected one line, got {len(stream_lines)}")
+stream_payload = json.loads(stream_lines[0])
+if stream_payload.get("verdict") != "allow":
+    raise SystemExit(f"mcp serve stream verdict mismatch: {stream_payload.get('verdict')}")
+if stream_payload.get("exit_code") != 0:
+    raise SystemExit(f"mcp serve stream exit code mismatch: {stream_payload.get('exit_code')}")
 PY
 cleanup_server
+
+echo "==> v1.8 run inspect timeline path"
+"$BIN_PATH" demo --json >"$WORK_DIR/demo.json"
+"$BIN_PATH" run inspect --from run_demo --json >"$WORK_DIR/run_inspect.json"
+python3 - "$WORK_DIR/run_inspect.json" <<'PY'
+from __future__ import annotations
+
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+if not payload.get("ok"):
+    raise SystemExit(f"run inspect returned ok=false: {payload}")
+if payload.get("run_id") != "run_demo":
+    raise SystemExit(f"run inspect run_id mismatch: {payload.get('run_id')}")
+if payload.get("intents_total", 0) <= 0:
+    raise SystemExit("run inspect expected intents_total > 0")
+if not payload.get("entries"):
+    raise SystemExit("run inspect expected non-empty entries")
+PY
 
 echo "==> v1.8 gastown integration path"
 python3 "$REPO_ROOT/examples/integrations/gastown/quickstart.py" --scenario allow >"$WORK_DIR/gastown_allow.txt"

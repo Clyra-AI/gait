@@ -42,7 +42,7 @@ type mcpServeEvaluateResponse struct {
 
 func runMCPServe(arguments []string) int {
 	if hasExplainFlag(arguments) {
-		return writeExplain("Run a local HTTP interception service that evaluates tool-call payloads through Gate and emits signed traces.")
+		return writeExplain("Run a local interception service that evaluates tool-call payloads through Gate and emits signed traces across JSON, SSE, and streamable HTTP endpoints.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
 		"policy":          true,
@@ -179,56 +179,84 @@ func newMCPServeHandler(config mcpServeConfig) (http.Handler, error) {
 			writeMCPServeError(writer, http.StatusMethodNotAllowed, "expected POST")
 			return
 		}
-		var input mcpServeEvaluateRequest
-		if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
-			writeMCPServeError(writer, http.StatusBadRequest, fmt.Sprintf("decode request: %v", err))
-			return
-		}
-		if len(input.Call) == 0 {
-			writeMCPServeError(writer, http.StatusBadRequest, "request.call is required")
-			return
-		}
-		adapter := strings.ToLower(strings.TrimSpace(input.Adapter))
-		if adapter == "" {
-			adapter = config.DefaultAdapter
-		}
-		callPayload, err := json.Marshal(input.Call)
+		response, err := evaluateMCPServeRequest(config, request)
 		if err != nil {
-			writeMCPServeError(writer, http.StatusBadRequest, fmt.Sprintf("encode call payload: %v", err))
+			writeMCPServeError(writer, http.StatusBadRequest, err.Error())
 			return
 		}
-
-		tracePath := strings.TrimSpace(input.TracePath)
-		if tracePath == "" && config.TraceDir != "" {
-			tracePath = filepath.Join(config.TraceDir, fmt.Sprintf("trace_%s_%s.json", normalizeRunID(input.RunID), time.Now().UTC().Format("20060102T150405.000000000")))
-		}
-		runpackPath := strings.TrimSpace(input.RunpackOut)
-		if runpackPath == "" && input.EmitRunpack && config.RunpackDir != "" {
-			runpackPath = filepath.Join(config.RunpackDir, fmt.Sprintf("runpack_%s_%s.zip", normalizeRunID(input.RunID), time.Now().UTC().Format("20060102T150405.000000000")))
-		}
-
-		output, exitCode, evalErr := evaluateMCPProxyPayload(config.PolicyPath, callPayload, mcpProxyEvalOptions{
-			Adapter:       adapter,
-			RunID:         input.RunID,
-			TracePath:     tracePath,
-			RunpackOut:    runpackPath,
-			LogExportPath: config.LogExportPath,
-			OTelExport:    config.OTelExport,
-			KeyMode:       config.KeyMode,
-			PrivateKey:    config.PrivateKey,
-			PrivateKeyEnv: config.PrivateKeyEnv,
-		})
-		if evalErr != nil {
-			writeMCPServeError(writer, http.StatusBadRequest, evalErr.Error())
+		writeMCPServeJSON(writer, http.StatusOK, response)
+	})
+	mux.HandleFunc("/v1/evaluate/sse", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost {
+			writeMCPServeError(writer, http.StatusMethodNotAllowed, "expected POST")
 			return
 		}
-
-		writeMCPServeJSON(writer, http.StatusOK, mcpServeEvaluateResponse{
-			mcpProxyOutput: output,
-			ExitCode:       exitCode,
-		})
+		response, err := evaluateMCPServeRequest(config, request)
+		if err != nil {
+			writeMCPServeError(writer, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeMCPServeSSE(writer, response)
+	})
+	mux.HandleFunc("/v1/evaluate/stream", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost {
+			writeMCPServeError(writer, http.StatusMethodNotAllowed, "expected POST")
+			return
+		}
+		response, err := evaluateMCPServeRequest(config, request)
+		if err != nil {
+			writeMCPServeError(writer, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeMCPServeStream(writer, response)
 	})
 	return mux, nil
+}
+
+func evaluateMCPServeRequest(config mcpServeConfig, request *http.Request) (mcpServeEvaluateResponse, error) {
+	var input mcpServeEvaluateRequest
+	if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
+		return mcpServeEvaluateResponse{}, fmt.Errorf("decode request: %w", err)
+	}
+	if len(input.Call) == 0 {
+		return mcpServeEvaluateResponse{}, fmt.Errorf("request.call is required")
+	}
+	adapter := strings.ToLower(strings.TrimSpace(input.Adapter))
+	if adapter == "" {
+		adapter = config.DefaultAdapter
+	}
+	callPayload, err := json.Marshal(input.Call)
+	if err != nil {
+		return mcpServeEvaluateResponse{}, fmt.Errorf("encode call payload: %w", err)
+	}
+
+	tracePath := strings.TrimSpace(input.TracePath)
+	if tracePath == "" && config.TraceDir != "" {
+		tracePath = filepath.Join(config.TraceDir, fmt.Sprintf("trace_%s_%s.json", normalizeRunID(input.RunID), time.Now().UTC().Format("20060102T150405.000000000")))
+	}
+	runpackPath := strings.TrimSpace(input.RunpackOut)
+	if runpackPath == "" && input.EmitRunpack && config.RunpackDir != "" {
+		runpackPath = filepath.Join(config.RunpackDir, fmt.Sprintf("runpack_%s_%s.zip", normalizeRunID(input.RunID), time.Now().UTC().Format("20060102T150405.000000000")))
+	}
+
+	output, exitCode, evalErr := evaluateMCPProxyPayload(config.PolicyPath, callPayload, mcpProxyEvalOptions{
+		Adapter:       adapter,
+		RunID:         input.RunID,
+		TracePath:     tracePath,
+		RunpackOut:    runpackPath,
+		LogExportPath: config.LogExportPath,
+		OTelExport:    config.OTelExport,
+		KeyMode:       config.KeyMode,
+		PrivateKey:    config.PrivateKey,
+		PrivateKeyEnv: config.PrivateKeyEnv,
+	})
+	if evalErr != nil {
+		return mcpServeEvaluateResponse{}, evalErr
+	}
+	return mcpServeEvaluateResponse{
+		mcpProxyOutput: output,
+		ExitCode:       exitCode,
+	}, nil
 }
 
 func writeMCPServeError(writer http.ResponseWriter, status int, message string) {
@@ -243,7 +271,38 @@ func writeMCPServeJSON(writer http.ResponseWriter, status int, payload any) {
 	_ = encoder.Encode(payload)
 }
 
+func writeMCPServeSSE(writer http.ResponseWriter, payload mcpServeEvaluateResponse) {
+	writer.Header().Set("content-type", "text/event-stream")
+	writer.Header().Set("cache-control", "no-cache")
+	writer.Header().Set("connection", "keep-alive")
+	writer.WriteHeader(http.StatusOK)
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		_, _ = writer.Write([]byte("event: evaluate\ndata: {\"ok\":false,\"error\":\"encode response\"}\n\n"))
+		return
+	}
+	_, _ = writer.Write([]byte("event: evaluate\n"))
+	_, _ = writer.Write([]byte("data: "))
+	_, _ = writer.Write(encoded)
+	_, _ = writer.Write([]byte("\n\n"))
+	if flusher, ok := writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func writeMCPServeStream(writer http.ResponseWriter, payload mcpServeEvaluateResponse) {
+	writer.Header().Set("content-type", "application/x-ndjson")
+	writer.WriteHeader(http.StatusOK)
+	encoder := json.NewEncoder(writer)
+	encoder.SetEscapeHTML(false)
+	_ = encoder.Encode(payload)
+	if flusher, ok := writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 func printMCPServeUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--trace-dir <dir>] [--runpack-dir <dir>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  endpoints: POST /v1/evaluate (json), POST /v1/evaluate/sse (text/event-stream), POST /v1/evaluate/stream (application/x-ndjson)")
 }

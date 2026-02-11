@@ -197,6 +197,12 @@ For long-running MCP interception instead of one-shot calls:
 gait mcp serve --policy examples/policy-test/allow.yaml --listen 127.0.0.1:8787 --trace-dir ./gait-out/mcp-serve/traces
 ```
 
+Transport endpoints from one service config:
+
+- `POST /v1/evaluate` (JSON response)
+- `POST /v1/evaluate/sse` (SSE response)
+- `POST /v1/evaluate/stream` (NDJSON response)
+
 ## Production Posture (oss-prod Profile)
 
 For fail-closed production enforcement, use `--profile oss-prod` with explicit keys and a credential broker:
@@ -254,6 +260,7 @@ gait verify <run_id|path>                          # offline integrity proof
 gait run replay <run_id|path>                      # deterministic stub replay
 gait run diff <left> <right>                       # artifact diff
 gait run receipt --from <run_id|path>              # regenerate ticket footer
+gait run inspect --from <run_id|path>              # readable run timeline (terminal/json)
 gait regress bootstrap --from <run_id|path>        # incident to CI test (one command)
 gait regress init --from <run_id|path>             # create fixture from runpack
 gait regress run [--junit junit.xml]               # run regressions

@@ -28,6 +28,7 @@ Run nightly:
 - `make test-e2e`
 - `make test-acceptance`
 - `make bench-check`
+- Windows lint workflow (`.github/workflows/windows-lint-nightly.yml`)
 
 Nightly objective:
 
@@ -36,7 +37,7 @@ Nightly objective:
 
 ## Reference Workflow
 
-Use `.github/workflows/adoption-nightly.yml` as a sample nightly profile.
+Use `.github/workflows/adoption-nightly.yml` and `.github/workflows/windows-lint-nightly.yml` as nightly profiles.
 
 ## Minimum Enforcement Policy
 

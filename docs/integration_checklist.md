@@ -191,6 +191,7 @@ Evidence to capture:
 
 - JSON output includes `gate_result`, `trace_path`, and `exit_code`.
 - Blocked or approval-required decisions are treated as non-executable paths.
+- If using `gait mcp serve`, validate your chosen transport endpoint (`/v1/evaluate`, `/v1/evaluate/sse`, or `/v1/evaluate/stream`) returns the same non-`allow` enforcement semantics.
 
 ## Step 3: Gate Trace Persistence
 

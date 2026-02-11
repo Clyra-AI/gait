@@ -458,6 +458,7 @@ func printUsage() {
 	fmt.Println("  gait regress init --from <run_id|path> [--json] [--explain]")
 	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
 	fmt.Println("  gait run record --input <run_record.json> [--json] [--explain]")
+	fmt.Println("  gait run inspect --from <run_id|path> [--json] [--explain]")
 	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain]")
 	fmt.Println("  gait run diff <left> <right> [--json] [--explain]")
 	fmt.Println("  gait run reduce --from <run_id|path> [--predicate missing_result|non_ok_status] [--json] [--explain]")

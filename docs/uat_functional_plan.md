@@ -36,6 +36,7 @@ Windows is included in CI matrix validation, but this local script focuses on Li
 The acceptance suites together exercise command families including:
 
 - `demo`, `verify`, `run replay`, `run diff`, `run receipt`
+- `run inspect` (human-readable runpack timeline)
 - `regress init`, `regress run`, `regress bootstrap`
 - `policy init`, `policy test`
 - `gate eval`, `approve`

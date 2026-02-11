@@ -64,6 +64,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "run", "record", "--help"}); code != exitOK {
 		t.Fatalf("run record help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "run", "inspect", "--help"}); code != exitOK {
+		t.Fatalf("run inspect help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "run", "reduce", "--help"}); code != exitOK {
 		t.Fatalf("run reduce help: expected %d got %d", exitOK, code)
 	}
@@ -201,6 +204,9 @@ func TestDemoVerifyReplayDiffAndRegressFlow(t *testing.T) {
 	}
 	if code := runReplay([]string{"--json", "run_demo"}); code != exitOK {
 		t.Fatalf("replay: expected %d got %d", exitOK, code)
+	}
+	if code := runInspect([]string{"--json", "--from", "run_demo"}); code != exitOK {
+		t.Fatalf("run inspect: expected %d got %d", exitOK, code)
 	}
 	if code := runReplay([]string{"--real-tools", "run_demo"}); code != exitUnsafeReplay {
 		t.Fatalf("unsafe replay guard: expected %d got %d", exitUnsafeReplay, code)
@@ -591,6 +597,9 @@ func TestRunRecordAndMigrateBranches(t *testing.T) {
 	if code := runRecord([]string{"--explain"}); code != exitOK {
 		t.Fatalf("runRecord explain: expected %d got %d", exitOK, code)
 	}
+	if code := runInspect([]string{"--explain"}); code != exitOK {
+		t.Fatalf("runInspect explain: expected %d got %d", exitOK, code)
+	}
 	if code := runMigrate([]string{"--explain"}); code != exitOK {
 		t.Fatalf("runMigrate explain: expected %d got %d", exitOK, code)
 	}
@@ -627,6 +636,9 @@ func TestRunRecordAndMigrateBranches(t *testing.T) {
 
 	if code := runRecord([]string{"--input", filepath.Join(workDir, "missing.json")}); code != exitInvalidInput {
 		t.Fatalf("runRecord missing input file: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runInspect([]string{"--from", filepath.Join(workDir, "missing.zip")}); code != exitInvalidInput {
+		t.Fatalf("runInspect missing runpack: expected %d got %d", exitInvalidInput, code)
 	}
 
 	invalidJSONPath := filepath.Join(workDir, "invalid.json")
