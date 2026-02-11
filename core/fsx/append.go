@@ -104,11 +104,8 @@ func isAppendLockContention(acquireErr error, lockPath string) bool {
 	if os.IsExist(acquireErr) {
 		return true
 	}
-	if !os.IsPermission(acquireErr) {
-		return false
-	}
 	_, statErr := os.Stat(lockPath)
-	return statErr == nil
+	return statErr == nil || os.IsPermission(statErr)
 }
 
 func shouldRecoverStaleAppendLock(lockPath string, now time.Time) bool {

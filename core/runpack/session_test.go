@@ -435,6 +435,7 @@ func TestIsSessionLockContention(t *testing.T) {
 
 	lockPath := filepath.Join(t.TempDir(), "session.lock")
 	permissionErr := &os.PathError{Op: "open", Path: lockPath, Err: os.ErrPermission}
+	accessDeniedErr := &os.PathError{Op: "open", Path: lockPath, Err: errors.New("Access is denied.")}
 
 	if !isSessionLockContention(os.ErrExist, lockPath) {
 		t.Fatalf("expected os.ErrExist to be lock contention")
@@ -442,13 +443,20 @@ func TestIsSessionLockContention(t *testing.T) {
 	if isSessionLockContention(permissionErr, lockPath) {
 		t.Fatalf("expected permission error without existing lock to be non-contention")
 	}
+	if isSessionLockContention(accessDeniedErr, lockPath) {
+		t.Fatalf("expected access denied without existing lock to be non-contention")
+	}
 	if err := os.WriteFile(lockPath, []byte("lock"), 0o600); err != nil {
 		t.Fatalf("write lock file: %v", err)
 	}
 	if !isSessionLockContention(permissionErr, lockPath) {
 		t.Fatalf("expected permission error with lock present to be contention")
 	}
-	if isSessionLockContention(os.ErrNotExist, lockPath) {
+	if !isSessionLockContention(accessDeniedErr, lockPath) {
+		t.Fatalf("expected access denied with lock present to be contention")
+	}
+	missingLockPath := filepath.Join(t.TempDir(), "missing.lock")
+	if isSessionLockContention(os.ErrNotExist, missingLockPath) {
 		t.Fatalf("expected non-contention error")
 	}
 }

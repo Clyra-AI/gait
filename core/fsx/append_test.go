@@ -2,6 +2,7 @@ package fsx
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -109,6 +110,7 @@ func TestIsAppendLockContention(t *testing.T) {
 
 	lockPath := filepath.Join(t.TempDir(), "append.lock")
 	permissionErr := &os.PathError{Op: "open", Path: lockPath, Err: os.ErrPermission}
+	accessDeniedErr := &os.PathError{Op: "open", Path: lockPath, Err: errors.New("Access is denied.")}
 
 	if !isAppendLockContention(os.ErrExist, lockPath) {
 		t.Fatalf("expected os.ErrExist to be treated as lock contention")
@@ -116,13 +118,20 @@ func TestIsAppendLockContention(t *testing.T) {
 	if isAppendLockContention(permissionErr, lockPath) {
 		t.Fatalf("expected permission error without lock file to be non-contention")
 	}
+	if isAppendLockContention(accessDeniedErr, lockPath) {
+		t.Fatalf("expected non-exist lock path to be non-contention")
+	}
 	if err := os.WriteFile(lockPath, []byte("lock"), 0o600); err != nil {
 		t.Fatalf("write lock file: %v", err)
 	}
 	if !isAppendLockContention(permissionErr, lockPath) {
 		t.Fatalf("expected permission error with existing lock file to be contention")
 	}
-	if isAppendLockContention(os.ErrNotExist, lockPath) {
+	if !isAppendLockContention(accessDeniedErr, lockPath) {
+		t.Fatalf("expected access denied error with existing lock file to be contention")
+	}
+	missingLockPath := filepath.Join(t.TempDir(), "missing.lock")
+	if isAppendLockContention(os.ErrNotExist, missingLockPath) {
 		t.Fatalf("expected unrelated error to be non-contention")
 	}
 }
