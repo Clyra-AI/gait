@@ -3,15 +3,13 @@ title: "We Gate-Checked 2,880 AI Agent Tool Calls. 62.5% Were Blocked."
 description: "24-hour OpenClaw-envelope boundary enforcement simulation results: prompt-injection exfiltration blocked, fail-closed on ambiguous intents, every decision signed and verifiable."
 ---
 
-# We Gate-Checked 2,880 AI Agent Tool Calls. 62.5% Were Blocked.
-
 AI agents now execute tool calls with real authority: database writes, shell commands, file mutations, network requests. When a prompt injection tells your agent to `write_file` to `https://evil.example/upload`, what stops it?
 
 We ran the experiment.
 
 ## The 60-Second Version
 
-![Gait in 60 seconds terminal demo](../assets/gait_demo_60s.gif)
+![Gait in 60 seconds terminal demo](https://raw.githubusercontent.com/davidahmann/gait/main/docs/assets/gait_demo_60s.gif)
 
 One binary. No network. Demo, verify, block, regress — all offline.
 
@@ -28,7 +26,7 @@ We ran 2,880 OpenClaw-envelope tool calls through Gait's policy engine over a si
 - `shell_command` with `curl` (network egress)
 - `read_file` on a second path (safe read)
 
-Each call went through the official [Gait OpenClaw skill entrypoint](https://github.com/davidahmann/gait/blob/main/gait-out/gtm_1/openclaw_24h/openclaw/skills/gait-gate/gait_openclaw_gate.py), which maps OpenClaw tool envelopes to `gait mcp proxy` calls with full structured intent.
+Each call went through the official Gait OpenClaw skill entrypoint, which maps OpenClaw tool envelopes to `gait mcp proxy` calls with full structured intent.
 
 The policy had 5 rules plus a fail-closed default for high/critical risk classes missing required fields.
 
@@ -159,7 +157,7 @@ What this does not prove:
 - End-to-end OpenClaw channel behavior with live model completions
 - Performance under sustained high-concurrency load
 
-The full artifact bundle — decisions, traces, runpacks, policy, summary — is reproducible from the [simulation harness](https://github.com/davidahmann/gait/blob/main/gait-out/gtm_1/openclaw_24h/harness/run_openclaw_24h_sim.py).
+The full artifact bundle — decisions, traces, runpacks, policy, summary — is reproducible by running the simulation harness included in the repository.
 
 ## Try It Yourself
 
@@ -190,4 +188,4 @@ Gait is an open-source agent control plane. One CLI, no network required, every 
 
 ---
 
-*Raw data: [summary.json](https://github.com/davidahmann/gait/blob/main/gait-out/gtm_1/openclaw_24h/results/summary.json) | [Policy](https://github.com/davidahmann/gait/blob/main/gait-out/gtm_1/openclaw_24h/config/policy_experiment.yaml) | [Simulation harness](https://github.com/davidahmann/gait/blob/main/gait-out/gtm_1/openclaw_24h/harness/run_openclaw_24h_sim.py) | [Artifact bundle](https://github.com/davidahmann/gait/blob/main/gait-out/gtm_1/openclaw_24h/openclaw_24h_artifacts.tgz)*
+*Policy examples, integration guides, and simulation tooling are included in the [Gait repository](https://github.com/davidahmann/gait).*
