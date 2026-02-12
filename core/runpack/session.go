@@ -291,19 +291,7 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 	lockConfig := resolveSessionLockConfig()
 	var appended schemarunpack.SessionEvent
 	err = withSessionLock(normalizedPath, func() error {
-		var (
-			state    sessionState
-			stateErr error
-		)
-		if lockConfig.Profile == "swarm" {
-			journal, readErr := ReadSessionJournal(normalizedPath)
-			if readErr != nil {
-				return readErr
-			}
-			state, stateErr = buildSessionStateFromJournal(normalizedPath, journal, time.Now().UTC())
-		} else {
-			state, stateErr = loadOrRebuildSessionState(normalizedPath)
-		}
+		state, stateErr := loadOrRebuildSessionState(normalizedPath)
 		if stateErr != nil {
 			return stateErr
 		}
@@ -341,16 +329,16 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 			RecordType: "event",
 			Event:      &appended,
 		}
-		if err := appendJournalRecord(normalizedPath, record); err != nil {
+		// Swarm sessions optimize for sustained throughput and update state
+		// incrementally, while checkpoints preserve durable progress.
+		syncJournal := lockConfig.Profile != "swarm"
+		if err := appendJournalRecordWithSync(normalizedPath, record, syncJournal); err != nil {
 			return err
 		}
 		state.UpdatedAt = now
 		state.ProducerVersion = producerVersion
 		state.LastSequence = sequence
 		state.EventCount++
-		if lockConfig.Profile == "swarm" {
-			return nil
-		}
 		if info, statErr := statLocalOrAbsolutePath(normalizedPath); statErr == nil {
 			state.JournalSizeBytes = info.Size()
 		}
@@ -892,6 +880,10 @@ func journalToSessionChain(journal schemarunpack.SessionJournal) schemarunpack.S
 }
 
 func appendJournalRecord(path string, record sessionJournalRecord) error {
+	return appendJournalRecordWithSync(path, record, true)
+}
+
+func appendJournalRecordWithSync(path string, record sessionJournalRecord, syncWrites bool) error {
 	encoded, err := json.Marshal(record)
 	if err != nil {
 		return fmt.Errorf("marshal session journal record: %w", err)
@@ -935,8 +927,10 @@ func appendJournalRecord(path string, record sessionJournalRecord) error {
 	if _, err := file.Write(encoded); err != nil {
 		return fmt.Errorf("append session journal: %w", err)
 	}
-	if err := file.Sync(); err != nil {
-		return fmt.Errorf("sync session journal: %w", err)
+	if syncWrites {
+		if err := file.Sync(); err != nil {
+			return fmt.Errorf("sync session journal: %w", err)
+		}
 	}
 	return nil
 }
