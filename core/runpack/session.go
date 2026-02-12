@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/davidahmann/gait/core/fsx"
@@ -36,6 +37,8 @@ const (
 	sessionLockRetry            = 50 * time.Millisecond
 	sessionLockStaleAfter       = 5 * time.Minute
 )
+
+var sessionProcessLockRegistry sync.Map
 
 type SessionStartOptions struct {
 	SessionID       string
@@ -1187,6 +1190,11 @@ func withSessionLock(journalPath string, fn func() error) error {
 			return fmt.Errorf("session lock directory must be local relative or absolute")
 		}
 	}
+
+	processLock := getSessionProcessLock(lockPath)
+	processLock.Lock()
+	defer processLock.Unlock()
+
 	start := time.Now()
 	attempts := 0
 	for {
@@ -1247,6 +1255,21 @@ func withSessionLock(journalPath string, fn func() error) error {
 		}
 		time.Sleep(lockConfig.Retry)
 	}
+}
+
+func getSessionProcessLock(lockPath string) *sync.Mutex {
+	if existing, ok := sessionProcessLockRegistry.Load(lockPath); ok {
+		if lock, ok := existing.(*sync.Mutex); ok {
+			return lock
+		}
+	}
+	lock := &sync.Mutex{}
+	actual, _ := sessionProcessLockRegistry.LoadOrStore(lockPath, lock)
+	typed, ok := actual.(*sync.Mutex)
+	if !ok {
+		return lock
+	}
+	return typed
 }
 
 func isSessionLockContention(acquireErr error, lockPath string) bool {
