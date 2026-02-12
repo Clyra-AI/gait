@@ -370,15 +370,15 @@ def main() -> int:
             work_dir,
         )
 
-        session_journal_path = Path("")
-        session_chain_path = Path("")
-        session_checkpoint_out = Path("")
+        session_artifacts: dict[str, Path] = {}
         if supports_session_checkpointing:
             session_dir = work_dir / "sessions"
             session_dir.mkdir(parents=True, exist_ok=True)
-            session_journal_path = session_dir / "runtime_budgets.journal.jsonl"
-            session_chain_path = session_dir / "runtime_budgets_chain.json"
-            session_checkpoint_out = work_dir / "session_checkpoint.zip"
+            session_artifacts = {
+                "journal_path": session_dir / "runtime_budgets.journal.jsonl",
+                "chain_path": session_dir / "runtime_budgets_chain.json",
+                "checkpoint_out": work_dir / "session_checkpoint.zip",
+            }
             run_checked(
                 [
                     str(gait_path),
@@ -386,7 +386,7 @@ def main() -> int:
                     "session",
                     "start",
                     "--journal",
-                    str(session_journal_path),
+                    str(session_artifacts["journal_path"]),
                     "--session-id",
                     "sess_budget",
                     "--run-id",
@@ -402,7 +402,7 @@ def main() -> int:
                     "session",
                     "append",
                     "--journal",
-                    str(session_journal_path),
+                    str(session_artifacts["journal_path"]),
                     "--tool",
                     "tool.write",
                     "--verdict",
@@ -420,21 +420,17 @@ def main() -> int:
                     "session",
                     "checkpoint",
                     "--journal",
-                    str(session_journal_path),
+                    str(session_artifacts["journal_path"]),
                     "--out",
-                    str(session_checkpoint_out),
+                    str(session_artifacts["checkpoint_out"]),
                     "--chain-out",
-                    str(session_chain_path),
+                    str(session_artifacts["chain_path"]),
                     "--json",
                 ],
                 work_dir,
             )
 
-        delegation_private_key = Path("")
-        delegation_public_key = Path("")
-        delegation_policy_path = Path("")
-        delegation_intent_path = Path("")
-        delegation_token_path = Path("")
+        delegation_artifacts: dict[str, Path] = {}
         if supports_delegation_tokens:
             keys_dir = work_dir / "keys"
             run_checked(
@@ -450,10 +446,14 @@ def main() -> int:
                 ],
                 work_dir,
             )
-            delegation_private_key = keys_dir / "delegation_private.key"
-            delegation_public_key = keys_dir / "delegation_public.key"
-            delegation_policy_path = work_dir / "delegation_policy.yaml"
-            delegation_policy_path.write_text(
+            delegation_artifacts = {
+                "private_key": keys_dir / "delegation_private.key",
+                "public_key": keys_dir / "delegation_public.key",
+                "policy_path": work_dir / "delegation_policy.yaml",
+                "intent_path": intents_dir / "gate_eval_delegation_verify.json",
+                "token_path": work_dir / "delegation_token.json",
+            }
+            delegation_artifacts["policy_path"].write_text(
                 "default_verdict: block\n"
                 "rules:\n"
                 "  - name: allow-delegated-write\n"
@@ -466,9 +466,8 @@ def main() -> int:
                 "      delegation_scopes: [write]\n",
                 encoding="utf-8",
             )
-            delegation_intent_path = intents_dir / "gate_eval_delegation_verify.json"
             write_json(
-                delegation_intent_path,
+                delegation_artifacts["intent_path"],
                 {
                     "schema_id": "gait.gate.intent_request",
                     "schema_version": "1.0.0",
@@ -506,7 +505,6 @@ def main() -> int:
                     },
                 },
             )
-            delegation_token_path = work_dir / "delegation_token.json"
             run_checked(
                 [
                     str(gait_path),
@@ -525,9 +523,9 @@ def main() -> int:
                     "--key-mode",
                     "prod",
                     "--private-key",
-                    str(delegation_private_key),
+                    str(delegation_artifacts["private_key"]),
                     "--out",
-                    str(delegation_token_path),
+                    str(delegation_artifacts["token_path"]),
                     "--json",
                 ],
                 work_dir,
@@ -555,11 +553,11 @@ def main() -> int:
                 "session",
                 "checkpoint",
                 "--journal",
-                str(session_journal_path),
+                str(session_artifacts["journal_path"]),
                 "--out",
-                str(session_checkpoint_out),
+                str(session_artifacts["checkpoint_out"]),
                 "--chain-out",
-                str(session_chain_path),
+                str(session_artifacts["chain_path"]),
                 "--json",
             ]
             command_map["session_chain_verify"] = [
@@ -567,7 +565,7 @@ def main() -> int:
                 "verify",
                 "session-chain",
                 "--chain",
-                str(session_chain_path),
+                str(session_artifacts["chain_path"]),
                 "--json",
             ]
         if supports_delegation_tokens:
@@ -576,13 +574,13 @@ def main() -> int:
                 "gate",
                 "eval",
                 "--policy",
-                str(delegation_policy_path),
+                str(delegation_artifacts["policy_path"]),
                 "--intent",
-                str(delegation_intent_path),
+                str(delegation_artifacts["intent_path"]),
                 "--delegation-token",
-                str(delegation_token_path),
+                str(delegation_artifacts["token_path"]),
                 "--delegation-public-key",
-                str(delegation_public_key),
+                str(delegation_artifacts["public_key"]),
                 "--json",
             ]
         for command_name, intent_path in intent_paths.items():
@@ -605,7 +603,7 @@ def main() -> int:
                     "session",
                     "append",
                     "--journal",
-                    str(session_journal_path),
+                    str(session_artifacts["journal_path"]),
                     "--tool",
                     "tool.write",
                     "--verdict",

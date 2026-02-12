@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 
 	"github.com/davidahmann/gait/core/runpack"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
@@ -429,42 +430,49 @@ func writeRunSessionOutput(jsonOutput bool, output runSessionOutput, exitCode in
 		return writeJSONOutput(output, exitCode)
 	}
 	if !output.OK {
-		fmt.Printf("run session %s error: %s\n", fallbackValue(output.Operation, "command"), output.Error)
+		fmt.Printf("run session %s error: %s\n",
+			sanitizeSessionLogField(fallbackValue(output.Operation, "command")),
+			sanitizeSessionLogField(output.Error),
+		)
 		return exitCode
 	}
 	switch output.Operation {
 	case "start", "status":
 		if output.Status != nil {
 			fmt.Printf("session %s: session_id=%s run_id=%s events=%d checkpoints=%d last_sequence=%d\n",
-				output.Operation,
-				output.Status.SessionID,
-				output.Status.RunID,
+				sanitizeSessionLogField(output.Operation),
+				sanitizeSessionLogField(output.Status.SessionID),
+				sanitizeSessionLogField(output.Status.RunID),
 				output.Status.EventCount,
 				output.Status.CheckpointCount,
 				output.Status.LastSequence,
 			)
 		}
 		if output.Journal != "" {
-			fmt.Printf("journal: %s\n", output.Journal)
+			fmt.Printf("journal: %s\n", sanitizeSessionLogField(output.Journal))
 		}
 	case "append":
 		if output.Event != nil {
-			fmt.Printf("session append: sequence=%d tool=%s verdict=%s\n", output.Event.Sequence, output.Event.ToolName, output.Event.Verdict)
+			fmt.Printf("session append: sequence=%d tool=%s verdict=%s\n",
+				output.Event.Sequence,
+				sanitizeSessionLogField(output.Event.ToolName),
+				sanitizeSessionLogField(output.Event.Verdict),
+			)
 		}
 		if output.Journal != "" {
-			fmt.Printf("journal: %s\n", output.Journal)
+			fmt.Printf("journal: %s\n", sanitizeSessionLogField(output.Journal))
 		}
 	case "checkpoint":
 		if output.Checkpoint != nil {
 			fmt.Printf("session checkpoint: index=%d runpack=%s range=%d..%d\n",
 				output.Checkpoint.CheckpointIndex,
-				output.Checkpoint.RunpackPath,
+				sanitizeSessionLogField(output.Checkpoint.RunpackPath),
 				output.Checkpoint.SequenceStart,
 				output.Checkpoint.SequenceEnd,
 			)
 		}
 		if output.ChainPath != "" {
-			fmt.Printf("session chain: %s\n", output.ChainPath)
+			fmt.Printf("session chain: %s\n", sanitizeSessionLogField(output.ChainPath))
 		}
 	case "compact":
 		if output.Compaction != nil {
@@ -477,13 +485,31 @@ func writeRunSessionOutput(jsonOutput bool, output runSessionOutput, exitCode in
 				output.Compaction.BytesBefore,
 				output.Compaction.BytesAfter,
 			)
-			fmt.Printf("journal: %s\n", output.Compaction.JournalPath)
-			fmt.Printf("output: %s\n", output.Compaction.OutputPath)
+			fmt.Printf("journal: %s\n", sanitizeSessionLogField(output.Compaction.JournalPath))
+			fmt.Printf("output: %s\n", sanitizeSessionLogField(output.Compaction.OutputPath))
 		}
 	default:
-		fmt.Printf("run session %s: ok\n", fallbackValue(output.Operation, "command"))
+		fmt.Printf("run session %s: ok\n", sanitizeSessionLogField(fallbackValue(output.Operation, "command")))
 	}
 	return exitCode
+}
+
+func sanitizeSessionLogField(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	cleaned := strings.Map(func(r rune) rune {
+		switch {
+		case r == '\n' || r == '\r' || r == '\t':
+			return ' '
+		case unicode.IsControl(r):
+			return -1
+		default:
+			return r
+		}
+	}, trimmed)
+	return strings.Join(strings.Fields(cleaned), " ")
 }
 
 func isSessionVerdictSupported(value string) bool {
