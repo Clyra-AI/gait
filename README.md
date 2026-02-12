@@ -26,7 +26,9 @@ Install
 
 ```bash
 # macOS
+brew tap davidahmann/tap
 brew install gait
+# or: brew install davidahmann/tap/gait
 
 # Linux / Windows
 # download binary from GitHub Releases:
@@ -42,7 +44,7 @@ gait demo
 Verify
 
 ```bash
-gait verify ./gait-out/runpack_run_demo.zip
+gait verify run_demo
 ```
 
 Install details: [`docs/install.md`](docs/install.md) and [`docs/homebrew.md`](docs/homebrew.md)
