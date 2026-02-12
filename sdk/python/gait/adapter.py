@@ -6,6 +6,7 @@ from typing import Any, Callable, Sequence
 
 from .client import capture_demo_runpack, create_regress_fixture, evaluate_gate
 from .models import DemoCapture, GateEvalResult, IntentRequest, RegressInitResult
+from .session import get_active_run_session
 
 
 class GateEnforcementError(RuntimeError):
@@ -84,14 +85,51 @@ class ToolAdapter:
         cwd: str | Path | None = None,
         trace_out: str | Path | None = None,
     ) -> AdapterOutcome:
+        active_session = get_active_run_session()
         decision = self.gate_intent(intent=intent, cwd=cwd, trace_out=trace_out)
 
         if not decision.ok:
+            if active_session is not None:
+                active_session.record_attempt(
+                    intent=intent,
+                    decision=decision,
+                    executed=False,
+                )
             raise GateEnforcementError(decision)
         if decision.verdict == "allow":
-            return AdapterOutcome(decision=decision, executed=True, result=executor(intent))
+            try:
+                result = executor(intent)
+            except Exception as error:
+                if active_session is not None:
+                    active_session.record_attempt(
+                        intent=intent,
+                        decision=decision,
+                        executed=True,
+                        error=error,
+                    )
+                raise
+            if active_session is not None:
+                active_session.record_attempt(
+                    intent=intent,
+                    decision=decision,
+                    executed=True,
+                    result=result,
+                )
+            return AdapterOutcome(decision=decision, executed=True, result=result)
         if decision.verdict == "dry_run":
+            if active_session is not None:
+                active_session.record_attempt(
+                    intent=intent,
+                    decision=decision,
+                    executed=False,
+                )
             return AdapterOutcome(decision=decision, executed=False, result=None)
+        if active_session is not None:
+            active_session.record_attempt(
+                intent=intent,
+                decision=decision,
+                executed=False,
+            )
         raise GateEnforcementError(decision)
 
     def capture_runpack(self, *, cwd: str | Path | None = None) -> DemoCapture:

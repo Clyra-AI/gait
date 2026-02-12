@@ -16,6 +16,7 @@ from gait import (
     capture_intent,
     create_regress_fixture,
     evaluate_gate,
+    record_runpack,
     write_trace,
 )
 
@@ -111,6 +112,78 @@ def test_capture_demo_and_create_regress_fixture(tmp_path: Path) -> None:
     assert fixture.runpack_path == "fixtures/run_demo/runpack.zip"
 
 
+def test_record_runpack_round_trip(tmp_path: Path) -> None:
+    fake_gait = tmp_path / "fake_gait.py"
+    create_fake_gait_script(fake_gait)
+    capture_path = tmp_path / "captured_record_input.json"
+
+    result = record_runpack(
+        record_input={
+            "run": {
+                "schema_id": "gait.runpack.run",
+                "schema_version": "1.0.0",
+                "created_at": "2026-02-12T00:00:00Z",
+                "producer_version": "0.0.0-dev",
+                "run_id": "run_sdk",
+                "env": {"os": "darwin", "arch": "arm64", "runtime": "python3.13"},
+                "timeline": [{"event": "run_started", "ts": "2026-02-12T00:00:00Z"}],
+            },
+            "intents": [],
+            "results": [],
+            "refs": {
+                "schema_id": "gait.runpack.refs",
+                "schema_version": "1.0.0",
+                "created_at": "2026-02-12T00:00:00Z",
+                "producer_version": "0.0.0-dev",
+                "run_id": "run_sdk",
+                "receipts": [],
+            },
+            "capture_mode": "reference",
+        },
+        gait_bin=[sys.executable, str(fake_gait)],
+        cwd=tmp_path,
+        out_dir=tmp_path / "gait-out",
+    )
+
+    assert result.run_id == "run_sdk"
+    assert result.bundle_path.endswith("runpack_run_sdk.zip")
+    assert result.manifest_digest == "4" * 64
+    assert result.ticket_footer.startswith("GAIT run_id=run_sdk")
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setenv("FAKE_GAIT_RECORD_CAPTURE", str(capture_path))
+        record_runpack(
+            record_input={
+                "run": {
+                    "schema_id": "gait.runpack.run",
+                    "schema_version": "1.0.0",
+                    "created_at": "2026-02-12T00:00:00Z",
+                    "producer_version": "0.0.0-dev",
+                    "run_id": "run_capture",
+                    "env": {"os": "darwin", "arch": "arm64", "runtime": "python3.13"},
+                    "timeline": [{"event": "run_started", "ts": "2026-02-12T00:00:00Z"}],
+                },
+                "intents": [],
+                "results": [],
+                "refs": {
+                    "schema_id": "gait.runpack.refs",
+                    "schema_version": "1.0.0",
+                    "created_at": "2026-02-12T00:00:00Z",
+                    "producer_version": "0.0.0-dev",
+                    "run_id": "run_capture",
+                    "receipts": [],
+                },
+                "capture_mode": "reference",
+            },
+            gait_bin=[sys.executable, str(fake_gait)],
+            cwd=tmp_path,
+            out_dir=tmp_path / "gait-out",
+        )
+
+    captured = json.loads(capture_path.read_text(encoding="utf-8"))
+    assert captured["run"]["run_id"] == "run_capture"
+
+
 def test_evaluate_gate_with_all_optional_key_flags(tmp_path: Path) -> None:
     fake_gait = tmp_path / "fake_gait.py"
     create_fake_gait_script(fake_gait)
@@ -199,3 +272,13 @@ def test_create_regress_fixture_malformed_json_raises_command_error(
     with pytest.raises(client_module.GaitCommandError) as raised:
         create_regress_fixture(from_run="run_demo", gait_bin="gait", cwd=tmp_path)
     assert "failed to parse JSON" in str(raised.value)
+
+
+def test_record_runpack_invalid_capture_mode_raises(tmp_path: Path) -> None:
+    with pytest.raises(client_module.GaitError):
+        record_runpack(
+            record_input={},
+            gait_bin="gait",
+            cwd=tmp_path,
+            capture_mode="invalid",
+        )

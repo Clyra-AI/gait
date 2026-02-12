@@ -6,6 +6,7 @@ from .client import (
     capture_intent,
     create_regress_fixture,
     evaluate_gate,
+    record_runpack,
     write_trace,
 )
 from .decorators import gate_tool
@@ -19,8 +20,10 @@ from .models import (
     IntentRequest,
     IntentTarget,
     RegressInitResult,
+    RunRecordCapture,
     TraceRecord,
 )
+from .session import RunAttempt, RunSession, run_session
 
 __all__ = [
     "__version__",
@@ -37,6 +40,9 @@ __all__ = [
     "IntentRequest",
     "IntentTarget",
     "RegressInitResult",
+    "RunAttempt",
+    "RunRecordCapture",
+    "RunSession",
     "ToolAdapter",
     "TraceRecord",
     "capture_demo_runpack",
@@ -44,6 +50,8 @@ __all__ = [
     "create_regress_fixture",
     "evaluate_gate",
     "gate_tool",
+    "record_runpack",
+    "run_session",
     "write_trace",
 ]
 

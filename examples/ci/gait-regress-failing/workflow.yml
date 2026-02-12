@@ -1,0 +1,92 @@
+name: gait-regress-failing-example
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regress-failing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gait binary
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+          echo "${HOME}/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Create baseline fixture
+        run: |
+          gait demo --json >/dev/null
+          gait regress init --from run_demo --json >/dev/null
+
+      - name: Create candidate runpack with deterministic drift
+        run: |
+          cat > fixtures/run_demo/candidate_record.json <<'JSON'
+          {
+            "run": {
+              "schema_id": "gait.runpack.run",
+              "schema_version": "1.0.0",
+              "created_at": "2026-02-12T00:00:00Z",
+              "producer_version": "0.0.0-dev",
+              "run_id": "run_demo_candidate",
+              "env": {"os": "linux", "arch": "amd64", "runtime": "go"},
+              "timeline": [{"event": "run_started", "ts": "2026-02-12T00:00:00Z"}]
+            },
+            "intents": [
+              {
+                "schema_id": "gait.runpack.intent",
+                "schema_version": "1.0.0",
+                "created_at": "2026-02-12T00:00:00Z",
+                "producer_version": "0.0.0-dev",
+                "run_id": "run_demo_candidate",
+                "intent_id": "intent_1",
+                "tool_name": "tool.write",
+                "args_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            ],
+            "results": [
+              {
+                "schema_id": "gait.runpack.result",
+                "schema_version": "1.0.0",
+                "created_at": "2026-02-12T00:00:00Z",
+                "producer_version": "0.0.0-dev",
+                "run_id": "run_demo_candidate",
+                "intent_id": "intent_1",
+                "status": "error",
+                "result_digest": "2222222222222222222222222222222222222222222222222222222222222222"
+              }
+            ],
+            "refs": {
+              "schema_id": "gait.runpack.refs",
+              "schema_version": "1.0.0",
+              "created_at": "2026-02-12T00:00:00Z",
+              "producer_version": "0.0.0-dev",
+              "run_id": "run_demo_candidate",
+              "receipts": []
+            },
+            "capture_mode": "reference"
+          }
+          JSON
+
+          gait run record --input fixtures/run_demo/candidate_record.json --out-dir fixtures/run_demo --json >/dev/null
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          fixture_path = Path("fixtures/run_demo/fixture.json")
+          payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+          payload["candidate_runpack"] = "runpack_run_demo_candidate.zip"
+          fixture_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Run gait-regress action (expected to fail)
+        id: gait
+        uses: ./.github/actions/gait-regress
+        with:
+          command: regress
+          upload_artifacts: true
+          artifact_name: gait-regress-failing-artifacts

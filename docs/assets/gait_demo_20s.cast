@@ -1,0 +1,11 @@
+{"version":3,"term":{"cols":80,"rows":24,"type":"dumb"},"timestamp":1770927472,"idle_time_limit":5.0,"command":"bash /var/folders/xf/nh2svl1x1_94jfvlmhz4njzh0000gn/T/tmp.Ni00xHjhkx /opt/homebrew/bin/gait /Users/davidahmann/Projects/gait/gait-out/hero_demo/workspace","env":{"SHELL":"/bin/zsh"}}
+[0.006, "o", "$ gait demo --json\r\n"]
+[0.036, "o", "run_id=run_demo\r\nbundle=./gait-out/runpack_run_demo.zip\r\n"]
+[4.010, "o", "\r\n$ gait verify run_demo --json\r\n"]
+[0.043, "o", "verified=True\r\nmanifest_digest=88913ed84855671786b9ecc3eab94f760332a6c19a3ff2195ab8afd914d57725\r\n"]
+[4.009, "o", "\r\n$ gait run replay run_demo --json\r\n"]
+[0.043, "o", "mode=stub\r\nsteps=3\r\n"]
+[4.007, "o", "\r\n$ gait regress bootstrap --from run_demo --json\r\n"]
+[0.104, "o", "regress_status=pass\r\nfailed_graders=None\r\n"]
+[0.002, "o", "regress_exit_code=0\r\n"]
+[4.004, "x", "0"]

@@ -318,3 +318,11 @@ class RegressInitResult:
     @property
     def fixture_path(self) -> Path:
         return Path(self.fixture_dir)
+
+
+@dataclass(slots=True, frozen=True)
+class RunRecordCapture:
+    run_id: str
+    bundle_path: str
+    manifest_digest: str
+    ticket_footer: str

@@ -1,6 +1,6 @@
-# Gait - Agent Control Plane
+# Control and Prove Agent Tool Calls with Verifiable Runpacks
 
-Enforce policy at the tool-call boundary, capture signed proof, and turn incidents into deterministic regressions. One CLI, offline-first.
+Gait captures a signed runpack for every tool-using AI run so you can verify, replay (stub mode), and diff behavior offline. Add regressions to stop drift in CI. Optionally gate high-risk tool calls with policy and approvals.
 
 ![PR Fast](https://github.com/davidahmann/gait/actions/workflows/pr-fast.yml/badge.svg)
 ![CodeQL](https://github.com/davidahmann/gait/actions/workflows/codeql.yml/badge.svg)
@@ -8,40 +8,64 @@ Enforce policy at the tool-call boundary, capture signed proof, and turn inciden
 
 Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)  
 Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)  
+Runpack format: [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md)  
 Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-## Gait In 60 Seconds
+Primary CTA: `gait demo` (offline, <60s)  
+Secondary CTA: verify artifacts with `gait verify <path>`
 
-![Gait in 60 seconds terminal demo](docs/assets/gait_demo_60s.gif)
+- verifiable receipts: signed runpacks and trace records
+- debuggable by default: replay and diff two runs to see what changed
+- prevent repeats: convert a run into a regression test in CI
+
+Outputs: `run_id`, `runpack_<run_id>.zip`, and a ticket footer you can paste into incidents.
+
+## Try It (Offline, <60s)
+
+Install
+
+```bash
+# macOS
+brew install gait
+
+# Linux / Windows
+# download binary from GitHub Releases:
+# https://github.com/davidahmann/gait/releases
+```
+
+Run demo
+
+```bash
+gait demo
+```
+
+Verify
+
+```bash
+gait verify ./gait-out/runpack_run_demo.zip
+```
+
+Install details: [`docs/install.md`](docs/install.md) and [`docs/homebrew.md`](docs/homebrew.md)
+
+## Gait In 20 Seconds
+
+![Gait runpack-first terminal demo](docs/assets/gait_demo_20s.gif)
+
+Regenerate asset: `bash scripts/record_runpack_hero_demo.sh`
 
 ## Why Gait
 
 AI agents now execute high-authority actions: write data, mutate repos, call external APIs, rotate infra. Most stacks still rely on prompt scanning and after-the-fact observability.
 
-Gait adds an execution boundary with deterministic artifacts:
+Gait keeps the contract deterministic and offline-first:
 
-- decide `allow`, `block`, `require_approval`, or `dry_run` before side effects
-- emit signed traces and runpacks that verify offline
-- convert real incidents into CI regressions that fail on drift
+- runpack: signed artifact per run (`gait verify`, `gait run replay`, `gait run diff`)
+- regress: convert incidents into CI checks (`gait regress init`, `gait regress run`)
+- optional gate: enforce policy and approvals at tool-call time (`gait gate eval`)
 
-This is governance you can run locally, prove cryptographically, and automate in CI.
+If your agent touched production, attach the runpack.
 
 ## First Win
-
-Install (Linux/macOS):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
-```
-
-Homebrew alternative:
-
-```bash
-brew tap davidahmann/tap
-brew install gait
-```
-
-Run the first deterministic flow:
 
 ```bash
 gait demo
@@ -54,10 +78,6 @@ Expected output includes:
 - `run_id=run_demo`
 - signed bundle under `gait-out/`
 - `ticket_footer=GAIT run_id=...` for PRs/incidents
-
-If your agent touched production, attach the runpack.
-
-Install details: [`docs/install.md`](docs/install.md) and [`docs/homebrew.md`](docs/homebrew.md)
 
 ## Optional Local UI
 
@@ -103,8 +123,9 @@ Deterministic failure contract:
 - exit `5` = regression failed
 
 Template workflow: [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml)
+Drop-in action: [`.github/actions/gait-regress/README.md`](.github/actions/gait-regress/README.md)
 
-## Enforce At The Tool Boundary
+## Optional: Enforce At The Tool Boundary
 
 Gait does not auto-intercept your framework. Your dispatcher must call Gait and enforce non-`allow` as non-executable.
 
