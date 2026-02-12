@@ -97,6 +97,26 @@ jobs:
           npm run lint
           npm run build
 
+  ui-local:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: ui/local/package-lock.json
+      - name: Build local UI source
+        run: |
+          cd ui/local
+          npm ci
+          npm run lint
+          npm run build
+      - name: Check UI dependency freshness
+        run: |
+          bash scripts/check_ui_deps_freshness.sh
+
   test:
     needs: changes
     runs-on: ${{ matrix.os }}

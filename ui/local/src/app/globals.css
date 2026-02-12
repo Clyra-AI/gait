@@ -1,0 +1,149 @@
+:root {
+  --bg-start: #101828;
+  --bg-end: #050b15;
+  --card: #0f172a;
+  --card-border: #284262;
+  --text: #e6eef9;
+  --muted: #96abc7;
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --error: #ef4444;
+  --button: #243754;
+  --button-hover: #2f4b71;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at 20% -20%, #1b2c46 0%, var(--bg-start) 38%, var(--bg-end) 100%);
+}
+
+.page-shell {
+  width: min(1160px, calc(100% - 2rem));
+  margin: 1rem auto 2rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.9rem;
+}
+
+.topbar p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
+.health-pill {
+  border-radius: 999px;
+  border: 1px solid var(--card-border);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.health-loading {
+  color: var(--warn);
+}
+
+.health-ok {
+  color: var(--ok);
+}
+
+.health-error {
+  color: var(--error);
+}
+
+.layout-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1.25fr 1fr;
+}
+
+.panel {
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.23));
+}
+
+.panel h2 {
+  margin-top: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.action-grid button {
+  border: 1px solid #36557d;
+  border-radius: 10px;
+  background: var(--button);
+  color: var(--text);
+  text-align: left;
+  padding: 0.6rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.action-grid button:hover:enabled {
+  background: var(--button-hover);
+}
+
+.action-grid button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.action-grid button strong {
+  font-size: 0.9rem;
+}
+
+.action-grid button span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.code-block {
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid #334b6f;
+  background: #091426;
+  color: #c8daef;
+  min-height: 240px;
+  padding: 0.8rem;
+  overflow: auto;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+  .action-grid {
+    grid-template-columns: 1fr;
+  }
+}

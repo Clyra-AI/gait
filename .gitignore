@@ -1,6 +1,8 @@
 .DS_Store
 bin/
 dist/
+!internal/uiassets/dist/
+!internal/uiassets/dist/**
 /gait
 gait-out/
 coverage-go.out
@@ -31,6 +33,9 @@ perf/command_budget_report.json
 docs-site/node_modules/
 docs-site/.next/
 docs-site/out/
+ui/local/node_modules/
+ui/local/.next/
+ui/local/out/
 .codeql/
 /cmd/gait/sess-*.journal.jsonl
 /cmd/gait/sess-*.journal.jsonl.state.json

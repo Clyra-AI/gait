@@ -624,6 +624,7 @@ func printUsage() {
 	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait verify session-chain --chain <session_chain.json> [--profile standard|strict] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait ui [--listen 127.0.0.1:7980] [--open-browser=true|false] [--allow-non-loopback] [--json] [--explain]")
 	fmt.Println("  gait version")
 }
 

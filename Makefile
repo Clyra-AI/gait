@@ -18,7 +18,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint codeql test test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula wiki-publish tool-allowlist-policy
+.PHONY: fmt lint codeql test test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-ui-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
 .PHONY: hooks
 .PHONY: docs-site-install docs-site-build docs-site-lint
 
@@ -88,6 +88,10 @@ test-v1-8-acceptance:
 test-v2-3-acceptance:
 	$(GO) build -o ./gait ./cmd/gait
 	bash scripts/test_v2_3_acceptance.sh ./gait
+
+test-ui-acceptance:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_ui_acceptance.sh ./gait
 
 test-adoption:
 	bash scripts/test_adoption_smoke.sh
@@ -189,3 +193,12 @@ docs-site-build:
 
 docs-site-lint:
 	cd docs-site && npm run lint
+
+ui-build:
+	bash scripts/ui_build.sh
+
+ui-sync:
+	bash scripts/ui_sync_assets.sh
+
+ui-deps-check:
+	bash scripts/check_ui_deps_freshness.sh

@@ -705,4 +705,3 @@ Acceptance criteria:
 - Non-allow verdict behavior is fail-closed and explicit in UI.
 - Docs are updated with copy/paste commands and troubleshooting steps.
 - Release/install paths continue to pass existing integrity and smoke tests.
-

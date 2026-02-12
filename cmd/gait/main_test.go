@@ -160,6 +160,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "doctor", "adoption", "--help"}); code != exitOK {
 		t.Fatalf("run doctor adoption help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "ui", "--help"}); code != exitOK {
+		t.Fatalf("run ui help: expected %d got %d", exitOK, code)
+	}
 }
 
 func TestMainEntrypoint(t *testing.T) {

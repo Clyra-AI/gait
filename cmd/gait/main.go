@@ -96,6 +96,8 @@ func runDispatch(arguments []string) int {
 		return runMCP(arguments[2:])
 	case "verify":
 		return runVerify(arguments[2:])
+	case "ui":
+		return runUI(arguments[2:])
 	case "version", "--version", "-v":
 		if hasExplainFlag(arguments[2:]) {
 			return writeExplain("Print the CLI version.")
@@ -121,7 +123,7 @@ func normalizeAdoptionCommand(arguments []string) string {
 		return "version"
 	case "--explain":
 		return "explain"
-	case "gate", "policy", "keys", "trace", "regress", "run", "scout", "guard", "incident", "registry", "mcp", "doctor", "delegate":
+	case "gate", "policy", "keys", "trace", "regress", "run", "scout", "guard", "incident", "registry", "mcp", "doctor", "delegate", "ui":
 		if len(arguments) > 2 {
 			subcommand := strings.TrimSpace(arguments[2])
 			if subcommand != "" && !strings.HasPrefix(subcommand, "-") {
