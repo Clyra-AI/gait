@@ -184,8 +184,6 @@ jobs:
           test -s dist/checksums.txt.intoto.jsonl
           test -s sbom.spdx.json
           test -s provenance.json
-          test -s gait-out/v2_3_metrics_snapshot.json
-          test -s gait-out/integration_lane_scorecard.json
 
           (
             cd dist
@@ -232,6 +230,10 @@ jobs:
         with:
           name: v2-3-metrics-release-${{ github.run_id }}
           path: .
+      - name: Verify downloaded v2.3 metrics artifacts
+        run: |
+          test -s gait-out/v2_3_metrics_snapshot.json
+          test -s gait-out/integration_lane_scorecard.json
       - name: Generate ecosystem release notes
         run: |
           if [ -f gait-out/v2_3_metrics_snapshot.json ]; then
