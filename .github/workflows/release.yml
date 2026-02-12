@@ -229,7 +229,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: v2-3-metrics-release-${{ github.run_id }}
-          path: .
+          path: gait-out
       - name: Verify downloaded v2.3 metrics artifacts
         run: |
           test -s gait-out/v2_3_metrics_snapshot.json
