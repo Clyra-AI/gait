@@ -1,26 +1,29 @@
 # Python Reference Adapter
 
-This path is the minimal Python wrapper integration contract.
+This path is the minimal Python wrapper integration contract for `gait-py`:
+one decorator for tool calls plus one run-level context manager for deterministic artifacts.
 
 ## Canonical Flow
 
-1. capture typed `IntentRequest`
-2. evaluate with `ToolAdapter.execute(...)`
+1. decorate tool functions with `@gate_tool(...)`
+2. wrap the run in `with run_session(...):`
 3. execute side effects only on `allow`
-4. capture runpack and initialize regress fixture
+4. emit a deterministic runpack and initialize regress fixture
 
 Run from repo root:
 
 ```bash
-uv run --python 3.13 --directory sdk/python python ../../examples/python/reference_adapter_demo.py
+cd sdk/python
+PYTHONPATH=. uv run --python 3.13 python ../../examples/python/reference_adapter_demo.py
 ```
 
 ## 15-Minute Checklist
 
 Stop if any expected field is missing:
 
-- `gate verdict=allow executed=True`
+- `tool output=...`
 - `runpack run_id=... bundle=...`
+- `ticket_footer=GAIT run_id=...`
 - `regress fixture=... config=...`
 
 Decorator examples:

@@ -2,6 +2,10 @@
 
 This kit makes incident-to-regression checks turnkey in CI.
 
+Primary drop-in path:
+
+- `.github/actions/gait-regress/action.yml` (composite action, v2 contract)
+
 Canonical default path:
 
 - `.github/workflows/adoption-regress-template.yml`
@@ -78,11 +82,31 @@ Use the composite action when you want step-level control inside an existing job
 ```yaml
 - uses: ./.github/actions/gait-regress
   with:
-    gait-bin: ./gait
-    source-run-id: run_demo
+    version: latest
+    workdir: .
+    command: regress
+    args: "--config gait.yaml"
+    upload_artifacts: true
+    artifact_name: gait-regress-artifacts
 ```
 
-The action enforces stable regress exit codes (`0` pass, `5` deterministic fail).
+Supported `command` values:
+
+- `regress`: runs `gait regress run --json --junit ...`
+- `policy-test`: runs `gait policy test ... --json`
+
+Action outputs:
+
+- `exit_code`
+- `summary_path`
+- `artifact_path`
+
+The action downloads release binaries, verifies `checksums.txt`, prints a bounded summary (including ticket footer when available), uploads `./gait-ci` artifacts, and fails the job on non-zero exit code.
+
+Reference examples:
+
+- `.github/actions/gait-regress/README.md`
+- `examples/ci/gait-regress-failing/workflow.yml`
 
 ## Compatibility Shell Snippet (Non-GitHub CI)
 

@@ -17,6 +17,7 @@ from .models import (
     IntentRequest,
     IntentTarget,
     RegressInitResult,
+    RunRecordCapture,
     TraceRecord,
 )
 
@@ -243,6 +244,62 @@ def create_regress_fixture(
     if not bool(payload.get("ok", False)):
         raise GaitError("gait regress init returned ok=false")
     return RegressInitResult.from_dict(payload)
+
+
+def record_runpack(
+    *,
+    record_input: Mapping[str, Any],
+    gait_bin: str | Sequence[str] = "gait",
+    cwd: str | Path | None = None,
+    out_dir: str | Path = "gait-out",
+    capture_mode: str = "reference",
+) -> RunRecordCapture:
+    if capture_mode not in {"reference", "raw"}:
+        raise GaitError("capture_mode must be 'reference' or 'raw'")
+
+    with tempfile.TemporaryDirectory(prefix="gait-run-record-") as tmp_dir:
+        input_path = Path(tmp_dir) / "run_record.json"
+        input_path.write_text(json.dumps(dict(record_input), indent=2) + "\n", encoding="utf-8")
+
+        command = _command_prefix(gait_bin) + [
+            "run",
+            "record",
+            "--input",
+            str(input_path),
+            "--out-dir",
+            str(out_dir),
+            "--capture-mode",
+            capture_mode,
+            "--json",
+        ]
+        result = _run_command(command, cwd=cwd)
+        payload = _parse_json_stdout(result.stdout)
+        if payload is None:
+            raise GaitCommandError(
+                "failed to parse JSON from gait run record",
+                command=result.command,
+                exit_code=result.exit_code,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )
+        if result.exit_code != 0:
+            message = str(payload.get("error") or "gait run record failed")
+            raise GaitCommandError(
+                message,
+                command=result.command,
+                exit_code=result.exit_code,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )
+        if not bool(payload.get("ok", False)):
+            raise GaitError("gait run record returned ok=false")
+
+        return RunRecordCapture(
+            run_id=str(payload.get("run_id", "")),
+            bundle_path=str(payload.get("bundle", "")),
+            manifest_digest=str(payload.get("manifest_digest", "")),
+            ticket_footer=str(payload.get("ticket_footer", "")),
+        )
 
 
 def _run_command(command: Sequence[str], *, cwd: str | Path | None) -> _CommandResult:

@@ -6,6 +6,7 @@ from pathlib import Path
 def create_fake_gait_script(path: Path) -> None:
     script = """#!/usr/bin/env python3
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -100,12 +101,48 @@ def run_demo():
     return 0
 
 
+def run_record(args):
+    input_path = arg_value(args, "--input")
+    out_dir = arg_value(args, "--out-dir", "gait-out")
+    capture_mode = arg_value(args, "--capture-mode", "reference")
+    if input_path is None:
+        print(json.dumps({"ok": False, "error": "missing input path"}))
+        return 6
+
+    payload = json.loads(Path(input_path).read_text(encoding="utf-8"))
+    run_id = str(payload.get("run", {}).get("run_id", "run_demo"))
+
+    capture_out = os.environ.get("FAKE_GAIT_RECORD_CAPTURE")
+    if capture_out:
+        Path(capture_out).write_text(json.dumps(payload, indent=2) + "\\n", encoding="utf-8")
+
+    out_root = Path(out_dir)
+    out_root.mkdir(parents=True, exist_ok=True)
+    bundle_path = out_root / f"runpack_{run_id}.zip"
+    bundle_path.write_text(f"fake zip {run_id} {capture_mode}\\n", encoding="utf-8")
+
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "run_id": run_id,
+                "bundle": str(bundle_path),
+                "manifest_digest": "4" * 64,
+                "ticket_footer": f'GAIT run_id={run_id} manifest=sha256:{"4" * 64} verify="gait verify {run_id}"',
+            }
+        )
+    )
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     if args[:2] == ["gate", "eval"]:
         return run_gate_eval(args[2:])
     if args[:2] == ["regress", "init"]:
         return run_regress_init()
+    if args[:2] == ["run", "record"]:
+        return run_record(args[2:])
     if args[:1] == ["demo"]:
         return run_demo()
     print(json.dumps({"ok": False, "error": "unsupported command", "argv": args}))

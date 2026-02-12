@@ -12,6 +12,8 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 mkdir -p "$WORK_DIR/.github/workflows"
 cp "$REPO_ROOT/.github/workflows/adoption-regress-template.yml" "$WORK_DIR/.github/workflows/adoption-regress-template.yml"
+mkdir -p "$WORK_DIR/.github/actions/gait-regress"
+cp "$REPO_ROOT/.github/actions/gait-regress/action.yml" "$WORK_DIR/.github/actions/gait-regress/action.yml"
 
 echo "==> validate reusable workflow contract fields"
 python3 - "$WORK_DIR/.github/workflows/adoption-regress-template.yml" <<'PY'
@@ -34,6 +36,30 @@ required_fragments = [
 missing = [fragment for fragment in required_fragments if fragment not in text]
 if missing:
     raise SystemExit(f"adoption-regress-template missing required fragments: {missing}")
+PY
+
+echo "==> validate gait-regress action v2 contract fields"
+python3 - "$WORK_DIR/.github/actions/gait-regress/action.yml" <<'PY'
+from pathlib import Path
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+required_fragments = [
+    "version:",
+    "workdir:",
+    "command:",
+    "args:",
+    "upload_artifacts:",
+    "artifact_name:",
+    "exit_code:",
+    "summary_path:",
+    "artifact_path:",
+    "Download and verify gait binary",
+    "Run gait command",
+]
+missing = [fragment for fragment in required_fragments if fragment not in text]
+if missing:
+    raise SystemExit(f"gait-regress action missing required fragments: {missing}")
 PY
 
 echo "==> simulate downstream regress path with deterministic fixture restore"

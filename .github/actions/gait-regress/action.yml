@@ -1,87 +1,301 @@
 name: "gait-regress"
-description: "Run deterministic regress checks with stable exit codes."
+description: "Download verified Gait binaries and run deterministic regress or policy-test checks."
 
 inputs:
-  gait-bin:
-    description: "Path to gait binary on PATH or workspace"
+  version:
+    description: "Release version tag (for example v1.0.7) or latest"
     required: false
-    default: "./gait"
-  source-run-id:
-    description: "Run ID used to initialize fixtures when missing"
+    default: "latest"
+  workdir:
+    description: "Working directory where Gait command runs"
     required: false
-    default: "run_demo"
-  config-path:
-    description: "Path to gait regress config"
+    default: "."
+  command:
+    description: "Command mode: regress or policy-test"
     required: false
-    default: "gait.yaml"
-  fixture-runpack-path:
-    description: "Path to fixture runpack.zip"
+    default: "regress"
+  args:
+    description: "Additional arguments passed to the selected command"
     required: false
-    default: "fixtures/run_demo/runpack.zip"
-  artifact-root:
-    description: "Output directory for regress artifacts"
+    default: ""
+  upload_artifacts:
+    description: "Upload ./gait-ci outputs as workflow artifacts"
     required: false
-    default: "gait-out/adoption_regress"
-  junit-path:
-    description: "Path to junit.xml output"
+    default: "true"
+  artifact_name:
+    description: "Artifact name when upload_artifacts=true"
     required: false
-    default: "gait-out/adoption_regress/junit.xml"
+    default: "gait-artifacts"
 
 outputs:
-  regress-exit-code:
-    description: "Stable regress exit code (`0` pass, `5` deterministic fail)"
-    value: ${{ steps.regress.outputs.exit_code }}
-  artifact-root:
-    description: "Artifact root containing regress outputs"
-    value: ${{ inputs.artifact-root }}
+  exit_code:
+    description: "Exit code produced by the selected Gait command"
+    value: ${{ steps.run-command.outputs.exit_code }}
+  summary_path:
+    description: "Path to bounded summary file"
+    value: ${{ steps.run-command.outputs.summary_path }}
+  artifact_path:
+    description: "Path to generated action artifacts"
+    value: ${{ steps.run-command.outputs.artifact_path }}
 
 runs:
   using: "composite"
   steps:
-    - name: Validate gait binary
+    - name: Download and verify gait binary
+      id: install-gait
       shell: bash
       run: |
         set -euo pipefail
-        gait_bin="${{ inputs.gait-bin }}"
-        if [[ -x "${gait_bin}" ]]; then
-          "${gait_bin}" --version >/dev/null
-          exit 0
+
+        version="${{ inputs.version }}"
+        if [[ -z "${version}" ]]; then
+          version="latest"
         fi
-        if command -v "${gait_bin}" >/dev/null 2>&1; then
-          "${gait_bin}" --version >/dev/null
-          exit 0
+
+        case "$(uname -s)" in
+          Linux) os="linux" ;;
+          Darwin) os="darwin" ;;
+          MINGW*|MSYS*|CYGWIN*) os="windows" ;;
+          *)
+            echo "unsupported operating system: $(uname -s)" >&2
+            exit 2
+            ;;
+        esac
+
+        case "$(uname -m)" in
+          x86_64|amd64) arch="amd64" ;;
+          arm64|aarch64) arch="arm64" ;;
+          *)
+            echo "unsupported architecture: $(uname -m)" >&2
+            exit 2
+            ;;
+        esac
+
+        if [[ "${os}" == "windows" ]]; then
+          archive_suffix="zip"
+        else
+          archive_suffix="tar.gz"
         fi
-        echo "gait binary not found: ${gait_bin}" >&2
-        exit 2
-    - name: Restore fixture when missing
+
+        if [[ "${version}" == "latest" ]]; then
+          release_base="https://github.com/davidahmann/gait/releases/latest/download"
+        else
+          release_base="https://github.com/davidahmann/gait/releases/download/${version}"
+        fi
+
+        work_root="${RUNNER_TEMP}/gait-action"
+        mkdir -p "${work_root}"
+        checksums_path="${work_root}/checksums.txt"
+
+        curl -fsSL "${release_base}/checksums.txt" -o "${checksums_path}"
+
+        if [[ "${archive_suffix}" == "tar.gz" ]]; then
+          pattern="_${os}_${arch}\\.tar\\.gz$"
+        else
+          pattern="_${os}_${arch}\\.zip$"
+        fi
+        asset_name="$(awk -v pat="${pattern}" '$2 ~ "^gait_" && $2 ~ pat { print $2; exit }' "${checksums_path}")"
+        if [[ -z "${asset_name}" ]]; then
+          echo "no release asset found for ${os}/${arch} using ${release_base}/checksums.txt" >&2
+          exit 2
+        fi
+
+        asset_path="${work_root}/${asset_name}"
+        curl -fsSL "${release_base}/${asset_name}" -o "${asset_path}"
+
+        expected_sum="$(awk -v file="${asset_name}" '$2 == file { print $1; exit }' "${checksums_path}")"
+        if command -v sha256sum >/dev/null 2>&1; then
+          actual_sum="$(sha256sum "${asset_path}" | awk '{print $1}')"
+        else
+          actual_sum="$(shasum -a 256 "${asset_path}" | awk '{print $1}')"
+        fi
+
+        if [[ "${expected_sum}" != "${actual_sum}" ]]; then
+          echo "checksum mismatch for ${asset_name}" >&2
+          echo "expected: ${expected_sum}" >&2
+          echo "actual:   ${actual_sum}" >&2
+          exit 2
+        fi
+
+        extract_dir="${work_root}/extract"
+        mkdir -p "${extract_dir}"
+        if [[ "${archive_suffix}" == "tar.gz" ]]; then
+          tar -xzf "${asset_path}" -C "${extract_dir}"
+          gait_bin="${extract_dir}/gait"
+        else
+          unzip -q "${asset_path}" -d "${extract_dir}"
+          gait_bin="${extract_dir}/gait.exe"
+        fi
+
+        if [[ ! -f "${gait_bin}" ]]; then
+          echo "gait binary missing after extraction: ${gait_bin}" >&2
+          exit 2
+        fi
+        if [[ "${os}" != "windows" ]]; then
+          chmod 0755 "${gait_bin}"
+        fi
+
+        echo "gait_bin=${gait_bin}" >> "$GITHUB_OUTPUT"
+
+    - name: Run gait command
+      id: run-command
       shell: bash
+      working-directory: ${{ inputs.workdir }}
+      env:
+        GAIT_BIN: ${{ steps.install-gait.outputs.gait_bin }}
+        GAIT_COMMAND: ${{ inputs.command }}
+        GAIT_ARGS: ${{ inputs.args }}
       run: |
         set -euo pipefail
-        gait_bin="${{ inputs.gait-bin }}"
-        config_path="${{ inputs.config-path }}"
-        fixture_runpack="${{ inputs.fixture-runpack-path }}"
-        source_run="${{ inputs.source-run-id }}"
-        if [[ -f "${config_path}" && -f "${fixture_runpack}" ]]; then
-          exit 0
+
+        artifact_dir="${PWD}/gait-ci"
+        mkdir -p "${artifact_dir}"
+
+        user_args=()
+        while IFS= read -r token; do
+          user_args+=("${token}")
+        done < <(python3 - "${GAIT_ARGS}" <<'PY'
+        import shlex
+        import sys
+
+        for token in shlex.split(sys.argv[1]):
+            print(token)
+        PY
+        )
+
+        command_name="${GAIT_COMMAND}"
+        result_path=""
+        status="0"
+        ticket_footer="not_available"
+
+        case "${command_name}" in
+          regress)
+            result_path="${artifact_dir}/regress_result.json"
+            junit_path="${artifact_dir}/junit.xml"
+            set +e
+            "${GAIT_BIN}" regress run --json --output "${artifact_dir}/regress_core_result.json" --junit "${junit_path}" "${user_args[@]}" > "${result_path}"
+            status=$?
+            set -e
+
+            candidate_runpack=""
+            if [[ -f "${PWD}/fixtures/run_demo/runpack.zip" ]]; then
+              candidate_runpack="${PWD}/fixtures/run_demo/runpack.zip"
+            elif compgen -G "${PWD}/fixtures/*/runpack.zip" >/dev/null; then
+              candidate_runpack="$(ls "${PWD}"/fixtures/*/runpack.zip | head -n 1)"
+            fi
+            if [[ -n "${candidate_runpack}" ]]; then
+              if "${GAIT_BIN}" run receipt --from "${candidate_runpack}" --json > "${artifact_dir}/receipt.json" 2>/dev/null; then
+                ticket_footer="$(python3 - "${artifact_dir}/receipt.json" <<'PY'
+        import json
+        import sys
+        from pathlib import Path
+
+        payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+        value = str(payload.get("ticket_footer", "")).strip()
+        print(value if value else "not_available")
+        PY
+                )"
+              fi
+            fi
+            python3 - "${result_path}" "${artifact_dir}/summary.txt" "${ticket_footer}" <<'PY'
+        import json
+        import sys
+        from pathlib import Path
+
+        def clamp(value: object, limit: int = 180) -> str:
+            text = str(value).replace("\n", " ").strip()
+            if len(text) <= limit:
+                return text
+            return text[: limit - 3] + "..."
+
+        payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+        summary_path = Path(sys.argv[2])
+        ticket_footer = clamp(sys.argv[3])
+        artifact_paths = payload.get("artifact_paths") or []
+        if not isinstance(artifact_paths, list):
+            artifact_paths = []
+        artifact_preview = ", ".join(str(value) for value in artifact_paths[:3])
+
+        lines = [
+            f"command=regress",
+            f"status={clamp(payload.get('status', 'unknown'))}",
+            f"failed_graders={clamp(payload.get('failed', 0))}",
+            f"top_failure_reason={clamp(payload.get('top_failure_reason', 'none'))}",
+            f"next_command={clamp(payload.get('next_command', 'none'))}",
+            f"artifact_paths={clamp(artifact_preview or 'none')}",
+            f"ticket_footer={ticket_footer}",
+        ]
+        summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        PY
+            ;;
+          policy-test)
+            result_path="${artifact_dir}/policy_test_result.json"
+            set +e
+            "${GAIT_BIN}" policy test "${user_args[@]}" --json > "${result_path}"
+            status=$?
+            set -e
+            python3 - "${result_path}" "${artifact_dir}/summary.txt" <<'PY'
+        import json
+        import sys
+        from pathlib import Path
+
+        def clamp(value: object, limit: int = 180) -> str:
+            text = str(value).replace("\n", " ").strip()
+            if len(text) <= limit:
+                return text
+            return text[: limit - 3] + "..."
+
+        payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+        summary_path = Path(sys.argv[2])
+        reasons = payload.get("reason_codes") or []
+        if not isinstance(reasons, list):
+            reasons = []
+        lines = [
+            "command=policy-test",
+            f"verdict={clamp(payload.get('verdict', 'unknown'))}",
+            f"reason_codes={clamp(','.join(str(value) for value in reasons[:6]) or 'none')}",
+            f"summary={clamp(payload.get('summary', 'none'))}",
+            "ticket_footer=not_available",
+        ]
+        summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        PY
+            ;;
+          *)
+            echo "unsupported command input: ${command_name} (expected regress or policy-test)" >&2
+            exit 2
+            ;;
+        esac
+
+        if [[ -f "${artifact_dir}/summary.txt" ]]; then
+          cat "${artifact_dir}/summary.txt"
+          {
+            echo "## gait-regress summary"
+            echo ""
+            cat "${artifact_dir}/summary.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
         fi
-        "${gait_bin}" demo --json >/dev/null
-        "${gait_bin}" regress init --from "${source_run}" --json >/dev/null
-    - name: Run regress
-      id: regress
-      shell: bash
-      run: |
-        set -euo pipefail
-        gait_bin="${{ inputs.gait-bin }}"
-        artifact_root="${{ inputs.artifact-root }}"
-        junit_path="${{ inputs.junit-path }}"
-        mkdir -p "${artifact_root}"
-        set +e
-        "${gait_bin}" regress run --json --junit "${junit_path}" > "${artifact_root}/regress_result.json"
-        status=$?
-        set -e
+
         echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
-        if [[ "${status}" != "0" && "${status}" != "5" ]]; then
-          echo "unexpected regress exit code: ${status}" >&2
-          exit "${status}"
+        echo "summary_path=${artifact_dir}/summary.txt" >> "$GITHUB_OUTPUT"
+        echo "artifact_path=${artifact_dir}" >> "$GITHUB_OUTPUT"
+
+    - name: Upload gait artifacts
+      if: ${{ always() && inputs.upload_artifacts == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact_name }}
+        path: ${{ steps.run-command.outputs.artifact_path }}
+
+    - name: Enforce command exit code
+      shell: bash
+      run: |
+        set -euo pipefail
+        status="${{ steps.run-command.outputs.exit_code }}"
+        if [[ -z "${status}" ]]; then
+          echo "missing exit code from run-command step" >&2
+          exit 2
+        fi
+        if [[ "${status}" == "0" ]]; then
+          exit 0
         fi
         exit "${status}"
