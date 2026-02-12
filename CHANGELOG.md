@@ -10,6 +10,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.0.8] - 2026-02-12
+
+### Added
+
+- Added runpack-first landing and demo assets, including a deterministic hero capture script (`scripts/record_runpack_hero_demo.sh`) and 20-second terminal GIF/MP4 outputs.
+- Added `gait-regress` action v2 contract with release-binary checksum verification, dual command modes (`regress`, `policy-test`), bounded summaries, artifact uploads, and documented outputs.
+- Added Python SDK run-level session capture ergonomics (`run_session`) with deterministic run-record emission support and session-aware adapter tests/examples.
+- Added CI example workflow for deterministic failing regress scenarios with uploaded diff artifacts (`examples/ci/gait-regress-failing`).
+
+### Changed
+
+- Updated README above-the-fold messaging to lead with verifiable runpacks, quick demo/verify flow, and optional gate positioning below the fold.
+- Expanded CI regress kit documentation and contract tests to validate the new composite action interface.
+- Updated Python reference adapter docs/examples to the one-decorator + one-context-manager onboarding path.
+
+## [1.0.7] - 2026-02-12
+
+### Fixed
+
+- Fixed CodeQL high-severity log-injection findings in `cmd/gait/run_session.go` by hardening log-field handling around user-controlled values.
+- Fixed CodeQL warnings in `scripts/check_command_budgets.py` by removing duplicate variable definitions and clarifying assignment flow.
+
 ## [1.0.6] - 2026-02-12
 
 ### Added
