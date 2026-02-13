@@ -100,6 +100,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "run", "receipt", "--help"}); code != exitOK {
 		t.Fatalf("run receipt help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "report", "top", "--help"}); code != exitOK {
+		t.Fatalf("run report top help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "scout", "snapshot", "--help"}); code != exitOK {
 		t.Fatalf("run scout snapshot help: expected %d got %d", exitOK, code)
 	}

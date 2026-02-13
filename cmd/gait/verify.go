@@ -607,6 +607,7 @@ func printUsage() {
 	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain]")
 	fmt.Println("  gait run diff <left> <right> [--json] [--explain]")
 	fmt.Println("  gait run reduce --from <run_id|path> [--predicate missing_result|non_ok_status] [--json] [--explain]")
+	fmt.Println("  gait report top --runs <csv|run_id|dir> [--traces <csv|dir>] [--limit <n>] [--json] [--explain]")
 	fmt.Println("  gait scout snapshot [--roots <csv>] [--policy <csv>] [--json] [--explain]")
 	fmt.Println("  gait scout diff <left_snapshot.json> <right_snapshot.json> [--json] [--explain]")
 	fmt.Println("  gait guard pack --run <run_id|path> [--json] [--explain]")

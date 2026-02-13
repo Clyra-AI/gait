@@ -63,6 +63,7 @@ Gait keeps the contract deterministic and offline-first:
 
 - runpack: signed artifact per run (`gait verify`, `gait run replay`, `gait run diff`)
 - regress: convert incidents into CI checks (`gait regress init`, `gait regress run`)
+- report top: rank highest-risk actions from runpacks/traces offline (`gait report top`)
 - optional gate: enforce policy and approvals at tool-call time (`gait gate eval`)
 
 If your agent touched production, attach the runpack.
@@ -126,6 +127,14 @@ Deterministic failure contract:
 
 Template workflow: [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml)
 Drop-in action: [`.github/actions/gait-regress/README.md`](.github/actions/gait-regress/README.md)
+
+## Triage Top Risks Fast
+
+```bash
+gait report top --runs ./gait-out --traces ./gait-out --limit 5
+```
+
+`gait report top` ranks the highest-risk actions deterministically by tool class and blast radius, then writes `./gait-out/report_top_actions.json`.
 
 ## Optional: Enforce At The Tool Boundary
 
@@ -218,6 +227,7 @@ gait demo
 gait verify <run_id|path>
 gait run inspect --from <run_id|path>
 gait regress bootstrap --from <run_id|path>
+gait report top --runs <csv|run_id|dir> [--traces <csv|dir>]
 gait gate eval --policy <policy.yaml> --intent <intent.json>
 gait policy test <policy.yaml> <intent_fixture.json>
 gait doctor --json
