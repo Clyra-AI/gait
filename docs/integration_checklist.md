@@ -4,6 +4,10 @@ This checklist is for OSS teams integrating Gait at the tool-call boundary.
 
 Target: first deterministic wrapper integration in <= 15 minutes from clean checkout.
 
+Fast path scenario:
+
+- `docs/scenarios/simple_agent_tool_boundary.md`
+
 ## Lane Governance (Locked for v2.3+)
 
 Blessed default lane:
@@ -35,6 +39,16 @@ Recommended metrics opt-in before first run:
 ```bash
 export GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl
 ```
+
+## Integration Boundary Decision (Before Core Track)
+
+Choose the highest tier you can support:
+
+1. Full interception at tool boundary (best): wrapper/sidecar/middleware or `gait mcp serve`.
+2. Partial interception: enforce where possible and treat uncovered paths as observe-only.
+3. No interception (some managed/preloaded agent products): use observe/report/regress workflows; inline fail-closed enforcement is not guaranteed.
+
+Reference: `docs/agent_integration_boundary.md`.
 
 ## Core Track (First Integration, Required)
 

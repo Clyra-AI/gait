@@ -6,6 +6,11 @@ This runbook defines how to operate approval-gated tool execution in production.
 
 Use this for policies that return `require_approval` and for audit workflows tied to signed gate traces.
 
+Runtime vs CI usage:
+
+- Runtime: this flow is human-in-the-loop control before side effects execute.
+- CI: the same verdict/exit codes are used as release blockers until approved evidence paths are provided.
+
 Runtime performance and reliability expectations for this path are defined in:
 
 - `docs/slo/runtime_slo.md`
@@ -38,6 +43,16 @@ Expected:
   - `context_set_digest_missing`
   - `context_evidence_mode_mismatch`
   - `context_freshness_exceeded`
+
+Trigger and response matrix:
+
+| Context | Exit/Verdict | Action |
+| --- | --- | --- |
+| Runtime boundary | `4` / `require_approval` | do not execute tool; request approval token(s) |
+| Runtime boundary | `0` / `allow` | execute tool once and persist trace |
+| Runtime boundary | `3` / `block` | deny execution and raise operator signal |
+| CI/release gate | `4` / `require_approval` | block promotion until approved path is validated |
+| CI/release gate | `3` / `block` | fail gate and require policy/intent correction |
 
 ## Step 1A: Context-Required Re-evaluation (When Policy Demands Context Evidence)
 

@@ -21,6 +21,24 @@ Changelog: [CHANGELOG.md](CHANGELOG.md)
 - incident-to-regression: one command converts a failure into a permanent CI gate
 - fail-closed enforcement: policy decides before the action runs; non-allow means non-execute
 
+## In Plain Language
+
+If an agent can execute tools in production, teams need four things:
+
+1. Record what happened.
+2. Control what can execute.
+3. Debug and replay incidents.
+4. Prove behavior for audit/compliance.
+
+Gait maps directly to those needs:
+
+- record: `runpack` / `pack` artifacts
+- control: `gate` policy decisions before side effects
+- debug: `verify`, `diff`, and `regress`
+- prove: signed traces plus `guard` / `incident` evidence bundles
+
+Gait is not an agent orchestrator or model host. It is the deterministic control/evidence layer at the tool boundary.
+
 ## Try It (Offline, <60s)
 
 Install
@@ -47,14 +65,34 @@ Guided activation tour (A1->A4 in one command):
 gait tour
 ```
 
+Agent-context quickstart (recommended next):
+
+```bash
+go build -o ./gait ./cmd/gait
+python3 examples/integrations/openai_agents/quickstart.py --scenario allow
+python3 examples/integrations/openai_agents/quickstart.py --scenario block
+python3 examples/integrations/openai_agents/quickstart.py --scenario require_approval
+```
+
 Install details: [`docs/install.md`](docs/install.md) (primary path) and [`docs/homebrew.md`](docs/homebrew.md) (alternate path)
 
-## Gait In 20 Seconds
+## Simple End-To-End Scenario (<60s)
+
+![Gait simple end-to-end tool-boundary scenario](docs/assets/gait_demo_simple_e2e_60s.gif)
+Video recording (MP4): [`docs/assets/gait_demo_simple_e2e_60s.mp4`](docs/assets/gait_demo_simple_e2e_60s.mp4)
+Scenario walkthrough: [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent_tool_boundary.md)  
+Demo output legend: [`docs/demo_output_legend.md`](docs/demo_output_legend.md)
+
+Regenerate asset:
+
+```bash
+DEMO_PROFILE=simple_e2e_60s bash scripts/record_runpack_hero_demo.sh
+```
+
+## Fast 20-Second Proof
 
 ![Gait runpack-first terminal demo](docs/assets/gait_demo_20s.gif)
 Video recording (MP4): [`docs/assets/gait_demo_20s.mp4`](docs/assets/gait_demo_20s.mp4)
-
-Regenerate asset: `bash scripts/record_runpack_hero_demo.sh` (or `DEMO_PROFILE=activation bash scripts/record_runpack_hero_demo.sh`)
 
 ## Why Gait
 
@@ -156,10 +194,16 @@ Gait does not auto-intercept your framework. Your dispatcher must call Gait and 
 ```python
 def dispatch_tool(tool_call):
     decision = gait_evaluate(tool_call)
-    if decision["verdict"] != "allow":
-        return {"executed": False, "verdict": decision["verdict"]}
-    return {"executed": True, "result": execute_real_tool(tool_call)}
+if decision["verdict"] != "allow":
+    return {"executed": False, "verdict": decision["verdict"]}
+return {"executed": True, "result": execute_real_tool(tool_call)}
 ```
+
+Managed/preloaded agent note:
+
+- If you cannot intercept tool calls (for example some fully hosted preloaded agent products), Gait can still provide observe/report/regress value from exported traces and artifacts.
+- Full fail-closed enforcement requires an interception point (wrapper, sidecar, middleware, or `gait mcp serve`) before real tool execution.
+- Integration boundary guide: [`docs/agent_integration_boundary.md`](docs/agent_integration_boundary.md)
 
 Minimal evaluation command:
 
