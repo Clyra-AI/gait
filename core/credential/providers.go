@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -42,9 +43,14 @@ func (StubBroker) Issue(request Request) (Response, error) {
 		scope,
 	}, "|")
 	sum := sha256.Sum256([]byte(raw))
+	issuedAt := time.Now().UTC()
+	expiresAt := issuedAt.Add(5 * time.Minute)
 	return Response{
 		IssuedBy:      "stub",
 		CredentialRef: "stub:" + hex.EncodeToString(sum[:12]),
+		IssuedAt:      issuedAt,
+		ExpiresAt:     expiresAt,
+		TTLSeconds:    int64((5 * time.Minute).Seconds()),
 	}, nil
 }
 
@@ -71,9 +77,30 @@ func (b EnvBroker) Issue(request Request) (Response, error) {
 		return Response{}, fmt.Errorf("%w: %s", ErrCredentialUnavailable, envKey)
 	}
 	sum := sha256.Sum256([]byte(value))
+	expiresAt := time.Time{}
+	issuedAt := time.Time{}
+	ttlSeconds := int64(0)
+	if raw := strings.TrimSpace(os.Getenv(envKey + "_EXPIRES_AT")); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+			expiresAt = parsed.UTC()
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv(envKey + "_ISSUED_AT")); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+			issuedAt = parsed.UTC()
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv(envKey + "_TTL_SECONDS")); raw != "" {
+		if parsed, err := parseInt64(raw); err == nil && parsed > 0 {
+			ttlSeconds = parsed
+		}
+	}
 	return Response{
 		IssuedBy:      "env",
 		CredentialRef: "env:" + envKey + ":" + hex.EncodeToString(sum[:8]),
+		IssuedAt:      issuedAt,
+		ExpiresAt:     expiresAt,
+		TTLSeconds:    ttlSeconds,
 	}, nil
 }
 
@@ -249,6 +276,14 @@ func normalizeCommandAllowlist(value string) []string {
 		normalized = append(normalized, trimmed)
 	}
 	return normalized
+}
+
+func parseInt64(value string) (int64, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return 0, fmt.Errorf("empty int64")
+	}
+	return strconv.ParseInt(trimmed, 10, 64)
 }
 
 func isCommandAllowed(command string, allowlist []string) bool {

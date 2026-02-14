@@ -9,6 +9,7 @@ Gait captures a signed runpack for every tool-using AI run so you can verify, re
 Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)  
 Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)  
 Runpack format: [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md)  
+PackSpec v1: [`docs/contracts/packspec_v1.md`](docs/contracts/packspec_v1.md)  
 Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 Primary CTA: `gait demo` (offline, <60s)  
@@ -25,14 +26,7 @@ Outputs: `run_id`, `runpack_<run_id>.zip`, and a ticket footer you can paste int
 Install
 
 ```bash
-# macOS
-brew tap davidahmann/tap
-brew install gait
-# or: brew install davidahmann/tap/gait
-
-# Linux / Windows
-# download binary from GitHub Releases:
-# https://github.com/davidahmann/gait/releases
+curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
 ```
 
 Run demo
@@ -47,7 +41,7 @@ Verify
 gait verify run_demo
 ```
 
-Install details: [`docs/install.md`](docs/install.md) and [`docs/homebrew.md`](docs/homebrew.md)
+Install details: [`docs/install.md`](docs/install.md) (primary path) and [`docs/homebrew.md`](docs/homebrew.md) (alternate path)
 
 ## Gait In 20 Seconds
 
@@ -97,6 +91,8 @@ Details: [`docs/ui_localhost.md`](docs/ui_localhost.md) and [`docs/contracts/ui_
 ## Core OSS Surfaces
 
 - `runpack`: record, inspect, verify, diff, receipt, replay (stub default)
+- `job`: durable lifecycle controls (submit/status/checkpoints/pause/approve/resume/cancel)
+- `pack`: unified artifact build/verify/inspect/diff for `run` and `job` evidence
 - `regress`: incident-to-regression workflow with CI/JUnit outputs
 - `gate`: policy evaluation for tool intent with signed trace output
 - `doctor`: first-run diagnostics and production-readiness checks
@@ -226,6 +222,9 @@ Most-used commands:
 gait demo
 gait verify <run_id|path>
 gait run inspect --from <run_id|path>
+gait job submit --id <job_id>
+gait pack build --type <run|job> --from <id|path>
+gait pack verify <pack.zip>
 gait regress bootstrap --from <run_id|path>
 gait report top --runs <csv|run_id|dir> [--traces <csv|dir>]
 gait gate eval --policy <policy.yaml> --intent <intent.json>

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/davidahmann/gait/core/fsx"
+	"github.com/davidahmann/gait/core/pack"
 	"github.com/davidahmann/gait/core/runpack"
 )
 
@@ -91,6 +92,11 @@ func InitFixture(opts InitOptions) (InitResult, error) {
 		sourceRunpackPath = checkpoint.RunpackPath
 		checkpointIndex = checkpoint.CheckpointIndex
 	}
+	sourceRunpackPath, cleanupSourcePath, err := materializeRunpackSource(sourceRunpackPath)
+	if err != nil {
+		return InitResult{}, err
+	}
+	defer cleanupSourcePath()
 
 	verifyResult, err := runpack.VerifyZip(sourceRunpackPath, runpack.VerifyOptions{
 		RequireSignature: false,
@@ -192,6 +198,20 @@ func loadFixtureEntries(fixturesRoot string) ([]configFixture, error) {
 			continue
 		}
 		metaPath := filepath.Join(fixturesRoot, name, fixtureFileName)
+		if _, err := os.Stat(metaPath); err != nil {
+			if os.IsNotExist(err) {
+				// Skip non-regression fixture folders (for example, other fixture families)
+				// unless they look like an incomplete regress fixture directory.
+				runpackCandidate := filepath.Join(fixturesRoot, name, fixtureRunpack)
+				if _, runpackErr := os.Stat(runpackCandidate); runpackErr == nil {
+					return nil, fmt.Errorf("fixture metadata missing for %s", name)
+				} else if runpackErr != nil && !os.IsNotExist(runpackErr) {
+					return nil, fmt.Errorf("stat fixture runpack for %s: %w", name, runpackErr)
+				}
+				continue
+			}
+			return nil, fmt.Errorf("stat fixture metadata for %s: %w", name, err)
+		}
 		meta, err := readFixtureMeta(metaPath)
 		if err != nil {
 			return nil, err
@@ -253,6 +273,38 @@ func copyRunpack(sourcePath, destinationPath string) error {
 		return fmt.Errorf("write fixture runpack: %w", err)
 	}
 	return nil
+}
+
+func materializeRunpackSource(sourcePath string) (string, func(), error) {
+	if strings.TrimSpace(sourcePath) == "" {
+		return "", func() {}, fmt.Errorf("source runpack path is required")
+	}
+	_, verifyErr := runpack.VerifyZip(sourcePath, runpack.VerifyOptions{RequireSignature: false})
+	if verifyErr == nil {
+		return sourcePath, func() {}, nil
+	}
+	extracted, extractErr := pack.ExtractRunpack(sourcePath)
+	if extractErr != nil {
+		return "", func() {}, fmt.Errorf("verify source runpack: %w", verifyErr)
+	}
+	tempFile, err := os.CreateTemp("", "gait-regress-source-*.zip")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("materialize source runpack: %w", err)
+	}
+	tempPath := tempFile.Name()
+	if _, err := tempFile.Write(extracted); err != nil {
+		_ = tempFile.Close()
+		_ = os.Remove(tempPath)
+		return "", func() {}, fmt.Errorf("materialize source runpack: %w", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		_ = os.Remove(tempPath)
+		return "", func() {}, fmt.Errorf("materialize source runpack: %w", err)
+	}
+	cleanup := func() {
+		_ = os.Remove(tempPath)
+	}
+	return tempPath, cleanup, nil
 }
 
 func writeJSON(path string, value any) error {

@@ -29,7 +29,8 @@ Core suites include:
 - `make lint`
 - `make test`
 - `make test-e2e`
-- acceptance wedges (`make test-acceptance`, `make test-v1-6-acceptance`, `make test-v1-7-acceptance`, `make test-v1-8-acceptance`, `make test-v2-3-acceptance`)
+- acceptance wedges (`make test-acceptance`, `make test-v1-6-acceptance`, `make test-v1-7-acceptance`, `make test-v1-8-acceptance`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`)
+- PackSpec contract lane (`make test-packspec-tck`)
 - adoption and adapter parity suites
 - hardening acceptance and contract checks
 - release/install smoke paths

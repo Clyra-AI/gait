@@ -189,6 +189,30 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "guard_pack_manifest_invalid.json"),
 		},
 		{
+			name:       "pack_manifest",
+			schemaPath: filepath.Join(root, "schemas", "v1", "pack", "manifest.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "pack_manifest_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "pack_manifest_invalid.json"),
+		},
+		{
+			name:       "pack_run",
+			schemaPath: filepath.Join(root, "schemas", "v1", "pack", "run.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "pack_run_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "pack_run_invalid.json"),
+		},
+		{
+			name:       "pack_job",
+			schemaPath: filepath.Join(root, "schemas", "v1", "pack", "job.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "pack_job_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "pack_job_invalid.json"),
+		},
+		{
+			name:       "pack_diff",
+			schemaPath: filepath.Join(root, "schemas", "v1", "pack", "diff.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "pack_diff_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "pack_diff_invalid.json"),
+		},
+		{
 			name:       "guard_retention_report",
 			schemaPath: filepath.Join(root, "schemas", "v1", "guard", "retention_report.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "guard_retention_report_valid.json"),

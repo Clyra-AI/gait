@@ -353,6 +353,39 @@ jobs:
             gait-out/integration_lane_scorecard.json
             gait-out/adoption_metrics.json
 
+  v2-4-acceptance:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.adoption_critical == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run v2.4 acceptance gate
+        shell: bash
+        run: |
+          make test-v2-4-acceptance
+
+  packspec-tck:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run PackSpec TCK lane
+        shell: bash
+        run: |
+          make test-packspec-tck
+
   adapter-parity:
     needs: changes
     runs-on: ubuntu-latest
@@ -417,6 +450,37 @@ jobs:
         run: |
           git config core.hooksPath .githooks
           make test-hardening-acceptance
+
+  chaos:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run chaos suite
+        shell: bash
+        run: |
+          git config core.hooksPath .githooks
+          make test-chaos
+
+  runtime-slo:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run runtime SLO budget suite
+        shell: bash
+        run: |
+          git config core.hooksPath .githooks
+          make test-runtime-slo
 
   build:
     needs: changes

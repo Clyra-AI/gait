@@ -29,6 +29,8 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 ## Contracts And Compatibility
 
 - Primitive contract: `docs/contracts/primitive_contract.md`
+- PackSpec v1 contract: `docs/contracts/packspec_v1.md`
+- PackSpec TCK: `docs/contracts/packspec_tck.md`
 - Artifact graph: `docs/contracts/artifact_graph.md`
 - Intent+receipt conformance: `docs/contracts/intent_receipt_conformance.md`
 - Endpoint action taxonomy: `docs/contracts/endpoint_action_model.md`

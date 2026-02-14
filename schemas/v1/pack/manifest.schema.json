@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/pack/manifest.schema.json",
+  "title": "Pack Manifest",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "pack_id",
+    "pack_type",
+    "source_ref",
+    "contents"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.pack.manifest" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string", "minLength": 1 },
+    "pack_id": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "pack_type": { "type": "string", "enum": ["run", "job"] },
+    "source_ref": { "type": "string", "minLength": 1 },
+    "contents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "type"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "type": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "signatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["alg", "key_id", "sig"],
+        "properties": {
+          "alg": { "type": "string", "minLength": 1 },
+          "key_id": { "type": "string", "minLength": 1 },
+          "sig": { "type": "string", "minLength": 1 },
+          "signed_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -100,6 +100,21 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "run", "receipt", "--help"}); code != exitOK {
 		t.Fatalf("run receipt help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "job", "submit", "--help"}); code != exitOK {
+		t.Fatalf("run job submit help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "pack", "build", "--help"}); code != exitOK {
+		t.Fatalf("run pack build help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "pack", "verify", "--help"}); code != exitOK {
+		t.Fatalf("run pack verify help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "pack", "inspect", "--help"}); code != exitOK {
+		t.Fatalf("run pack inspect help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "pack", "diff", "--help"}); code != exitOK {
+		t.Fatalf("run pack diff help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "report", "top", "--help"}); code != exitOK {
 		t.Fatalf("run report top help: expected %d got %d", exitOK, code)
 	}
@@ -286,6 +301,47 @@ func TestDemoVerifyReplayDiffAndRegressFlow(t *testing.T) {
 
 	if code := runRegressRun([]string{"--json"}); code != exitRegressFailed {
 		t.Fatalf("regress run fail: expected %d got %d", exitRegressFailed, code)
+	}
+}
+
+func TestJobAndPackFlow(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	if code := runDemo(nil); code != exitOK {
+		t.Fatalf("demo: expected %d got %d", exitOK, code)
+	}
+	if code := runJob([]string{"submit", "--id", "job_test", "--root", filepath.Join(workDir, "jobs"), "--json"}); code != exitOK {
+		t.Fatalf("job submit: expected %d got %d", exitOK, code)
+	}
+	if code := runJob([]string{"checkpoint", "add", "--id", "job_test", "--root", filepath.Join(workDir, "jobs"), "--type", "decision-needed", "--summary", "need approval", "--required-action", "approve", "--json"}); code != exitOK {
+		t.Fatalf("job checkpoint add: expected %d got %d", exitOK, code)
+	}
+	if code := runJob([]string{"approve", "--id", "job_test", "--root", filepath.Join(workDir, "jobs"), "--actor", "alice", "--json"}); code != exitOK {
+		t.Fatalf("job approve: expected %d got %d", exitOK, code)
+	}
+	if code := runJob([]string{"resume", "--id", "job_test", "--root", filepath.Join(workDir, "jobs"), "--allow-env-mismatch", "--env-fingerprint", "envfp:override", "--json"}); code != exitOK {
+		t.Fatalf("job resume: expected %d got %d", exitOK, code)
+	}
+
+	runPackPath := filepath.Join(workDir, "run_pack.zip")
+	jobPackPath := filepath.Join(workDir, "job_pack.zip")
+
+	if code := runPack([]string{"build", "--type", "run", "--from", "run_demo", "--out", runPackPath, "--json"}); code != exitOK {
+		t.Fatalf("pack build run: expected %d got %d", exitOK, code)
+	}
+	if code := runPack([]string{"build", "--type", "job", "--from", "job_test", "--job-root", filepath.Join(workDir, "jobs"), "--out", jobPackPath, "--json"}); code != exitOK {
+		t.Fatalf("pack build job: expected %d got %d", exitOK, code)
+	}
+	if code := runPack([]string{"verify", runPackPath, "--json"}); code != exitOK {
+		t.Fatalf("pack verify run: expected %d got %d", exitOK, code)
+	}
+	if code := runPack([]string{"inspect", jobPackPath, "--json"}); code != exitOK {
+		t.Fatalf("pack inspect job: expected %d got %d", exitOK, code)
+	}
+	code := runPack([]string{"diff", runPackPath, jobPackPath, "--json"})
+	if code != exitOK && code != exitVerifyFailed {
+		t.Fatalf("pack diff: expected %d or %d got %d", exitOK, exitVerifyFailed, code)
 	}
 }
 

@@ -83,6 +83,10 @@ func runDispatch(arguments []string) int {
 		return runRegress(arguments[2:])
 	case "run":
 		return runCommand(arguments[2:])
+	case "job":
+		return runJob(arguments[2:])
+	case "pack":
+		return runPack(arguments[2:])
 	case "report":
 		return runReport(arguments[2:])
 	case "scout":
@@ -126,7 +130,7 @@ func normalizeAdoptionCommand(arguments []string) string {
 		return "version"
 	case "--explain":
 		return "explain"
-	case "gate", "policy", "keys", "trace", "regress", "run", "report", "scout", "guard", "incident", "registry", "mcp", "doctor", "delegate", "ui":
+	case "gate", "policy", "keys", "trace", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "mcp", "doctor", "delegate", "ui":
 		if len(arguments) > 2 {
 			subcommand := strings.TrimSpace(arguments[2])
 			if subcommand != "" && !strings.HasPrefix(subcommand, "-") {

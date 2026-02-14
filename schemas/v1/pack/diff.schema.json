@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/pack/diff.schema.json",
+  "title": "Pack Diff Result",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "left_pack_id",
+    "right_pack_id",
+    "left_pack_type",
+    "right_pack_type",
+    "summary"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.pack.diff" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "left_pack_id": { "type": "string", "minLength": 1 },
+    "right_pack_id": { "type": "string", "minLength": 1 },
+    "left_pack_type": { "type": "string", "minLength": 1 },
+    "right_pack_type": { "type": "string", "minLength": 1 },
+    "summary": {
+      "type": "object",
+      "required": ["changed", "manifest_delta"],
+      "properties": {
+        "changed": { "type": "boolean" },
+        "added_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "removed_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "changed_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "manifest_delta": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -9,6 +9,7 @@ RELEASE_VERSION="${GAIT_UAT_RELEASE_VERSION:-}"
 SKIP_BREW="false"
 SKIP_DOCS_SITE="false"
 FULL_CONTRACTS_ALL_PATHS="true"
+PRIMARY_INSTALL_PATH="release-installer"
 
 usage() {
   cat <<'EOF'
@@ -144,6 +145,7 @@ resolve_release_version
 
 log "UAT output dir: ${OUTPUT_DIR}"
 log "Release version: ${RELEASE_VERSION}"
+log "Primary install path: ${PRIMARY_INSTALL_PATH}"
 if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
   log "Install-path capability mode: extended (source + release-install + brew)"
 else
@@ -159,6 +161,8 @@ run_step "quality_adapter_parity" make -C "${REPO_ROOT}" test-adapter-parity
 run_step "quality_policy_compliance" bash "${REPO_ROOT}/scripts/policy_compliance_ci.sh"
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
 run_step "quality_v2_3_acceptance" make -C "${REPO_ROOT}" test-v2-3-acceptance
+run_step "quality_v2_4_acceptance" make -C "${REPO_ROOT}" test-v2-4-acceptance
+run_step "quality_packspec_tck" make -C "${REPO_ROOT}" test-packspec-tck
 run_step "quality_hardening_acceptance" make -C "${REPO_ROOT}" test-hardening-acceptance
 run_step "quality_chaos" make -C "${REPO_ROOT}" test-chaos
 run_step "quality_session_soak" bash "${REPO_ROOT}/scripts/test_session_soak.sh"
@@ -190,6 +194,7 @@ if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
 else
   run_binary_contract_suite "release_install" "${RELEASE_INSTALL_DIR}/gait" "baseline"
 fi
+log "PRIMARY_INSTALL_PATH_STATUS release-installer PASS"
 
 if [[ "${SKIP_BREW}" == "true" ]]; then
   log "SKIP brew_path (requested)"

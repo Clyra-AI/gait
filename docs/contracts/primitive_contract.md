@@ -166,6 +166,36 @@ Consumer obligations:
 - MUST verify manifest and file digests before trust.
 - MUST treat missing required files or digest mismatches as verification failure.
 
+## PackSpec (`gait.pack.*`, `1.0.0`)
+
+Purpose: unified artifact envelope for `run` and `job` evidence types.
+
+Manifest schema:
+
+- `schema_id`: `gait.pack.manifest`
+- `schema_version`: `1.0.0`
+- required fields:
+  - `schema_id`
+  - `schema_version`
+  - `created_at`
+  - `producer_version`
+  - `pack_id`
+  - `pack_type` (`run|job`)
+  - `source_ref`
+  - `contents`
+
+Producer obligations:
+
+- MUST produce deterministic zip bytes for identical inputs.
+- MUST include only declared files in `contents`.
+- MUST use JCS canonicalization for digest/signature inputs.
+
+Consumer obligations:
+
+- MUST verify declared file hashes and reject undeclared files.
+- MUST treat schema mismatch and hash mismatch as verification failure.
+- SHOULD support legacy runpack/evidence verification during v2.4 compatibility window.
+
 ## Session Chain Artifacts (`gait.runpack.session_*`, `1.0.0`)
 
 Purpose: append-only, crash-tolerant long-running capture with verifiable checkpoints.

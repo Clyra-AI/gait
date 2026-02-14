@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davidahmann/gait/core/pack"
 	"github.com/davidahmann/gait/core/runpack"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 )
@@ -128,6 +129,33 @@ func TestInitFixtureRejectsInvalidFixtureName(t *testing.T) {
 	}
 }
 
+func TestInitFixtureAcceptsPackRunArtifactSource(t *testing.T) {
+	workDir := t.TempDir()
+	sourceRunpack := createRunpack(t, workDir, "run_demo")
+
+	runPackPath := filepath.Join(workDir, "pack_run.zip")
+	if _, err := pack.BuildRunPack(pack.BuildRunOptions{
+		RunpackPath: sourceRunpack,
+		OutputPath:  runPackPath,
+	}); err != nil {
+		t.Fatalf("build run pack: %v", err)
+	}
+
+	result, err := InitFixture(InitOptions{
+		SourceRunpackPath: runPackPath,
+		WorkDir:           workDir,
+	})
+	if err != nil {
+		t.Fatalf("init fixture from pack run artifact: %v", err)
+	}
+	if result.RunID != "run_demo" {
+		t.Fatalf("expected run_id run_demo, got %s", result.RunID)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, result.RunpackPath)); err != nil {
+		t.Fatalf("expected materialized fixture runpack: %v", err)
+	}
+}
+
 func TestLoadFixtureEntriesRejectsMetadataMismatch(t *testing.T) {
 	workDir := t.TempDir()
 	sourceRunpack := createRunpack(t, workDir, "run_demo")
@@ -208,6 +236,52 @@ func TestLoadFixtureEntriesRejectsNestedRunpackPath(t *testing.T) {
 	}
 }
 
+func TestLoadFixtureEntriesSkipsNonRegressFixtureDirectories(t *testing.T) {
+	workDir := t.TempDir()
+	sourceRunpack := createRunpack(t, workDir, "run_demo")
+
+	if _, err := InitFixture(InitOptions{
+		SourceRunpackPath: sourceRunpack,
+		WorkDir:           workDir,
+	}); err != nil {
+		t.Fatalf("init fixture: %v", err)
+	}
+
+	externalFixtureDir := filepath.Join(workDir, "fixtures", "packspec_tck", "v1")
+	if err := os.MkdirAll(externalFixtureDir, 0o750); err != nil {
+		t.Fatalf("mkdir external fixture dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(externalFixtureDir, "run_record_input.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatalf("write external fixture file: %v", err)
+	}
+
+	entries, err := loadFixtureEntries(filepath.Join(workDir, "fixtures"))
+	if err != nil {
+		t.Fatalf("load fixture entries: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected one regress fixture entry, got %d", len(entries))
+	}
+	if entries[0].Name != "run_demo" {
+		t.Fatalf("unexpected fixture entry: %#v", entries[0])
+	}
+}
+
+func TestLoadFixtureEntriesRejectsMissingMetadataForRunpackDirectory(t *testing.T) {
+	workDir := t.TempDir()
+	fixtureDir := filepath.Join(workDir, "fixtures", "broken")
+	if err := os.MkdirAll(fixtureDir, 0o750); err != nil {
+		t.Fatalf("mkdir fixture dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(fixtureDir, "runpack.zip"), []byte("not-a-real-runpack"), 0o600); err != nil {
+		t.Fatalf("write runpack placeholder: %v", err)
+	}
+
+	if _, err := loadFixtureEntries(filepath.Join(workDir, "fixtures")); err == nil {
+		t.Fatalf("expected missing fixture metadata to fail")
+	}
+}
+
 func TestReadFixtureMetaRejectsNegativeExpectedExitCode(t *testing.T) {
 	workDir := t.TempDir()
 	metaPath := filepath.Join(workDir, "fixture.json")
@@ -232,6 +306,73 @@ func TestCopyRunpackMissingSource(t *testing.T) {
 	dest := filepath.Join(workDir, "runpack.zip")
 	if err := copyRunpack(filepath.Join(workDir, "missing.zip"), dest); err == nil {
 		t.Fatalf("expected missing source copy to fail")
+	}
+}
+
+func TestMaterializeRunpackSourceBranches(t *testing.T) {
+	workDir := t.TempDir()
+	if _, _, err := materializeRunpackSource(" "); err == nil {
+		t.Fatalf("expected missing source path error")
+	}
+
+	runpackPath := createRunpack(t, workDir, "run_materialize")
+	materializedPath, cleanup, err := materializeRunpackSource(runpackPath)
+	if err != nil {
+		t.Fatalf("materialize legacy runpack source: %v", err)
+	}
+	if materializedPath != runpackPath {
+		t.Fatalf("expected legacy runpack source path passthrough")
+	}
+	cleanup()
+
+	runPackPath := filepath.Join(workDir, "pack_run_materialize.zip")
+	if _, err := pack.BuildRunPack(pack.BuildRunOptions{
+		RunpackPath: runpackPath,
+		OutputPath:  runPackPath,
+	}); err != nil {
+		t.Fatalf("build run pack source: %v", err)
+	}
+	extractedPath, cleanupExtracted, err := materializeRunpackSource(runPackPath)
+	if err != nil {
+		t.Fatalf("materialize run pack source: %v", err)
+	}
+	if extractedPath == runPackPath {
+		t.Fatalf("expected run pack source to materialize to temp runpack path")
+	}
+	if _, err := os.Stat(extractedPath); err != nil {
+		t.Fatalf("expected materialized runpack path to exist: %v", err)
+	}
+	cleanupExtracted()
+	if _, err := os.Stat(extractedPath); !os.IsNotExist(err) {
+		t.Fatalf("expected cleanup to remove materialized runpack path")
+	}
+
+	invalidPath := filepath.Join(workDir, "invalid_source.zip")
+	if err := os.WriteFile(invalidPath, []byte("not-a-zip"), 0o600); err != nil {
+		t.Fatalf("write invalid source: %v", err)
+	}
+	if _, _, err := materializeRunpackSource(invalidPath); err == nil {
+		t.Fatalf("expected invalid source materialization to fail")
+	}
+}
+
+func TestReadFixtureMetaRejectsNegativeCheckpointIndex(t *testing.T) {
+	workDir := t.TempDir()
+	metaPath := filepath.Join(workDir, "fixture.json")
+	meta := fixtureMeta{
+		SchemaID:               fixtureSchemaID,
+		SchemaVersion:          fixtureSchemaV1,
+		Name:                   "demo",
+		RunID:                  "run_demo",
+		Runpack:                "runpack.zip",
+		ExpectedReplayExitCode: 0,
+		CheckpointIndex:        -1,
+	}
+	if err := writeJSON(metaPath, meta); err != nil {
+		t.Fatalf("write fixture metadata: %v", err)
+	}
+	if _, err := readFixtureMeta(metaPath); err == nil {
+		t.Fatalf("expected negative checkpoint_index to fail")
 	}
 }
 

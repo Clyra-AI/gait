@@ -493,6 +493,9 @@ func runGateEval(arguments []string) int {
 	credentialRefOut := ""
 	credentialReferenceUsed := ""
 	credentialScopesUsed := []string{}
+	credentialIssuedAt := time.Time{}
+	credentialExpiresAt := time.Time{}
+	credentialTTLSeconds := int64(0)
 	if outcome.RequireBrokerCredential && result.Verdict == "allow" {
 		if resolvedBroker == nil {
 			result.Verdict = "block"
@@ -522,6 +525,9 @@ func runGateEval(arguments []string) int {
 			} else {
 				credentialIssuer = issued.IssuedBy
 				credentialRefOut = issued.CredentialRef
+				credentialIssuedAt = issued.IssuedAt
+				credentialExpiresAt = issued.ExpiresAt
+				credentialTTLSeconds = issued.TTLSeconds
 				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"broker_credential_present"})
 			}
 		}
@@ -595,6 +601,9 @@ func runGateEval(arguments []string) int {
 			Reference:       credentialReferenceUsed,
 			Scope:           credentialScopesUsed,
 			CredentialRef:   credentialRefOut,
+			IssuedAt:        credentialIssuedAt,
+			ExpiresAt:       credentialExpiresAt,
+			TTLSeconds:      credentialTTLSeconds,
 		})
 		if err := gate.WriteBrokerCredentialRecord(resolvedCredentialEvidencePath, credentialRecord); err != nil {
 			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

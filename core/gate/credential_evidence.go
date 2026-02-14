@@ -27,6 +27,9 @@ type BuildBrokerCredentialRecordOptions struct {
 	Reference       string
 	Scope           []string
 	CredentialRef   string
+	IssuedAt        time.Time
+	ExpiresAt       time.Time
+	TTLSeconds      int64
 }
 
 func BuildBrokerCredentialRecord(opts BuildBrokerCredentialRecordOptions) schemagate.BrokerCredentialRecord {
@@ -51,6 +54,9 @@ func BuildBrokerCredentialRecord(opts BuildBrokerCredentialRecordOptions) schema
 		Reference:       strings.TrimSpace(opts.Reference),
 		Scope:           uniqueSorted(opts.Scope),
 		CredentialRef:   strings.TrimSpace(opts.CredentialRef),
+		IssuedAt:        opts.IssuedAt.UTC(),
+		ExpiresAt:       opts.ExpiresAt.UTC(),
+		TTLSeconds:      opts.TTLSeconds,
 	}
 }
 

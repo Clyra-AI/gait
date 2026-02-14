@@ -21,9 +21,15 @@ func TestBuildAndWriteBrokerCredentialRecord(t *testing.T) {
 		Reference:       "egress",
 		Scope:           []string{"export"},
 		CredentialRef:   "stub:abc",
+		IssuedAt:        time.Date(2026, time.February, 5, 0, 1, 0, 0, time.UTC),
+		ExpiresAt:       time.Date(2026, time.February, 5, 0, 6, 0, 0, time.UTC),
+		TTLSeconds:      300,
 	})
 	if record.SchemaID != brokerCredentialSchemaID || record.CredentialRef != "stub:abc" {
 		t.Fatalf("unexpected broker credential record: %#v", record)
+	}
+	if record.TTLSeconds != 300 || record.IssuedAt.IsZero() || record.ExpiresAt.IsZero() {
+		t.Fatalf("expected ttl metadata in broker credential record: %#v", record)
 	}
 
 	path := filepath.Join(t.TempDir(), "credential_evidence.json")

@@ -1,0 +1,16 @@
+{
+  "schema_id": "gait.pack.manifest",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-14T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "pack_id": "1111111111111111111111111111111111111111111111111111111111111111",
+  "pack_type": "run",
+  "source_ref": "run_demo",
+  "contents": [
+    {
+      "path": "run_payload.json",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "type": "json"
+    }
+  ]
+}

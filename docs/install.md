@@ -21,7 +21,7 @@ What the script does:
 - verifies SHA-256 checksum before install
 - installs `gait` to `~/.local/bin` by default
 
-## Homebrew Path (Tap)
+## Alternate Path: Homebrew (Tap)
 
 ```bash
 brew tap davidahmann/tap
@@ -100,7 +100,7 @@ gait.exe demo
 gait.exe verify run_demo
 ```
 
-## Advanced: Build From Source
+## Alternate Path: Build From Source
 
 Use this only when developing Gait itself.
 

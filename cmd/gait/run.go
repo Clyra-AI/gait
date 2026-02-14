@@ -176,7 +176,10 @@ func runReplay(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Replay a runpack deterministically using recorded tool results; real tool execution requires explicit unsafe flags.")
 	}
-	arguments = reorderInterspersedFlags(arguments, nil)
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"allow-tools":           true,
+		"unsafe-real-tools-env": true,
+	})
 	flagSet := flag.NewFlagSet("replay", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -237,12 +240,13 @@ func runReplay(arguments []string) int {
 	}
 
 	warnings := []string{}
+	var result runpack.ReplayResult
 	if realTools && unsafeReal {
-		warnings = append(warnings, "real tools not implemented; replaying stubs")
 		warnings = append(warnings, "allow_tools="+strings.Join(allowTools, ","))
+		result, err = runpack.ReplayReal(runpackPath, runpack.RealReplayOptions{AllowTools: allowTools})
+	} else {
+		result, err = runpack.ReplayStub(runpackPath)
 	}
-
-	result, err := runpack.ReplayStub(runpackPath)
 	if err != nil {
 		return writeReplayOutput(jsonOutput, replayOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
@@ -292,7 +296,7 @@ func writeReplayOutput(jsonOutput bool, output replayOutput, exitCode int) int {
 
 func printRunUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait run record --input <run_record.json> [--out-dir gait-out] [--run-id <run_id>] [--capture-mode reference|raw] [--json] [--explain]")
+	fmt.Println("  gait run record --input <run_record.json> [--out-dir gait-out] [--run-id <run_id>] [--capture-mode reference|raw] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait run inspect --from <run_id|path> [--json] [--explain]")
 	fmt.Println("  gait run session start --journal <path> --session-id <id> --run-id <run_id> [--json]")
 	fmt.Println("  gait run session append --journal <path> --tool <name> --verdict <allow|block|dry_run|require_approval> [--intent-id <id>] [--trace-id <id>] [--trace-path <path>] [--intent-digest <sha256>] [--policy-digest <sha256>] [--reason-codes <csv>] [--violations <csv>] [--json]")
@@ -300,7 +304,7 @@ func printRunUsage() {
 	fmt.Println("  gait run session checkpoint --journal <path> --out <runpack.zip> [--json]")
 	fmt.Println("  gait run session compact --journal <path> [--out <journal.jsonl>] [--dry-run] [--json]")
 	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json] [--explain]")
-	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain] (stub replay only; real tools not implemented)")
+	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain]")
 	fmt.Println("  gait run reduce --from <run_id|path> [--predicate missing_result|non_ok_status] [--out reduced.zip] [--report-out reduce_report.json] [--json] [--explain]")
 	fmt.Println("  gait run receipt --from <run_id|path> [--json] [--explain]")
 }
@@ -308,7 +312,7 @@ func printRunUsage() {
 func printReplayUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain]")
-	fmt.Println("  note: replay executes deterministic stubs; real tool execution is intentionally not implemented.")
+	fmt.Println("  note: default mode replays recorded/stubbed results; real execution requires explicit unsafe controls.")
 }
 
 func runReduce(arguments []string) int {

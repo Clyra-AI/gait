@@ -24,6 +24,25 @@ sequenceDiagram
 
 Value: produces a portable artifact and verifiable ticket footer in minutes.
 
+## 1b) Unified Job + Pack Flow (v2.4)
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant Job as gait job
+    participant Pack as gait pack
+    participant FS as Local Filesystem
+
+    Dev->>Job: submit + checkpoint + approve + resume
+    Job->>FS: append deterministic job state/events
+    Dev->>Pack: pack build --type job --from <job_id>
+    Pack->>FS: write pack_<id>.zip + pack_manifest.json
+    Dev->>Pack: pack verify + pack inspect + pack diff
+    Pack-->>Dev: deterministic verification and CI-safe diff
+```
+
+Outcome: durable runtime control and portable evidence under one pack contract.
+
 ## 2) Execution-Boundary Gate Flow
 
 ```mermaid

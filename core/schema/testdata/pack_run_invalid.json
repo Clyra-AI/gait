@@ -1,0 +1,11 @@
+{
+  "schema_id": "gait.pack.run",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-14T00:00:00Z",
+  "run_id": "run_demo",
+  "capture_mode": "bad",
+  "manifest_digest": "oops",
+  "intents_count": -1,
+  "results_count": 1,
+  "refs_count": 1
+}

@@ -217,4 +217,7 @@ type BrokerCredentialRecord struct {
 	Reference       string    `json:"reference,omitempty"`
 	Scope           []string  `json:"scope,omitempty"`
 	CredentialRef   string    `json:"credential_ref"`
+	IssuedAt        time.Time `json:"issued_at,omitempty"`
+	ExpiresAt       time.Time `json:"expires_at,omitempty"`
+	TTLSeconds      int64     `json:"ttl_seconds,omitempty"`
 }

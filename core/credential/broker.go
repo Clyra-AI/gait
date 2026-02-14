@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 var ErrCredentialUnavailable = errors.New("credential unavailable")
@@ -19,8 +20,11 @@ type Request struct {
 }
 
 type Response struct {
-	IssuedBy      string `json:"issued_by"`
-	CredentialRef string `json:"credential_ref"`
+	IssuedBy      string    `json:"issued_by"`
+	CredentialRef string    `json:"credential_ref"`
+	IssuedAt      time.Time `json:"issued_at,omitempty"`
+	ExpiresAt     time.Time `json:"expires_at,omitempty"`
+	TTLSeconds    int64     `json:"ttl_seconds,omitempty"`
 }
 
 type Broker interface {
@@ -47,6 +51,17 @@ func Issue(broker Broker, request Request) (Response, error) {
 	}
 	if response.CredentialRef == "" {
 		return Response{}, fmt.Errorf("broker returned empty credential reference")
+	}
+	response.IssuedAt = response.IssuedAt.UTC()
+	response.ExpiresAt = response.ExpiresAt.UTC()
+	if response.IssuedAt.IsZero() && !response.ExpiresAt.IsZero() {
+		response.IssuedAt = time.Now().UTC()
+	}
+	if !response.IssuedAt.IsZero() && !response.ExpiresAt.IsZero() && response.ExpiresAt.After(response.IssuedAt) && response.TTLSeconds == 0 {
+		response.TTLSeconds = int64(response.ExpiresAt.Sub(response.IssuedAt).Seconds())
+	}
+	if response.TTLSeconds > 0 && !response.IssuedAt.IsZero() && response.ExpiresAt.IsZero() {
+		response.ExpiresAt = response.IssuedAt.Add(time.Duration(response.TTLSeconds) * time.Second)
 	}
 	return response, nil
 }

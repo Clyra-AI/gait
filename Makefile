@@ -18,7 +18,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint lint-fast codeql test test-fast prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-ui-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
+.PHONY: fmt lint lint-fast codeql test test-fast prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-v2-4-acceptance test-packspec-tck test-ui-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
 .PHONY: hooks
 .PHONY: docs-site-install docs-site-build docs-site-lint
 
@@ -90,6 +90,7 @@ test-chaos:
 	bash scripts/test_chaos_payload_limits.sh
 	bash scripts/test_chaos_sessions.sh
 	bash scripts/test_chaos_trace_uniqueness.sh
+	bash scripts/test_job_runtime_chaos.sh
 
 coverage:
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
@@ -117,6 +118,14 @@ test-v1-8-acceptance:
 test-v2-3-acceptance:
 	$(GO) build -o ./gait ./cmd/gait
 	bash scripts/test_v2_3_acceptance.sh ./gait
+
+test-v2-4-acceptance:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_v2_4_acceptance.sh ./gait
+
+test-packspec-tck:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_packspec_tck.sh ./gait
 
 test-ui-acceptance:
 	$(GO) build -o ./gait ./cmd/gait

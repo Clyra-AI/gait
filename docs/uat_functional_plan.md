@@ -6,16 +6,17 @@ This runbook defines how to validate Gait end-to-end on a local machine across a
 
 Prove that a user can:
 
-- install Gait via each distribution path
+- install Gait via the primary distribution path (release installer)
+- optionally install Gait via alternate distribution paths
 - execute the core command surface successfully
 - verify deterministic contracts (runpack, regress, gate, evidence, signal)
 - pass existing quality gates (lint, tests, coverage, acceptance)
 
 ## Install Paths In Scope
 
-1. Source build (`go build -o ./gait ./cmd/gait`)
-2. GitHub release installer (`scripts/install.sh`)
-3. Homebrew tap (`davidahmann/tap/gait`)
+1. Primary: GitHub release installer (`scripts/install.sh`)
+2. Alternate: source build (`go build -o ./gait ./cmd/gait`)
+3. Alternate: Homebrew tap (`davidahmann/tap/gait`)
 
 Windows is included in CI matrix validation, but this local script focuses on Linux/macOS hosts.
 
@@ -29,6 +30,8 @@ The UAT script refreshes Homebrew taps before reinstall to avoid stale formula r
 - `scripts/test_v1_7_acceptance.sh` (v1.7 endpoint/provenance/fail-closed checks)
 - `scripts/test_v1_8_acceptance.sh` (v1.8 interception/ecosystem checks)
 - `scripts/test_v2_3_acceptance.sh` (v2.3 adoption/conformance/distribution gate + metrics snapshot)
+- `scripts/test_v2_4_acceptance.sh` (v2.4 job/pack/signing/replay/credential-ttl acceptance gate)
+- `scripts/test_packspec_tck.sh` (PackSpec v1 fixture/TCK determinism and verify contract)
 - `scripts/test_release_smoke.sh` (release artifact + core smoke checks)
 - `scripts/test_hardening_acceptance.sh` (hardening acceptance + deterministic boundary checks)
 - `scripts/test_chaos_exporters.sh`, `scripts/test_chaos_service_boundary.sh`, `scripts/test_chaos_payload_limits.sh`, `scripts/test_chaos_sessions.sh`, `scripts/test_chaos_trace_uniqueness.sh` (v2.2 chaos gates)
@@ -95,10 +98,11 @@ bash scripts/test_uat_local.sh --baseline-install-paths
 
 - Human-readable logs: `gait-out/uat_local/logs/*.log`
 - Machine-readable summary: `gait-out/uat_local/summary.txt`
+- Primary path marker in summary: `PRIMARY_INSTALL_PATH_STATUS release-installer PASS`
 
 ## Pass Criteria
 
-- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-v2-3-acceptance`, `make test-hardening-acceptance`, `make test-chaos`, `bash scripts/test_session_soak.sh`
+- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`, `make test-packspec-tck`, `make test-hardening-acceptance`, `make test-chaos`, `bash scripts/test_session_soak.sh`
 - Runtime SLO budget check passes: `make test-runtime-slo`
 - Performance regression checks pass: `make bench-check`
 - Docs site lint/build passes (`make docs-site-lint docs-site-build`) unless explicitly skipped with `--skip-docs-site`

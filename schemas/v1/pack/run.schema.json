@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/pack/run.schema.json",
+  "title": "Pack Run Payload",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "run_id",
+    "capture_mode",
+    "manifest_digest",
+    "intents_count",
+    "results_count",
+    "refs_count"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.pack.run" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "capture_mode": { "type": "string", "enum": ["reference", "raw"] },
+    "manifest_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "intents_count": { "type": "integer", "minimum": 0 },
+    "results_count": { "type": "integer", "minimum": 0 },
+    "refs_count": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}
