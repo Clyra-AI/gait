@@ -52,6 +52,7 @@ Install details: [`docs/install.md`](docs/install.md) (primary path) and [`docs/
 ## Gait In 20 Seconds
 
 ![Gait runpack-first terminal demo](docs/assets/gait_demo_20s.gif)
+Video recording (MP4): [`docs/assets/gait_demo_20s.mp4`](docs/assets/gait_demo_20s.mp4)
 
 Regenerate asset: `bash scripts/record_runpack_hero_demo.sh` (or `DEMO_PROFILE=activation bash scripts/record_runpack_hero_demo.sh`)
 
