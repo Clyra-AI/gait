@@ -5,6 +5,13 @@ This is the top-of-funnel integration lane for v2.3:
 - local wrapper enforcement for OpenAI-style tool calls
 - direct mapping to GitHub Actions regress gate
 
+Use this when you want the clearest runtime-boundary example of where Gait sits between agent and tool execution.
+
+Related onboarding:
+
+- `docs/scenarios/simple_agent_tool_boundary.md`
+- `docs/agent_integration_boundary.md`
+
 ## Wrapper Contract
 
 1. normalize framework tool call into `IntentRequest`

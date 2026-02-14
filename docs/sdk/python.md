@@ -2,6 +2,11 @@
 
 The Python SDK (`sdk/python/gait`) is a thin subprocess wrapper over the local `gait` binary.
 
+Important boundary:
+
+- Go CLI/Core is authoritative for policy, signing, canonicalization, verification, and exit semantics.
+- Python intentionally does not reimplement those behaviors; it shells out to `gait` and returns structured results.
+
 ## Scope
 
 Supported primitives:

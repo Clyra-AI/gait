@@ -2,6 +2,22 @@
 
 This document is the canonical runtime flow reference for OSS v1.
 
+## Actor and Plane Legend
+
+Actor legend:
+
+- `Agent Runtime`: your external agent framework/runtime.
+- `Adapter`: wrapper/sidecar/middleware that calls Gait and enforces non-`allow` as non-executable.
+- `gait CLI/Core`: local Gait command path and Go policy/artifact engine.
+- `Operator`: human/platform engineer/approver.
+- `CI`: pipeline that runs deterministic regress and policy checks.
+
+Plane legend:
+
+- Runtime plane: live tool-call decision boundary.
+- Operator plane: local commands, demos, inspections.
+- CI plane: fixture-driven regressions and release gates.
+
 ## 1) First-Win Flow (Install -> Demo -> Verify)
 
 ```mermaid
@@ -22,6 +38,15 @@ sequenceDiagram
     CLI-->>Dev: verify ok / explicit failure
 ```
 
+What this flow is:
+
+- Operator plane onboarding to generate and verify first artifacts.
+
+What this flow is not:
+
+- Not an external agent runtime integration flow.
+- `Go Core` here is Gait internals, not "the agent."
+
 Value: produces a portable artifact and verifiable ticket footer in minutes.
 
 ## 1b) Unified Job + Pack Flow (v2.4)
@@ -40,6 +65,14 @@ sequenceDiagram
     Dev->>Pack: pack verify + pack inspect + pack diff
     Pack-->>Dev: deterministic verification and CI-safe diff
 ```
+
+What this flow is:
+
+- Operator plane durable execution/evidence lifecycle.
+
+What this flow is not:
+
+- Not the adapter-level runtime enforcement path for third-party agents.
 
 Outcome: durable runtime control and portable evidence under one pack contract.
 
@@ -64,6 +97,14 @@ sequenceDiagram
     Dev->>Regress: regress run
     Regress-->>Dev: context conformance grader result (semantic/runtime/none)
 ```
+
+What this flow is:
+
+- Operator + CI proofrail flow for context evidence integrity.
+
+What this flow is not:
+
+- Not a replacement for runtime adapter enforcement.
 
 Outcome: context usage is deterministic, auditable, and release-gatable without weakening offline-first behavior.
 
@@ -90,6 +131,14 @@ sequenceDiagram
     end
 ```
 
+What this flow is:
+
+- The runtime plane chokepoint for real side-effect control.
+
+What this flow is not:
+
+- Not optional if you need fail-closed enforcement.
+
 Rule: only wrapped paths may execute tools; non-`allow` verdicts never execute side effects.
 
 ## 3) Incident -> Regression -> CI Gate
@@ -109,6 +158,14 @@ sequenceDiagram
     CLI-->>CI: deterministic pass/fail + exit code
     CI-->>Eng: green build or explicit drift failure
 ```
+
+What this flow is:
+
+- CI plane conversion of incidents into permanent gates.
+
+What this flow is not:
+
+- Not live runtime gating for current tool calls.
 
 Outcome: one incident becomes a permanent deterministic regression check.
 
@@ -132,6 +189,19 @@ sequenceDiagram
     Gate-->>CLI: allow or block with trace + reason codes
 ```
 
+What this flow is:
+
+- Runtime plane human-in-the-loop approval path when policy returns `require_approval`.
+
+What this flow is not:
+
+- Not only a CI concept. CI may verify this path, but runtime execution is where approvals block/allow side effects.
+
+Trigger summary:
+
+- runtime: `gait gate eval` returns exit `4`/`require_approval` for matched high-risk rules.
+- CI: same exit/verdict can block promotion pipelines until approved evidence path is present.
+
 Outcome: high-risk actions require explicit, auditable approval and credential proof.
 
 ## 5) MCP Runtime Interception Service
@@ -149,6 +219,15 @@ sequenceDiagram
     Service->>FS: emit signed trace (and optional runpack)
     Service-->>Runtime: deterministic JSON response (exit_code + verdict)
 ```
+
+What this flow is:
+
+- Runtime plane HTTP decision surface for agent runtimes that can call a local service.
+
+What this flow is not:
+
+- Not a full replacement for all CLI flows (`regress`, `doctor`, `pack inspect/diff`, etc).
+- Not automatic tool enforcement: caller runtime must still block execution on non-`allow`.
 
 Rule: default bind is loopback and non-`allow` outcomes remain non-executing at the caller.
 
@@ -185,6 +264,14 @@ sequenceDiagram
     Verify-->>Runtime: linkage + per-checkpoint integrity status
 ```
 
+What this flow is:
+
+- Runtime/operational durability path for long-running sessions with incremental checkpoints.
+
+What this flow is not:
+
+- Not limited to only one special runtime mode; it is explicit checkpoint support for multi-step/multi-day execution.
+
 Outcome: multi-day execution can be checkpointed incrementally and verified as a linked chain.
 
 Operational note: use `gait run session compact --journal <path>` to prune already-checkpointed events while preserving chain verification.
@@ -205,5 +292,13 @@ sequenceDiagram
     Gate-->>CLI: allow/block + reason codes + delegation audit
     CLI-->>Runtime: deterministic verdict
 ```
+
+What this flow is:
+
+- Runtime plane constrained delegation using signed token evidence and scope bindings.
+
+What this flow is not:
+
+- Not a full IdP/OIDC token exchange system. Enterprise identity/token lifecycle remains external; Gait validates delegation evidence presented at evaluation time.
 
 Rule: when policy requires delegation, missing/invalid delegation evidence remains non-executable (`block`).

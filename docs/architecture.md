@@ -2,7 +2,34 @@
 
 This document is the canonical architecture view for OSS v1.
 
-## Component Architecture
+## Integration-First Architecture
+
+```mermaid
+flowchart LR
+    agent["Agent Runtime\n(OpenAI Agents / LangChain / Autogen / etc)"] --> adapter["Adapter / Wrapper / Sidecar\n(normalize tool call)"]
+    adapter --> gatecli["Gait Decision Surface\n(gait gate eval OR gait mcp serve)"]
+    gatecli --> policy["Go Gate Engine\n(policy + approval/delegation checks)"]
+    policy --> decision["GateResult\nallow | block | require_approval | dry_run"]
+    decision --> adapter
+    adapter -->|allow only| tool["Real Tool Executor"]
+
+    gatecli --> trace["Signed Trace\ntrace_*.json"]
+    gatecli --> runpack["Runpack / Pack\nrunpack_*.zip | pack_*.zip"]
+    runpack --> regress["Regress Fixtures\nfixtures/* + gait.yaml"]
+```
+
+What this is:
+
+- The runtime integration boundary for tool-call control.
+- The path that determines whether side effects execute.
+
+What this is not:
+
+- Not an orchestrator diagram for LLM planning/state machines.
+- Not a hosted control plane architecture.
+- Not evidence that Go Core is "the agent". The agent runtime is external; Gait is the control/evidence layer.
+
+## Component Architecture (Implementation Internals)
 
 ```mermaid
 flowchart LR
@@ -10,9 +37,9 @@ flowchart LR
 
     subgraph core["Go Core (core/*)"]
         dispatch["Command dispatch + exit contracts"]
-        runpack["Runpack (core/runpack)"]
+        runpackc["Runpack (core/runpack)"]
         gate["Gate + policy eval (core/gate)"]
-        regress["Regress (core/regress)"]
+        regressc["Regress (core/regress)"]
         doctor["Doctor (core/doctor)"]
         scout["Scout signal + snapshots (core/scout)"]
         guard["Guard/evidence (core/guard)"]
@@ -22,15 +49,15 @@ flowchart LR
     end
 
     cli --> dispatch
-    dispatch --> runpack
+    dispatch --> runpackc
     dispatch --> gate
-    dispatch --> regress
+    dispatch --> regressc
     dispatch --> doctor
     dispatch --> scout
     dispatch --> guard
-    runpack --> sign
+    runpackc --> sign
     gate --> sign
-    regress --> runpack
+    regressc --> runpackc
     doctor --> schema
     dispatch --> schema
     dispatch --> fsx
@@ -57,12 +84,12 @@ flowchart LR
         evidenceZip["Evidence packs (gait guard/incident pack)"]
     end
 
-    runpack --> runpackZip
-    runpack --> sessionChain
+    runpackc --> runpackZip
+    runpackc --> sessionChain
     gate --> traceJson
     gate --> delegationAudit
-    regress --> regressJson
-    regress --> junitXml
+    regressc --> regressJson
+    regressc --> junitXml
     guard --> evidenceZip
 ```
 

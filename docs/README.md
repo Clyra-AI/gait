@@ -14,10 +14,12 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 
 - Architecture: `docs/architecture.md`
 - Runtime flows: `docs/flows.md`
+- Simple tool-boundary scenario: `docs/scenarios/simple_agent_tool_boundary.md`
 - Install paths: `docs/install.md`
 - Packaging boundary (OSS vs enterprise): `docs/packaging.md`
 - Project defaults: `docs/project_defaults.md`
 - UI localhost path: `docs/ui_localhost.md`
+- Demo output legend: `docs/demo_output_legend.md`
 
 ## Policy And Governance
 
@@ -25,6 +27,8 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 - Rollout: `docs/policy_rollout.md`
 - Approval operations: `docs/approval_runbook.md`
 - External tool allowlist recipe: `docs/external_tool_registry_policy.md`
+- Managed/preloaded agent boundary: `docs/agent_integration_boundary.md`
+- MCP capability matrix: `docs/mcp_capability_matrix.md`
 
 ## Contracts And Compatibility
 

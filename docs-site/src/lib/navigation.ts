@@ -13,6 +13,8 @@ export const navigation: NavItem[] = [
       { title: 'Mental Model', href: '/docs/concepts/mental_model' },
       { title: 'Architecture', href: '/docs/architecture' },
       { title: 'Flows', href: '/docs/flows' },
+      { title: 'Simple Scenario', href: '/docs/scenarios/simple_agent_tool_boundary' },
+      { title: 'Demo Output Legend', href: '/docs/demo_output_legend' },
     ],
   },
   {
@@ -20,6 +22,8 @@ export const navigation: NavItem[] = [
     href: '/docs/integration_checklist',
     children: [
       { title: 'Integration Checklist', href: '/docs/integration_checklist' },
+      { title: 'Integration Boundary Guide', href: '/docs/agent_integration_boundary' },
+      { title: 'MCP Capability Matrix', href: '/docs/mcp_capability_matrix' },
       { title: 'Cloud Runtime Patterns', href: '/docs/deployment/cloud_runtime_patterns' },
       { title: 'Policy Authoring', href: '/docs/policy_authoring' },
       { title: 'Policy Rollout', href: '/docs/policy_rollout' },

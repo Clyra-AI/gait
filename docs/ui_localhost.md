@@ -2,6 +2,12 @@
 
 The localhost UI is an optional adoption shell over existing CLI commands. It does not replace CLI contracts and it does not add hosted dependencies.
 
+Runtime boundary reminder:
+
+- The UI is not your agent runtime.
+- The UI is a local shell over fixed CLI actions.
+- Runtime enforcement for real tool calls still requires a wrapper/sidecar/middleware path (or `gait mcp serve`) in front of tool execution.
+
 ## Start
 
 ```bash
@@ -62,6 +68,11 @@ Artifact metadata is exposed in `/api/state` under the `artifacts` field.
 - The UI is local-only by default.
 - Gate, verify, signing, and policy logic remain in Go CLI/core.
 - Non-`allow` outcomes remain non-executable in the UI presentation.
+- UI interactions do not automatically instrument third-party hosted agent runtimes.
+
+For a concrete runtime example, use:
+
+- `docs/scenarios/simple_agent_tool_boundary.md`
 
 ## Troubleshooting
 

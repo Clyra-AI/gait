@@ -2,6 +2,11 @@
 
 Use this as the 5-minute bridge between `gait demo` and production integration.
 
+## Plain-Language Summary
+
+When agents can execute tools, teams need to record actions, control execution, debug failures, and prove what happened.  
+Gait is the deterministic layer that sits at the tool boundary to provide those four outcomes.
+
 ## One Sentence Model
 
 Gait makes agent tool calls controllable by turning execution into four deterministic primitives: capture (`runpack`), enforce (`gate`), regress (`regress`), and diagnose (`doctor`).
@@ -51,11 +56,13 @@ Gait makes agent tool calls controllable by turning execution into four determin
 - Not an agent orchestrator.
 - Not a hosted dashboard dependency.
 - Not a prompt-only filter.
+- Not an automatic framework interceptor; enforcement requires a wrapper/sidecar/proxy hook.
 
 ## Visual References
 
 - System architecture: `docs/architecture.md`
 - Runtime and operational flows: `docs/flows.md`
+- Managed/preloaded agent integration boundaries: `docs/agent_integration_boundary.md`
 - Documentation ownership map: `docs/README.md`
 
 For implementation details and exact integration checks, use `docs/integration_checklist.md`.

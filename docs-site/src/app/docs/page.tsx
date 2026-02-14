@@ -15,12 +15,16 @@ const tracks = [
       { label: 'Install', href: '/docs/install' },
       { label: 'Mental Model', href: '/docs/concepts/mental_model' },
       { label: 'Flows', href: '/docs/flows' },
+      { label: 'Simple Scenario', href: '/docs/scenarios/simple_agent_tool_boundary' },
+      { label: 'Demo Output Legend', href: '/docs/demo_output_legend' },
     ],
   },
   {
     title: 'Track 2: Integration (30-120 Minutes)',
     steps: [
       { label: 'Integration Checklist', href: '/docs/integration_checklist' },
+      { label: 'Integration Boundary Guide', href: '/docs/agent_integration_boundary' },
+      { label: 'MCP Capability Matrix', href: '/docs/mcp_capability_matrix' },
       { label: 'Cloud Runtime Patterns', href: '/docs/deployment/cloud_runtime_patterns' },
       { label: 'Policy Authoring', href: '/docs/policy_authoring' },
       { label: 'Python SDK Contract', href: '/docs/sdk/python' },

@@ -83,6 +83,9 @@ Interpretation:
 Rollout gate:
 
 - Move forward only when approval workflow latency and operability are acceptable.
+- Validate both runtime and CI behavior:
+  - runtime must block execution until approval token flow completes
+  - CI should treat `require_approval` as a blocked promotion signal unless an approved path is part of release criteria
 
 ## Stage 3B: Skill Trust Guardrails
 
@@ -121,6 +124,12 @@ gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/int
 Rollout gate:
 
 - Do not advance to full enforce until delegated-valid, delegated-invalid, and tainted-egress fixtures are stable and deterministic in CI.
+
+Identity boundary note:
+
+- Gait validates signed delegation evidence (identity/scope/digest bindings) presented at eval time.
+- Enterprise IdP/OIDC token exchange and identity lifecycle remain external to Gait.
+- Integration teams should map IdP-issued identities/claims into delegation token issuance before `gait gate eval`.
 
 ## Stage 4: Full Enforce Mode
 
