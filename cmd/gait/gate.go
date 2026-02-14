@@ -830,11 +830,16 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 func printGateUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("Rollout path:")
+	fmt.Println("  observe: gait gate eval ... --simulate --json")
+	fmt.Println("  enforce: gait gate eval ... --json")
 }
 
 func printGateEvalUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--delegation-public-key <path>|--delegation-public-key-env <VAR>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  observe first: add --simulate while tuning")
+	fmt.Println("  enforce later: remove --simulate once fixtures are stable")
 }
 
 func parseGateEvalProfile(value string) (gateEvalProfile, error) {

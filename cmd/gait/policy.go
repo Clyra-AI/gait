@@ -674,6 +674,9 @@ func printPolicyUsage() {
 	fmt.Println("  gait policy fmt <policy.yaml> [--write] [--json] [--explain]")
 	fmt.Println("  gait policy simulate --policy <candidate.yaml> --baseline <baseline.yaml> --fixtures <csv files/dirs> [--json] [--explain]")
 	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
+	fmt.Println("Rollout path:")
+	fmt.Println("  observe: gait gate eval --policy <policy.yaml> --intent <intent.json> --simulate --json")
+	fmt.Println("  enforce: gait gate eval --policy <policy.yaml> --intent <intent.json> --json")
 }
 
 func printPolicyInitUsage() {

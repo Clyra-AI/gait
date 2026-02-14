@@ -178,6 +178,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "doctor", "adoption", "--help"}); code != exitOK {
 		t.Fatalf("run doctor adoption help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "tour", "--help"}); code != exitOK {
+		t.Fatalf("run tour help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "ui", "--help"}); code != exitOK {
 		t.Fatalf("run ui help: expected %d got %d", exitOK, code)
 	}
@@ -1392,6 +1395,170 @@ func TestDemoJSONOutput(t *testing.T) {
 	if decodedDemo.DurationMS < 0 {
 		t.Fatalf("unexpected negative demo duration: %d", decodedDemo.DurationMS)
 	}
+	if decodedDemo.Mode != string(demoModeStandard) {
+		t.Fatalf("unexpected demo mode: %s", decodedDemo.Mode)
+	}
+	if len(decodedDemo.NextCommands) == 0 {
+		t.Fatalf("expected guided next commands in demo output")
+	}
+	if decodedDemo.MetricsOptIn == "" {
+		t.Fatalf("expected metrics opt-in hint in demo output")
+	}
+}
+
+func TestDemoDurableAndPolicyModes(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	var durableCode int
+	durableRaw := captureStdout(t, func() {
+		durableCode = runDemo([]string{"--durable", "--json"})
+	})
+	if durableCode != exitOK {
+		t.Fatalf("runDemo durable: expected %d got %d", exitOK, durableCode)
+	}
+	var durableOut demoOutput
+	if err := json.Unmarshal([]byte(durableRaw), &durableOut); err != nil {
+		t.Fatalf("decode durable demo output: %v", err)
+	}
+	if !durableOut.OK {
+		t.Fatalf("durable demo expected ok=true: %#v", durableOut)
+	}
+	if durableOut.Mode != string(demoModeDurable) {
+		t.Fatalf("unexpected durable mode: %s", durableOut.Mode)
+	}
+	if durableOut.JobID != demoDurableJobID {
+		t.Fatalf("unexpected durable job id: %s", durableOut.JobID)
+	}
+	if durableOut.JobStatus != "completed" {
+		t.Fatalf("expected durable job status completed, got %s", durableOut.JobStatus)
+	}
+	if durableOut.PackPath == "" {
+		t.Fatalf("expected durable pack path")
+	}
+
+	if code := runDemo([]string{"--durable", "--policy", "--json"}); code != exitInvalidInput {
+		t.Fatalf("runDemo conflicting modes expected %d got %d", exitInvalidInput, code)
+	}
+
+	var policyCode int
+	policyRaw := captureStdout(t, func() {
+		policyCode = runDemo([]string{"--policy", "--json"})
+	})
+	if policyCode != exitOK {
+		t.Fatalf("runDemo policy: expected %d got %d", exitOK, policyCode)
+	}
+	var policyOut demoOutput
+	if err := json.Unmarshal([]byte(policyRaw), &policyOut); err != nil {
+		t.Fatalf("decode policy demo output: %v", err)
+	}
+	if !policyOut.OK {
+		t.Fatalf("policy demo expected ok=true: %#v", policyOut)
+	}
+	if policyOut.Mode != string(demoModePolicy) {
+		t.Fatalf("unexpected policy mode: %s", policyOut.Mode)
+	}
+	if policyOut.PolicyVerdict != "block" {
+		t.Fatalf("expected policy verdict block, got %s", policyOut.PolicyVerdict)
+	}
+	if policyOut.MatchedRule != "block-destructive-tool-delete" {
+		t.Fatalf("unexpected matched rule: %s", policyOut.MatchedRule)
+	}
+	if !strings.Contains(strings.Join(policyOut.ReasonCodes, ","), "destructive_tool_blocked") {
+		t.Fatalf("missing destructive_tool_blocked reason code: %#v", policyOut.ReasonCodes)
+	}
+}
+
+func TestTourJSONOutput(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	var tourCode int
+	raw := captureStdout(t, func() {
+		tourCode = runTour([]string{"--json"})
+	})
+	if tourCode != exitOK {
+		t.Fatalf("runTour json expected %d got %d", exitOK, tourCode)
+	}
+
+	var output tourOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode tour output: %v", err)
+	}
+	if !output.OK {
+		t.Fatalf("expected ok=true from tour output: %#v", output)
+	}
+	if output.Mode != "activation" {
+		t.Fatalf("unexpected tour mode: %s", output.Mode)
+	}
+	if output.RunID != demoRunID {
+		t.Fatalf("unexpected tour run id: %s", output.RunID)
+	}
+	if output.RegressStatus != regressStatusPass {
+		t.Fatalf("unexpected tour regress status: %s", output.RegressStatus)
+	}
+	if len(output.NextCommands) == 0 {
+		t.Fatalf("expected tour next commands")
+	}
+}
+
+func TestVerifyJSONIncludesGuidance(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+	if code := runDemo(nil); code != exitOK {
+		t.Fatalf("runDemo setup expected %d got %d", exitOK, code)
+	}
+
+	var verifyCode int
+	raw := captureStdout(t, func() {
+		verifyCode = runVerify([]string{"--json", demoRunID})
+	})
+	if verifyCode != exitOK {
+		t.Fatalf("runVerify expected %d got %d", exitOK, verifyCode)
+	}
+
+	var output verifyOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode verify output: %v", err)
+	}
+	if output.SignatureStatus == "" {
+		t.Fatalf("expected signature_status in verify output")
+	}
+	if output.SignatureNote == "" {
+		t.Fatalf("expected signature note in verify output")
+	}
+	if len(output.NextCommands) == 0 {
+		t.Fatalf("expected verify next commands")
+	}
+}
+
+func TestDoctorSummaryMode(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+	repoRoot := repoRootFromPackageDir(t)
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runDoctor([]string{
+			"--workdir", repoRoot,
+			"--output-dir", filepath.Join(workDir, "gait-out"),
+			"--summary",
+			"--json",
+		})
+	})
+	if code != exitOK {
+		t.Fatalf("runDoctor summary expected %d got %d", exitOK, code)
+	}
+	var output doctorOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode doctor summary output: %v", err)
+	}
+	if !output.SummaryMode {
+		t.Fatalf("expected summary_mode=true")
+	}
+	if output.Summary == "" {
+		t.Fatalf("expected summary text in doctor output")
+	}
 }
 
 func TestGateEvalApprovalChainAndSimulation(t *testing.T) {
@@ -2275,6 +2442,7 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printUsage()
 	printApproveUsage()
 	printDemoUsage()
+	printTourUsage()
 	printDoctorUsage()
 	printGateUsage()
 	printGateEvalUsage()

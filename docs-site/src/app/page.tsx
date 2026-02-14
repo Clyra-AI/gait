@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   },
 };
 
-const QUICKSTART = `curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash\ngait demo\ngait verify run_demo\ngait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`;
+const QUICKSTART = `curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash\ngait tour\ngait demo --durable\ngait demo --policy`;
 
 const features = [
   {
@@ -197,8 +197,8 @@ export default function HomePage() {
       </div>
 
       <div className="text-center py-12 border-t border-gray-800">
-        <h2 className="text-2xl font-bold text-white mb-4">First pack in 60 seconds. Durable jobs from day one.</h2>
-        <p className="text-gray-400 mb-6">Install, run the demo, then wire your first durable job or policy-gated tool boundary.</p>
+        <h2 className="text-2xl font-bold text-white mb-4">First pack in 60 seconds. Durable and policy paths included.</h2>
+        <p className="text-gray-400 mb-6">Install, run the guided tour, then branch into durable jobs and policy enforcement.</p>
         <Link href="/docs/install" className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
           Open Install Guide
         </Link>

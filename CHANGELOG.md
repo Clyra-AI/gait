@@ -10,6 +10,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.2.0] - 2026-02-14
+
+### Added
+
+- Added v2.4 durable job runtime lifecycle commands (`job submit/status/checkpoint/pause/approve/resume/cancel/inspect`) with deterministic state transitions and stop-reason contracts.
+- Added PackSpec v1 unified pack lifecycle (`pack build/verify/inspect/diff`) for run and job sources, including deterministic manifesting and offline verification.
+- Added v2.5 context-proof evidence envelopes (`context_set_digest`, evidence mode contracts, context conformance checks) across capture, trace, pack, and regress flows.
+- Added expanded conformance and hardening lanes for context chaos, PackSpec TCK, runtime SLO/perf checks, and release integrity automation.
+
+### Changed
+
+- Changed runtime convergence so run/job artifacts share a single pack-first verification and inspection surface for CI/audit workflows.
+- Changed acceptance/UAT and release gates to include v2.4 and v2.5 capability coverage, including context-proof and PackSpec contract checks.
+- Changed docs/contracts and runbooks to reflect durable-job-first operations, unified pack workflows, and context evidence rollout guidance.
+
+### Fixed
+
+- Fixed v2.4/v2.5 rollout regressions discovered in CI and CodeQL passes, including path-hardening and command-budget validation defects.
+- Fixed validation gaps where newly shipped context and pack capabilities were not consistently represented across local/CI gate paths.
+
+### Upgrade Notes
+
+- No breaking CLI or schema major-version changes.
+- Existing runpack readers remain compatible; new pack/context fields are additive.
+- Recommended post-upgrade validation:
+  - `make test-v2-4-acceptance`
+  - `make test-v2-5-acceptance`
+  - `make test-context-conformance`
+  - `make test-packspec-tck`
+
+### Contract Impact Summary
+
+- Contract impact is additive: durable job runtime and PackSpec v1 become first-class OSS primitives; context-proof evidence extends verification semantics without removing prior fields.
+
 ## [1.0.8] - 2026-02-12
 
 ### Added

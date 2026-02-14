@@ -103,6 +103,8 @@ func runDispatch(arguments []string) int {
 		return runMCP(arguments[2:])
 	case "verify":
 		return runVerify(arguments[2:])
+	case "tour":
+		return runTour(arguments[2:])
 	case "ui":
 		return runUI(arguments[2:])
 	case "version", "--version", "-v":

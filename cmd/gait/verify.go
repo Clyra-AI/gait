@@ -37,6 +37,8 @@ type verifyOutput struct {
 	SignatureErrors []string               `json:"signature_errors,omitempty"`
 	SignaturesTotal int                    `json:"signatures_total,omitempty"`
 	SignaturesValid int                    `json:"signatures_valid,omitempty"`
+	SignatureNote   string                 `json:"signature_note,omitempty"`
+	NextCommands    []string               `json:"next_commands,omitempty"`
 	Error           string                 `json:"error,omitempty"`
 }
 
@@ -405,7 +407,42 @@ func verifyRunpackArtifact(runValue string, requireSignature bool, publicKey ed2
 		SignatureErrors: result.SignatureErrors,
 		SignaturesTotal: result.SignaturesTotal,
 		SignaturesValid: result.SignaturesValid,
+		SignatureNote:   signatureStatusNote(result.SignatureStatus, requireSignature),
+		NextCommands:    verifyNextCommands(result.RunID),
 	}, nil
+}
+
+func signatureStatusNote(status string, requireSignature bool) string {
+	switch strings.TrimSpace(status) {
+	case "missing":
+		if requireSignature {
+			return "signatures are required in this mode; provide signing keys and re-run verify"
+		}
+		return "unsigned local/dev artifacts are expected by default; use --require-signature for strict verification"
+	case "skipped":
+		if requireSignature {
+			return "signature checks were expected but skipped; provide a public key or private key source"
+		}
+		return "signature checks were skipped because no verify key was provided"
+	case "verified":
+		return "signatures verified"
+	case "failed":
+		return "signature verification failed; inspect signature_errors and re-run with the correct key"
+	default:
+		return ""
+	}
+}
+
+func verifyNextCommands(runID string) []string {
+	trimmed := strings.TrimSpace(runID)
+	if trimmed == "" {
+		return nil
+	}
+	return []string{
+		fmt.Sprintf("gait regress bootstrap --from %s --json --junit ./%s/junit.xml", trimmed, demoOutDir),
+		"gait demo --durable",
+		"gait demo --policy",
+	}
 }
 
 func verifyTraceArtifact(path string, publicKey ed25519.PublicKey) (traceVerifyOutput, error) {
@@ -505,6 +542,15 @@ func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 
 	if output.OK {
 		fmt.Printf("verify ok: %s\n", output.Path)
+		if output.SignatureStatus != "" {
+			fmt.Printf("signature status: %s\n", output.SignatureStatus)
+		}
+		if output.SignatureNote != "" {
+			fmt.Printf("signature note: %s\n", output.SignatureNote)
+		}
+		if len(output.NextCommands) > 0 {
+			fmt.Printf("next: %s\n", strings.Join(output.NextCommands, " | "))
+		}
 		return exitCode
 	}
 	if output.Error != "" {
@@ -521,8 +567,14 @@ func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 	if output.SignatureStatus != "" {
 		fmt.Printf("signature status: %s\n", output.SignatureStatus)
 	}
+	if output.SignatureNote != "" {
+		fmt.Printf("signature note: %s\n", output.SignatureNote)
+	}
 	if len(output.SignatureErrors) > 0 {
 		fmt.Printf("signature errors: %s\n", strings.Join(output.SignatureErrors, "; "))
+	}
+	if len(output.NextCommands) > 0 {
+		fmt.Printf("next: %s\n", strings.Join(output.NextCommands, " | "))
 	}
 	return exitCode
 }
@@ -587,7 +639,8 @@ func printUsage() {
 	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--json] [--explain]")
 	fmt.Println("  gait delegate mint --delegator <identity> --delegate <identity> --scope <csv> --ttl <duration> [--scope-class <value>] [--intent-digest <sha256>] [--policy-digest <sha256>] [--json] [--explain]")
 	fmt.Println("  gait delegate verify --token <token.json> [--delegator <identity>] [--delegate <identity>] [--scope <csv>] [--intent-digest <sha256>] [--policy-digest <sha256>] [--json] [--explain]")
-	fmt.Println("  gait demo [--json] [--explain]")
+	fmt.Println("  gait demo [--durable|--policy] [--json] [--explain]")
+	fmt.Println("  gait tour [--json] [--explain]")
 	fmt.Println("  gait doctor [--production-readiness] [--json] [--explain]")
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--credential-broker off|stub|env|command] [--json] [--explain]")

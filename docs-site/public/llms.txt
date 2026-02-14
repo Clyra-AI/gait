@@ -8,6 +8,9 @@
 
 ## Core Commands
 - gait demo
+- gait demo --durable
+- gait demo --policy
+- gait tour
 - gait verify <run_id|path>
 - gait regress init --from <run_id|path>
 - gait regress run --json --junit <path>

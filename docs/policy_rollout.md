@@ -11,6 +11,12 @@ Move policy controls into production safely:
 - enforce approvals on high-risk operations
 - enforce blocks only after evidence is stable
 
+Default rollout sequence:
+
+1. `gait demo --policy`
+2. `gait gate eval --policy <policy.yaml> --intent <intent.json> --simulate --json`
+3. `gait gate eval --policy <policy.yaml> --intent <intent.json> --json`
+
 ## Stage 0: Fixture Baseline In CI
 
 Run deterministic policy fixture tests on every PR:

@@ -11,6 +11,9 @@ Use it when shipping a major release, announcing a wedge milestone, or running a
 - `github_release_template.md`: release page structure and copy
 - `faq_objections.md`: objection handling
 - `kpi_scorecard.md`: launch metrics and thresholds (`M*`, `C*`, `D*`)
+- `activation_kpi_v2_6.md`: activation milestone metrics (`A1..A4`, durable/policy branches)
+- `content_cadence_v2_6.md`: quarterly content plan for activation themes
+- `hero_demo_asset_review_v2_6.md`: hero GIF/script alignment decision log
 - framework RFC/runbook docs under `docs/launch/`
 
 ## Standard Adoption Proof Bundle (v2.3)

@@ -41,13 +41,19 @@ Verify
 gait verify run_demo
 ```
 
+Guided activation tour (A1->A4 in one command):
+
+```bash
+gait tour
+```
+
 Install details: [`docs/install.md`](docs/install.md) (primary path) and [`docs/homebrew.md`](docs/homebrew.md) (alternate path)
 
 ## Gait In 20 Seconds
 
 ![Gait runpack-first terminal demo](docs/assets/gait_demo_20s.gif)
 
-Regenerate asset: `bash scripts/record_runpack_hero_demo.sh`
+Regenerate asset: `bash scripts/record_runpack_hero_demo.sh` (or `DEMO_PROFILE=activation bash scripts/record_runpack_hero_demo.sh`)
 
 ## Why Gait
 
@@ -76,6 +82,15 @@ Expected output includes:
 - `run_id=run_demo`
 - signed bundle under `gait-out/`
 - `ticket_footer=GAIT run_id=...` for PRs/incidents
+- `next=...` with deterministic follow-up commands
+- `metrics_opt_in=export GAIT_ADOPTION_LOG=...` for local activation tracking
+
+Guided branches:
+
+```bash
+gait demo --durable
+gait demo --policy
+```
 
 ## Optional Local UI Playground
 
@@ -156,6 +171,7 @@ gait gate eval \
 ```
 
 Policy authoring and rollout docs: [`docs/policy_authoring.md`](docs/policy_authoring.md), [`docs/policy_rollout.md`](docs/policy_rollout.md), [`docs/approval_runbook.md`](docs/approval_runbook.md)
+SDK docs: [`docs/sdk/python.md`](docs/sdk/python.md)
 
 ## Durable Sessions and Multi-Agent Delegation
 

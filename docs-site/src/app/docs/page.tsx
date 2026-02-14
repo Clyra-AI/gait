@@ -23,6 +23,7 @@ const tracks = [
       { label: 'Integration Checklist', href: '/docs/integration_checklist' },
       { label: 'Cloud Runtime Patterns', href: '/docs/deployment/cloud_runtime_patterns' },
       { label: 'Policy Authoring', href: '/docs/policy_authoring' },
+      { label: 'Python SDK Contract', href: '/docs/sdk/python' },
       { label: 'Project Defaults', href: '/docs/project_defaults' },
       { label: 'CI Regress Kit', href: '/docs/ci_regress_kit' },
     ],

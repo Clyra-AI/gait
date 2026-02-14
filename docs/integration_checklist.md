@@ -1,17 +1,17 @@
-# Gait Integration Checklist (v2.3 Blessed Lane)
+# Gait Integration Checklist (Tiered v2.6)
 
 This checklist is for OSS teams integrating Gait at the tool-call boundary.
 
 Target: first deterministic wrapper integration in <= 15 minutes from clean checkout.
 
-## Lane Governance (Locked for v2.3)
+## Lane Governance (Locked for v2.3+)
 
 Blessed default lane:
 
 - local coding-agent wrapper flow (`examples/integrations/openai_agents/`)
 - GitHub Actions CI regress gate (`.github/workflows/adoption-regress-template.yml`)
 
-Expansion policy (v2.3):
+Expansion policy:
 
 - no new official lane is added unless scorecard threshold is met
 - scorecard command:
@@ -22,45 +22,62 @@ python3 scripts/check_integration_lane_scorecard.py \
   --out gait-out/integration_lane_scorecard.json
 ```
 
-Decision rule (enforced in docs/review): selected lane score >= `0.75` and confidence delta >= `0.03`.
+Decision rule: selected lane score >= `0.75` and confidence delta >= `0.03`.
 
 ## Prerequisites
 
-- `gait` available in `PATH` or built from source (`go build -o ./gait ./cmd/gait`)
-- Python 3 available for integration quickstarts
+- `gait` available on `PATH` or built from source (`go build -o ./gait ./cmd/gait`)
+- Python 3 available for wrapper quickstarts
 - repository fixtures present (`examples/`, `schemas/`)
 
-Optional but recommended:
-
-- export adoption telemetry to measure activation milestones:
+Recommended metrics opt-in before first run:
 
 ```bash
 export GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl
 ```
 
-## 15-Minute Stop/Go Checklist
+## Core Track (First Integration, Required)
 
-`STOP` if any expected output is missing.
+Run these first. Stop if expected output is missing.
 
-1. `gait demo` emits `run_id=...` and `ticket_footer=GAIT run_id=...`
-2. `gait verify <run_id> --json` returns `ok=true`
-3. `gait gate eval ... --json` returns deterministic `verdict`, `intent_digest`, `policy_digest`, `trace_path`
-4. wrapper quickstart allow flow returns `executed=true`
-5. wrapper quickstart block or approval flow returns `executed=false`
-6. `gait regress init --from <run_id> --json` creates fixture
-7. `gait regress run --json --junit ...` passes (`status=pass` or exit `0`)
-8. context-required gate policy blocks missing context evidence with deterministic reason codes
-9. `gait pack inspect --json` exposes context summary when context evidence is attached
-10. `gait regress run --context-conformance` is green for expected context baseline
+1. First artifact:
+- `gait demo`
+- expect `run_id=...` and `ticket_footer=GAIT run_id=...`
+2. Verify artifact:
+- `gait verify run_demo --json`
+- expect `ok=true`
+3. Policy decision shape:
+- `gait gate eval ... --json`
+- expect deterministic `verdict`, `reason_codes`, `intent_digest`, `policy_digest`, `trace_path`
+4. Wrapper allow path:
+- run wrapper quickstart allow scenario
+- expect `executed=true`
+5. Wrapper non-allow path:
+- run wrapper block or approval scenario
+- expect `executed=false`
+6. Regress fixture init:
+- `gait regress init --from run_demo --json`
+- expect fixture created
+7. Regress gate run:
+- `gait regress run --json --junit ./gait-out/junit.xml`
+- expect `status=pass` and exit `0`
+8. CI parity:
+- wire `.github/workflows/adoption-regress-template.yml`
+- confirm local/CI fixture parity
+9. Activation timing report:
+- run `gait doctor adoption --from ./gait-out/adoption.jsonl --json`
+- confirm `activation_timing_ms` and `activation_medians_ms` present
+10. Observe->enforce rollout baseline:
+- observe: `gait gate eval ... --simulate --json`
+- enforce: `gait gate eval ... --json`
 
-## v2.5 Context-Proof Checklist (Required For High-Risk Paths)
+## Advanced Track (Hardening and Scale)
+
+Run after Core Track is green.
+
+### Context-Proof (v2.5) High-Risk Requirements
 
 1. Capture mode and evidence mode:
-
-- choose one default:
-  - `--context-evidence-mode best_effort` for low-risk migration
-  - `--context-evidence-mode required` for fail-closed high-risk paths
-- attach context envelope at capture:
 
 ```bash
 gait run record \
@@ -70,20 +87,15 @@ gait run record \
   --json
 ```
 
-2. Gate policy wiring:
+2. Gate policy constraints:
+- include `require_context_evidence: true`
+- include `required_context_evidence_mode: required`
+- optional `max_context_age_seconds`
+- verify deterministic reason codes:
+- `context_evidence_missing`
+- `context_set_digest_missing`
 
-- include rule constraints:
-  - `require_context_evidence: true`
-  - `required_context_evidence_mode: required`
-  - optional `max_context_age_seconds`
-- verify missing context returns deterministic reason codes:
-  - `context_evidence_missing`
-  - `context_set_digest_missing`
-
-3. Trace verification expectations:
-
-- emit trace for decision events
-- verify trace signatures before treating context linkage as evidence:
+3. Trace signature verification:
 
 ```bash
 gait trace verify ./gait-out/trace.json --public-key ./trace_public.key --json
@@ -91,15 +103,53 @@ gait trace verify ./gait-out/trace.json --public-key ./trace_public.key --json
 
 4. Regress context conformance:
 
-- bootstrap fixture from context-bearing runpack
-- enforce context drift rules in CI:
-
 ```bash
 gait regress bootstrap --from <runpack_or_pack> --name context_guard --json
 gait regress run --context-conformance --allow-context-runtime-drift --json
 ```
 
-## Canonical Execution Path (Primary)
+### Durable Job + Pack Runtime (v2.4) Validation
+
+1. `gait demo --durable --json` should end with `job_status=completed`.
+2. `gait pack inspect ./gait-out/pack_job_demo_durable.zip --json` should parse successfully.
+3. Execute full lifecycle manually for production wiring:
+- `gait job submit`, `gait job checkpoint add`, `gait job approve`, `gait job resume`, `gait job inspect`
+
+### Conformance And Contract Gates
+
+Run these before declaring an integration complete:
+
+```bash
+bash scripts/test_intent_receipt_conformance.sh ./gait
+make test-packspec-tck
+make test-context-conformance
+```
+
+Contract docs:
+
+- `docs/contracts/intent_receipt_conformance.md`
+- `docs/contracts/packspec_tck.md`
+
+### Adapter Parity / Secondary Lanes
+
+Supported references:
+
+- `examples/integrations/langchain/`
+- `examples/integrations/autogen/`
+- `examples/integrations/openclaw/`
+- `examples/integrations/autogpt/`
+- `examples/integrations/gastown/`
+- sidecar path: `examples/sidecar/gate_sidecar.py`
+- MCP proxy/serve: `gait mcp proxy`, `gait mcp serve`
+
+Parity checks:
+
+```bash
+bash scripts/test_adapter_parity.sh
+bash scripts/test_adoption_smoke.sh
+```
+
+## Canonical Execution Path
 
 1. Emit `IntentRequest`
 2. Evaluate Gate
@@ -110,8 +160,6 @@ gait regress run --context-conformance --allow-context-runtime-drift --json
 
 ### Minimal Commands (Blessed Path)
 
-From repo root:
-
 ```bash
 go build -o ./gait ./cmd/gait
 python3 examples/integrations/openai_agents/quickstart.py --scenario allow
@@ -119,26 +167,18 @@ python3 examples/integrations/openai_agents/quickstart.py --scenario block
 python3 examples/integrations/openai_agents/quickstart.py --scenario require_approval
 ```
 
-Expected behavioral contract:
+Expected contract:
 
 - allow: `verdict=allow`, `executed=true`
 - block: `verdict=block`, `executed=false`
 - require approval: `verdict=require_approval`, `executed=false`
-
-Then convert captured run into CI baseline:
-
-```bash
-gait demo
-gait regress init --from run_demo --json
-gait regress run --json --junit ./gait-out/junit.xml
-```
 
 ## Fail-Closed Chokepoint Rules (Required)
 
 Your dispatch path MUST enforce:
 
 - only `verdict=allow` executes side effects
-- `block`, `require_approval`, `dry_run`, invalid payload, or Gate evaluation error return non-executable output
+- `block`, `require_approval`, `dry_run`, invalid payload, or evaluation error returns non-executable output
 
 Minimal pattern:
 
@@ -153,64 +193,10 @@ return execute_real_tool(tool_call)
 
 Use `.github/workflows/adoption-regress-template.yml` directly.
 
-Required parity between local and CI:
+Required parity:
 
 - same fixture source (`fixtures/run_demo/runpack.zip` + `gait.yaml` or `gait regress init` fallback)
 - same stable exit handling (`0` pass, `5` deterministic failure)
 - same retained artifacts (`regress_result.json`, `junit.xml`, fixture files)
 
-See `docs/ci_regress_kit.md` for workflow-call inputs/outputs and downstream reuse.
-
-## Activation Timing Metrics (M1/M2)
-
-Collect local activation report:
-
-```bash
-GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl ./gait demo
-GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl ./gait verify run_demo --json
-GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl ./gait regress init --from run_demo --json
-GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl ./gait regress run --json
-./gait doctor adoption --from ./gait-out/adoption.jsonl --json
-```
-
-Use report fields:
-
-- `activation_timing_ms` for milestone timing deltas (`A1..A4`)
-- `activation_medians_ms` for stable command timing medians (M1/M2 calculations)
-- `skill_workflows` for skill workflow fitness signals
-
-## Intent + Receipt Conformance
-
-Before calling an integration complete, run contract checks:
-
-```bash
-bash scripts/test_intent_receipt_conformance.sh ./gait
-```
-
-Contract doc:
-
-- `docs/contracts/intent_receipt_conformance.md`
-
-## Advanced / Secondary Lanes (Reference Only)
-
-These remain supported parity references in v2.3 but are not top-of-funnel:
-
-- `examples/integrations/langchain/`
-- `examples/integrations/autogen/`
-- `examples/integrations/openclaw/`
-- `examples/integrations/autogpt/`
-- `examples/integrations/gastown/`
-- sidecar path: `examples/sidecar/gate_sidecar.py`
-- MCP proxy/serve path: `gait mcp proxy`, `gait mcp serve`
-
-For parity checks across official adapters:
-
-```bash
-bash scripts/test_adapter_parity.sh
-```
-
-For full adoption smoke (wrapper + sidecar + scenarios):
-
-```bash
-bash scripts/test_adoption_smoke.sh
-```
+See `docs/ci_regress_kit.md` for workflow-call inputs/outputs.

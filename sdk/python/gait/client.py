@@ -319,6 +319,18 @@ def _run_command(command: Sequence[str], *, cwd: str | Path | None) -> _CommandR
             check=False,
             timeout=DEFAULT_COMMAND_TIMEOUT_SECONDS,
         )
+    except FileNotFoundError as not_found_error:
+        binary = command_list[0] if command_list else "gait"
+        raise GaitCommandError(
+            (
+                f"unable to execute '{binary}': binary not found. "
+                "Install gait and ensure it is available on PATH, or pass gait_bin explicitly."
+            ),
+            command=command_list,
+            exit_code=127,
+            stdout="",
+            stderr=str(not_found_error),
+        ) from not_found_error
     except subprocess.TimeoutExpired as timeout_error:
         raise GaitCommandError(
             "gait command timed out",

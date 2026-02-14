@@ -14,6 +14,7 @@ import (
 
 type doctorOutput struct {
 	OK              bool           `json:"ok"`
+	SummaryMode     bool           `json:"summary_mode,omitempty"`
 	SchemaID        string         `json:"schema_id,omitempty"`
 	SchemaVersion   string         `json:"schema_version,omitempty"`
 	CreatedAt       string         `json:"created_at,omitempty"`
@@ -50,6 +51,7 @@ func runDoctor(arguments []string) int {
 	var publicKeyPath string
 	var publicKeyEnv string
 	var productionReadiness bool
+	var summaryMode bool
 	var jsonOutput bool
 	var helpFlag bool
 
@@ -61,6 +63,7 @@ func runDoctor(arguments []string) int {
 	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
 	flagSet.BoolVar(&productionReadiness, "production-readiness", false, "run strict production readiness checks (fails on unsafe configuration)")
+	flagSet.BoolVar(&summaryMode, "summary", false, "emit concise summary output")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -100,6 +103,7 @@ func runDoctor(arguments []string) int {
 	}
 	return writeDoctorOutput(jsonOutput, doctorOutput{
 		OK:              ok,
+		SummaryMode:     summaryMode,
 		SchemaID:        result.SchemaID,
 		SchemaVersion:   result.SchemaVersion,
 		CreatedAt:       result.CreatedAt,
@@ -162,6 +166,23 @@ func writeDoctorOutput(jsonOutput bool, output doctorOutput, exitCode int) int {
 		return exitCode
 	}
 	fmt.Println(output.Summary)
+	if output.SummaryMode {
+		if output.Status == "pass" && !output.NonFixable {
+			fmt.Printf("tip: %s\n", demoMetricsOptInCommand)
+			fmt.Println("tip: gait doctor adoption --from ./gait-out/adoption.jsonl --json")
+			return exitCode
+		}
+		for _, check := range output.Checks {
+			if check.Status == "pass" {
+				continue
+			}
+			fmt.Printf("- %s: %s (%s)\n", check.Name, check.Status, check.Message)
+			if check.FixCommand != "" {
+				fmt.Printf("  fix: %s\n", check.FixCommand)
+			}
+		}
+		return exitCode
+	}
 	for _, check := range output.Checks {
 		fmt.Printf("- %s: %s (%s)\n", check.Name, check.Status, check.Message)
 		if check.FixCommand != "" {
@@ -193,7 +214,7 @@ func writeDoctorAdoptionOutput(jsonOutput bool, output doctorAdoptionOutput, exi
 
 func printDoctorUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait doctor [--workdir <path>] [--output-dir <path>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--public-key <path>|--public-key-env <VAR>] [--production-readiness] [--json] [--explain]")
+	fmt.Println("  gait doctor [--workdir <path>] [--output-dir <path>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--public-key <path>|--public-key-env <VAR>] [--production-readiness] [--summary] [--json] [--explain]")
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
 }
 

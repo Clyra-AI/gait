@@ -52,11 +52,16 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 ## Adoption And Ecosystem
 
 - Integration checklist: `docs/integration_checklist.md`
+- SDK docs index: `docs/sdk/README.md`
+- Python SDK contract: `docs/sdk/python.md`
 - Deployment patterns: `docs/deployment/cloud_runtime_patterns.md`
 - Zero-trust positioning: `docs/zero_trust_stack.md`
 - Ecosystem index: `docs/ecosystem/awesome.md`
 - Ecosystem contribution flow: `docs/ecosystem/contribute.md`
 - Launch/distribution assets: `docs/launch/README.md`
+- Activation KPI definition (v2.6): `docs/launch/activation_kpi_v2_6.md`
+- Content cadence plan (v2.6): `docs/launch/content_cadence_v2_6.md`
+- Hero demo asset review (v2.6): `docs/launch/hero_demo_asset_review_v2_6.md`
 
 ## Ownership Rules
 

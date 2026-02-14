@@ -230,6 +230,20 @@ def test_run_command_timeout_raises_command_error(monkeypatch: pytest.MonkeyPatc
     assert "timed out" in str(raised.value)
 
 
+def test_run_command_binary_not_found_raises_actionable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_binary(*args: object, **kwargs: object) -> object:
+        raise FileNotFoundError("No such file or directory: gait")
+
+    monkeypatch.setattr(client_module.subprocess, "run", missing_binary)
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        client_module._run_command(["gait", "demo"], cwd=None)
+    assert "binary not found" in str(raised.value)
+    assert "gait_bin" in str(raised.value)
+    assert raised.value.exit_code == 127
+
+
 def test_evaluate_gate_malformed_json_raises_command_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
