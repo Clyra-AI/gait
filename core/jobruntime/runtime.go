@@ -338,7 +338,7 @@ func Resume(root string, jobID string, opts ResumeOptions) (JobState, error) {
 		if state.Status != StatusPaused && state.Status != StatusDecisionNeeded && state.Status != StatusBlocked {
 			return JobState{}, Event{}, fmt.Errorf("%w: resume requires paused, decision_needed, or blocked state", ErrInvalidTransition)
 		}
-		if (state.Status == StatusDecisionNeeded || hasPendingDecision(state)) && len(state.Approvals) == 0 {
+		if requiresApprovalBeforeResume(state) {
 			return JobState{}, Event{}, fmt.Errorf("%w: approval required before resume", ErrApprovalRequired)
 		}
 
@@ -543,8 +543,8 @@ func jobPaths(root string, jobID string) (statePath string, eventsPath string) {
 	return filepath.Join(jobDir, "state.json"), filepath.Join(jobDir, "events.jsonl")
 }
 
-func acquireLock(path string, now time.Time, timeout time.Duration) (func(), error) {
-	start := now
+func acquireLock(path string, _ time.Time, timeout time.Duration) (func(), error) {
+	start := time.Now().UTC()
 	for {
 		// #nosec G304 -- lock path derived from local root
 		fd, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
@@ -555,6 +555,7 @@ func acquireLock(path string, now time.Time, timeout time.Duration) (func(), err
 		if !os.IsExist(err) {
 			return nil, fmt.Errorf("acquire lock: %w", err)
 		}
+		now := time.Now().UTC()
 		if now.Sub(start) > timeout {
 			return nil, fmt.Errorf("%w: lock timeout", ErrStateContention)
 		}
@@ -563,7 +564,6 @@ func acquireLock(path string, now time.Time, timeout time.Duration) (func(), err
 			continue
 		}
 		time.Sleep(10 * time.Millisecond)
-		now = time.Now().UTC()
 	}
 }
 
@@ -622,13 +622,32 @@ func hasPendingDecision(state *JobState) bool {
 	if state == nil {
 		return false
 	}
+	return countDecisionCheckpoints(state) > 0
+}
+
+func requiresApprovalBeforeResume(state *JobState) bool {
+	if state == nil {
+		return false
+	}
+	decisionCount := countDecisionCheckpoints(state)
+	if decisionCount > len(state.Approvals) {
+		return true
+	}
+	return state.Status == StatusDecisionNeeded && decisionCount == 0
+}
+
+func countDecisionCheckpoints(state *JobState) int {
+	if state == nil {
+		return 0
+	}
+	count := 0
 	for index := len(state.Checkpoints) - 1; index >= 0; index-- {
 		checkpoint := state.Checkpoints[index]
 		if checkpoint.Type == CheckpointTypeDecisionNeeded {
-			return true
+			count++
 		}
 	}
-	return false
+	return count
 }
 
 func EnvironmentFingerprint(override string) string {

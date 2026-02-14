@@ -68,6 +68,48 @@ func TestDecisionNeededResumeRequiresApproval(t *testing.T) {
 	}
 }
 
+func TestDecisionNeededRequiresApprovalForEachCheckpoint(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-multi-decision-approval"
+	if _, err := Submit(root, SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+
+	if _, _, err := AddCheckpoint(root, jobID, CheckpointOptions{
+		Type:           CheckpointTypeDecisionNeeded,
+		Summary:        "decision 1",
+		RequiredAction: "approve",
+	}); err != nil {
+		t.Fatalf("add first decision checkpoint: %v", err)
+	}
+	if _, err := Resume(root, jobID, ResumeOptions{}); !errors.Is(err, ErrApprovalRequired) {
+		t.Fatalf("expected first approval requirement, got %v", err)
+	}
+	if _, err := Approve(root, jobID, ApprovalOptions{Actor: "alice"}); err != nil {
+		t.Fatalf("approve first decision: %v", err)
+	}
+	if _, err := Resume(root, jobID, ResumeOptions{}); err != nil {
+		t.Fatalf("resume after first approval: %v", err)
+	}
+
+	if _, _, err := AddCheckpoint(root, jobID, CheckpointOptions{
+		Type:           CheckpointTypeDecisionNeeded,
+		Summary:        "decision 2",
+		RequiredAction: "approve",
+	}); err != nil {
+		t.Fatalf("add second decision checkpoint: %v", err)
+	}
+	if _, err := Resume(root, jobID, ResumeOptions{}); !errors.Is(err, ErrApprovalRequired) {
+		t.Fatalf("expected second approval requirement, got %v", err)
+	}
+	if _, err := Approve(root, jobID, ApprovalOptions{Actor: "bob"}); err != nil {
+		t.Fatalf("approve second decision: %v", err)
+	}
+	if state, err := Resume(root, jobID, ResumeOptions{}); err != nil || state.Status != StatusRunning {
+		t.Fatalf("resume after second approval failed: state=%#v err=%v", state, err)
+	}
+}
+
 func TestResumeEnvironmentMismatchFailClosed(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "jobs")
 	if _, err := Submit(root, SubmitOptions{JobID: "job-4", EnvironmentFingerprint: "env:a"}); err != nil {
@@ -352,6 +394,28 @@ func TestAcquireLockTimeoutAndPathErrors(t *testing.T) {
 	}
 }
 
+func TestAcquireLockTimeoutUsesWallClock(t *testing.T) {
+	lockPath := filepath.Join(t.TempDir(), "busy.lock")
+	if err := os.WriteFile(lockPath, []byte("busy"), 0o600); err != nil {
+		t.Fatalf("write busy lock: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := acquireLock(lockPath, time.Now().Add(24*time.Hour), 50*time.Millisecond)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrStateContention) {
+			t.Fatalf("expected ErrStateContention, got %v", err)
+		}
+	case <-time.After(300 * time.Millisecond):
+		t.Fatalf("acquireLock did not honor wall-clock timeout")
+	}
+}
+
 func TestJobPathDecisionAndFingerprintHelpers(t *testing.T) {
 	statePath, eventsPath := jobPaths("", "job-helper")
 	if filepath.Base(statePath) != "state.json" || filepath.Base(eventsPath) != "events.jsonl" {
@@ -369,6 +433,38 @@ func TestJobPathDecisionAndFingerprintHelpers(t *testing.T) {
 	}
 	if !hasPendingDecision(&JobState{Checkpoints: []Checkpoint{{Type: CheckpointTypeDecisionNeeded}}}) {
 		t.Fatalf("decision-needed checkpoint should be pending decision")
+	}
+	if !requiresApprovalBeforeResume(&JobState{
+		Status:      StatusDecisionNeeded,
+		Checkpoints: []Checkpoint{{Type: CheckpointTypeDecisionNeeded}},
+	}) {
+		t.Fatalf("decision-needed checkpoint without approval should require approval")
+	}
+	if requiresApprovalBeforeResume(&JobState{
+		Status:      StatusDecisionNeeded,
+		Checkpoints: []Checkpoint{{Type: CheckpointTypeDecisionNeeded}},
+		Approvals:   []Approval{{Actor: "alice", CreatedAt: time.Now().UTC(), Reason: "ok"}},
+	}) {
+		t.Fatalf("approved decision-needed checkpoint should not require additional approval")
+	}
+	if !requiresApprovalBeforeResume(&JobState{
+		Status: StatusPaused,
+		Checkpoints: []Checkpoint{
+			{Type: CheckpointTypeDecisionNeeded},
+			{Type: CheckpointTypeDecisionNeeded},
+		},
+		Approvals: []Approval{{Actor: "alice", CreatedAt: time.Now().UTC(), Reason: "one"}},
+	}) {
+		t.Fatalf("fewer approvals than decision checkpoints should require approval")
+	}
+	if got := countDecisionCheckpoints(&JobState{
+		Checkpoints: []Checkpoint{
+			{Type: CheckpointTypeProgress},
+			{Type: CheckpointTypeDecisionNeeded},
+			{Type: CheckpointTypeDecisionNeeded},
+		},
+	}); got != 2 {
+		t.Fatalf("expected two decision checkpoints, got %d", got)
 	}
 
 	if got := EnvironmentFingerprint(" manual "); got != "manual" {
