@@ -10,6 +10,8 @@ Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io
 Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)  
 Runpack format: [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md)  
 PackSpec v1: [`docs/contracts/packspec_v1.md`](docs/contracts/packspec_v1.md)  
+PackSpec TCK: [`docs/contracts/packspec_tck.md`](docs/contracts/packspec_tck.md)  
+Intent+receipt conformance: [`docs/contracts/intent_receipt_conformance.md`](docs/contracts/intent_receipt_conformance.md)  
 Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 **For platform and AI engineering teams** that run multi-step and multi-hour agent jobs and need state, provenance, and control without losing work mid-flight.
@@ -38,6 +40,14 @@ Gait maps directly to those needs:
 - prove: signed traces plus `guard` / `incident` evidence bundles
 
 Gait is not an agent orchestrator or model host. It is the deterministic control/evidence layer at the tool boundary.
+
+## Verifiable Evidence (Spec + Verify + Conformance)
+
+Gait's durable product contract is offline-verifiable artifacts and schemas:
+
+- spec: `primitive_contract` + `PackSpec v1` define what an evidence bundle contains
+- verify: `gait verify`, `gait pack verify`, and `gait trace verify` validate integrity offline
+- conformance vectors: `make test-packspec-tck` and `bash scripts/test_intent_receipt_conformance.sh ./gait` keep producers and consumers compatible
 
 ## Try It (Offline, <60s)
 
@@ -187,9 +197,11 @@ gait report top --runs ./gait-out --traces ./gait-out --limit 5
 
 `gait report top` ranks the highest-risk actions deterministically by tool class and blast radius, then writes `./gait-out/report_top_actions.json`.
 
-## Optional: Enforce At The Tool Boundary
+## Enforce At The Tool Boundary (Wrapper or MCP)
 
 Gait does not auto-intercept your framework. Your dispatcher must call Gait and enforce non-`allow` as non-executable.
+
+MCP-native option: use `gait mcp serve` (or one-shot `gait mcp proxy`) at the standard tool boundary, then enforce decisions in the caller runtime. Details: [`docs/mcp_capability_matrix.md`](docs/mcp_capability_matrix.md)
 
 ```python
 def dispatch_tool(tool_call):
