@@ -29,7 +29,7 @@ WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 mkdir -p "$WORK_DIR/jobs" "$WORK_DIR/gait-out"
-cp "$REPO_ROOT/fixtures/packspec_tck/v1/run_record_input.json" "$WORK_DIR/run_record_input.json"
+cp "$REPO_ROOT/scripts/testdata/packspec_tck/v1/run_record_input.json" "$WORK_DIR/run_record_input.json"
 
 echo "==> v2.4: signed capture path"
 "$BIN_PATH" run record --input "$WORK_DIR/run_record_input.json" --out-dir "$WORK_DIR/gait-out" --key-mode dev --json > "$WORK_DIR/run_record.json"

@@ -28,7 +28,7 @@ fi
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-cp "$REPO_ROOT/fixtures/packspec_tck/v1/run_record_input.json" "$WORK_DIR/run_record_input.json"
+cp "$REPO_ROOT/scripts/testdata/packspec_tck/v1/run_record_input.json" "$WORK_DIR/run_record_input.json"
 
 mkdir -p "$WORK_DIR/gait-out" "$WORK_DIR/jobs"
 

@@ -502,7 +502,7 @@ Objective: create explicit, deterministic TCK artifacts for PackSpec verificatio
 ### Story 6.1: Add fixture vectors
 
 Tasks:
-- Add `fixtures/packspec_tck/v1/` with:
+- Add `scripts/testdata/packspec_tck/v1/` with:
   - valid run pack
   - valid job pack
   - tampered hash pack
@@ -664,4 +664,3 @@ Acceptance criteria:
 - Single primary install path documented and promoted.
 - PackSpec TCK vectors + CI lane operational.
 - Existing UAT, e2e, integration, chaos, and perf lanes remain green.
-

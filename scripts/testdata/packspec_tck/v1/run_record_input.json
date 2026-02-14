@@ -1,0 +1,70 @@
+{
+  "run": {
+    "schema_id": "gait.runpack.run",
+    "schema_version": "1.0.0",
+    "created_at": "2026-02-14T00:00:00Z",
+    "producer_version": "0.0.0-dev",
+    "run_id": "run_tck",
+    "env": {
+      "os": "darwin",
+      "arch": "arm64",
+      "runtime": "go"
+    },
+    "timeline": [
+      {
+        "event": "tool_call",
+        "ts": "2026-02-14T00:00:00Z",
+        "ref": "intent_1"
+      }
+    ]
+  },
+  "intents": [
+    {
+      "schema_id": "gait.runpack.intent",
+      "schema_version": "1.0.0",
+      "created_at": "2026-02-14T00:00:00Z",
+      "producer_version": "0.0.0-dev",
+      "run_id": "run_tck",
+      "intent_id": "intent_1",
+      "tool_name": "echo",
+      "args_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "args": {
+        "message": "hello"
+      }
+    }
+  ],
+  "results": [
+    {
+      "schema_id": "gait.runpack.result",
+      "schema_version": "1.0.0",
+      "created_at": "2026-02-14T00:00:00Z",
+      "producer_version": "0.0.0-dev",
+      "run_id": "run_tck",
+      "intent_id": "intent_1",
+      "status": "ok",
+      "result_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "result": {
+        "ok": true
+      }
+    }
+  ],
+  "refs": {
+    "schema_id": "gait.runpack.refs",
+    "schema_version": "1.0.0",
+    "created_at": "2026-02-14T00:00:00Z",
+    "producer_version": "0.0.0-dev",
+    "run_id": "run_tck",
+    "receipts": [
+      {
+        "ref_id": "ref_1",
+        "source_type": "http",
+        "source_locator": "https://example.com",
+        "query_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "content_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+        "retrieved_at": "2026-02-14T00:00:00Z",
+        "redaction_mode": "metadata"
+      }
+    ]
+  },
+  "capture_mode": "reference"
+}

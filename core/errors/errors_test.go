@@ -44,6 +44,39 @@ func TestUnknownErrorDefaults(t *testing.T) {
 	}
 }
 
+func TestWrapNilCauseReturnsNil(t *testing.T) {
+	if got := Wrap(nil, CategoryInternalFailure, "internal_failure", "retry later", false); got != nil {
+		t.Fatalf("expected nil wrapped error, got=%v", got)
+	}
+}
+
+func TestClassifiedErrorNilCauseDefaults(t *testing.T) {
+	err := &classifiedError{
+		category:  CategoryNetworkTransient,
+		code:      "network_transient",
+		hint:      "retry request",
+		retryable: true,
+	}
+	if err.Error() != "unknown error" {
+		t.Fatalf("unexpected nil-cause error text: %s", err.Error())
+	}
+	if err.Unwrap() != nil {
+		t.Fatalf("expected unwrap nil for nil cause")
+	}
+	if err.Category() != CategoryNetworkTransient {
+		t.Fatalf("unexpected category: %s", err.Category())
+	}
+	if err.Code() != "network_transient" {
+		t.Fatalf("unexpected code: %s", err.Code())
+	}
+	if err.Hint() != "retry request" {
+		t.Fatalf("unexpected hint: %s", err.Hint())
+	}
+	if !err.Retryable() {
+		t.Fatalf("expected retryable=true")
+	}
+}
+
 func TestCategorySetIsStableAndUnique(t *testing.T) {
 	categories := []Category{
 		CategoryInvalidInput,

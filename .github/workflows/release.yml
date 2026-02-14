@@ -37,8 +37,30 @@ jobs:
             gait-out/integration_lane_scorecard.json
             gait-out/adoption_metrics.json
 
+  v2_4_gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run v2.4 release contract gate
+        run: |
+          make test-v2-4-acceptance
+          make test-packspec-tck
+          make test-e2e
+          go test ./internal/integration -count=1
+          make test-chaos
+          make test-runtime-slo
+          make bench-check
+
   release:
-    needs: v2_3_gate
+    needs: [v2_3_gate, v2_4_gate]
     runs-on: ubuntu-latest
     permissions:
       contents: write

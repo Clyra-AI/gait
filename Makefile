@@ -3,6 +3,7 @@ SHELL := /bin/sh
 GO ?= go
 PYTHON ?= python3
 GO_COVERAGE_THRESHOLD ?= 85
+GO_PACKAGE_COVERAGE_THRESHOLD ?= 75
 PYTHON_COVERAGE_THRESHOLD ?= 85
 GAIT_BINARY ?= ./gait
 
@@ -18,9 +19,9 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint lint-fast codeql test test-fast prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-v2-4-acceptance test-packspec-tck test-ui-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
+.PHONY: fmt lint lint-fast codeql test test-fast prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-v2-4-acceptance test-packspec-tck test-ui-acceptance test-ui-unit test-ui-e2e-smoke test-ui-perf test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
 .PHONY: hooks
-.PHONY: docs-site-install docs-site-build docs-site-lint
+.PHONY: docs-site-install docs-site-build docs-site-lint docs-site-check
 
 fmt:
 	gofmt -w .
@@ -54,7 +55,9 @@ codeql:
 	bash scripts/run_codeql_local.sh
 
 test:
-	$(GO) test ./...
+	$(GO) test ./... -cover > coverage-go-packages.out
+	cat coverage-go-packages.out
+	$(PYTHON) scripts/check_go_package_coverage.py coverage-go-packages.out $(GO_PACKAGE_COVERAGE_THRESHOLD)
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
 	$(PYTHON) scripts/check_go_coverage.py coverage-go.out $(GO_COVERAGE_THRESHOLD)
 	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=$(PYTHON_COVERAGE_THRESHOLD))
@@ -130,6 +133,17 @@ test-packspec-tck:
 test-ui-acceptance:
 	$(GO) build -o ./gait ./cmd/gait
 	bash scripts/test_ui_acceptance.sh ./gait
+
+test-ui-unit:
+	cd ui/local && npm ci && npm run test
+
+test-ui-e2e-smoke:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_ui_e2e_smoke.sh ./gait
+
+test-ui-perf:
+	$(GO) build -o ./gait ./cmd/gait
+	$(PYTHON) scripts/check_ui_budgets.py ./gait perf/ui_budgets.json perf/ui_budget_report.json
 
 test-adoption:
 	bash scripts/test_adoption_smoke.sh
@@ -237,6 +251,9 @@ docs-site-build:
 
 docs-site-lint:
 	cd docs-site && npm run lint
+
+docs-site-check:
+	$(PYTHON) scripts/check_docs_site_validation.py --report gait-out/docs_site_validation_report.json
 
 ui-build:
 	bash scripts/ui_build.sh

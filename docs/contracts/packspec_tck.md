@@ -14,7 +14,7 @@ bash scripts/test_packspec_tck.sh ./gait
 
 ## Fixture Root
 
-- `fixtures/packspec_tck/v1/`
+- `scripts/testdata/packspec_tck/v1/`
 
 Current base vector:
 
@@ -43,6 +43,6 @@ The TCK validates these required vectors:
 
 When modifying PackSpec behavior:
 
-- update/add fixture vectors under `fixtures/packspec_tck/v1/`
+- update/add fixture vectors under `scripts/testdata/packspec_tck/v1/`
 - keep vectors deterministic and content-addressable
 - update this document with any new mandatory vector class

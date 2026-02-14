@@ -37,7 +37,10 @@ jobs:
           go build -o ./gait ./cmd/gait
       - name: Check command latency budgets
         run: |
-          python scripts/check_command_budgets.py ./gait perf/command_budget_report.json
+          python scripts/check_command_budgets.py ./gait perf/command_budget_report.json perf/runtime_slo_budgets.json
+      - name: Check UI runtime budgets
+        run: |
+          python scripts/check_ui_budgets.py ./gait perf/ui_budgets.json perf/ui_budget_report.json
       - name: Upload benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -48,3 +51,4 @@ jobs:
             perf/bench_report.json
             perf/resource_budget_report.json
             perf/command_budget_report.json
+            perf/ui_budget_report.json

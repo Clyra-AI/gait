@@ -1,0 +1,7 @@
+{
+  "schema_id": "gait.perf.ui_budgets",
+  "schema_version": "1.0.0",
+  "startup_tti_ms": 4000.0,
+  "command_roundtrip_ms": 5000.0,
+  "max_rss_kib": 450000.0
+}

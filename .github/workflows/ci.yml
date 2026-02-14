@@ -95,6 +95,15 @@ jobs:
           npm ci
           npm run lint
           npm run build
+      - name: Validate docs links and Mermaid rendering
+        run: |
+          python3 scripts/check_docs_site_validation.py --report gait-out/docs_site_validation_report.json
+      - name: Upload docs validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site-validation-${{ github.run_id }}
+          path: gait-out/docs_site_validation_report.json
 
   ui-local:
     needs: changes
@@ -111,10 +120,37 @@ jobs:
           cd ui/local
           npm ci
           npm run lint
+          npm run test
           npm run build
       - name: Check UI dependency freshness
         run: |
           bash scripts/check_ui_deps_freshness.sh
+
+  ui-e2e-smoke:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run UI e2e smoke
+        shell: bash
+        run: |
+          make test-ui-e2e-smoke
+
+  ui-acceptance:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run local UI acceptance gate
+        shell: bash
+        run: |
+          make test-ui-acceptance
 
   test:
     needs: changes
@@ -137,7 +173,9 @@ jobs:
       - name: Go tests with coverage
         shell: bash
         run: |
-          go test ./...
+          go test ./... -cover > coverage-go-packages.out
+          cat coverage-go-packages.out
+          python scripts/check_go_package_coverage.py coverage-go-packages.out 75
           go test ./core/... ./cmd/gait -coverprofile=coverage-go.out
           if [[ "$RUNNER_OS" == "Linux" ]]; then
             python scripts/check_go_coverage.py coverage-go.out 85

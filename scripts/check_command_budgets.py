@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
 import statistics
 import subprocess
 import sys
@@ -91,6 +92,42 @@ DEFAULT_RUNTIME_SLO_BUDGETS: dict[str, Any] = {
         },
         "gate_eval_delegation_verify": {
             "p50_ms": 950.0,
+            "p95_ms": 1800.0,
+            "p99_ms": 2400.0,
+            "max_error_rate": 0.0,
+        },
+        "job_submit": {
+            "p50_ms": 900.0,
+            "p95_ms": 1800.0,
+            "p99_ms": 2400.0,
+            "max_error_rate": 0.0,
+        },
+        "job_checkpoint_add": {
+            "p50_ms": 900.0,
+            "p95_ms": 1800.0,
+            "p99_ms": 2400.0,
+            "max_error_rate": 0.0,
+        },
+        "job_approve": {
+            "p50_ms": 900.0,
+            "p95_ms": 1800.0,
+            "p99_ms": 2400.0,
+            "max_error_rate": 0.0,
+        },
+        "job_resume": {
+            "p50_ms": 900.0,
+            "p95_ms": 1800.0,
+            "p99_ms": 2400.0,
+            "max_error_rate": 0.0,
+        },
+        "pack_build_job": {
+            "p50_ms": 1800.0,
+            "p95_ms": 2800.0,
+            "p99_ms": 3600.0,
+            "max_error_rate": 0.0,
+        },
+        "pack_verify_job": {
+            "p50_ms": 900.0,
             "p95_ms": 1800.0,
             "p99_ms": 2400.0,
             "max_error_rate": 0.0,
@@ -531,6 +568,96 @@ def main() -> int:
                 work_dir,
             )
 
+        job_root = work_dir / "jobs"
+        job_pack_path = work_dir / "job_pack.zip"
+
+        def reset_job_state() -> None:
+            if job_root.exists():
+                shutil.rmtree(job_root)
+            job_root.mkdir(parents=True, exist_ok=True)
+            if job_pack_path.exists():
+                job_pack_path.unlink()
+
+        def prepare_job_submitted() -> None:
+            reset_job_state()
+            run_checked(
+                [
+                    str(gait_path),
+                    "job",
+                    "submit",
+                    "--id",
+                    "job_budget",
+                    "--root",
+                    str(job_root),
+                    "--json",
+                ],
+                work_dir,
+            )
+
+        def prepare_job_pending_approval() -> None:
+            prepare_job_submitted()
+            run_checked(
+                [
+                    str(gait_path),
+                    "job",
+                    "checkpoint",
+                    "add",
+                    "--id",
+                    "job_budget",
+                    "--root",
+                    str(job_root),
+                    "--type",
+                    "decision-needed",
+                    "--summary",
+                    "need approval",
+                    "--required-action",
+                    "approve",
+                    "--json",
+                ],
+                work_dir,
+            )
+
+        def prepare_job_approved() -> None:
+            prepare_job_pending_approval()
+            run_checked(
+                [
+                    str(gait_path),
+                    "job",
+                    "approve",
+                    "--id",
+                    "job_budget",
+                    "--root",
+                    str(job_root),
+                    "--actor",
+                    "approver",
+                    "--json",
+                ],
+                work_dir,
+            )
+
+        def prepare_job_resumable() -> None:
+            prepare_job_approved()
+
+        def prepare_job_pack_built() -> None:
+            prepare_job_resumable()
+            run_checked(
+                [
+                    str(gait_path),
+                    "pack",
+                    "build",
+                    "--type",
+                    "job",
+                    "--from",
+                    "job_budget",
+                    "--job-root",
+                    str(job_root),
+                    "--out",
+                    str(job_pack_path),
+                    "--json",
+                ],
+                work_dir,
+            )
+
         command_map = {
             "demo": [str(gait_path), "demo", "--json"],
             "verify": [str(gait_path), "verify", "run_demo", "--json"],
@@ -543,6 +670,79 @@ def main() -> int:
                 "run_demo",
                 "--out",
                 "guard_pack.zip",
+                "--json",
+            ],
+            "job_submit": [
+                str(gait_path),
+                "job",
+                "submit",
+                "--id",
+                "job_budget",
+                "--root",
+                str(job_root),
+                "--json",
+            ],
+            "job_checkpoint_add": [
+                str(gait_path),
+                "job",
+                "checkpoint",
+                "add",
+                "--id",
+                "job_budget",
+                "--root",
+                str(job_root),
+                "--type",
+                "decision-needed",
+                "--summary",
+                "need approval",
+                "--required-action",
+                "approve",
+                "--json",
+            ],
+            "job_approve": [
+                str(gait_path),
+                "job",
+                "approve",
+                "--id",
+                "job_budget",
+                "--root",
+                str(job_root),
+                "--actor",
+                "approver",
+                "--json",
+            ],
+            "job_resume": [
+                str(gait_path),
+                "job",
+                "resume",
+                "--id",
+                "job_budget",
+                "--root",
+                str(job_root),
+                "--allow-env-mismatch",
+                "--env-fingerprint",
+                "envfp:override",
+                "--json",
+            ],
+            "pack_build_job": [
+                str(gait_path),
+                "pack",
+                "build",
+                "--type",
+                "job",
+                "--from",
+                "job_budget",
+                "--job-root",
+                str(job_root),
+                "--out",
+                str(job_pack_path),
+                "--json",
+            ],
+            "pack_verify_job": [
+                str(gait_path),
+                "pack",
+                "verify",
+                str(job_pack_path),
                 "--json",
             ],
         }
@@ -614,6 +814,12 @@ def main() -> int:
                 ],
                 work_dir,
             )
+        pre_hooks["job_submit"] = lambda _: reset_job_state()
+        pre_hooks["job_checkpoint_add"] = lambda _: prepare_job_submitted()
+        pre_hooks["job_approve"] = lambda _: prepare_job_pending_approval()
+        pre_hooks["job_resume"] = lambda _: prepare_job_resumable()
+        pre_hooks["pack_build_job"] = lambda _: prepare_job_resumable()
+        pre_hooks["pack_verify_job"] = lambda _: prepare_job_pack_built()
         command_capabilities = {
             "session_checkpoint_emit": supports_session_checkpointing,
             "session_chain_verify": supports_session_checkpointing,

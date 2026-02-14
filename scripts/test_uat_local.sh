@@ -136,6 +136,7 @@ require_cmd go
 require_cmd python3
 require_cmd uv
 require_cmd gh
+require_cmd npm
 
 if [[ "${SKIP_BREW}" != "true" ]]; then
   require_cmd brew
@@ -162,6 +163,10 @@ run_step "quality_policy_compliance" bash "${REPO_ROOT}/scripts/policy_complianc
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
 run_step "quality_v2_3_acceptance" make -C "${REPO_ROOT}" test-v2-3-acceptance
 run_step "quality_v2_4_acceptance" make -C "${REPO_ROOT}" test-v2-4-acceptance
+run_step "quality_ui_acceptance" make -C "${REPO_ROOT}" test-ui-acceptance
+run_step "quality_ui_unit" make -C "${REPO_ROOT}" test-ui-unit
+run_step "quality_ui_e2e_smoke" make -C "${REPO_ROOT}" test-ui-e2e-smoke
+run_step "quality_ui_perf" make -C "${REPO_ROOT}" test-ui-perf
 run_step "quality_packspec_tck" make -C "${REPO_ROOT}" test-packspec-tck
 run_step "quality_hardening_acceptance" make -C "${REPO_ROOT}" test-hardening-acceptance
 run_step "quality_chaos" make -C "${REPO_ROOT}" test-chaos
@@ -177,7 +182,7 @@ fi
 if [[ "${SKIP_DOCS_SITE}" == "true" ]]; then
   log "SKIP quality_docs_site (requested)"
 elif command -v npm >/dev/null 2>&1; then
-  run_step "quality_docs_site" make -C "${REPO_ROOT}" docs-site-lint docs-site-build
+  run_step "quality_docs_site" make -C "${REPO_ROOT}" docs-site-lint docs-site-build docs-site-check
 else
   log "SKIP quality_docs_site (npm missing)"
 fi

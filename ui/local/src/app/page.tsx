@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type ExecResponse = {
+export type ExecResponse = {
   ok: boolean;
   command: string;
   argv?: string[];
@@ -14,14 +14,14 @@ type ExecResponse = {
   error?: string;
 };
 
-type ArtifactState = {
+export type ArtifactState = {
   key: string;
   path: string;
   exists: boolean;
   modified_at?: string;
 };
 
-type StateResponse = {
+export type StateResponse = {
   ok: boolean;
   workspace: string;
   runpack_path?: string;
@@ -39,7 +39,7 @@ type StateResponse = {
   error?: string;
 };
 
-const ACTIONS: Array<{ id: string; label: string; note: string }> = [
+export const ACTIONS: Array<{ id: string; label: string; note: string }> = [
   { id: "demo", label: "1. Run Demo", note: "Create deterministic runpack" },
   { id: "verify_demo", label: "2. Verify", note: "Validate artifact integrity" },
   { id: "receipt_demo", label: "3. Ticket Footer", note: "Extract paste-ready proof" },
@@ -63,12 +63,12 @@ async function requestJSON<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-function prettyAction(actionID: string): string {
+export function prettyAction(actionID: string): string {
   const action = ACTIONS.find((candidate) => candidate.id === actionID);
   return action?.label ?? actionID;
 }
 
-function stateFallback(error: unknown): StateResponse {
+export function stateFallback(error: unknown): StateResponse {
   return {
     ok: false,
     workspace: "",
@@ -77,7 +77,7 @@ function stateFallback(error: unknown): StateResponse {
   };
 }
 
-function computeArtifactChanges(previousState: StateResponse | null, nextState: StateResponse): string[] {
+export function computeArtifactChanges(previousState: StateResponse | null, nextState: StateResponse): string[] {
   const previousArtifacts = new Map<string, ArtifactState>();
   for (const artifact of previousState?.artifacts ?? []) {
     previousArtifacts.set(artifact.key, artifact);
@@ -96,6 +96,18 @@ function computeArtifactChanges(previousState: StateResponse | null, nextState: 
     }
   }
   return changed;
+}
+
+export function buildActionArgs(actionID: string, runIDInput: string, policyPath: string, intentPath: string): Record<string, string> {
+  const args: Record<string, string> = {};
+  if (actionID === "regress_init") {
+    args.run_id = runIDInput.trim();
+  }
+  if (actionID === "policy_block_test") {
+    args.policy_path = policyPath;
+    args.intent_path = intentPath;
+  }
+  return args;
 }
 
 export default function Page() {
@@ -158,14 +170,7 @@ export default function Page() {
   const runAction = async (actionID: string) => {
     setRunning(actionID);
     try {
-      const args: Record<string, string> = {};
-      if (actionID === "regress_init") {
-        args.run_id = runIDInput.trim();
-      }
-      if (actionID === "policy_block_test") {
-        args.policy_path = policyPath;
-        args.intent_path = intentPath;
-      }
+      const args = buildActionArgs(actionID, runIDInput, policyPath, intentPath);
       const payload = await requestJSON<ExecResponse>("/api/exec", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
