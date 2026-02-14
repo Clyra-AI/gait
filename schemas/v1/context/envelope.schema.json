@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/context/envelope.schema.json",
+  "title": "Context Evidence Envelope",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "context_set_id",
+    "context_set_digest",
+    "evidence_mode",
+    "records"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.context.envelope" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "context_set_id": { "type": "string", "minLength": 1 },
+    "context_set_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "evidence_mode": { "type": "string", "enum": ["best_effort", "required"] },
+    "records": {
+      "type": "array",
+      "items": { "$ref": "reference_record.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

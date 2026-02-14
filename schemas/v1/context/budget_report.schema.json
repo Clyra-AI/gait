@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/context/budget_report.schema.json",
+  "title": "Context Budget Report",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "context_set_digest",
+    "items_considered",
+    "items_included",
+    "items_dropped"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.context.budget_report" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "context_set_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "items_considered": { "type": "integer", "minimum": 0 },
+    "items_included": { "type": "integer", "minimum": 0 },
+    "items_dropped": { "type": "integer", "minimum": 0 },
+    "drop_reasons": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    }
+  },
+  "additionalProperties": false
+}

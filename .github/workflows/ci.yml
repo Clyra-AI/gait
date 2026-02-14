@@ -408,6 +408,57 @@ jobs:
         run: |
           make test-v2-4-acceptance
 
+  v2-5-acceptance:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.adoption_critical == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run v2.5 acceptance gate
+        shell: bash
+        run: |
+          make test-v2-5-acceptance
+
+  context-conformance:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.adoption_critical == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run context conformance gate
+        shell: bash
+        run: |
+          make test-context-conformance
+
+  context-chaos:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.adoption_critical == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run context chaos gate
+        shell: bash
+        run: |
+          make test-context-chaos
+
   packspec-tck:
     needs: changes
     runs-on: ubuntu-latest

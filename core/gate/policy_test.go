@@ -1168,6 +1168,135 @@ func TestPolicyHelperMatchersAndSanitizers(t *testing.T) {
 	}
 }
 
+func TestEvaluateContextConstraintBranches(t *testing.T) {
+	intent := baseIntent()
+
+	blocked, verdict, reasons, violations := evaluateContextConstraint(PolicyRule{}, intent)
+	if blocked || verdict != "" || len(reasons) != 0 || len(violations) != 0 {
+		t.Fatalf("expected no context constraint without context requirements: blocked=%v verdict=%q reasons=%#v violations=%#v", blocked, verdict, reasons, violations)
+	}
+
+	rule := PolicyRule{
+		RequireContextEvidence:      true,
+		RequiredContextEvidenceMode: "required",
+		MaxContextAgeSeconds:        30,
+	}
+	intent.Context.ContextSetDigest = ""
+	intent.Context.ContextEvidenceMode = "best_effort"
+	intent.Context.AuthContext = map[string]any{"context_age_seconds": int64(120)}
+
+	blocked, verdict, reasons, violations = evaluateContextConstraint(rule, intent)
+	if !blocked || verdict != "block" {
+		t.Fatalf("expected context constraint block, got blocked=%v verdict=%q", blocked, verdict)
+	}
+	for _, reason := range []string{
+		"context_evidence_missing",
+		"context_set_digest_missing",
+		"context_evidence_mode_mismatch",
+		"context_freshness_exceeded",
+	} {
+		if !contains(reasons, reason) {
+			t.Fatalf("expected reason %q in %#v", reason, reasons)
+		}
+	}
+	for _, violation := range []string{
+		"missing_context_evidence",
+		"context_evidence_mode_violation",
+		"context_freshness_violation",
+	} {
+		if !contains(violations, violation) {
+			t.Fatalf("expected violation %q in %#v", violation, violations)
+		}
+	}
+
+	intent.Context.ContextSetDigest = strings.Repeat("a", 64)
+	intent.Context.ContextEvidenceMode = "required"
+	intent.Context.AuthContext = map[string]any{"context_age_seconds": int64(5)}
+
+	blocked, verdict, reasons, violations = evaluateContextConstraint(rule, intent)
+	if blocked || verdict != "" || len(reasons) != 0 || len(violations) != 0 {
+		t.Fatalf("expected no context constraint block for valid context evidence: blocked=%v verdict=%q reasons=%#v violations=%#v", blocked, verdict, reasons, violations)
+	}
+
+	rule = PolicyRule{MaxContextAgeSeconds: 30}
+	intent.Context.AuthContext = map[string]any{}
+	blocked, verdict, reasons, violations = evaluateContextConstraint(rule, intent)
+	if !blocked || verdict != "block" {
+		t.Fatalf("expected freshness block when age is unavailable, got blocked=%v verdict=%q", blocked, verdict)
+	}
+	if !contains(reasons, "context_freshness_exceeded") || !contains(violations, "context_freshness_violation") {
+		t.Fatalf("expected freshness reason+violation, got reasons=%#v violations=%#v", reasons, violations)
+	}
+}
+
+func TestContextAgeSecondsParsesSupportedTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    any
+		expected int64
+		ok       bool
+	}{
+		{name: "int", value: int(3), expected: 3, ok: true},
+		{name: "int8", value: int8(4), expected: 4, ok: true},
+		{name: "int16", value: int16(5), expected: 5, ok: true},
+		{name: "int32", value: int32(6), expected: 6, ok: true},
+		{name: "int64", value: int64(7), expected: 7, ok: true},
+		{name: "uint", value: uint(8), expected: 8, ok: true},
+		{name: "uint8", value: uint8(9), expected: 9, ok: true},
+		{name: "uint16", value: uint16(10), expected: 10, ok: true},
+		{name: "uint32", value: uint32(11), expected: 11, ok: true},
+		{name: "uint64", value: uint64(12), expected: 12, ok: true},
+		{name: "float32", value: float32(13.7), expected: 13, ok: true},
+		{name: "float64", value: float64(14.9), expected: 14, ok: true},
+		{name: "json_number", value: json.Number("15"), expected: 15, ok: true},
+		{name: "string_number", value: " 16 ", expected: 16, ok: true},
+		{name: "overflow_uint64", value: ^uint64(0), expected: 0, ok: false},
+		{name: "negative_float32", value: float32(-1), expected: 0, ok: false},
+		{name: "negative_float64", value: float64(-2), expected: 0, ok: false},
+		{name: "negative_json_number", value: json.Number("-3"), expected: 0, ok: false},
+		{name: "invalid_json_number", value: json.Number("nope"), expected: 0, ok: false},
+		{name: "invalid_string_number", value: "nope", expected: 0, ok: false},
+		{name: "unsupported_type", value: []string{"x"}, expected: 0, ok: false},
+	}
+
+	if value, ok := contextAgeSeconds(nil); ok || value != 0 {
+		t.Fatalf("expected nil auth_context to be unsupported, got value=%d ok=%v", value, ok)
+	}
+	if value, ok := contextAgeSeconds(map[string]any{}); ok || value != 0 {
+		t.Fatalf("expected empty auth_context to be unsupported, got value=%d ok=%v", value, ok)
+	}
+	if value, ok := contextAgeSeconds(map[string]any{"other": 1}); ok || value != 0 {
+		t.Fatalf("expected missing context_age_seconds to be unsupported, got value=%d ok=%v", value, ok)
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			age, ok := contextAgeSeconds(map[string]any{"context_age_seconds": tc.value})
+			if ok != tc.ok || age != tc.expected {
+				t.Fatalf("unexpected context age parse for %s: age=%d ok=%v expected_age=%d expected_ok=%v", tc.name, age, ok, tc.expected, tc.ok)
+			}
+		})
+	}
+}
+
+func TestEvaluateFailClosedRequiredFieldsContextEvidence(t *testing.T) {
+	intent := baseIntent()
+	intent.Context.ContextSetDigest = ""
+	reasons, violations := evaluateFailClosedRequiredFields([]string{"context_evidence"}, intent)
+	if !reflect.DeepEqual(reasons, []string{"context_evidence_missing"}) {
+		t.Fatalf("unexpected context evidence reasons: %#v", reasons)
+	}
+	if !reflect.DeepEqual(violations, []string{"missing_context_evidence"}) {
+		t.Fatalf("unexpected context evidence violations: %#v", violations)
+	}
+
+	intent.Context.ContextSetDigest = strings.Repeat("b", 64)
+	reasons, violations = evaluateFailClosedRequiredFields([]string{"context_evidence"}, intent)
+	if len(reasons) != 0 || len(violations) != 0 {
+		t.Fatalf("expected no context evidence violations when digest exists, got reasons=%#v violations=%#v", reasons, violations)
+	}
+}
+
 func baseIntent() schemagate.IntentRequest {
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",

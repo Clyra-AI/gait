@@ -29,7 +29,10 @@
         "added_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "removed_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "changed_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "manifest_delta": { "type": "boolean" }
+        "manifest_delta": { "type": "boolean" },
+        "context_changed": { "type": "boolean" },
+        "context_runtime_only_changes": { "type": "boolean" },
+        "context_drift_classification": { "type": "string", "enum": ["none", "runtime_only", "semantic"] }
       },
       "additionalProperties": false
     }

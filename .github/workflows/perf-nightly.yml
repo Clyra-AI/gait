@@ -41,6 +41,9 @@ jobs:
       - name: Check UI runtime budgets
         run: |
           python scripts/check_ui_budgets.py ./gait perf/ui_budgets.json perf/ui_budget_report.json
+      - name: Check context runtime budgets
+        run: |
+          python scripts/check_context_budgets.py ./gait perf/context_budgets.json perf/context_budget_report.json
       - name: Upload benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -52,3 +55,4 @@ jobs:
             perf/resource_budget_report.json
             perf/command_budget_report.json
             perf/ui_budget_report.json
+            perf/context_budget_report.json

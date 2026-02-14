@@ -73,24 +73,29 @@ type ResultRecord struct {
 }
 
 type Refs struct {
-	SchemaID        string       `json:"schema_id"`
-	SchemaVersion   string       `json:"schema_version"`
-	CreatedAt       time.Time    `json:"created_at"`
-	ProducerVersion string       `json:"producer_version"`
-	RunID           string       `json:"run_id"`
-	Receipts        []RefReceipt `json:"receipts"`
+	SchemaID            string       `json:"schema_id"`
+	SchemaVersion       string       `json:"schema_version"`
+	CreatedAt           time.Time    `json:"created_at"`
+	ProducerVersion     string       `json:"producer_version"`
+	RunID               string       `json:"run_id"`
+	ContextSetDigest    string       `json:"context_set_digest,omitempty"`
+	ContextEvidenceMode string       `json:"context_evidence_mode,omitempty"`
+	ContextRefCount     int          `json:"context_ref_count,omitempty"`
+	Receipts            []RefReceipt `json:"receipts"`
 }
 
 type RefReceipt struct {
-	RefID            string         `json:"ref_id"`
-	SourceType       string         `json:"source_type"`
-	SourceLocator    string         `json:"source_locator"`
-	QueryDigest      string         `json:"query_digest"`
-	ContentDigest    string         `json:"content_digest"`
-	RetrievedAt      time.Time      `json:"retrieved_at"`
-	RedactionMode    string         `json:"redaction_mode"`
-	SensitivityLabel string         `json:"sensitivity_label,omitempty"`
-	RetrievalParams  map[string]any `json:"retrieval_params,omitempty"`
+	RefID               string         `json:"ref_id"`
+	SourceType          string         `json:"source_type"`
+	SourceLocator       string         `json:"source_locator"`
+	QueryDigest         string         `json:"query_digest"`
+	ContentDigest       string         `json:"content_digest"`
+	RetrievedAt         time.Time      `json:"retrieved_at"`
+	RedactionMode       string         `json:"redaction_mode"`
+	Immutability        string         `json:"immutability,omitempty"`
+	FreshnessSLASeconds int64          `json:"freshness_sla_seconds,omitempty"`
+	SensitivityLabel    string         `json:"sensitivity_label,omitempty"`
+	RetrievalParams     map[string]any `json:"retrieval_params,omitempty"`
 }
 
 type SessionJournal struct {

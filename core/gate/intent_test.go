@@ -528,6 +528,26 @@ func TestNormalizeTargetsAndProvenanceErrors(t *testing.T) {
 	}
 }
 
+func TestNormalizeContextRefs(t *testing.T) {
+	if refs := normalizeContextRefs(nil); refs != nil {
+		t.Fatalf("expected nil refs for empty input, got %#v", refs)
+	}
+	if refs := normalizeContextRefs([]string{" ", "\t"}); refs != nil {
+		t.Fatalf("expected nil refs for whitespace-only input, got %#v", refs)
+	}
+
+	refs := normalizeContextRefs([]string{" ref-b ", "ref-a", "ref-b", "", "ref-c"})
+	expected := []string{"ref-a", "ref-b", "ref-c"}
+	if len(refs) != len(expected) {
+		t.Fatalf("unexpected refs length: got=%d want=%d refs=%#v", len(refs), len(expected), refs)
+	}
+	for index, want := range expected {
+		if refs[index] != want {
+			t.Fatalf("unexpected refs[%d]: got=%q want=%q refs=%#v", index, refs[index], want, refs)
+		}
+	}
+}
+
 func mustReadIntentFixture(t *testing.T, name string) schemagate.IntentRequest {
 	t.Helper()
 	path := filepath.Join("testdata", name)

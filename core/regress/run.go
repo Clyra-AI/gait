@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/contextproof"
 	"github.com/davidahmann/gait/core/fsx"
 	"github.com/davidahmann/gait/core/runpack"
 	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
@@ -23,12 +24,14 @@ const (
 )
 
 type RunOptions struct {
-	ConfigPath            string
-	OutputPath            string
-	JUnitPath             string
-	WorkDir               string
-	ProducerVersion       string
-	AllowNondeterministic bool
+	ConfigPath               string
+	OutputPath               string
+	JUnitPath                string
+	WorkDir                  string
+	ProducerVersion          string
+	AllowNondeterministic    bool
+	ContextConformance       bool
+	AllowContextRuntimeDrift bool
 }
 
 type RunResult struct {
@@ -127,6 +130,12 @@ func Run(opts RunOptions) (RunResult, error) {
 		schemaValidationGrader{},
 		expectedReplayExitCodeGrader{},
 		diffGrader{},
+	}
+	if shouldRunContextConformance(opts, fixtures) {
+		graders = append(graders, contextConformanceGrader{
+			enforce:           opts.ContextConformance,
+			allowRuntimeDrift: opts.AllowContextRuntimeDrift,
+		})
 	}
 	for _, grader := range graders {
 		if !grader.Deterministic() && !opts.AllowNondeterministic {
@@ -291,6 +300,24 @@ func loadFixtureSpecs(cfg configFile, workDir string) ([]fixtureSpec, error) {
 		return specs[i].Name < specs[j].Name
 	})
 	return specs, nil
+}
+
+func shouldRunContextConformance(opts RunOptions, fixtures []fixtureSpec) bool {
+	if opts.ContextConformance {
+		return true
+	}
+	for _, fixture := range fixtures {
+		if strings.TrimSpace(fixture.Meta.ContextConformance) != "" {
+			return true
+		}
+		if strings.TrimSpace(fixture.Meta.ExpectedContextSetDigest) != "" {
+			return true
+		}
+		if fixture.Meta.AllowContextRuntimeDrift {
+			return true
+		}
+	}
+	return false
 }
 
 type schemaValidationGrader struct{}
@@ -472,6 +499,100 @@ func (diffGrader) Grade(ctx FixtureContext) (schemaregress.GraderResult, error) 
 		Status:      regressStatusPass,
 		ReasonCodes: []string{},
 		Details:     details,
+	}, nil
+}
+
+type contextConformanceGrader struct {
+	enforce           bool
+	allowRuntimeDrift bool
+}
+
+func (contextConformanceGrader) Name() string { return "context_conformance" }
+
+func (contextConformanceGrader) Deterministic() bool { return true }
+
+func (grader contextConformanceGrader) Grade(ctx FixtureContext) (schemaregress.GraderResult, error) {
+	candidatePath, err := resolveCandidatePath(ctx.Fixture)
+	if err != nil {
+		result := failResult("context_conformance", "candidate_path_invalid", map[string]any{
+			"error": err.Error(),
+		})
+		result.ContextConformance = "missing"
+		return result, nil
+	}
+	sourcePack, err := runpack.ReadRunpack(ctx.Fixture.RunpackPath)
+	if err != nil {
+		result := failResult("context_conformance", "source_runpack_invalid", map[string]any{
+			"error": err.Error(),
+		})
+		result.ContextConformance = "missing"
+		return result, nil
+	}
+	candidatePack, err := runpack.ReadRunpack(candidatePath)
+	if err != nil {
+		result := failResult("context_conformance", "candidate_runpack_invalid", map[string]any{
+			"error": err.Error(),
+		})
+		result.ContextConformance = "missing"
+		return result, nil
+	}
+
+	classification, changed, runtimeOnly, err := contextproof.ClassifyRefsDrift(sourcePack.Refs, candidatePack.Refs)
+	if err != nil {
+		result := failResult("context_conformance", "context_diff_error", map[string]any{
+			"error": err.Error(),
+		})
+		result.ContextConformance = "missing"
+		return result, nil
+	}
+
+	details := map[string]any{
+		"candidate_runpack":            candidatePath,
+		"context_set_digest_fixture":   sourcePack.Refs.ContextSetDigest,
+		"context_set_digest_candidate": candidatePack.Refs.ContextSetDigest,
+		"context_changed":              changed,
+		"context_runtime_only":         runtimeOnly,
+	}
+
+	enforce := grader.enforce || strings.TrimSpace(ctx.Fixture.Meta.ContextConformance) == "required" || strings.TrimSpace(ctx.Fixture.Meta.ExpectedContextSetDigest) != ""
+	allowRuntime := grader.allowRuntimeDrift || ctx.Fixture.Meta.AllowContextRuntimeDrift
+	expectedDigest := strings.TrimSpace(ctx.Fixture.Meta.ExpectedContextSetDigest)
+	if expectedDigest != "" && !strings.EqualFold(candidatePack.Refs.ContextSetDigest, expectedDigest) {
+		result := failResult("context_conformance", "context_set_digest_mismatch", details)
+		result.ContextConformance = "semantic"
+		return result, nil
+	}
+	if !enforce {
+		return schemaregress.GraderResult{
+			Name:               "context_conformance",
+			Status:             regressStatusPass,
+			ReasonCodes:        []string{"context_conformance_not_required"},
+			ContextConformance: classification,
+			Details:            details,
+		}, nil
+	}
+	if strings.TrimSpace(candidatePack.Refs.ContextSetDigest) == "" {
+		result := failResult("context_conformance", "context_evidence_missing", details)
+		result.ContextConformance = "missing"
+		return result, nil
+	}
+	if classification == "semantic" {
+		result := failResult("context_conformance", "context_semantic_drift", details)
+		result.ContextConformance = "semantic"
+		return result, nil
+	}
+	if classification == "runtime_only" && !allowRuntime {
+		result := failResult("context_conformance", "context_runtime_drift_blocked", details)
+		result.ContextConformance = "runtime_only"
+		return result, nil
+	}
+
+	return schemaregress.GraderResult{
+		Name:               "context_conformance",
+		Status:             regressStatusPass,
+		ReasonCodes:        []string{"context_conformance_pass"},
+		ContextConformance: classification,
+		Details:            details,
 	}, nil
 }
 

@@ -37,6 +37,9 @@ type gateEvalOutput struct {
 	TracePath              string   `json:"trace_path,omitempty"`
 	PolicyDigest           string   `json:"policy_digest,omitempty"`
 	IntentDigest           string   `json:"intent_digest,omitempty"`
+	ContextSetDigest       string   `json:"context_set_digest,omitempty"`
+	ContextEvidenceMode    string   `json:"context_evidence_mode,omitempty"`
+	ContextRefCount        int      `json:"context_ref_count,omitempty"`
 	MatchedRule            string   `json:"matched_rule,omitempty"`
 	RateLimitScope         string   `json:"rate_limit_scope,omitempty"`
 	RateLimitKey           string   `json:"rate_limit_key,omitempty"`
@@ -649,6 +652,9 @@ func runGateEval(arguments []string) int {
 		TracePath:              traceResult.TracePath,
 		PolicyDigest:           traceResult.PolicyDigest,
 		IntentDigest:           traceResult.IntentDigest,
+		ContextSetDigest:       intent.Context.ContextSetDigest,
+		ContextEvidenceMode:    intent.Context.ContextEvidenceMode,
+		ContextRefCount:        len(intent.Context.ContextRefs),
 		MatchedRule:            outcome.MatchedRule,
 		RateLimitScope:         rateDecision.Scope,
 		RateLimitKey:           rateDecision.Key,

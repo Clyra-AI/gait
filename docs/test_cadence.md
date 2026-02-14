@@ -29,11 +29,13 @@ Core suites include:
 - `make lint`
 - `make test`
 - `make test-e2e`
-- acceptance wedges (`make test-acceptance`, `make test-v1-6-acceptance`, `make test-v1-7-acceptance`, `make test-v1-8-acceptance`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`)
+- acceptance wedges (`make test-acceptance`, `make test-v1-6-acceptance`, `make test-v1-7-acceptance`, `make test-v1-8-acceptance`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`, `make test-v2-5-acceptance`)
+- v2.5 context lanes (`make test-context-conformance`, `make test-context-chaos`)
 - PackSpec contract lane (`make test-packspec-tck`)
 - adoption and adapter parity suites
 - hardening acceptance and contract checks
 - release/install smoke paths
+- runtime/perf budget lanes (`make test-runtime-slo`, `make bench-check`)
 
 ## Nightly Cadence (Stability + Drift)
 
@@ -43,6 +45,11 @@ Nightly workflows cover slower/systemic checks:
 - `hardening-nightly.yml`
 - `perf-nightly.yml`
 - `windows-lint-nightly.yml`
+
+Nightly context coverage requirements:
+
+- hardening nightly runs context conformance + chaos lanes
+- perf nightly runs context budget checks from `perf/context_budgets.json`
 
 Nightly objective:
 

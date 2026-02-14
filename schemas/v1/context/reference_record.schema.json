@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/context/reference_record.schema.json",
+  "title": "Context Reference Record",
+  "type": "object",
+  "required": [
+    "ref_id",
+    "source_type",
+    "source_locator",
+    "query_digest",
+    "content_digest",
+    "retrieved_at",
+    "redaction_mode",
+    "immutability"
+  ],
+  "properties": {
+    "ref_id": { "type": "string", "minLength": 1 },
+    "source_type": { "type": "string", "minLength": 1 },
+    "source_locator": { "type": "string", "minLength": 1 },
+    "query_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "content_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "retrieved_at": { "type": "string", "format": "date-time" },
+    "redaction_mode": { "type": "string", "minLength": 1 },
+    "immutability": { "type": "string", "enum": ["unknown", "mutable", "immutable"] },
+    "sensitivity_label": { "type": "string" },
+    "freshness_sla_seconds": { "type": "integer", "minimum": 0 },
+    "retrieval_params": { "type": "object" }
+  },
+  "additionalProperties": false
+}

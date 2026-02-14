@@ -19,7 +19,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint lint-fast codeql test test-fast prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-v2-4-acceptance test-packspec-tck test-ui-acceptance test-ui-unit test-ui-e2e-smoke test-ui-perf test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
+.PHONY: fmt lint lint-fast codeql test test-fast prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-v2-4-acceptance test-v2-5-acceptance test-context-conformance test-context-chaos test-packspec-tck test-ui-acceptance test-ui-unit test-ui-e2e-smoke test-ui-perf test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets context-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
 .PHONY: hooks
 .PHONY: docs-site-install docs-site-build docs-site-lint docs-site-check
 
@@ -94,6 +94,7 @@ test-chaos:
 	bash scripts/test_chaos_sessions.sh
 	bash scripts/test_chaos_trace_uniqueness.sh
 	bash scripts/test_job_runtime_chaos.sh
+	bash scripts/test_context_chaos.sh
 
 coverage:
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
@@ -125,6 +126,18 @@ test-v2-3-acceptance:
 test-v2-4-acceptance:
 	$(GO) build -o ./gait ./cmd/gait
 	bash scripts/test_v2_4_acceptance.sh ./gait
+
+test-v2-5-acceptance:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_v2_5_acceptance.sh ./gait
+
+test-context-conformance:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_context_conformance.sh ./gait
+
+test-context-chaos:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_context_chaos.sh ./gait
 
 test-packspec-tck:
 	$(GO) build -o ./gait ./cmd/gait
@@ -202,12 +215,18 @@ bench:
 bench-check: bench
 	$(PYTHON) scripts/check_bench_regression.py $(BENCH_OUTPUT) $(BENCH_BASELINE) perf/bench_report.json
 	$(PYTHON) scripts/check_resource_budgets.py $(BENCH_OUTPUT) perf/resource_budgets.json perf/resource_budget_report.json
+	$(GO) build -o ./gait ./cmd/gait
+	$(PYTHON) scripts/check_context_budgets.py ./gait perf/context_budgets.json perf/context_budget_report.json
 
 bench-budgets:
 	$(GO) build -o ./gait ./cmd/gait
 	$(PYTHON) scripts/check_command_budgets.py ./gait perf/command_budget_report.json perf/runtime_slo_budgets.json
 
-test-runtime-slo: bench-budgets
+context-budgets:
+	$(GO) build -o ./gait ./cmd/gait
+	$(PYTHON) scripts/check_context_budgets.py ./gait perf/context_budgets.json perf/context_budget_report.json
+
+test-runtime-slo: bench-budgets context-budgets
 
 hooks:
 	git config core.hooksPath .githooks

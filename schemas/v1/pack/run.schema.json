@@ -23,7 +23,11 @@
     "manifest_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "intents_count": { "type": "integer", "minimum": 0 },
     "results_count": { "type": "integer", "minimum": 0 },
-    "refs_count": { "type": "integer", "minimum": 0 }
+    "refs_count": { "type": "integer", "minimum": 0 },
+    "context_set_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "context_ref_count": { "type": "integer", "minimum": 0 },
+    "context_evidence_mode": { "type": "string", "enum": ["best_effort", "required"] },
+    "context_privacy_mode": { "type": "string", "minLength": 1 }
   },
   "additionalProperties": false
 }

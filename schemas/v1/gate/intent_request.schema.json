@@ -131,7 +131,13 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
         },
-        "environment_fingerprint": { "type": "string", "minLength": 1 }
+        "environment_fingerprint": { "type": "string", "minLength": 1 },
+        "context_set_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "context_evidence_mode": { "type": "string", "enum": ["best_effort", "required"] },
+        "context_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
       },
       "additionalProperties": true
     }

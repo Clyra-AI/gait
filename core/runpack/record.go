@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/contextproof"
 	"github.com/davidahmann/gait/core/fsx"
 	"github.com/davidahmann/gait/core/jcs"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
@@ -46,7 +47,10 @@ func RecordRun(options RecordOptions) (RecordResult, error) {
 
 	intents := applyIntentDefaults(options.Intents, run)
 	results := applyResultDefaults(options.Results, run)
-	refs := applyRefsDefaults(options.Refs, run)
+	refs, err := applyRefsDefaults(options.Refs, run)
+	if err != nil {
+		return RecordResult{}, fmt.Errorf("normalize refs: %w", err)
+	}
 
 	captureMode := options.CaptureMode
 	if captureMode == "" {
@@ -302,7 +306,7 @@ func applyResultDefaults(results []schemarunpack.ResultRecord, run schemarunpack
 	return out
 }
 
-func applyRefsDefaults(refs schemarunpack.Refs, run schemarunpack.Run) schemarunpack.Refs {
+func applyRefsDefaults(refs schemarunpack.Refs, run schemarunpack.Run) (schemarunpack.Refs, error) {
 	if refs.SchemaID == "" {
 		refs.SchemaID = "gait.runpack.refs"
 	}
@@ -321,5 +325,9 @@ func applyRefsDefaults(refs schemarunpack.Refs, run schemarunpack.Run) schemarun
 	if refs.Receipts == nil {
 		refs.Receipts = []schemarunpack.RefReceipt{}
 	}
-	return refs
+	normalized, err := contextproof.NormalizeRefs(refs)
+	if err != nil {
+		return schemarunpack.Refs{}, err
+	}
+	return normalized, nil
 }

@@ -22,6 +22,7 @@ const (
 	defaultVerdict = "require_approval"
 	gateSchemaID   = "gait.gate.result"
 	gateSchemaV1   = "1.0.0"
+	maxInt64Uint64 = ^uint64(0) >> 1
 )
 
 var (
@@ -32,10 +33,11 @@ var (
 		"require_approval": {},
 	}
 	allowedRequiredFields = map[string]struct{}{
-		"targets":        {},
-		"arg_provenance": {},
-		"endpoint_class": {},
-		"delegation":     {},
+		"targets":          {},
+		"arg_provenance":   {},
+		"endpoint_class":   {},
+		"delegation":       {},
+		"context_evidence": {},
 	}
 	allowedRateLimitScopes = map[string]struct{}{
 		"tool":          {},
@@ -67,20 +69,23 @@ type FailClosedPolicy struct {
 }
 
 type PolicyRule struct {
-	Name                     string          `yaml:"name"`
-	Priority                 int             `yaml:"priority"`
-	Effect                   string          `yaml:"effect"`
-	Match                    PolicyMatch     `yaml:"match"`
-	Endpoint                 EndpointPolicy  `yaml:"endpoint"`
-	ReasonCodes              []string        `yaml:"reason_codes"`
-	Violations               []string        `yaml:"violations"`
-	MinApprovals             int             `yaml:"min_approvals"`
-	RequireDistinctApprovers bool            `yaml:"require_distinct_approvers"`
-	RequireBrokerCredential  bool            `yaml:"require_broker_credential"`
-	BrokerReference          string          `yaml:"broker_reference"`
-	BrokerScopes             []string        `yaml:"broker_scopes"`
-	RateLimit                RateLimitPolicy `yaml:"rate_limit"`
-	Dataflow                 DataflowPolicy  `yaml:"dataflow"`
+	Name                        string          `yaml:"name"`
+	Priority                    int             `yaml:"priority"`
+	Effect                      string          `yaml:"effect"`
+	Match                       PolicyMatch     `yaml:"match"`
+	Endpoint                    EndpointPolicy  `yaml:"endpoint"`
+	ReasonCodes                 []string        `yaml:"reason_codes"`
+	Violations                  []string        `yaml:"violations"`
+	MinApprovals                int             `yaml:"min_approvals"`
+	RequireDistinctApprovers    bool            `yaml:"require_distinct_approvers"`
+	RequireContextEvidence      bool            `yaml:"require_context_evidence"`
+	RequiredContextEvidenceMode string          `yaml:"required_context_evidence_mode"`
+	MaxContextAgeSeconds        int64           `yaml:"max_context_age_seconds"`
+	RequireBrokerCredential     bool            `yaml:"require_broker_credential"`
+	BrokerReference             string          `yaml:"broker_reference"`
+	BrokerScopes                []string        `yaml:"broker_scopes"`
+	RateLimit                   RateLimitPolicy `yaml:"rate_limit"`
+	Dataflow                    DataflowPolicy  `yaml:"dataflow"`
 }
 
 type RateLimitPolicy struct {
@@ -263,6 +268,12 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 			reasons = mergeUniqueSorted(reasons, endpointReasons)
 			violations = mergeUniqueSorted(violations, endpointViolations)
 		}
+		contextTriggered, contextEffect, contextReasons, contextViolations := evaluateContextConstraint(rule, normalizedIntent)
+		if contextTriggered {
+			effect = mostRestrictiveVerdict(effect, contextEffect)
+			reasons = mergeUniqueSorted(reasons, contextReasons)
+			violations = mergeUniqueSorted(violations, contextViolations)
+		}
 		minApprovals := rule.MinApprovals
 		if effect == "require_approval" && minApprovals == 0 {
 			minApprovals = 1
@@ -376,6 +387,15 @@ func policyDigestPayload(policy Policy) map[string]any {
 		}
 		if rule.RequireDistinctApprovers {
 			rulePayload["RequireDistinctApprovers"] = rule.RequireDistinctApprovers
+		}
+		if rule.RequireContextEvidence {
+			rulePayload["RequireContextEvidence"] = rule.RequireContextEvidence
+		}
+		if rule.RequiredContextEvidenceMode != "" {
+			rulePayload["RequiredContextEvidenceMode"] = rule.RequiredContextEvidenceMode
+		}
+		if rule.MaxContextAgeSeconds > 0 {
+			rulePayload["MaxContextAgeSeconds"] = rule.MaxContextAgeSeconds
 		}
 		if rule.RequireBrokerCredential {
 			rulePayload["RequireBrokerCredential"] = rule.RequireBrokerCredential
@@ -534,6 +554,16 @@ func normalizePolicy(input Policy) (Policy, error) {
 		rule.Violations = uniqueSorted(rule.Violations)
 		if rule.MinApprovals < 0 {
 			return Policy{}, fmt.Errorf("min_approvals must be >= 0 for %s", rule.Name)
+		}
+		rule.RequiredContextEvidenceMode = strings.ToLower(strings.TrimSpace(rule.RequiredContextEvidenceMode))
+		if rule.RequiredContextEvidenceMode != "" && rule.RequiredContextEvidenceMode != "required" {
+			return Policy{}, fmt.Errorf("required_context_evidence_mode must be required for %s", rule.Name)
+		}
+		if rule.RequireContextEvidence && rule.RequiredContextEvidenceMode == "" {
+			rule.RequiredContextEvidenceMode = "required"
+		}
+		if rule.MaxContextAgeSeconds < 0 {
+			return Policy{}, fmt.Errorf("max_context_age_seconds must be >= 0 for %s", rule.Name)
 		}
 		if rule.MinApprovals > 1 && !rule.RequireDistinctApprovers {
 			rule.RequireDistinctApprovers = true
@@ -936,6 +966,11 @@ func evaluateFailClosedRequiredFields(requiredFields []string, intent schemagate
 				reasons = append(reasons, "fail_closed_missing_delegation")
 				violations = append(violations, "missing_delegation")
 			}
+		case "context_evidence":
+			if strings.TrimSpace(intent.Context.ContextSetDigest) == "" {
+				reasons = append(reasons, "context_evidence_missing")
+				violations = append(violations, "missing_context_evidence")
+			}
 		}
 	}
 	return uniqueSorted(reasons), uniqueSorted(violations)
@@ -948,6 +983,100 @@ func evaluateFailClosedEndpointClasses(intent schemagate.IntentRequest) ([]strin
 		}
 	}
 	return []string{}, []string{}
+}
+
+func evaluateContextConstraint(rule PolicyRule, intent schemagate.IntentRequest) (bool, string, []string, []string) {
+	contextRequired := rule.RequireContextEvidence || rule.RequiredContextEvidenceMode == "required" || rule.MaxContextAgeSeconds > 0
+	if !contextRequired {
+		return false, "", nil, nil
+	}
+	reasons := make([]string, 0, 3)
+	violations := make([]string, 0, 3)
+	contextDigest := strings.TrimSpace(intent.Context.ContextSetDigest)
+	if contextDigest == "" {
+		reasons = append(reasons, "context_evidence_missing", "context_set_digest_missing")
+		violations = append(violations, "missing_context_evidence")
+	}
+	if rule.RequiredContextEvidenceMode == "required" {
+		if strings.TrimSpace(intent.Context.ContextEvidenceMode) != "required" {
+			reasons = append(reasons, "context_evidence_mode_mismatch")
+			violations = append(violations, "context_evidence_mode_violation")
+		}
+	}
+	if rule.MaxContextAgeSeconds > 0 {
+		ageSeconds, ok := contextAgeSeconds(intent.Context.AuthContext)
+		if !ok || ageSeconds > rule.MaxContextAgeSeconds {
+			reasons = append(reasons, "context_freshness_exceeded")
+			violations = append(violations, "context_freshness_violation")
+		}
+	}
+	if len(reasons) == 0 {
+		return false, "", nil, nil
+	}
+	return true, "block", uniqueSorted(reasons), uniqueSorted(violations)
+}
+
+func contextAgeSeconds(authContext map[string]any) (int64, bool) {
+	if len(authContext) == 0 {
+		return 0, false
+	}
+	value, ok := authContext["context_age_seconds"]
+	if !ok {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case int:
+		return int64(typed), true
+	case int8:
+		return int64(typed), true
+	case int16:
+		return int64(typed), true
+	case int32:
+		return int64(typed), true
+	case int64:
+		return typed, true
+	case uint:
+		return contextAgeFromUnsigned(uint64(typed))
+	case uint8:
+		return contextAgeFromUnsigned(uint64(typed))
+	case uint16:
+		return contextAgeFromUnsigned(uint64(typed))
+	case uint32:
+		return contextAgeFromUnsigned(uint64(typed))
+	case uint64:
+		return contextAgeFromUnsigned(typed)
+	case float32:
+		if typed < 0 {
+			return 0, false
+		}
+		return int64(typed), true
+	case float64:
+		if typed < 0 {
+			return 0, false
+		}
+		return int64(typed), true
+	case json.Number:
+		parsed, err := typed.Int64()
+		if err != nil || parsed < 0 {
+			return 0, false
+		}
+		return parsed, true
+	case string:
+		parsed, err := json.Number(strings.TrimSpace(typed)).Int64()
+		if err != nil || parsed < 0 {
+			return 0, false
+		}
+		return parsed, true
+	default:
+		return 0, false
+	}
+}
+
+func contextAgeFromUnsigned(value uint64) (int64, bool) {
+	if value > maxInt64Uint64 {
+		return 0, false
+	}
+	return int64(value), true
 }
 
 func evaluateEndpointConstraint(endpoint EndpointPolicy, intent schemagate.IntentRequest) (bool, string, []string, []string) {

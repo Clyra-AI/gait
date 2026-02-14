@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/davidahmann/gait/core/contextproof"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 )
 
@@ -104,6 +105,13 @@ func ReadRunpack(path string) (Runpack, error) {
 	var refs schemarunpack.Refs
 	if err := json.Unmarshal(refsBytes, &refs); err != nil {
 		return Runpack{}, fmt.Errorf("parse refs: %w", err)
+	}
+	refs, err = contextproof.NormalizeRefs(refs)
+	if err != nil {
+		return Runpack{}, fmt.Errorf("normalize refs: %w", err)
+	}
+	if refs.ContextEvidenceMode == contextproof.EvidenceModeRequired && strings.TrimSpace(refs.ContextSetDigest) == "" {
+		return Runpack{}, fmt.Errorf("context evidence mode required but context_set_digest is missing")
 	}
 
 	return Runpack{

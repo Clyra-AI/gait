@@ -317,6 +317,36 @@ func TestHelpersAndValidation(t *testing.T) {
 	}
 }
 
+func TestDetectContextPrivacyMode(t *testing.T) {
+	if mode := detectContextPrivacyMode(nil); mode != "" {
+		t.Fatalf("expected empty privacy mode when receipts are empty, got %q", mode)
+	}
+
+	unknown := []schemarunpack.RefReceipt{
+		{RefID: "ctx_1", RedactionMode: " "},
+		{RefID: "ctx_2", RedactionMode: ""},
+	}
+	if mode := detectContextPrivacyMode(unknown); mode != "unknown" {
+		t.Fatalf("expected unknown privacy mode for blank redaction_mode values, got %q", mode)
+	}
+
+	reference := []schemarunpack.RefReceipt{
+		{RefID: "ctx_1", RedactionMode: "reference"},
+		{RefID: "ctx_2", RedactionMode: "reference"},
+	}
+	if mode := detectContextPrivacyMode(reference); mode != "reference" {
+		t.Fatalf("expected reference privacy mode, got %q", mode)
+	}
+
+	mixed := []schemarunpack.RefReceipt{
+		{RefID: "ctx_1", RedactionMode: "reference"},
+		{RefID: "ctx_2", RedactionMode: "raw"},
+	}
+	if mode := detectContextPrivacyMode(mixed); mode != "mixed" {
+		t.Fatalf("expected mixed privacy mode, got %q", mode)
+	}
+}
+
 func TestVerifySignatureModesAndMissingDeclaredFiles(t *testing.T) {
 	workDir := t.TempDir()
 	runpackPath := createRunpackFixture(t, workDir, "run_signature_modes")

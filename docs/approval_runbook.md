@@ -33,6 +33,27 @@ Expected:
 - Exit `4`
 - verdict `require_approval`
 - stable `intent_digest` and `policy_digest`
+- for context-required rules, non-compliant requests may return block with:
+  - `context_evidence_missing`
+  - `context_set_digest_missing`
+  - `context_evidence_mode_mismatch`
+  - `context_freshness_exceeded`
+
+## Step 1A: Context-Required Re-evaluation (When Policy Demands Context Evidence)
+
+Before token minting for context-required rules, validate intent context linkage:
+
+```bash
+gait gate eval --policy <policy.yaml> --intent <intent.json> --json
+```
+
+Intent context requirements:
+
+- `context.context_set_digest` present
+- `context.context_evidence_mode=required` when policy requires required mode
+- optional freshness bound satisfied (`context.auth_context.context_age_seconds <= max_context_age_seconds`)
+
+If any requirement fails, do not mint approval token. Fix intent context and re-evaluate.
 
 ## Step 2: Mint Approval Token
 
@@ -67,6 +88,7 @@ Expected:
 
 - Exit `0` and verdict `allow`, or
 - Exit `4` if approvals are still insufficient
+- Exit `3` and verdict `block` for context-required violations until context proof is corrected
 
 ## Step 4: Execute Via Wrapped Tool Path
 

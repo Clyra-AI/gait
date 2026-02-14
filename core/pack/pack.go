@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/contextproof"
 	coreerrors "github.com/davidahmann/gait/core/errors"
 	"github.com/davidahmann/gait/core/guard"
 	"github.com/davidahmann/gait/core/jcs"
@@ -148,15 +149,19 @@ func BuildRunPack(options BuildRunOptions) (BuildResult, error) {
 	}
 
 	payload := schemapack.RunPayload{
-		SchemaID:       "gait.pack.run",
-		SchemaVersion:  "1.0.0",
-		CreatedAt:      normalizeTime(data.Run.CreatedAt),
-		RunID:          data.Run.RunID,
-		CaptureMode:    data.Manifest.CaptureMode,
-		ManifestDigest: data.Manifest.ManifestDigest,
-		IntentsCount:   len(data.Intents),
-		ResultsCount:   len(data.Results),
-		RefsCount:      len(data.Refs.Receipts),
+		SchemaID:            "gait.pack.run",
+		SchemaVersion:       "1.0.0",
+		CreatedAt:           normalizeTime(data.Run.CreatedAt),
+		RunID:               data.Run.RunID,
+		CaptureMode:         data.Manifest.CaptureMode,
+		ManifestDigest:      data.Manifest.ManifestDigest,
+		IntentsCount:        len(data.Intents),
+		ResultsCount:        len(data.Results),
+		RefsCount:           len(data.Refs.Receipts),
+		ContextSetDigest:    data.Refs.ContextSetDigest,
+		ContextRefCount:     len(data.Refs.Receipts),
+		ContextEvidenceMode: data.Refs.ContextEvidenceMode,
+		ContextPrivacyMode:  detectContextPrivacyMode(data.Refs.Receipts),
 	}
 	payloadBytes, err := canonicalJSON(payload)
 	if err != nil {
@@ -166,6 +171,15 @@ func BuildRunPack(options BuildRunOptions) (BuildResult, error) {
 	files := []zipx.File{
 		{Path: "run_payload.json", Data: payloadBytes, Mode: 0o644},
 		{Path: "source/runpack.zip", Data: rawRunpack, Mode: 0o644},
+	}
+	if envelope, ok, envelopeErr := contextproof.EnvelopeFromRefs(data.Refs); envelopeErr != nil {
+		return BuildResult{}, fmt.Errorf("build context envelope: %w", envelopeErr)
+	} else if ok {
+		envelopeBytes, encodeErr := canonicalJSON(envelope)
+		if encodeErr != nil {
+			return BuildResult{}, fmt.Errorf("encode context envelope: %w", encodeErr)
+		}
+		files = append(files, zipx.File{Path: "context_envelope.json", Data: envelopeBytes, Mode: 0o644})
 	}
 
 	return buildPackWithFiles(buildPackOptions{
@@ -524,6 +538,30 @@ func Diff(leftPath string, rightPath string) (DiffResult, error) {
 	}
 
 	manifestDelta := leftMeta.ManifestDigest != rightMeta.ManifestDigest || leftMeta.PackType != rightMeta.PackType
+	contextDriftClass := "none"
+	contextChanged := false
+	contextRuntimeOnly := false
+	if leftMeta.PackType == string(BuildTypeRun) && rightMeta.PackType == string(BuildTypeRun) {
+		switch {
+		case leftMeta.ContextRefs != nil && rightMeta.ContextRefs != nil:
+			classification, changedFlag, runtimeOnlyFlag, classifyErr := contextproof.ClassifyRefsDrift(*leftMeta.ContextRefs, *rightMeta.ContextRefs)
+			if classifyErr != nil {
+				return DiffResult{}, fmt.Errorf("classify context drift: %w", classifyErr)
+			}
+			contextDriftClass = classification
+			contextChanged = changedFlag
+			contextRuntimeOnly = runtimeOnlyFlag
+		case leftMeta.ContextSetDigest != "" || rightMeta.ContextSetDigest != "" || leftMeta.ContextRefCount > 0 || rightMeta.ContextRefCount > 0:
+			if leftMeta.ContextSetDigest == rightMeta.ContextSetDigest &&
+				leftMeta.ContextEvidenceMode == rightMeta.ContextEvidenceMode &&
+				leftMeta.ContextRefCount == rightMeta.ContextRefCount {
+				contextDriftClass = "none"
+			} else {
+				contextDriftClass = "semantic"
+				contextChanged = true
+			}
+		}
+	}
 	result := schemapack.DiffResult{
 		SchemaID:      diffSchemaID,
 		SchemaVersion: diffSchemaVersion,
@@ -533,12 +571,18 @@ func Diff(leftPath string, rightPath string) (DiffResult, error) {
 		LeftPackType:  leftMeta.PackType,
 		RightPackType: rightMeta.PackType,
 		Summary: schemapack.DiffSummary{
-			Changed:       manifestDelta || len(added) > 0 || len(removed) > 0 || len(changed) > 0,
-			AddedFiles:    added,
-			RemovedFiles:  removed,
-			ChangedFiles:  changed,
-			ManifestDelta: manifestDelta,
+			Changed:                    manifestDelta || len(added) > 0 || len(removed) > 0 || len(changed) > 0,
+			AddedFiles:                 added,
+			RemovedFiles:               removed,
+			ChangedFiles:               changed,
+			ManifestDelta:              manifestDelta,
+			ContextChanged:             contextChanged,
+			ContextRuntimeOnlyChanges:  contextRuntimeOnly,
+			ContextDriftClassification: contextDriftClass,
 		},
+	}
+	if contextChanged {
+		result.Summary.Changed = true
 	}
 	return DiffResult{Result: result}, nil
 }
@@ -559,15 +603,19 @@ func Inspect(path string) (InspectResult, error) {
 				return InspectResult{}, readErr
 			}
 			payload := schemapack.RunPayload{
-				SchemaID:       "gait.pack.run",
-				SchemaVersion:  "1.0.0",
-				CreatedAt:      legacy.Run.CreatedAt,
-				RunID:          legacy.Run.RunID,
-				CaptureMode:    legacy.Manifest.CaptureMode,
-				ManifestDigest: legacy.Manifest.ManifestDigest,
-				IntentsCount:   len(legacy.Intents),
-				ResultsCount:   len(legacy.Results),
-				RefsCount:      len(legacy.Refs.Receipts),
+				SchemaID:            "gait.pack.run",
+				SchemaVersion:       "1.0.0",
+				CreatedAt:           legacy.Run.CreatedAt,
+				RunID:               legacy.Run.RunID,
+				CaptureMode:         legacy.Manifest.CaptureMode,
+				ManifestDigest:      legacy.Manifest.ManifestDigest,
+				IntentsCount:        len(legacy.Intents),
+				ResultsCount:        len(legacy.Results),
+				RefsCount:           len(legacy.Refs.Receipts),
+				ContextSetDigest:    legacy.Refs.ContextSetDigest,
+				ContextRefCount:     len(legacy.Refs.Receipts),
+				ContextEvidenceMode: legacy.Refs.ContextEvidenceMode,
+				ContextPrivacyMode:  detectContextPrivacyMode(legacy.Refs.Receipts),
 			}
 			return InspectResult{
 				PackID:     legacy.Manifest.ManifestDigest,
@@ -640,10 +688,14 @@ func Inspect(path string) (InspectResult, error) {
 }
 
 type artifactInfo struct {
-	PackID         string
-	PackType       string
-	ManifestDigest string
-	Files          map[string]string
+	PackID              string
+	PackType            string
+	ManifestDigest      string
+	Files               map[string]string
+	ContextSetDigest    string
+	ContextEvidenceMode string
+	ContextRefCount     int
+	ContextRefs         *schemarunpack.Refs
 }
 
 func collectArtifactInfo(path string) (artifactInfo, error) {
@@ -665,7 +717,17 @@ func collectArtifactInfo(path string) (artifactInfo, error) {
 			for _, entry := range legacy.Manifest.Files {
 				files[entry.Path] = entry.SHA256
 			}
-			return artifactInfo{PackID: legacy.Manifest.ManifestDigest, PackType: string(BuildTypeRun), ManifestDigest: legacy.Manifest.ManifestDigest, Files: files}, nil
+			refsCopy := legacy.Refs
+			return artifactInfo{
+				PackID:              legacy.Manifest.ManifestDigest,
+				PackType:            string(BuildTypeRun),
+				ManifestDigest:      legacy.Manifest.ManifestDigest,
+				Files:               files,
+				ContextSetDigest:    legacy.Refs.ContextSetDigest,
+				ContextEvidenceMode: legacy.Refs.ContextEvidenceMode,
+				ContextRefCount:     len(legacy.Refs.Receipts),
+				ContextRefs:         &refsCopy,
+			}, nil
 		}
 		return artifactInfo{}, fmt.Errorf("missing %s", manifestFileName)
 	}
@@ -686,7 +748,34 @@ func collectArtifactInfo(path string) (artifactInfo, error) {
 	if err != nil {
 		return artifactInfo{}, fmt.Errorf("digest manifest: %w", err)
 	}
-	return artifactInfo{PackID: manifest.PackID, PackType: manifest.PackType, ManifestDigest: manifestDigest, Files: files}, nil
+	info := artifactInfo{PackID: manifest.PackID, PackType: manifest.PackType, ManifestDigest: manifestDigest, Files: files}
+	if manifest.PackType == string(BuildTypeRun) {
+		if payloadFile, ok := bundle.Files["run_payload.json"]; ok {
+			payloadBytes, readErr := readZipFile(payloadFile)
+			if readErr == nil {
+				var payload schemapack.RunPayload
+				if decodeStrictJSON(payloadBytes, &payload) == nil {
+					info.ContextSetDigest = strings.TrimSpace(payload.ContextSetDigest)
+					info.ContextEvidenceMode = strings.TrimSpace(payload.ContextEvidenceMode)
+					info.ContextRefCount = payload.ContextRefCount
+				}
+			}
+		}
+		if sourceRunpack, ok := bundle.Files["source/runpack.zip"]; ok {
+			sourceBytes, readErr := readZipFile(sourceRunpack)
+			if readErr == nil {
+				runData, runErr := readRunpackFromBytes(sourceBytes)
+				if runErr == nil {
+					refsCopy := runData.Refs
+					info.ContextRefs = &refsCopy
+					info.ContextSetDigest = strings.TrimSpace(runData.Refs.ContextSetDigest)
+					info.ContextEvidenceMode = strings.TrimSpace(runData.Refs.ContextEvidenceMode)
+					info.ContextRefCount = len(runData.Refs.Receipts)
+				}
+			}
+		}
+	}
+	return info, nil
 }
 
 func parsePackManifest(payload []byte) (schemapack.Manifest, error) {
@@ -980,6 +1069,24 @@ func validateRunPayload(payload schemapack.RunPayload) error {
 	if payload.IntentsCount < 0 || payload.ResultsCount < 0 || payload.RefsCount < 0 {
 		return fmt.Errorf("run payload counts must be >= 0")
 	}
+	if strings.TrimSpace(payload.ContextSetDigest) != "" && !isSHA256Hex(payload.ContextSetDigest) {
+		return fmt.Errorf("run payload context_set_digest must be sha256 hex")
+	}
+	if payload.ContextRefCount < 0 {
+		return fmt.Errorf("run payload context_ref_count must be >= 0")
+	}
+	if strings.TrimSpace(payload.ContextEvidenceMode) != "" &&
+		strings.TrimSpace(payload.ContextEvidenceMode) != contextproof.EvidenceModeBestEffort &&
+		strings.TrimSpace(payload.ContextEvidenceMode) != contextproof.EvidenceModeRequired {
+		return fmt.Errorf("run payload context_evidence_mode must be best_effort or required")
+	}
+	if strings.TrimSpace(payload.ContextPrivacyMode) != "" {
+		switch strings.TrimSpace(payload.ContextPrivacyMode) {
+		case "mixed":
+		default:
+			// individual modes are free-form but must be non-empty strings.
+		}
+	}
 	return nil
 }
 
@@ -1117,6 +1224,26 @@ func buildRunLineage(data runpack.Runpack) *RunLineage {
 		ReceiptCount:   len(data.Refs.Receipts),
 		IntentResults:  links,
 	}
+}
+
+func detectContextPrivacyMode(receipts []schemarunpack.RefReceipt) string {
+	if len(receipts) == 0 {
+		return ""
+	}
+	first := strings.TrimSpace(receipts[0].RedactionMode)
+	if first == "" {
+		first = "unknown"
+	}
+	for i := 1; i < len(receipts); i++ {
+		mode := strings.TrimSpace(receipts[i].RedactionMode)
+		if mode == "" {
+			mode = "unknown"
+		}
+		if mode != first {
+			return "mixed"
+		}
+	}
+	return first
 }
 
 func buildJobLineage(state jobruntime.JobState, events []jobruntime.Event) *JobLineage {

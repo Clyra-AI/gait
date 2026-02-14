@@ -14,6 +14,11 @@ Applies to local, offline Gate execution and related safety checks in the defaul
 - `gait run session checkpoint`
 - `gait verify session-chain`
 - `gait gate eval` with delegation token verification
+- context-proof operations:
+  - envelope capture + verify
+  - context-required gate eval
+  - context-aware pack diff
+  - context conformance regress run
 
 ## Measurement Command
 
@@ -21,11 +26,13 @@ Use the canonical command budget harness:
 
 ```bash
 make bench-budgets
+make context-budgets
 ```
 
 Report output:
 
 - `perf/command_budget_report.json`
+- `perf/context_budget_report.json`
 
 The report includes:
 
@@ -89,3 +96,19 @@ The runtime SLO check is enforced in CI through:
 - nightly perf profile (`.github/workflows/perf-nightly.yml`)
 
 Any SLO or fail-closed regression should block merge.
+
+## Context Budget Inputs
+
+Context runtime budget thresholds are configured in:
+
+- `perf/context_budgets.json`
+
+The checker:
+
+- `scripts/check_context_budgets.py`
+
+is enforced in:
+
+- `make test-runtime-slo`
+- `make bench-check`
+- `.github/workflows/perf-nightly.yml`

@@ -13,8 +13,9 @@ type RegressResult struct {
 }
 
 type GraderResult struct {
-	Name        string         `json:"name"`
-	Status      string         `json:"status"`
-	ReasonCodes []string       `json:"reason_codes"`
-	Details     map[string]any `json:"details,omitempty"`
+	Name               string         `json:"name"`
+	Status             string         `json:"status"`
+	ReasonCodes        []string       `json:"reason_codes"`
+	ContextConformance string         `json:"context_conformance,omitempty"`
+	Details            map[string]any `json:"details,omitempty"`
 }

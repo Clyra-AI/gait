@@ -24,6 +24,7 @@ jobs:
         run: |
           git config core.hooksPath .githooks
           make test-hardening
+          make test-context-conformance
           make test-chaos
           make test-runtime-slo
           make test-packspec-tck

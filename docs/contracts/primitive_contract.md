@@ -47,6 +47,10 @@ Producer obligations:
   - `context.auth_context` (object)
   - `context.credential_scopes` (string array)
   - `context.environment_fingerprint` (string)
+- MAY include context-proof linkage fields:
+  - `context.context_set_digest` (sha256 hex)
+  - `context.context_evidence_mode` (`best_effort|required`)
+  - `context.context_refs` (string array of reference ids)
 - SHOULD provide `args_digest` and `intent_digest` when available.
 - SHOULD provide `skill_provenance` when execution originates from a packaged skill.
 - SHOULD provide `delegation` when tool execution is delegated across agents:
@@ -116,6 +120,10 @@ Producer obligations:
 - SHOULD carry `delegation_ref` when delegated execution evidence is present.
 - SHOULD include `observed_at` for runtime wall-clock incident reconstruction.
 - SHOULD include `event_id` as a per-emission runtime identity.
+- SHOULD carry context-proof linkage when present in intent:
+  - `context_set_digest`
+  - `context_evidence_mode`
+  - `context_ref_count`
 
 Consumer obligations:
 
@@ -154,6 +162,10 @@ Archive file contract:
   - `intents.jsonl`
   - `results.jsonl`
   - `refs.json`
+- Runpack refs MAY include context-proof summary:
+  - `context_set_digest`
+  - `context_evidence_mode`
+  - `context_ref_count`
 
 Producer obligations:
 
@@ -165,6 +177,7 @@ Consumer obligations:
 
 - MUST verify manifest and file digests before trust.
 - MUST treat missing required files or digest mismatches as verification failure.
+- MUST treat `context_evidence_mode=required` with missing `context_set_digest` as invalid input.
 
 ## PackSpec (`gait.pack.*`, `1.0.0`)
 
@@ -189,12 +202,26 @@ Producer obligations:
 - MUST produce deterministic zip bytes for identical inputs.
 - MUST include only declared files in `contents`.
 - MUST use JCS canonicalization for digest/signature inputs.
+- SHOULD include `context_envelope.json` in run packs when context evidence is present.
 
 Consumer obligations:
 
 - MUST verify declared file hashes and reject undeclared files.
 - MUST treat schema mismatch and hash mismatch as verification failure.
 - SHOULD support legacy runpack/evidence verification during v2.4 compatibility window.
+- SHOULD expose deterministic context drift summary in diff outputs when context data exists.
+
+## Command Contract Additions (v2.5)
+
+- `gait run record`:
+  - `--context-envelope <path>`
+  - `--context-evidence-mode best_effort|required`
+  - `--unsafe-context-raw`
+- `gait regress run`:
+  - `--context-conformance`
+  - `--allow-context-runtime-drift`
+- `gait pack diff --json`:
+  - emits `context_drift_classification`, `context_changed`, `context_runtime_only_changes` when applicable
 
 ## Session Chain Artifacts (`gait.runpack.session_*`, `1.0.0`)
 

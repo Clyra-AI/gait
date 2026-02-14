@@ -32,6 +32,8 @@ def run_session(
     capture_mode: str = "reference",
     include_raw_payload: bool = False,
     producer_version: str = "0.0.0-dev",
+    context_evidence_mode: str | None = None,
+    context_envelope: str | Path | None = None,
 ) -> "RunSession":
     return RunSession(
         run_id=run_id,
@@ -41,6 +43,8 @@ def run_session(
         capture_mode=capture_mode,
         include_raw_payload=include_raw_payload,
         producer_version=producer_version,
+        context_evidence_mode=context_evidence_mode,
+        context_envelope=context_envelope,
     )
 
 
@@ -64,6 +68,8 @@ class RunSession:
         capture_mode: str = "reference",
         include_raw_payload: bool = False,
         producer_version: str = "0.0.0-dev",
+        context_evidence_mode: str | None = None,
+        context_envelope: str | Path | None = None,
     ) -> None:
         if not run_id.strip():
             raise ValueError("run_id is required")
@@ -77,6 +83,8 @@ class RunSession:
         self.capture_mode = capture_mode
         self.include_raw_payload = include_raw_payload
         self.producer_version = producer_version
+        self.context_evidence_mode = context_evidence_mode
+        self.context_envelope = context_envelope
 
         self._token: Token[RunSession | None] | None = None
         self._closed = False
@@ -92,6 +100,9 @@ class RunSession:
         self._results: list[dict[str, Any]] = []
         self._refs: list[dict[str, Any]] = []
         self._attempts: list[RunAttempt] = []
+        self._context_set_digest: str | None = None
+        self._context_evidence_mode: str | None = context_evidence_mode
+        self._context_refs: list[str] = []
 
     def __enter__(self) -> "RunSession":
         self._token = _ACTIVE_RUN_SESSION.set(self)
@@ -137,6 +148,14 @@ class RunSession:
         args_digest = intent.args_digest or _sha256_json(intent.args)
         intent_payload = intent.to_dict()
         intent_digest = intent.intent_digest or _sha256_json(intent_payload)
+        if intent.context.context_set_digest and not self._context_set_digest:
+            self._context_set_digest = str(intent.context.context_set_digest)
+        if intent.context.context_evidence_mode and not self._context_evidence_mode:
+            self._context_evidence_mode = str(intent.context.context_evidence_mode)
+        for context_ref in intent.context.context_refs:
+            value = str(context_ref).strip()
+            if value and value not in self._context_refs:
+                self._context_refs.append(value)
 
         intent_record: dict[str, Any] = {
             "schema_id": "gait.runpack.intent",
@@ -251,6 +270,12 @@ class RunSession:
             },
             "capture_mode": self.capture_mode,
         }
+        if self._context_set_digest:
+            record_input["refs"]["context_set_digest"] = self._context_set_digest
+        if self._context_evidence_mode:
+            record_input["refs"]["context_evidence_mode"] = self._context_evidence_mode
+        if self._context_refs:
+            record_input["refs"]["context_ref_count"] = len(self._context_refs)
         self._record_input = record_input
         self._capture = record_runpack(
             record_input=record_input,
@@ -258,6 +283,8 @@ class RunSession:
             cwd=self.cwd,
             out_dir=self.out_dir,
             capture_mode=self.capture_mode,
+            context_evidence_mode=self._context_evidence_mode,
+            context_envelope=self.context_envelope,
         )
         self._closed = True
         return self._capture

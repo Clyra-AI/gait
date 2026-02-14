@@ -17,6 +17,9 @@
     "created_at": { "type": "string", "format": "date-time" },
     "producer_version": { "type": "string" },
     "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
+    "context_set_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "context_evidence_mode": { "type": "string", "enum": ["best_effort", "required"] },
+    "context_ref_count": { "type": "integer", "minimum": 0 },
     "receipts": {
       "type": "array",
       "items": {
@@ -38,6 +41,8 @@
           "content_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
           "retrieved_at": { "type": "string", "format": "date-time" },
           "redaction_mode": { "type": "string" },
+          "immutability": { "type": "string", "enum": ["unknown", "mutable", "immutable"] },
+          "freshness_sla_seconds": { "type": "integer", "minimum": 0 },
           "sensitivity_label": { "type": "string" },
           "retrieval_params": { "type": "object" }
         },

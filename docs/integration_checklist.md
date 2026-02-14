@@ -49,6 +49,55 @@ export GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl
 5. wrapper quickstart block or approval flow returns `executed=false`
 6. `gait regress init --from <run_id> --json` creates fixture
 7. `gait regress run --json --junit ...` passes (`status=pass` or exit `0`)
+8. context-required gate policy blocks missing context evidence with deterministic reason codes
+9. `gait pack inspect --json` exposes context summary when context evidence is attached
+10. `gait regress run --context-conformance` is green for expected context baseline
+
+## v2.5 Context-Proof Checklist (Required For High-Risk Paths)
+
+1. Capture mode and evidence mode:
+
+- choose one default:
+  - `--context-evidence-mode best_effort` for low-risk migration
+  - `--context-evidence-mode required` for fail-closed high-risk paths
+- attach context envelope at capture:
+
+```bash
+gait run record \
+  --input ./run_record.json \
+  --context-envelope ./context_envelope.json \
+  --context-evidence-mode required \
+  --json
+```
+
+2. Gate policy wiring:
+
+- include rule constraints:
+  - `require_context_evidence: true`
+  - `required_context_evidence_mode: required`
+  - optional `max_context_age_seconds`
+- verify missing context returns deterministic reason codes:
+  - `context_evidence_missing`
+  - `context_set_digest_missing`
+
+3. Trace verification expectations:
+
+- emit trace for decision events
+- verify trace signatures before treating context linkage as evidence:
+
+```bash
+gait trace verify ./gait-out/trace.json --public-key ./trace_public.key --json
+```
+
+4. Regress context conformance:
+
+- bootstrap fixture from context-bearing runpack
+- enforce context drift rules in CI:
+
+```bash
+gait regress bootstrap --from <runpack_or_pack> --name context_guard --json
+gait regress run --context-conformance --allow-context-runtime-drift --json
+```
 
 ## Canonical Execution Path (Primary)
 

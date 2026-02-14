@@ -82,11 +82,32 @@ resolve_release_version() {
   fi
 }
 
+binary_supports_job_and_pack() {
+  local bin_path="$1"
+  local usage_output
+  usage_output="$("${bin_path}" 2>&1 || true)"
+  [[ "${usage_output}" == *"gait job submit"* ]] && [[ "${usage_output}" == *"gait pack build"* ]]
+}
+
+resolve_install_path_mode() {
+  local requested_mode="$1"
+  local bin_path="$2"
+  if [[ "${requested_mode}" == "extended" || "${requested_mode}" == "baseline" ]]; then
+    if ! binary_supports_job_and_pack "${bin_path}"; then
+      printf '%s' "compat_v16"
+      return 0
+    fi
+  fi
+  printf '%s' "${requested_mode}"
+  return 0
+}
+
 mkdir -p "${OUTPUT_DIR}/logs"
 SUMMARY_PATH="${OUTPUT_DIR}/summary.txt"
 : > "${SUMMARY_PATH}"
 
 log() {
+  mkdir -p "$(dirname "${SUMMARY_PATH}")"
   printf '%s\n' "$*" | tee -a "${SUMMARY_PATH}"
 }
 
@@ -101,6 +122,7 @@ require_cmd() {
 run_step() {
   local name="$1"
   shift
+  mkdir -p "${OUTPUT_DIR}/logs"
   local log_path="${OUTPUT_DIR}/logs/${name}.log"
   log "==> ${name}"
   if "$@" >"${log_path}" 2>&1; then
@@ -121,10 +143,18 @@ run_binary_contract_suite() {
     exit 1
   fi
 
-  run_step "${label}_v1_acceptance" bash "${REPO_ROOT}/scripts/test_v1_acceptance.sh" "${bin_path}"
-  run_step "${label}_v1_6_acceptance" bash "${REPO_ROOT}/scripts/test_v1_6_acceptance.sh" "${bin_path}"
-  run_step "${label}_v1_7_acceptance" bash "${REPO_ROOT}/scripts/test_v1_7_acceptance.sh" "${bin_path}"
   run_step "${label}_release_smoke" bash "${REPO_ROOT}/scripts/test_release_smoke.sh" "${bin_path}"
+  run_step "${label}_v1_acceptance" bash "${REPO_ROOT}/scripts/test_v1_acceptance.sh" "${bin_path}"
+  if [[ "${mode}" == "compat_v1" ]]; then
+    return 0
+  fi
+
+  run_step "${label}_v1_6_acceptance" bash "${REPO_ROOT}/scripts/test_v1_6_acceptance.sh" "${bin_path}"
+  if [[ "${mode}" == "compat_v16" ]]; then
+    return 0
+  fi
+
+  run_step "${label}_v1_7_acceptance" bash "${REPO_ROOT}/scripts/test_v1_7_acceptance.sh" "${bin_path}"
   if [[ "${mode}" == "extended" ]]; then
     run_step "${label}_v1_8_acceptance" bash "${REPO_ROOT}/scripts/test_v1_8_acceptance.sh" "${bin_path}"
     run_step "${label}_openclaw_skill_install" bash "${REPO_ROOT}/scripts/test_openclaw_skill_install.sh"
@@ -152,6 +182,12 @@ if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
 else
   log "Install-path capability mode: baseline for release-install + brew (legacy override)"
 fi
+if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
+  INSTALL_PATH_MODE_REQUESTED="extended"
+else
+  INSTALL_PATH_MODE_REQUESTED="baseline"
+fi
+log "Requested install-path suite mode for release/brew: ${INSTALL_PATH_MODE_REQUESTED}"
 
 run_step "quality_lint" make -C "${REPO_ROOT}" lint
 run_step "quality_test" make -C "${REPO_ROOT}" test
@@ -163,6 +199,9 @@ run_step "quality_policy_compliance" bash "${REPO_ROOT}/scripts/policy_complianc
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
 run_step "quality_v2_3_acceptance" make -C "${REPO_ROOT}" test-v2-3-acceptance
 run_step "quality_v2_4_acceptance" make -C "${REPO_ROOT}" test-v2-4-acceptance
+run_step "quality_v2_5_acceptance" make -C "${REPO_ROOT}" test-v2-5-acceptance
+run_step "quality_context_conformance" make -C "${REPO_ROOT}" test-context-conformance
+run_step "quality_context_chaos" make -C "${REPO_ROOT}" test-context-chaos
 run_step "quality_ui_acceptance" make -C "${REPO_ROOT}" test-ui-acceptance
 run_step "quality_ui_unit" make -C "${REPO_ROOT}" test-ui-unit
 run_step "quality_ui_e2e_smoke" make -C "${REPO_ROOT}" test-ui-e2e-smoke
@@ -195,9 +234,13 @@ RELEASE_INSTALL_DIR="${OUTPUT_DIR}/release_install/bin"
 mkdir -p "${RELEASE_INSTALL_DIR}"
 run_step "install_release_binary" bash "${REPO_ROOT}/scripts/install.sh" --version "${RELEASE_VERSION}" --install-dir "${RELEASE_INSTALL_DIR}"
 if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
-  run_binary_contract_suite "release_install" "${RELEASE_INSTALL_DIR}/gait" "extended"
+  RELEASE_INSTALL_MODE="$(resolve_install_path_mode "${INSTALL_PATH_MODE_REQUESTED}" "${RELEASE_INSTALL_DIR}/gait")"
+  log "Resolved release_install suite mode: ${RELEASE_INSTALL_MODE}"
+  run_binary_contract_suite "release_install" "${RELEASE_INSTALL_DIR}/gait" "${RELEASE_INSTALL_MODE}"
 else
-  run_binary_contract_suite "release_install" "${RELEASE_INSTALL_DIR}/gait" "baseline"
+  RELEASE_INSTALL_MODE="$(resolve_install_path_mode "${INSTALL_PATH_MODE_REQUESTED}" "${RELEASE_INSTALL_DIR}/gait")"
+  log "Resolved release_install suite mode: ${RELEASE_INSTALL_MODE}"
+  run_binary_contract_suite "release_install" "${RELEASE_INSTALL_DIR}/gait" "${RELEASE_INSTALL_MODE}"
 fi
 log "PRIMARY_INSTALL_PATH_STATUS release-installer PASS"
 
@@ -212,9 +255,13 @@ else
   BREW_PREFIX="$(brew --prefix)"
   BREW_BIN="${BREW_PREFIX}/bin/gait"
   if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
-    run_binary_contract_suite "brew" "${BREW_BIN}" "extended"
+    BREW_MODE="$(resolve_install_path_mode "${INSTALL_PATH_MODE_REQUESTED}" "${BREW_BIN}")"
+    log "Resolved brew suite mode: ${BREW_MODE}"
+    run_binary_contract_suite "brew" "${BREW_BIN}" "${BREW_MODE}"
   else
-    run_binary_contract_suite "brew" "${BREW_BIN}" "baseline"
+    BREW_MODE="$(resolve_install_path_mode "${INSTALL_PATH_MODE_REQUESTED}" "${BREW_BIN}")"
+    log "Resolved brew suite mode: ${BREW_MODE}"
+    run_binary_contract_suite "brew" "${BREW_BIN}" "${BREW_MODE}"
   fi
 fi
 

@@ -5,10 +5,11 @@
     "manifest_changed": false,
     "intents_changed": false,
     "results_changed": false,
-    "refs_changed": false
+    "refs_changed": false,
+    "context_drift_classification": "none"
   },
   "files_checked": 4,
-  "manifest_digest": "bba4ca5de3a9d33edacbfa55ca63f052e1bd77f738a9142ae762146fa3949569",
+  "manifest_digest": "d4f0f83b6501b6a17faa089047f92cfd9ebcccbb199f07f05fc5bd5cc4a7efc4",
   "replay_mode": "stub",
   "replay_steps": 2,
   "run_id": "run_integration",

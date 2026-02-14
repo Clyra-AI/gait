@@ -1,0 +1,23 @@
+{
+  "schema_id": "gait.perf.context_budgets",
+  "schema_version": "1.0.0",
+  "repeats": 3,
+  "operations": {
+    "context_envelope_build_verify": {
+      "p95_ms": 4500.0,
+      "max_error_rate": 0.0
+    },
+    "gate_eval_context_required": {
+      "p95_ms": 2500.0,
+      "max_error_rate": 0.0
+    },
+    "pack_diff_context_classification": {
+      "p95_ms": 3500.0,
+      "max_error_rate": 0.0
+    },
+    "regress_context_grader_run": {
+      "p95_ms": 4500.0,
+      "max_error_rate": 0.0
+    }
+  }
+}

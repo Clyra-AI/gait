@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -140,6 +142,189 @@ func TestReplayStubDuplicateResult(t *testing.T) {
 	path := writeTestRunpackWithResults(t, "run_dup_result", buildIntents("intent_dup"), results)
 	if _, err := ReplayStub(path); err == nil {
 		t.Fatalf("expected duplicate result error")
+	}
+}
+
+func TestReplayRealRequiresAllowlist(t *testing.T) {
+	path := writeTestRunpack(t, "run_replay_real_allowlist", buildIntents("intent_1"), buildResults("intent_1"))
+	if _, err := ReplayReal(path, RealReplayOptions{}); err == nil {
+		t.Fatalf("expected replay real to require a non-empty allowlist")
+	}
+	if _, err := ReplayReal(path, RealReplayOptions{AllowTools: []string{" ", "\t"}}); err == nil {
+		t.Fatalf("expected replay real to reject whitespace-only allowlist entries")
+	}
+}
+
+func TestReplayRealExecutesAllowedToolsAndKeepsRecordedFallback(t *testing.T) {
+	workDir := t.TempDir()
+	outputPath := filepath.Join(workDir, "out.txt")
+	intents := []schemarunpack.IntentRecord{
+		{
+			IntentID: "intent_echo",
+			ToolName: "tool.echo",
+			Args:     map[string]any{"message": "hello replay"},
+		},
+		{
+			IntentID: "intent_write",
+			ToolName: "fs.write",
+			Args: map[string]any{
+				"path":    outputPath,
+				"content": "payload",
+			},
+		},
+		{
+			IntentID: "intent_unsupported",
+			ToolName: "tool.unknown",
+			Args:     map[string]any{},
+		},
+		{
+			IntentID: "intent_recorded",
+			ToolName: "tool.recorded",
+			Args:     map[string]any{},
+		},
+		{
+			IntentID: "intent_stubbed",
+			ToolName: "queue.publish",
+			Args:     map[string]any{},
+		},
+	}
+	results := []schemarunpack.ResultRecord{
+		{
+			IntentID:     "intent_recorded",
+			Status:       "ok",
+			ResultDigest: strings.Repeat("c", 64),
+			Result:       map[string]any{"ok": true},
+		},
+	}
+	path := writeTestRunpackWithIntents(t, "run_replay_real", intents, results)
+
+	replayResult, err := ReplayReal(path, RealReplayOptions{
+		AllowTools: []string{" tool.echo ", "FS.WRITE", "tool.unknown"},
+	})
+	if err != nil {
+		t.Fatalf("replay real: %v", err)
+	}
+	if replayResult.Mode != ReplayModeReal {
+		t.Fatalf("expected real replay mode, got %s", replayResult.Mode)
+	}
+	if len(replayResult.Steps) != len(intents) {
+		t.Fatalf("unexpected step count: got=%d want=%d", len(replayResult.Steps), len(intents))
+	}
+
+	byID := map[string]ReplayStep{}
+	for _, step := range replayResult.Steps {
+		byID[step.IntentID] = step
+	}
+
+	echoStep := byID["intent_echo"]
+	if echoStep.Status != "ok" || echoStep.Execution != "executed" || echoStep.ResultDigest == "" {
+		t.Fatalf("unexpected echo replay step: %#v", echoStep)
+	}
+
+	writeStep := byID["intent_write"]
+	if writeStep.Status != "ok" || writeStep.Execution != "executed" || writeStep.ResultDigest == "" {
+		t.Fatalf("unexpected write replay step: %#v", writeStep)
+	}
+	written, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("read replay output file: %v", err)
+	}
+	if string(written) != "payload" {
+		t.Fatalf("unexpected replay output file content: %q", string(written))
+	}
+
+	unsupportedStep := byID["intent_unsupported"]
+	if unsupportedStep.Status != "error" || unsupportedStep.Execution != "executed" || unsupportedStep.ResultDigest == "" {
+		t.Fatalf("unexpected unsupported replay step: %#v", unsupportedStep)
+	}
+
+	recordedStep := byID["intent_recorded"]
+	if recordedStep.Status != "ok" || recordedStep.Execution != "recorded" || recordedStep.ResultDigest != strings.Repeat("c", 64) {
+		t.Fatalf("unexpected recorded fallback step: %#v", recordedStep)
+	}
+
+	stubbedStep := byID["intent_stubbed"]
+	if stubbedStep.Status != "stubbed" || stubbedStep.Execution != "stubbed" || stubbedStep.StubType != "queue" || stubbedStep.ResultDigest == "" {
+		t.Fatalf("unexpected stubbed step: %#v", stubbedStep)
+	}
+}
+
+func TestReplayRealHelperFunctions(t *testing.T) {
+	if isAllowedRealTool(nil, "tool.echo") {
+		t.Fatalf("expected empty allow set to deny tool")
+	}
+	if !isAllowedRealTool(map[string]struct{}{"tool.echo": {}}, " TOOL.ECHO ") {
+		t.Fatalf("expected normalized allow-set match")
+	}
+	if isAllowedRealTool(map[string]struct{}{"tool.echo": {}}, "tool.other") {
+		t.Fatalf("did not expect non-allowlisted tool to match")
+	}
+
+	if got := readStringArg(nil, "message"); got != "" {
+		t.Fatalf("expected empty readStringArg for nil args, got %q", got)
+	}
+	if got := readStringArg(map[string]any{"message": "  hi  "}, "message"); got != "hi" {
+		t.Fatalf("unexpected trimmed readStringArg value: %q", got)
+	}
+	if got := readStringArg(map[string]any{"message": 42}, "message"); got != "" {
+		t.Fatalf("expected empty readStringArg for non-string value, got %q", got)
+	}
+	if got := digestString("hello"); got != digestString("hello") || len(got) != 64 {
+		t.Fatalf("expected stable 64-char digest, got %q", got)
+	}
+	for _, tc := range []struct {
+		toolName string
+		expected string
+	}{
+		{toolName: "tool.http.fetch", expected: "http"},
+		{toolName: "write_file", expected: "file"},
+		{toolName: "db.query", expected: "db"},
+		{toolName: "queue.publish", expected: "queue"},
+		{toolName: "tool.demo", expected: ""},
+	} {
+		if got := classifyStubType(tc.toolName); got != tc.expected {
+			t.Fatalf("unexpected stub type for %q: got=%q want=%q", tc.toolName, got, tc.expected)
+		}
+	}
+}
+
+func TestExecuteRealToolBranches(t *testing.T) {
+	if _, status, err := executeRealTool(schemarunpack.IntentRecord{ToolName: "tool.echo"}); err != nil || status != "ok" {
+		t.Fatalf("expected tool.echo to succeed without message, status=%q err=%v", status, err)
+	}
+
+	if _, status, err := executeRealTool(schemarunpack.IntentRecord{
+		ToolName: "fs.write",
+		Args:     map[string]any{"content": "x"},
+	}); err == nil || status != "error" {
+		t.Fatalf("expected fs.write without path to fail, status=%q err=%v", status, err)
+	}
+
+	if _, status, err := executeRealTool(schemarunpack.IntentRecord{
+		ToolName: "shell.exec",
+		Args:     map[string]any{},
+	}); err == nil || status != "error" {
+		t.Fatalf("expected shell.exec without command to fail, status=%q err=%v", status, err)
+	}
+
+	if runtime.GOOS == "windows" {
+		t.Skip("shell.exec branch uses sh and is covered on non-windows systems")
+	}
+
+	okDigest, okStatus, okErr := executeRealTool(schemarunpack.IntentRecord{
+		ToolName: "shell.exec",
+		Args:     map[string]any{"command": "printf ok"},
+	})
+	if okErr != nil || okStatus != "ok" || okDigest == "" {
+		t.Fatalf("expected shell.exec success, digest=%q status=%q err=%v", okDigest, okStatus, okErr)
+	}
+
+	errDigest, errStatus, errExec := executeRealTool(schemarunpack.IntentRecord{
+		ToolName: "shell.exec",
+		Args:     map[string]any{"command": "echo fail >&2; exit 3"},
+	})
+	if errExec == nil || errStatus != "error" || errDigest == "" {
+		t.Fatalf("expected shell.exec failure to return error status and digest, digest=%q status=%q err=%v", errDigest, errStatus, errExec)
 	}
 }
 

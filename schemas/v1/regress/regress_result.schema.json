@@ -28,6 +28,7 @@
           "name": { "type": "string" },
           "status": { "type": "string", "enum": ["pass", "fail"] },
           "reason_codes": { "type": "array", "items": { "type": "string" } },
+          "context_conformance": { "type": "string", "enum": ["none", "runtime_only", "semantic", "missing"] },
           "details": { "type": "object" }
         },
         "additionalProperties": false

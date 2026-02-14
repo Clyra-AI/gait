@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/davidahmann/gait/core/contextproof"
 	"github.com/davidahmann/gait/core/jcs"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 )
@@ -18,17 +19,19 @@ const (
 )
 
 type DiffSummary struct {
-	RunIDLeft        string   `json:"run_id_left"`
-	RunIDRight       string   `json:"run_id_right"`
-	ManifestChanged  bool     `json:"manifest_changed"`
-	FilesChanged     []string `json:"files_changed,omitempty"`
-	IntentsChanged   bool     `json:"intents_changed"`
-	ResultsChanged   bool     `json:"results_changed"`
-	RefsChanged      bool     `json:"refs_changed"`
-	LeftOnlyIntents  []string `json:"left_only_intents,omitempty"`
-	RightOnlyIntents []string `json:"right_only_intents,omitempty"`
-	LeftOnlyResults  []string `json:"left_only_results,omitempty"`
-	RightOnlyResults []string `json:"right_only_results,omitempty"`
+	RunIDLeft                  string   `json:"run_id_left"`
+	RunIDRight                 string   `json:"run_id_right"`
+	ManifestChanged            bool     `json:"manifest_changed"`
+	FilesChanged               []string `json:"files_changed,omitempty"`
+	IntentsChanged             bool     `json:"intents_changed"`
+	ResultsChanged             bool     `json:"results_changed"`
+	RefsChanged                bool     `json:"refs_changed"`
+	LeftOnlyIntents            []string `json:"left_only_intents,omitempty"`
+	RightOnlyIntents           []string `json:"right_only_intents,omitempty"`
+	LeftOnlyResults            []string `json:"left_only_results,omitempty"`
+	RightOnlyResults           []string `json:"right_only_results,omitempty"`
+	ContextDriftClassification string   `json:"context_drift_classification,omitempty"`
+	ContextRuntimeOnlyChanges  bool     `json:"context_runtime_only_changes,omitempty"`
 }
 
 type DiffResult struct {
@@ -84,6 +87,8 @@ func DiffRunpacks(leftPath, rightPath string, privacy DiffPrivacy) (DiffResult, 
 		return DiffResult{}, err
 	}
 	refsChanged := false
+	contextDriftClassification := ""
+	contextRuntimeOnly := false
 	leftRefs := normalizeRefs(left.Refs)
 	rightRefs := normalizeRefs(right.Refs)
 	if privacy == DiffPrivacyFull {
@@ -91,22 +96,34 @@ func DiffRunpacks(leftPath, rightPath string, privacy DiffPrivacy) (DiffResult, 
 		if err != nil {
 			return DiffResult{}, err
 		}
+		classification, changed, runtimeOnly, classifyErr := contextproof.ClassifyRefsDrift(left.Refs, right.Refs)
+		if classifyErr != nil {
+			return DiffResult{}, classifyErr
+		}
+		contextDriftClassification = classification
+		if changed {
+			refsChanged = true
+		}
+		contextRuntimeOnly = runtimeOnly
 	} else {
 		refsChanged = len(leftRefs.Receipts) != len(rightRefs.Receipts)
+		contextDriftClassification = "none"
 	}
 
 	summary := DiffSummary{
-		RunIDLeft:        left.Run.RunID,
-		RunIDRight:       right.Run.RunID,
-		ManifestChanged:  leftManifestDigest != rightManifestDigest,
-		FilesChanged:     filesChanged,
-		IntentsChanged:   intentsChanged,
-		ResultsChanged:   resultsChanged,
-		RefsChanged:      refsChanged,
-		LeftOnlyIntents:  leftOnlyIntents,
-		RightOnlyIntents: rightOnlyIntents,
-		LeftOnlyResults:  leftOnlyResults,
-		RightOnlyResults: rightOnlyResults,
+		RunIDLeft:                  left.Run.RunID,
+		RunIDRight:                 right.Run.RunID,
+		ManifestChanged:            leftManifestDigest != rightManifestDigest,
+		FilesChanged:               filesChanged,
+		IntentsChanged:             intentsChanged,
+		ResultsChanged:             resultsChanged,
+		RefsChanged:                refsChanged,
+		LeftOnlyIntents:            leftOnlyIntents,
+		RightOnlyIntents:           rightOnlyIntents,
+		LeftOnlyResults:            leftOnlyResults,
+		RightOnlyResults:           rightOnlyResults,
+		ContextDriftClassification: contextDriftClassification,
+		ContextRuntimeOnlyChanges:  contextRuntimeOnly,
 	}
 
 	return DiffResult{

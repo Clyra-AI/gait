@@ -1,0 +1,11 @@
+{
+  "ref_id": "ctx_001",
+  "source_type": "doc_store",
+  "source_locator": "docs://policies/security.md",
+  "query_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "retrieved_at": "2026-02-14T00:00:00Z",
+  "redaction_mode": "reference",
+  "immutability": "immutable",
+  "freshness_sla_seconds": 600
+}

@@ -26,7 +26,10 @@ const (
 	defaultFixtureSet = "default"
 )
 
-var fixtureNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+var (
+	fixtureNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+	digestPattern      = regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
+)
 
 type InitOptions struct {
 	SourceRunpackPath string
@@ -46,16 +49,19 @@ type InitResult struct {
 }
 
 type fixtureMeta struct {
-	SchemaID               string   `json:"schema_id"`
-	SchemaVersion          string   `json:"schema_version"`
-	Name                   string   `json:"name"`
-	RunID                  string   `json:"run_id"`
-	Runpack                string   `json:"runpack"`
-	ExpectedReplayExitCode int      `json:"expected_replay_exit_code"`
-	CandidateRunpack       string   `json:"candidate_runpack,omitempty"`
-	DiffAllowChangedFiles  []string `json:"diff_allow_changed_files,omitempty"`
-	SessionChain           string   `json:"session_chain,omitempty"`
-	CheckpointIndex        int      `json:"checkpoint_index,omitempty"`
+	SchemaID                 string   `json:"schema_id"`
+	SchemaVersion            string   `json:"schema_version"`
+	Name                     string   `json:"name"`
+	RunID                    string   `json:"run_id"`
+	Runpack                  string   `json:"runpack"`
+	ExpectedReplayExitCode   int      `json:"expected_replay_exit_code"`
+	CandidateRunpack         string   `json:"candidate_runpack,omitempty"`
+	ContextConformance       string   `json:"context_conformance,omitempty"`
+	AllowContextRuntimeDrift bool     `json:"allow_context_runtime_drift,omitempty"`
+	ExpectedContextSetDigest string   `json:"expected_context_set_digest,omitempty"`
+	DiffAllowChangedFiles    []string `json:"diff_allow_changed_files,omitempty"`
+	SessionChain             string   `json:"session_chain,omitempty"`
+	CheckpointIndex          int      `json:"checkpoint_index,omitempty"`
 }
 
 type configFile struct {
@@ -139,6 +145,12 @@ func InitFixture(opts InitOptions) (InitResult, error) {
 		ExpectedReplayExitCode: 0,
 		SessionChain:           sessionChainPath,
 		CheckpointIndex:        checkpointIndex,
+	}
+	if sourcePack, readErr := runpack.ReadRunpack(sourceRunpackPath); readErr == nil {
+		if strings.TrimSpace(sourcePack.Refs.ContextSetDigest) != "" {
+			meta.ContextConformance = "required"
+			meta.ExpectedContextSetDigest = strings.TrimSpace(sourcePack.Refs.ContextSetDigest)
+		}
 	}
 	if err := writeJSON(filepath.Join(fixtureDir, fixtureFileName), meta); err != nil {
 		return InitResult{}, fmt.Errorf("write fixture metadata: %w", err)
@@ -259,6 +271,14 @@ func readFixtureMeta(path string) (fixtureMeta, error) {
 	}
 	if meta.CheckpointIndex < 0 {
 		return fixtureMeta{}, fmt.Errorf("fixture checkpoint_index must be >= 0: %s", slashPath(path))
+	}
+	meta.ContextConformance = strings.ToLower(strings.TrimSpace(meta.ContextConformance))
+	if meta.ContextConformance != "" && meta.ContextConformance != "required" && meta.ContextConformance != "none" {
+		return fixtureMeta{}, fmt.Errorf("fixture context_conformance must be one of required|none: %s", slashPath(path))
+	}
+	meta.ExpectedContextSetDigest = strings.TrimSpace(meta.ExpectedContextSetDigest)
+	if meta.ExpectedContextSetDigest != "" && !digestPattern.MatchString(meta.ExpectedContextSetDigest) {
+		return fixtureMeta{}, fmt.Errorf("fixture expected_context_set_digest must be sha256 hex: %s", slashPath(path))
 	}
 	return meta, nil
 }

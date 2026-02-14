@@ -63,6 +63,9 @@ class IntentContext:
     auth_context: dict[str, Any] | None = None
     credential_scopes: list[str] = field(default_factory=list)
     environment_fingerprint: str | None = None
+    context_set_digest: str | None = None
+    context_evidence_mode: str | None = None
+    context_refs: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         output: dict[str, Any] = {
@@ -80,6 +83,12 @@ class IntentContext:
             output["credential_scopes"] = list(self.credential_scopes)
         if self.environment_fingerprint:
             output["environment_fingerprint"] = self.environment_fingerprint
+        if self.context_set_digest:
+            output["context_set_digest"] = self.context_set_digest
+        if self.context_evidence_mode:
+            output["context_evidence_mode"] = self.context_evidence_mode
+        if self.context_refs:
+            output["context_refs"] = list(self.context_refs)
         return output
 
 
@@ -198,6 +207,9 @@ class IntentRequest:
                     str(value) for value in payload["context"].get("credential_scopes", [])
                 ],
                 environment_fingerprint=payload["context"].get("environment_fingerprint"),
+                context_set_digest=payload["context"].get("context_set_digest"),
+                context_evidence_mode=payload["context"].get("context_evidence_mode"),
+                context_refs=[str(value) for value in payload["context"].get("context_refs", [])],
             ),
             delegation=(
                 IntentDelegation(

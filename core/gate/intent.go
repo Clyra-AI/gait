@@ -445,6 +445,15 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 	}
 	credentialScopes := normalizeCredentialScopes(context.CredentialScopes)
 	environmentFingerprint := strings.TrimSpace(context.EnvironmentFingerprint)
+	contextSetDigest := strings.ToLower(strings.TrimSpace(context.ContextSetDigest))
+	if contextSetDigest != "" && !hexDigestPattern.MatchString(contextSetDigest) {
+		return schemagate.IntentContext{}, fmt.Errorf("context.context_set_digest must be sha256 hex")
+	}
+	contextEvidenceMode := strings.ToLower(strings.TrimSpace(context.ContextEvidenceMode))
+	if contextEvidenceMode != "" && contextEvidenceMode != "best_effort" && contextEvidenceMode != "required" {
+		return schemagate.IntentContext{}, fmt.Errorf("context.context_evidence_mode must be best_effort or required")
+	}
+	contextRefs := normalizeContextRefs(context.ContextRefs)
 
 	return schemagate.IntentContext{
 		Identity:               identity,
@@ -455,6 +464,9 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 		AuthContext:            authContext,
 		CredentialScopes:       credentialScopes,
 		EnvironmentFingerprint: environmentFingerprint,
+		ContextSetDigest:       contextSetDigest,
+		ContextEvidenceMode:    contextEvidenceMode,
+		ContextRefs:            contextRefs,
 	}, nil
 }
 
@@ -492,6 +504,30 @@ func normalizeCredentialScopes(scopes []string) []string {
 		}
 		seen[scope] = struct{}{}
 		normalized = append(normalized, scope)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	sort.Strings(normalized)
+	return normalized
+}
+
+func normalizeContextRefs(refs []string) []string {
+	if len(refs) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(refs))
+	normalized := make([]string, 0, len(refs))
+	for _, raw := range refs {
+		value := strings.TrimSpace(raw)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
 	}
 	if len(normalized) == 0 {
 		return nil

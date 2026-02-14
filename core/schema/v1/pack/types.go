@@ -28,15 +28,19 @@ type Signature struct {
 }
 
 type RunPayload struct {
-	SchemaID       string    `json:"schema_id"`
-	SchemaVersion  string    `json:"schema_version"`
-	CreatedAt      time.Time `json:"created_at"`
-	RunID          string    `json:"run_id"`
-	CaptureMode    string    `json:"capture_mode"`
-	ManifestDigest string    `json:"manifest_digest"`
-	IntentsCount   int       `json:"intents_count"`
-	ResultsCount   int       `json:"results_count"`
-	RefsCount      int       `json:"refs_count"`
+	SchemaID            string    `json:"schema_id"`
+	SchemaVersion       string    `json:"schema_version"`
+	CreatedAt           time.Time `json:"created_at"`
+	RunID               string    `json:"run_id"`
+	CaptureMode         string    `json:"capture_mode"`
+	ManifestDigest      string    `json:"manifest_digest"`
+	IntentsCount        int       `json:"intents_count"`
+	ResultsCount        int       `json:"results_count"`
+	RefsCount           int       `json:"refs_count"`
+	ContextSetDigest    string    `json:"context_set_digest,omitempty"`
+	ContextRefCount     int       `json:"context_ref_count,omitempty"`
+	ContextEvidenceMode string    `json:"context_evidence_mode,omitempty"`
+	ContextPrivacyMode  string    `json:"context_privacy_mode,omitempty"`
 }
 
 type JobPayload struct {
@@ -53,11 +57,14 @@ type JobPayload struct {
 }
 
 type DiffSummary struct {
-	Changed       bool     `json:"changed"`
-	AddedFiles    []string `json:"added_files,omitempty"`
-	RemovedFiles  []string `json:"removed_files,omitempty"`
-	ChangedFiles  []string `json:"changed_files,omitempty"`
-	ManifestDelta bool     `json:"manifest_delta"`
+	Changed                    bool     `json:"changed"`
+	AddedFiles                 []string `json:"added_files,omitempty"`
+	RemovedFiles               []string `json:"removed_files,omitempty"`
+	ChangedFiles               []string `json:"changed_files,omitempty"`
+	ManifestDelta              bool     `json:"manifest_delta"`
+	ContextChanged             bool     `json:"context_changed,omitempty"`
+	ContextRuntimeOnlyChanges  bool     `json:"context_runtime_only_changes,omitempty"`
+	ContextDriftClassification string   `json:"context_drift_classification,omitempty"`
 }
 
 type DiffResult struct {

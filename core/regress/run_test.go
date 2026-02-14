@@ -166,6 +166,98 @@ func TestRunDiffToleranceRules(t *testing.T) {
 	}
 }
 
+func TestRunContextConformanceRuntimeDrift(t *testing.T) {
+	workDir := t.TempDir()
+	sourceRunpack := createContextRunpack(t, workDir, "run_ctx", "ctx_1", time.Date(2026, time.February, 14, 0, 0, 0, 0, time.UTC), strings.Repeat("a", 64))
+	candidatePath := createContextRunpack(t, workDir, "run_ctx", "ctx_1", time.Date(2026, time.February, 14, 0, 5, 0, 0, time.UTC), strings.Repeat("a", 64))
+
+	if _, err := InitFixture(InitOptions{
+		SourceRunpackPath: sourceRunpack,
+		WorkDir:           workDir,
+	}); err != nil {
+		t.Fatalf("init fixture: %v", err)
+	}
+
+	diffResult, err := runpack.DiffRunpacks(sourceRunpack, candidatePath, runpack.DiffPrivacy("full"))
+	if err != nil {
+		t.Fatalf("diff runpacks: %v", err)
+	}
+
+	metaPath := filepath.Join(workDir, "fixtures", "run_ctx", "fixture.json")
+	meta := mustReadFixtureMeta(t, metaPath)
+	meta.CandidateRunpack = candidatePath
+	meta.DiffAllowChangedFiles = summarizeChangedFiles(diffResult.Summary)
+	meta.ContextConformance = "required"
+	meta.AllowContextRuntimeDrift = false
+	if err := writeJSON(metaPath, meta); err != nil {
+		t.Fatalf("write fixture metadata: %v", err)
+	}
+
+	blocked, err := Run(RunOptions{
+		ConfigPath:            filepath.Join(workDir, "gait.yaml"),
+		OutputPath:            filepath.Join(workDir, "regress_blocked.json"),
+		WorkDir:               workDir,
+		ContextConformance:    true,
+		AllowNondeterministic: false,
+	})
+	if err != nil {
+		t.Fatalf("run regress with blocked runtime drift: %v", err)
+	}
+	if blocked.Result.Status != regressStatusFail {
+		t.Fatalf("expected blocked status fail, got %s", blocked.Result.Status)
+	}
+	if !hasFailedReason(blocked.Result.Graders, "run_ctx/context_conformance", "context_runtime_drift_blocked") {
+		t.Fatalf("expected context_runtime_drift_blocked reason, got %#v", blocked.Result.Graders)
+	}
+
+	allowed, err := Run(RunOptions{
+		ConfigPath:               filepath.Join(workDir, "gait.yaml"),
+		OutputPath:               filepath.Join(workDir, "regress_allowed.json"),
+		WorkDir:                  workDir,
+		ContextConformance:       true,
+		AllowContextRuntimeDrift: true,
+	})
+	if err != nil {
+		t.Fatalf("run regress with allowed runtime drift: %v", err)
+	}
+	if allowed.Result.Status != regressStatusPass {
+		t.Fatalf("expected runtime-only drift pass, got %s", allowed.Result.Status)
+	}
+}
+
+func TestContextConformanceGraderMetadataAndSourceErrors(t *testing.T) {
+	grader := contextConformanceGrader{enforce: true}
+	if grader.Name() != "context_conformance" {
+		t.Fatalf("unexpected grader name: %s", grader.Name())
+	}
+	if !grader.Deterministic() {
+		t.Fatalf("expected context conformance grader to be deterministic")
+	}
+
+	result, err := grader.Grade(FixtureContext{
+		Fixture: fixtureSpec{
+			Name:        "missing",
+			RunpackPath: filepath.Join(t.TempDir(), "missing.zip"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("grade missing source runpack: %v", err)
+	}
+	foundReason := false
+	for _, reason := range result.ReasonCodes {
+		if reason == "source_runpack_invalid" {
+			foundReason = true
+			break
+		}
+	}
+	if result.Status != regressStatusFail || !foundReason {
+		t.Fatalf("expected source_runpack_invalid failure result, got %#v", result)
+	}
+	if result.ContextConformance != "missing" {
+		t.Fatalf("expected missing context conformance, got %q", result.ContextConformance)
+	}
+}
+
 func TestRunWritesStableJUnitReport(t *testing.T) {
 	workDir := t.TempDir()
 	sourceRunpack := createRunpack(t, workDir, "run_demo")
@@ -814,6 +906,61 @@ func createVariantRunpack(t *testing.T, dir, runID, variant string) string {
 	})
 	if err != nil {
 		t.Fatalf("write variant runpack: %v", err)
+	}
+	return path
+}
+
+func createContextRunpack(t *testing.T, dir, runID, refID string, retrievedAt time.Time, contextDigest string) string {
+	t.Helper()
+	path := filepath.Join(dir, "context_"+runID+"_"+retrievedAt.Format("150405")+".zip")
+	ts := time.Date(2026, time.February, 14, 0, 0, 0, 0, time.UTC)
+	run := schemarunpack.Run{
+		RunID:     runID,
+		CreatedAt: ts,
+		Env:       schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: ts},
+		},
+	}
+	_, err := runpack.WriteRunpack(path, runpack.RecordOptions{
+		Run: run,
+		Intents: []schemarunpack.IntentRecord{
+			{
+				IntentID:   "intent_1",
+				ToolName:   "tool.demo",
+				ArgsDigest: strings.Repeat("2", 64),
+				Args:       map[string]any{"input": "demo"},
+			},
+		},
+		Results: []schemarunpack.ResultRecord{
+			{
+				IntentID:     "intent_1",
+				Status:       "ok",
+				ResultDigest: strings.Repeat("3", 64),
+				Result:       map[string]any{"ok": true},
+			},
+		},
+		Refs: schemarunpack.Refs{
+			RunID:               runID,
+			ContextSetDigest:    contextDigest,
+			ContextEvidenceMode: "required",
+			ContextRefCount:     1,
+			Receipts: []schemarunpack.RefReceipt{
+				{
+					RefID:         refID,
+					SourceType:    "doc_store",
+					SourceLocator: "docs://policy/security",
+					QueryDigest:   strings.Repeat("4", 64),
+					ContentDigest: strings.Repeat("5", 64),
+					RetrievedAt:   retrievedAt,
+					RedactionMode: "reference",
+					Immutability:  "immutable",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("write context runpack: %v", err)
 	}
 	return path
 }

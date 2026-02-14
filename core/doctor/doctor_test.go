@@ -333,6 +333,66 @@ func TestProductionReadinessChecks(t *testing.T) {
 	}
 }
 
+func TestProductionContextStrictnessAndExecutableChecks(t *testing.T) {
+	notProd := checkProductionContextStrictness(projectconfig.GateDefaults{
+		Profile: "oss-dev",
+		Policy:  "policy.yaml",
+	})
+	if notProd.Status != statusFail {
+		t.Fatalf("expected non-prod profile context strictness failure, got %#v", notProd)
+	}
+
+	missingPolicy := checkProductionContextStrictness(projectconfig.GateDefaults{
+		Profile: "oss-prod",
+		Policy:  "",
+	})
+	if missingPolicy.Status != statusFail || missingPolicy.FixCommand == "" {
+		t.Fatalf("expected missing policy context strictness failure with fix command, got %#v", missingPolicy)
+	}
+
+	passing := checkProductionContextStrictness(projectconfig.GateDefaults{
+		Profile: "oss-prod",
+		Policy:  "examples/policy/prod.yaml",
+	})
+	if passing.Status != statusPass {
+		t.Fatalf("expected production context strictness pass, got %#v", passing)
+	}
+
+	if runtime.GOOS == "windows" {
+		if !isExecutableBinary("gait.exe", nil) {
+			t.Fatalf("expected .exe to be executable on windows")
+		}
+		if isExecutableBinary("gait.txt", nil) {
+			t.Fatalf("did not expect .txt to be executable on windows")
+		}
+		return
+	}
+
+	execPath := filepath.Join(t.TempDir(), "exec.sh")
+	if err := os.WriteFile(execPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write executable file: %v", err)
+	}
+	execInfo, err := os.Stat(execPath)
+	if err != nil {
+		t.Fatalf("stat executable file: %v", err)
+	}
+	if !isExecutableBinary(execPath, execInfo) {
+		t.Fatalf("expected file with execute bit to be executable")
+	}
+
+	nonExecPath := filepath.Join(t.TempDir(), "plain.txt")
+	if err := os.WriteFile(nonExecPath, []byte("plain\n"), 0o600); err != nil {
+		t.Fatalf("write non-executable file: %v", err)
+	}
+	nonExecInfo, err := os.Stat(nonExecPath)
+	if err != nil {
+		t.Fatalf("stat non-executable file: %v", err)
+	}
+	if isExecutableBinary(nonExecPath, nonExecInfo) {
+		t.Fatalf("did not expect file without execute bit to be executable")
+	}
+}
+
 func TestCheckHooksPathScenarios(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")

@@ -141,6 +141,24 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_broker_credential_record_invalid.json"),
 		},
 		{
+			name:       "context_reference_record",
+			schemaPath: filepath.Join(root, "schemas", "v1", "context", "reference_record.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "context_reference_record_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "context_reference_record_invalid.json"),
+		},
+		{
+			name:       "context_envelope",
+			schemaPath: filepath.Join(root, "schemas", "v1", "context", "envelope.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "context_envelope_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "context_envelope_invalid.json"),
+		},
+		{
+			name:       "context_budget_report",
+			schemaPath: filepath.Join(root, "schemas", "v1", "context", "budget_report.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "context_budget_report_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "context_budget_report_invalid.json"),
+		},
+		{
 			name:       "policy_test_result",
 			schemaPath: filepath.Join(root, "schemas", "v1", "policytest", "policy_test_result.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "policy_test_result_valid.json"),

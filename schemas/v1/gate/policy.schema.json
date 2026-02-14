@@ -22,7 +22,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["targets", "arg_provenance", "endpoint_class", "delegation"]
+            "enum": ["targets", "arg_provenance", "endpoint_class", "delegation", "context_evidence"]
           }
         }
       },
@@ -91,6 +91,12 @@
           },
           "min_approvals": { "type": "integer", "minimum": 1 },
           "require_distinct_approvers": { "type": "boolean" },
+          "require_context_evidence": { "type": "boolean" },
+          "required_context_evidence_mode": {
+            "type": "string",
+            "enum": ["required"]
+          },
+          "max_context_age_seconds": { "type": "integer", "minimum": 0 },
           "require_broker_credential": { "type": "boolean" },
           "broker_reference": { "type": "string" },
           "broker_scopes": {

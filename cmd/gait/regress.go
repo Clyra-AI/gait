@@ -171,6 +171,8 @@ func runRegressRun(arguments []string) int {
 	var junitPath string
 	var jsonOutput bool
 	var allowNondeterministic bool
+	var contextConformance bool
+	var allowContextRuntimeDrift bool
 	var helpFlag bool
 
 	flagSet.StringVar(&configPath, "config", "gait.yaml", "path to regress config")
@@ -178,6 +180,8 @@ func runRegressRun(arguments []string) int {
 	flagSet.StringVar(&junitPath, "junit", "", "path to optional junit xml report")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&allowNondeterministic, "allow-nondeterministic", false, "allow non-deterministic graders")
+	flagSet.BoolVar(&contextConformance, "context-conformance", false, "enforce context conformance grader for all fixtures")
+	flagSet.BoolVar(&allowContextRuntimeDrift, "allow-context-runtime-drift", false, "allow runtime-only context drift when context conformance is enforced")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
@@ -195,12 +199,14 @@ func runRegressRun(arguments []string) int {
 	}
 
 	result, err := regress.Run(regress.RunOptions{
-		ConfigPath:            configPath,
-		OutputPath:            outputPath,
-		JUnitPath:             junitPath,
-		WorkDir:               ".",
-		ProducerVersion:       version,
-		AllowNondeterministic: allowNondeterministic,
+		ConfigPath:               configPath,
+		OutputPath:               outputPath,
+		JUnitPath:                junitPath,
+		WorkDir:                  ".",
+		ProducerVersion:          version,
+		AllowNondeterministic:    allowNondeterministic,
+		ContextConformance:       contextConformance,
+		AllowContextRuntimeDrift: allowContextRuntimeDrift,
 	})
 	if err != nil {
 		return writeRegressRunOutput(jsonOutput, regressRunOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -247,6 +253,8 @@ func runRegressBootstrap(arguments []string) int {
 	var junitPath string
 	var jsonOutput bool
 	var allowNondeterministic bool
+	var contextConformance bool
+	var allowContextRuntimeDrift bool
 	var helpFlag bool
 
 	flagSet.StringVar(&from, "from", "", "run_id or path")
@@ -257,6 +265,8 @@ func runRegressBootstrap(arguments []string) int {
 	flagSet.StringVar(&junitPath, "junit", "", "path to optional junit xml report")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&allowNondeterministic, "allow-nondeterministic", false, "allow non-deterministic graders")
+	flagSet.BoolVar(&contextConformance, "context-conformance", false, "enforce context conformance grader for all fixtures")
+	flagSet.BoolVar(&allowContextRuntimeDrift, "allow-context-runtime-drift", false, "allow runtime-only context drift when context conformance is enforced")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
@@ -295,12 +305,14 @@ func runRegressBootstrap(arguments []string) int {
 	}
 
 	runResult, err := regress.Run(regress.RunOptions{
-		ConfigPath:            configPath,
-		OutputPath:            outputPath,
-		JUnitPath:             junitPath,
-		WorkDir:               ".",
-		ProducerVersion:       version,
-		AllowNondeterministic: allowNondeterministic,
+		ConfigPath:               configPath,
+		OutputPath:               outputPath,
+		JUnitPath:                junitPath,
+		WorkDir:                  ".",
+		ProducerVersion:          version,
+		AllowNondeterministic:    allowNondeterministic,
+		ContextConformance:       contextConformance,
+		AllowContextRuntimeDrift: allowContextRuntimeDrift,
 	})
 	if err != nil {
 		return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -449,8 +461,8 @@ func resolveRegressSource(from string, checkpointRef string) (string, string, er
 func printRegressUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait regress init --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--json] [--explain]")
-	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
-	fmt.Println("  gait regress bootstrap --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
+	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--context-conformance] [--allow-context-runtime-drift] [--explain]")
+	fmt.Println("  gait regress bootstrap --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--context-conformance] [--allow-context-runtime-drift] [--explain]")
 }
 
 func printRegressInitUsage() {
@@ -460,10 +472,10 @@ func printRegressInitUsage() {
 
 func printRegressRunUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--explain]")
+	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--context-conformance] [--allow-context-runtime-drift] [--explain]")
 }
 
 func printRegressBootstrapUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait regress bootstrap --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--explain]")
+	fmt.Println("  gait regress bootstrap --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--context-conformance] [--allow-context-runtime-drift] [--explain]")
 }

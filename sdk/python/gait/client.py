@@ -253,6 +253,8 @@ def record_runpack(
     cwd: str | Path | None = None,
     out_dir: str | Path = "gait-out",
     capture_mode: str = "reference",
+    context_evidence_mode: str | None = None,
+    context_envelope: str | Path | None = None,
 ) -> RunRecordCapture:
     if capture_mode not in {"reference", "raw"}:
         raise GaitError("capture_mode must be 'reference' or 'raw'")
@@ -272,6 +274,10 @@ def record_runpack(
             capture_mode,
             "--json",
         ]
+        if context_evidence_mode:
+            command.extend(["--context-evidence-mode", str(context_evidence_mode)])
+        if context_envelope is not None:
+            command.extend(["--context-envelope", str(context_envelope)])
         result = _run_command(command, cwd=cwd)
         payload = _parse_json_stdout(result.stdout)
         if payload is None:
