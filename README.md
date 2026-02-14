@@ -194,9 +194,9 @@ Gait does not auto-intercept your framework. Your dispatcher must call Gait and 
 ```python
 def dispatch_tool(tool_call):
     decision = gait_evaluate(tool_call)
-if decision["verdict"] != "allow":
-    return {"executed": False, "verdict": decision["verdict"]}
-return {"executed": True, "result": execute_real_tool(tool_call)}
+    if decision["verdict"] != "allow":
+        return {"executed": False, "verdict": decision["verdict"]}
+    return {"executed": True, "result": execute_real_tool(tool_call)}
 ```
 
 Managed/preloaded agent note:
