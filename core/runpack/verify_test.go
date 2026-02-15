@@ -3,8 +3,6 @@ package runpack
 import (
 	"bytes"
 	"crypto/ed25519"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -21,19 +19,15 @@ func TestVerifyZipSuccess(test *testing.T) {
 	if err != nil {
 		test.Fatalf("generate keypair: %v", err)
 	}
-	fileData := []byte("hello")
-	fileHash := sha256.Sum256(fileData)
-	fileHashHex := hex.EncodeToString(fileHash[:])
-	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, []schemarunpack.ManifestFile{
-		{Path: "run.json", SHA256: fileHashHex},
-	})
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, manifestFiles)
 	if err != nil {
 		test.Fatalf("build manifest: %v", err)
 	}
-	zipPath := writeRunpackZip(test, []zipx.File{
+	archiveFiles := append([]zipx.File{
 		{Path: "manifest.json", Data: manifestBytes, Mode: 0o644},
-		{Path: "run.json", Data: fileData, Mode: 0o644},
-	})
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
 
 	result, err := VerifyZip(zipPath, VerifyOptions{
 		PublicKey:        keyPair.Public,
@@ -55,17 +49,20 @@ func TestVerifyZipHashMismatch(test *testing.T) {
 	if err != nil {
 		test.Fatalf("generate keypair: %v", err)
 	}
-	expectedHash := sha256.Sum256([]byte("hello"))
-	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, []schemarunpack.ManifestFile{
-		{Path: "run.json", SHA256: hex.EncodeToString(expectedHash[:])},
-	})
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, manifestFiles)
 	if err != nil {
 		test.Fatalf("build manifest: %v", err)
 	}
-	zipPath := writeRunpackZip(test, []zipx.File{
+	for index := range runpackFiles {
+		if runpackFiles[index].Path == "run.json" {
+			runpackFiles[index].Data = []byte("{\"tampered\":true}\n")
+		}
+	}
+	archiveFiles := append([]zipx.File{
 		{Path: "manifest.json", Data: manifestBytes, Mode: 0o644},
-		{Path: "run.json", Data: []byte("tampered"), Mode: 0o644},
-	})
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
 
 	result, err := VerifyZip(zipPath, VerifyOptions{
 		PublicKey:        keyPair.Public,
@@ -87,19 +84,16 @@ func TestVerifyZipSignatureFailure(test *testing.T) {
 	if err != nil {
 		test.Fatalf("generate keypair: %v", err)
 	}
-	fileData := []byte("hello")
-	fileHash := sha256.Sum256(fileData)
-	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, []schemarunpack.ManifestFile{
-		{Path: "run.json", SHA256: hex.EncodeToString(fileHash[:])},
-	})
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, manifestFiles)
 	if err != nil {
 		test.Fatalf("build manifest: %v", err)
 	}
 	tamperedManifest := bytes.Replace(manifestBytes, []byte("run_test"), []byte("run_bad"), 1)
-	zipPath := writeRunpackZip(test, []zipx.File{
+	archiveFiles := append([]zipx.File{
 		{Path: "manifest.json", Data: tamperedManifest, Mode: 0o644},
-		{Path: "run.json", Data: fileData, Mode: 0o644},
-	})
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
 
 	result, err := VerifyZip(zipPath, VerifyOptions{
 		PublicKey:        keyPair.Public,
@@ -130,15 +124,22 @@ func TestVerifyZipMissingFile(test *testing.T) {
 	if err != nil {
 		test.Fatalf("generate keypair: %v", err)
 	}
-	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, []schemarunpack.ManifestFile{
-		{Path: "run.json", SHA256: "1111111111111111111111111111111111111111111111111111111111111111"},
-	})
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, manifestFiles)
 	if err != nil {
 		test.Fatalf("build manifest: %v", err)
 	}
-	zipPath := writeRunpackZip(test, []zipx.File{
+	filteredFiles := make([]zipx.File, 0, len(runpackFiles))
+	for _, file := range runpackFiles {
+		if file.Path == "refs.json" {
+			continue
+		}
+		filteredFiles = append(filteredFiles, file)
+	}
+	archiveFiles := append([]zipx.File{
 		{Path: "manifest.json", Data: manifestBytes, Mode: 0o644},
-	})
+	}, filteredFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
 
 	result, err := VerifyZip(zipPath, VerifyOptions{
 		PublicKey:        keyPair.Public,
@@ -149,6 +150,9 @@ func TestVerifyZipMissingFile(test *testing.T) {
 	}
 	if len(result.MissingFiles) != 1 {
 		test.Fatalf("expected missing file to be reported")
+	}
+	if result.MissingFiles[0] != "refs.json" {
+		test.Fatalf("expected refs.json missing, got %v", result.MissingFiles)
 	}
 }
 
@@ -203,13 +207,15 @@ func TestVerifyZipSignatureSkippedNoPublicKey(test *testing.T) {
 	if err != nil {
 		test.Fatalf("generate keypair: %v", err)
 	}
-	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, []schemarunpack.ManifestFile{})
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildSignedManifestBytes(keyPair.Private, manifestFiles)
 	if err != nil {
 		test.Fatalf("build manifest: %v", err)
 	}
-	zipPath := writeRunpackZip(test, []zipx.File{
+	archiveFiles := append([]zipx.File{
 		{Path: "manifest.json", Data: manifestBytes, Mode: 0o644},
-	})
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
 
 	result, err := VerifyZip(zipPath, VerifyOptions{
 		RequireSignature: true,
@@ -280,15 +286,126 @@ func TestVerifyZipSignedDigestMismatch(test *testing.T) {
 }
 
 func TestVerifyZipManifestMissingRunID(test *testing.T) {
-	manifestBytes, err := buildManifestBytes("", nil, nil)
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildManifestBytes("", manifestFiles, nil)
 	if err != nil {
 		test.Fatalf("build manifest: %v", err)
 	}
-	zipPath := writeRunpackZip(test, []zipx.File{
+	archiveFiles := append([]zipx.File{
 		{Path: "manifest.json", Data: manifestBytes, Mode: 0o644},
-	})
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
 	if _, err := VerifyZip(zipPath, VerifyOptions{}); err == nil {
 		test.Fatalf("expected error for missing run_id")
+	}
+}
+
+func TestVerifyZipManifestDigestMismatch(test *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildManifestBytes("run_test", manifestFiles, nil)
+	if err != nil {
+		test.Fatalf("build manifest: %v", err)
+	}
+	var manifest schemarunpack.Manifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		test.Fatalf("decode manifest: %v", err)
+	}
+	manifest.ManifestDigest = "deadbeef"
+	tamperedManifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		test.Fatalf("encode manifest: %v", err)
+	}
+	archiveFiles := append([]zipx.File{
+		{Path: "manifest.json", Data: tamperedManifestBytes, Mode: 0o644},
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
+
+	result, err := VerifyZip(zipPath, VerifyOptions{})
+	if err != nil {
+		test.Fatalf("verify zip: %v", err)
+	}
+	if len(result.HashMismatches) != 1 {
+		test.Fatalf("expected manifest digest mismatch, got %v", result.HashMismatches)
+	}
+	if result.HashMismatches[0].Path != "manifest.json" {
+		test.Fatalf("expected manifest.json mismatch path, got %s", result.HashMismatches[0].Path)
+	}
+}
+
+func TestVerifyZipManifestSchemaValidation(test *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildManifestBytes("run_test", manifestFiles, nil)
+	if err != nil {
+		test.Fatalf("build manifest: %v", err)
+	}
+	var manifest schemarunpack.Manifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		test.Fatalf("decode manifest: %v", err)
+	}
+	manifest.SchemaID = "not.gait.manifest"
+	tamperedManifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		test.Fatalf("encode manifest: %v", err)
+	}
+	archiveFiles := append([]zipx.File{
+		{Path: "manifest.json", Data: tamperedManifestBytes, Mode: 0o644},
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
+
+	if _, err := VerifyZip(zipPath, VerifyOptions{}); err == nil {
+		test.Fatalf("expected schema validation error")
+	}
+}
+
+func TestVerifyZipManifestSchemaVersionValidation(test *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildManifestBytes("run_test", manifestFiles, nil)
+	if err != nil {
+		test.Fatalf("build manifest: %v", err)
+	}
+	var manifest schemarunpack.Manifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		test.Fatalf("decode manifest: %v", err)
+	}
+	manifest.SchemaVersion = "2.0.0"
+	tamperedManifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		test.Fatalf("encode manifest: %v", err)
+	}
+	archiveFiles := append([]zipx.File{
+		{Path: "manifest.json", Data: tamperedManifestBytes, Mode: 0o644},
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
+
+	if _, err := VerifyZip(zipPath, VerifyOptions{}); err == nil {
+		test.Fatalf("expected schema version validation error")
+	}
+}
+
+func TestVerifyZipMissingRequiredManifestEntry(test *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	filteredManifestFiles := make([]schemarunpack.ManifestFile, 0, len(manifestFiles))
+	for _, file := range manifestFiles {
+		if file.Path == "results.jsonl" {
+			continue
+		}
+		filteredManifestFiles = append(filteredManifestFiles, file)
+	}
+	manifestBytes, err := buildManifestBytes("run_test", filteredManifestFiles, nil)
+	if err != nil {
+		test.Fatalf("build manifest: %v", err)
+	}
+	archiveFiles := append([]zipx.File{
+		{Path: "manifest.json", Data: manifestBytes, Mode: 0o644},
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
+
+	result, err := VerifyZip(zipPath, VerifyOptions{})
+	if err != nil {
+		test.Fatalf("verify zip: %v", err)
+	}
+	if len(result.MissingFiles) != 1 || result.MissingFiles[0] != "results.jsonl" {
+		test.Fatalf("expected missing required manifest entry for results.jsonl, got %v", result.MissingFiles)
 	}
 }
 
@@ -335,10 +452,34 @@ func buildManifestBytes(runID string, files []schemarunpack.ManifestFile, signat
 		RunID:           runID,
 		CaptureMode:     "reference",
 		Files:           files,
-		ManifestDigest:  "1111111111111111111111111111111111111111111111111111111111111111",
 		Signatures:      signatures,
 	}
+	digest, err := computeManifestDigest(manifest)
+	if err != nil {
+		return nil, err
+	}
+	manifest.ManifestDigest = digest
 	return json.Marshal(manifest)
+}
+
+func buildCompleteRunpackFixture() ([]schemarunpack.ManifestFile, []zipx.File) {
+	runData := []byte("{\"run\":\"ok\"}\n")
+	intentsData := []byte("{\"intent\":\"ok\"}\n")
+	resultsData := []byte("{\"result\":\"ok\"}\n")
+	refsData := []byte("{\"refs\":\"ok\"}\n")
+	manifestFiles := []schemarunpack.ManifestFile{
+		{Path: "run.json", SHA256: sha256Hex(runData)},
+		{Path: "intents.jsonl", SHA256: sha256Hex(intentsData)},
+		{Path: "results.jsonl", SHA256: sha256Hex(resultsData)},
+		{Path: "refs.json", SHA256: sha256Hex(refsData)},
+	}
+	runpackFiles := []zipx.File{
+		{Path: "run.json", Data: runData, Mode: 0o644},
+		{Path: "intents.jsonl", Data: intentsData, Mode: 0o644},
+		{Path: "results.jsonl", Data: resultsData, Mode: 0o644},
+		{Path: "refs.json", Data: refsData, Mode: 0o644},
+	}
+	return manifestFiles, runpackFiles
 }
 
 func writeRunpackZip(test *testing.T, files []zipx.File) string {

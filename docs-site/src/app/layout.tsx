@@ -27,6 +27,9 @@ export const metadata: Metadata = {
       },
     ],
   },
+  icons: {
+    icon: '/favicon.svg',
+  },
   twitter: {
     card: 'summary_large_image',
     title: 'Gait | Durable Agent Runtime with Signed Proof',

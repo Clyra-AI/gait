@@ -41,6 +41,13 @@ type HashMismatch struct {
 
 const maxZipFileBytes = 100 * 1024 * 1024
 
+var requiredRunpackFiles = []string{
+	"run.json",
+	"intents.jsonl",
+	"results.jsonl",
+	"refs.json",
+}
+
 func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 	zipReader, err := zip.OpenReader(path)
 	if err != nil {
@@ -68,6 +75,12 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return VerifyResult{}, fmt.Errorf("parse manifest.json: %w", err)
 	}
+	if manifest.SchemaID != "gait.runpack.manifest" {
+		return VerifyResult{}, fmt.Errorf("manifest schema_id must be gait.runpack.manifest")
+	}
+	if manifest.SchemaVersion != "1.0.0" {
+		return VerifyResult{}, fmt.Errorf("manifest schema_version must be 1.0.0")
+	}
 	if manifest.RunID == "" {
 		return VerifyResult{}, fmt.Errorf("manifest missing run_id")
 	}
@@ -80,8 +93,10 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		SignaturesTotal: len(manifest.Signatures),
 	}
 
+	declared := make(map[string]struct{}, len(manifest.Files))
 	for _, entry := range manifest.Files {
 		name := filepath.ToSlash(entry.Path)
+		declared[name] = struct{}{}
 		zipFile, exists := files[name]
 		if !exists {
 			result.MissingFiles = append(result.MissingFiles, name)
@@ -98,6 +113,23 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 				Actual:   actual,
 			})
 		}
+	}
+	for _, requiredPath := range requiredRunpackFiles {
+		if _, ok := declared[requiredPath]; !ok {
+			result.MissingFiles = append(result.MissingFiles, requiredPath)
+		}
+	}
+
+	computedManifestDigest, err := computeManifestDigest(manifest)
+	if err != nil {
+		return VerifyResult{}, fmt.Errorf("compute manifest digest: %w", err)
+	}
+	if !equalHex(manifest.ManifestDigest, computedManifestDigest) {
+		result.HashMismatches = append(result.HashMismatches, HashMismatch{
+			Path:     "manifest.json",
+			Expected: manifest.ManifestDigest,
+			Actual:   computedManifestDigest,
+		})
 	}
 
 	signable, err := signableManifestBytes(manifestBytes)
