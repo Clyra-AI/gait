@@ -69,7 +69,13 @@ if ! cmp -s "${tmp_root}/manifest_before.txt" "${tmp_root}/manifest_after.txt"; 
 fi
 
 for provider in codex claude; do
-  for skill in gait-capture-runpack gait-incident-to-regression gait-policy-test-rollout; do
+  for skill in \
+    gait-capture-runpack \
+    gait-incident-to-regression \
+    gait-policy-test-rollout \
+    incident-to-regression \
+    ci-failure-triage \
+    evidence-receipt-generation; do
     if [[ ! -f "${tmp_root}/${provider}/skills/${skill}/SKILL.md" ]]; then
       echo "missing installed skill file for provider=${provider} skill=${skill}" >&2
       exit 1

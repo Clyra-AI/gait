@@ -1,0 +1,4 @@
+interface:
+  display_name: "Incident To Regression"
+  short_description: "Convert incidents into deterministic regress checks"
+  default_prompt: "Use $incident-to-regression to initialize deterministic fixtures, run graders, and return CI-ready evidence outputs."

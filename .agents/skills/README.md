@@ -1,15 +1,20 @@
-# Gait Skills (Thin Wrappers)
+# Gait Skills
 
-The official OSS skill set includes exactly three skills:
+This directory contains reusable, portable skills that wrap Gait CLI workflows.
+
+Core publishable skills:
+
+- `incident-to-regression`
+- `ci-failure-triage`
+- `evidence-receipt-generation`
+
+Existing project-specific skills remain available for internal usage:
 
 - `gait-capture-runpack`
 - `gait-incident-to-regression`
 - `gait-policy-test-rollout`
 
-These skills are thin wrappers around the Gait CLI and contracts.
-They do not reimplement policy logic.
-
-Quick validation:
+Validation:
 
 ```bash
 python3 scripts/validate_repo_skills.py

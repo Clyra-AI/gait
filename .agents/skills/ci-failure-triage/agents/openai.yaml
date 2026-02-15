@@ -1,0 +1,4 @@
+interface:
+  display_name: "CI Failure Triage"
+  short_description: "Triage CI failures with artifact-first evidence"
+  default_prompt: "Use $ci-failure-triage to verify failing artifacts, isolate cause, and return deterministic rerun commands."

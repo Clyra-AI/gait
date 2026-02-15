@@ -1,0 +1,4 @@
+interface:
+  display_name: "Evidence Receipt Generation"
+  short_description: "Generate portable evidence receipts from runs"
+  default_prompt: "Use $evidence-receipt-generation to verify source artifacts and emit ticket-ready receipt metadata."
