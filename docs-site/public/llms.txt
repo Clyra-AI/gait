@@ -35,6 +35,20 @@
 - gait doctor --summary
 - gait ui
 
+## Tool Boundary
+- Boundary location: the exact adapter call site before real tool side effects execute.
+- Input: structured intent payload.
+- Rule: `verdict != allow` means no tool execution.
+
+## When To Use
+- You need enforceable policy decisions before agent tool side effects.
+- You need signed portable evidence artifacts and deterministic regressions.
+- You need durable checkpointed agent jobs with inspectable state.
+
+## When Not To Use
+- No local Gait CLI/artifact path exists.
+- No tool side effects or evidence requirements exist.
+
 ## Safety Model
 - Fail-closed by default for ambiguous high-risk policy outcomes.
 - Offline verification for packs, runpacks, and traces.
@@ -44,7 +58,20 @@
 - Signed traces and explicit reason codes for blocked actions.
 - No hosted service dependency required for core operation.
 
+## Canonical Docs
+- /docs/adopt_in_one_pr/
+- /docs/durable_jobs/
+- /docs/integration_checklist/
+- /docs/architecture/
+- /docs/flows/
+- /docs/threat_model/
+- /docs/failure_taxonomy_exit_codes/
+- /docs/contracts/packspec_v1/
+- /docs/contracts/pack_producer_kit/
+- /docs/contracts/compatibility_matrix/
+
 ## LLM Resources
+- /llms-full.txt
 - /llm/product.md
 - /llm/quickstart.md
 - /llm/security.md

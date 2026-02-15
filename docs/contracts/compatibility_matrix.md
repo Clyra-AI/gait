@@ -7,6 +7,12 @@ description: "Public compatibility mapping for Gait CLI, PackSpec version, and v
 
 This matrix defines compatibility between producer and consumer surfaces.
 
+## Version Semantics
+
+- This page is the contract-level source for version compatibility.
+- Evergreen operational docs should not carry release tags in titles.
+- Release-lane context belongs in release notes and plan documents (for example `docs/PLAN_v2.7_distribution.md`).
+
 ## Version Matrix
 
 | Gait CLI | PackSpec | `gait pack verify` behavior | Legacy runpack verify via `pack verify` |

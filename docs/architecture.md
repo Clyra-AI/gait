@@ -1,6 +1,6 @@
 ---
 title: "Architecture"
-description: "Component boundaries, integration-first architecture diagram, and Go core internals for Gait."
+description: "Component boundaries, integration-first architecture diagram, and Gait engine internals."
 ---
 
 # Gait Architecture
@@ -32,7 +32,22 @@ What this is not:
 
 - Not an orchestrator diagram for LLM planning/state machines.
 - Not a hosted control plane architecture.
-- Not evidence that Go Core is "the agent". The agent runtime is external; Gait is the control/evidence layer.
+- Not evidence that Go Core is "the agent".
+- Here "Go Core" means Gait engine internals; the agent runtime is external.
+
+## Tool Boundary (Canonical Definition)
+
+A tool boundary is the exact call site where your runtime is about to execute a real side effect.
+
+- your code at the boundary: wrapper/adapter serializes `IntentRequest`
+- Gait decision surface: `gait gate eval` or `gait mcp serve`
+- enforcement rule: non-`allow` means non-execute
+
+Ownership lanes:
+
+- your code: `Agent Runtime` + `Adapter / Wrapper / Sidecar`
+- Gait layer: `gait` decision surface + policy/artifact engine
+- external system: `Real Tool Executor`
 
 ## Component Architecture (Implementation Internals)
 
@@ -40,7 +55,7 @@ What this is not:
 flowchart LR
     operator["Developer / Platform Engineer / CI"] --> cli["gait CLI (cmd/gait)"]
 
-    subgraph core["Go Core (core/*)"]
+    subgraph core["Gait Go Engine (core/*)"]
         dispatch["Command dispatch + exit contracts"]
         runpackc["Runpack (core/runpack)"]
         gate["Gate + policy eval (core/gate)"]
@@ -97,6 +112,15 @@ flowchart LR
     regressc --> junitXml
     guard --> evidenceZip
 ```
+
+## Integration Path Anchors (Repo)
+
+- canonical wrapper integration: `examples/integrations/openai_agents/quickstart.py`
+- command surface wiring: `cmd/gait/`
+- gate and policy logic: `core/gate/`
+- durable jobs lifecycle: `core/jobruntime/`
+- pack and runpack verification: `core/pack/`, `core/runpack/`
+- schema contracts: `schemas/v1/`
 
 ## Runtime Boundaries
 

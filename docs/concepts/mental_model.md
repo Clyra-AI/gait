@@ -1,27 +1,45 @@
 ---
 title: "Mental Model"
-description: "How Gait works: four deterministic primitives that make agent tool calls controllable and debuggable."
+description: "Problem-first model for why Gait exists, where the tool boundary sits, and how deterministic primitives map to incident control."
 ---
 
 # Gait Mental Model
 
 Use this as the 5-minute bridge between `gait demo` and production integration.
 
-## Plain-Language Summary
+## Problem-First View
 
-When agents can execute tools, teams need to record actions, control execution, debug failures, and prove what happened.  
-Gait is the deterministic layer that sits at the tool boundary to provide those four outcomes.
+If your agent can execute tools, these failures become expensive fast:
+
+- destructive actions happen and teams cannot prove policy context later
+- incidents cannot be reproduced because traces are nondeterministic
+- long-running runs fail mid-way with unclear state and no portable evidence
+
+Gait exists to make those failure modes deterministic, enforceable, and auditable offline.
 
 ## One Sentence Model
 
-Gait makes agent tool calls controllable by turning execution into four deterministic primitives: capture (`runpack`), enforce (`gate`), regress (`regress`), and diagnose (`doctor`).
+Gait is the control and evidence runtime at the tool boundary: capture what happened, enforce policy before side effects, convert incidents into deterministic regressions, and diagnose environment drift.
 
-## What Each Primitive Does
+## Tool Boundary (Canonical Definition)
 
-- `runpack`: records a deterministic artifact (`runpack_<run_id>.zip`) with manifest, intents, results, and receipts.
-- `gate`: evaluates one structured `IntentRequest` against policy and returns a deterministic verdict (`allow`, `block`, `dry_run`, `require_approval`) plus signed trace.
-- `regress`: converts an incident runpack into repeatable CI checks and JUnit-compatible output.
-- `doctor`: validates local environment and produces machine-readable fixes.
+A tool boundary is the exact call site where your runtime is about to execute a real tool side effect.
+
+- input across the boundary: structured `IntentRequest`
+- evaluator: `gait gate eval` (or `gait mcp serve` boundary endpoint)
+- hard rule: non-`allow` verdict means non-execute
+
+This is where fail-closed safety is enforced.
+
+## Deterministic Surfaces
+
+- `gate`: evaluate intent against policy and return deterministic `allow|block|require_approval|dry_run` plus signed trace.
+- `runpack`/`pack`: emit portable, verifiable evidence artifacts for run, job, and call paths.
+- `regress`: turn incidents into fixture-backed CI checks with stable exit behavior.
+- `jobs`: run checkpointed long-running work with pause/resume/cancel/approve/inspect lifecycle.
+- `doctor`: machine-readable first-run diagnostics and remediation hints.
+
+Contract note: primitive behavior is normative in `docs/contracts/primitive_contract.md`.
 
 ## End-To-End Runtime Flow
 
@@ -30,6 +48,13 @@ Gait makes agent tool calls controllable by turning execution into four determin
 3. `gate` returns verdict + trace.
 4. Tool executes only when verdict is `allow`.
 5. Incident or drift uses `runpack` + `regress` to become a deterministic test.
+
+## Where This Happens In Code
+
+- wrapper pattern: `examples/integrations/openai_agents/quickstart.py`
+- command entrypoint: `cmd/gait/gate.go`
+- policy evaluation engine: `core/gate/`
+- artifact verification and contracts: `core/runpack/`, `core/pack/`, `schemas/v1/`
 
 ## Sync Versus Async
 
@@ -78,9 +103,9 @@ For implementation details and exact integration checks, use `docs/integration_c
 
 A runpack is a tamper-evident ZIP bundle containing intents, results, reference receipts, and a SHA-256 manifest. It is the portable unit of proof for an agent run.
 
-### How is Gait different from LangSmith or LangFuse?
+### How is Gait different from observability stacks such as LangSmith or LangFuse?
 
-Gait produces cryptographically signed, offline-verifiable artifacts. Observability platforms produce best-effort dashboard traces that require a hosted service.
+Gait is a local control and evidence runtime. It enforces execution policy at the tool boundary and emits verifiable artifacts. Observability stacks focus on hosted tracing and analytics.
 
 ### Is Gait an agent orchestrator?
 

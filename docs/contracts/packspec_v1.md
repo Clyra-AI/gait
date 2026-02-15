@@ -7,6 +7,12 @@ description: "Unified portable artifact envelope for run, job, and call evidence
 
 Status: normative for v2.4+ producers/consumers.
 
+Version semantics:
+
+- PackSpec versioning lives in schema contracts and compatibility docs.
+- Evergreen implementation guides should avoid release-tag titles.
+- Release-scoped rollout commentary belongs in release plans/changelog, not this contract page.
+
 PackSpec v1 introduces one portable artifact envelope for run, job, and call evidence:
 
 - file name: `pack_<pack_id>.zip`

@@ -9,3 +9,9 @@
 - Context evidence envelopes with fail-closed enforcement when evidence is missing for high-risk actions.
 - Durable jobs with deterministic stop reasons and checkpoint integrity.
 - No hosted service dependency required for core operation.
+
+Operational references:
+
+- Threat model: `/docs/threat_model/`
+- Failure taxonomy and exits: `/docs/failure_taxonomy_exit_codes/`
+- Runtime hardening runbook: `/docs/hardening/prime_time_runbook/`

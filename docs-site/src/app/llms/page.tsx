@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 
 const resources = [
   { label: 'llms.txt', href: '/llms.txt' },
+  { label: 'llms-full.txt (Extended)', href: '/llms-full.txt' },
   { label: 'LLM Quickstart', href: '/llm/quickstart.md' },
   { label: 'LLM Product Overview', href: '/llm/product.md' },
   { label: 'LLM Security and Safety', href: '/llm/security.md' },

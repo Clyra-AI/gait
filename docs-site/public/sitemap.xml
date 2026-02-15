@@ -3,10 +3,19 @@
   <url><loc>https://davidahmann.github.io/gait/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/llms/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/llms.txt</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/llms-full.txt</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/llm/product.md</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/llm/quickstart.md</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/llm/security.md</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/llm/faq.md</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/llm/contracts.md</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/install/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/adopt_in_one_pr/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/concepts/mental_model/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/architecture/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/flows/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/durable_jobs/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/scenarios/simple_agent_tool_boundary/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/demo_output_legend/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/ui_localhost/</loc></url>
@@ -14,12 +23,15 @@
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/contextspec_v1/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/packspec_v1/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/packspec_tck/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/contracts/pack_producer_kit/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/contracts/compatibility_matrix/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/artifact_graph/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/skill_provenance/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/primitive_contract/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/intent_receipt_spec/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/intent_receipt_conformance/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/endpoint_action_model/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/failure_taxonomy_exit_codes/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/contracts/ui_contract/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/policy_authoring/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/policy_rollout/</loc></url>
@@ -35,6 +47,7 @@
   <url><loc>https://davidahmann.github.io/gait/docs/hardening/v2_2_contract/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/hardening/prime_time_runbook/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/hardening/release_checklist/</loc></url>
+  <url><loc>https://davidahmann.github.io/gait/docs/threat_model/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/slo/runtime_slo/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/blog/openclaw_24h_boundary_enforcement/</loc></url>
   <url><loc>https://davidahmann.github.io/gait/docs/ecosystem/awesome/</loc></url>

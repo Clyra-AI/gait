@@ -4,6 +4,29 @@ Agents are capable enough to execute real work. The limiting factor is not intel
 
 Gait is an offline-first Go CLI that fixes this. Dispatch durable jobs with checkpointed state. Capture every tool call as a signed pack. Verify, diff, and replay offline. Turn incidents into deterministic CI regressions. Gate high-risk actions before side effects execute.
 
+## In Plain Language
+
+Use Gait when an AI agent can cause real side effects and you need deterministic control plus portable proof.
+
+Incident-to-surface mapping:
+
+- Agent triggers a destructive action you cannot justify later -> `gait gate eval` + signed trace + fail-closed non-execute.
+- Agent run fails and cannot be reproduced -> `gait run record`/`gait pack build` + `gait regress bootstrap`.
+- Long-running work crashes midway and state is unclear -> `gait job submit|checkpoint|inspect` + job pack verification.
+
+## When To Use Gait
+
+- Tool-calling AI agents need enforceable allow/block/approval decisions.
+- You need signed, portable evidence artifacts for PRs, incidents, or audits.
+- You want offline, deterministic regressions that fail CI with stable exit behavior.
+- You run multi-step jobs and need checkpoints, pause/resume/cancel, and inspectable state.
+
+## When Not To Use Gait
+
+- No local Gait CLI or Gait artifacts are available in the execution path.
+- Your workflow only needs prompt orchestration without tool-side effects or evidence contracts.
+- You only need hosted observability dashboards and do not need offline verification or deterministic replay.
+
 ![PR Fast](https://github.com/davidahmann/gait/actions/workflows/pr-fast.yml/badge.svg)
 ![CodeQL](https://github.com/davidahmann/gait/actions/workflows/codeql.yml/badge.svg)
 ![Intent+Receipt Conformance](https://github.com/davidahmann/gait/actions/workflows/intent-receipt-conformance.yml/badge.svg)
@@ -37,6 +60,14 @@ Install details: [`docs/install.md`](docs/install.md) | Homebrew: [`docs/homebre
 ![Gait simple end-to-end tool-boundary scenario](docs/assets/gait_demo_simple_e2e_60s.gif)
 
 Video: [`gait_demo_simple_e2e_60s.mp4`](docs/assets/gait_demo_simple_e2e_60s.mp4) | Scenario walkthrough: [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent_tool_boundary.md) | Output legend: [`docs/demo_output_legend.md`](docs/demo_output_legend.md)
+
+## Simple End-To-End Scenario
+
+Run the canonical wrapper path in `examples/integrations/openai_agents/quickstart.py` to see allow/block/require-approval outcomes at the tool boundary.
+
+## Fast 20-Second Proof
+
+Use the short demo assets in `docs/assets/gait_demo_20s.*` for a quick artifact-and-verify walkthrough.
 
 ## What You Get
 
@@ -77,6 +108,14 @@ gait voice token mint --intent commitment.json --policy policy.yaml --json
 
 Gait enforces at the tool boundary, not the prompt boundary. Your dispatcher calls Gait; non-`allow` means non-execute.
 
+Managed/preloaded agent note: if your platform does not expose a tool-call interception point, use observe/report/regress workflows; full fail-closed enforcement requires boundary interception.
+
+Tool boundary (canonical definition):
+
+- The exact call site where your runtime is about to execute a real tool side effect.
+- The adapter serializes a structured intent (`IntentRequest`) and calls Gait (`gait gate eval` or `gait mcp serve`).
+- Enforcement rule is strict: if verdict is not `allow`, do not execute the tool.
+
 Blessed lane: [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
 
 ```python
@@ -103,6 +142,9 @@ gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 - Template: [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml)
 - Drop-in action: [`.github/actions/gait-regress/README.md`](.github/actions/gait-regress/README.md)
 - GitLab/Jenkins/Circle: [`docs/ci_regress_kit.md`](docs/ci_regress_kit.md)
+- Canonical copy-paste guide: [`docs/adopt_in_one_pr.md`](docs/adopt_in_one_pr.md)
+- Threat model: [`docs/threat_model.md`](docs/threat_model.md)
+- Failure taxonomy and exits: [`docs/failure_taxonomy_exit_codes.md`](docs/failure_taxonomy_exit_codes.md)
 
 ## Production Posture
 
@@ -149,7 +191,7 @@ All commands support `--json`. Most support `--explain`.
 - **offline-first**: core workflows do not require network
 - **fail-closed**: high-risk paths block on policy or approval ambiguity
 - **schema stability**: versioned artifacts with backward-compatible readers
-- **stable exit codes**: `0` success · `2` verify failure · `3` policy block · `4` approval required · `5` regress failed · `6` invalid input
+- **stable exit codes**: `0` success · `1` internal/runtime failure · `2` verification failure · `3` policy block · `4` approval required · `5` regress failed · `6` invalid input · `7` dependency missing · `8` unsafe operation blocked
 
 Normative spec: [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md) | PackSpec v1: [`docs/contracts/packspec_v1.md`](docs/contracts/packspec_v1.md) | Intent+receipt: [`docs/contracts/intent_receipt_conformance.md`](docs/contracts/intent_receipt_conformance.md)
 
@@ -172,7 +214,8 @@ Contributor guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 2. [`docs/concepts/mental_model.md`](docs/concepts/mental_model.md) — how Gait works
 3. [`docs/architecture.md`](docs/architecture.md) — component boundaries
 4. [`docs/flows.md`](docs/flows.md) — end-to-end sequences
-5. [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md) — normative spec
+5. [`docs/durable_jobs.md`](docs/durable_jobs.md) — durable job lifecycle and differentiation
+6. [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md) — normative spec
 
 Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/) | Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki) | Changelog: [CHANGELOG.md](CHANGELOG.md)
 

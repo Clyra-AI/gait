@@ -1,6 +1,8 @@
-# v2.2 Hardening Contract (OSS)
+# Hardening Contract (OSS)
 
-This contract defines the hardening behavior introduced in v2.2 and what is required for OSS production posture.
+This contract defines hardening behavior required for OSS production posture.
+
+Version note: this page is evergreen. The hardening baseline was introduced in `v2.2`, while release-by-release rollout details belong in release plans/changelog docs.
 
 ## Scope
 

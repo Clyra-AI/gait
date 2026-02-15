@@ -13,3 +13,30 @@ It provides seven OSS primitives:
 7. **Doctor**: Diagnose first-run environment issues with stable JSON output.
 
 Gait is vendor-neutral and offline-first for core workflows: capture, verify, diff, policy evaluation, regressions, and voice/context verification all run without network dependencies.
+
+Tool boundary (canonical):
+
+- exact call site where runtime is about to execute a real tool side effect
+- adapter sends structured intent to Gait
+- only `allow` executes tool side effects; non-allow outcomes are non-executing
+
+When to use:
+
+- agent tool calls can cause side effects and need fail-closed control
+- incidents must become deterministic CI regressions
+- teams need signed portable evidence instead of dashboard-only traces
+
+When not to use:
+
+- no Gait CLI/artifact path is available in the runtime
+- workflow has no tool-side effects and no evidence requirements
+
+Canonical docs:
+
+- `/docs/adopt_in_one_pr/`
+- `/docs/durable_jobs/`
+- `/docs/integration_checklist/`
+- `/docs/architecture/`
+- `/docs/flows/`
+- `/docs/threat_model/`
+- `/docs/failure_taxonomy_exit_codes/`

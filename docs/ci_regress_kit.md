@@ -3,9 +3,11 @@ title: "CI Regress Kit"
 description: "Wire Gait regression fixtures into GitHub Actions, GitLab CI, Jenkins, or CircleCI with JUnit output and stable exit codes."
 ---
 
-# CI Regress Kit (v2.7 GitHub-First Distribution Lane)
+# CI Regress Kit
 
 This kit keeps CI adoption "one PR to adopt" while preserving deterministic regress contracts.
+
+Version note: this page is evergreen. Release-specific packaging rollout notes belong in `docs/PLAN_v2.7_distribution.md` and release notes.
 
 ## One-PR Adoption Path (Default)
 

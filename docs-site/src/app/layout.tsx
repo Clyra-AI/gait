@@ -28,7 +28,12 @@ export const metadata: Metadata = {
     ],
   },
   icons: {
-    icon: '/favicon.svg',
+    icon: [
+      { url: `${SITE_BASE_PATH}/favicon.svg`, type: 'image/svg+xml' },
+      { url: `${SITE_BASE_PATH}/favicon.ico`, type: 'image/x-icon' },
+    ],
+    shortcut: `${SITE_BASE_PATH}/favicon.ico`,
+    apple: `${SITE_BASE_PATH}/favicon.svg`,
   },
   twitter: {
     card: 'summary_large_image',

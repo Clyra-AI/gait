@@ -23,23 +23,37 @@ Plane legend:
 - Operator plane: local commands, demos, inspections.
 - CI plane: fixture-driven regressions and release gates.
 
+## Tool Boundary (Canonical Definition)
+
+A tool boundary is the exact call site where your runtime is about to execute a real tool side effect.
+
+- boundary input: structured `IntentRequest`
+- decision call: `gait gate eval` (or `gait mcp serve`)
+- hard enforcement rule: non-`allow` means non-execute
+
+Primary repo anchors for this boundary:
+
+- `examples/integrations/openai_agents/quickstart.py`
+- `cmd/gait/gate.go`
+- `core/gate/`
+
 ## 1) First-Win Flow (Install -> Demo -> Verify)
 
 ```mermaid
 sequenceDiagram
     participant Dev as Developer
     participant CLI as gait CLI
-    participant Core as Go Core
+    participant Gait as Gait Engine
     participant FS as Local Filesystem
 
     Dev->>CLI: install + run gait demo
-    CLI->>Core: execute demo command
-    Core->>FS: write runpack + manifest
-    Core-->>CLI: run_id + ticket_footer + verify result
+    CLI->>Gait: execute demo command
+    Gait->>FS: write runpack + manifest
+    Gait-->>CLI: run_id + ticket_footer + verify result
     CLI-->>Dev: first-win output
     Dev->>CLI: gait verify run_demo
-    CLI->>Core: verify artifact signatures + hashes
-    Core-->>CLI: deterministic verify result
+    CLI->>Gait: verify artifact signatures + hashes
+    Gait-->>CLI: deterministic verify result
     CLI-->>Dev: verify ok / explicit failure
 ```
 
@@ -50,11 +64,11 @@ What this flow is:
 What this flow is not:
 
 - Not an external agent runtime integration flow.
-- `Go Core` here is Gait internals, not "the agent."
+- `Gait Engine` here is Gait internals, not "the agent."
 
 Value: produces a portable artifact and verifiable ticket footer in minutes.
 
-## 1b) Unified Job + Pack Flow (v2.4)
+## 1b) Unified Job + Pack Flow
 
 ```mermaid
 sequenceDiagram
@@ -81,7 +95,7 @@ What this flow is not:
 
 Outcome: durable runtime control and portable evidence under one pack contract.
 
-## 1c) Context Evidence Proof Flow (v2.5)
+## 1c) Context Evidence Proof Flow
 
 ```mermaid
 sequenceDiagram
@@ -120,7 +134,7 @@ sequenceDiagram
     participant Agent as Agent Runtime
     participant Adapter as Wrapper/Sidecar
     participant CLI as gait gate eval
-    participant Gate as Policy Engine
+    participant Gate as Gait Gate Evaluator
     participant Tool as Real Tool Executor
 
     Agent->>Adapter: tool call intent

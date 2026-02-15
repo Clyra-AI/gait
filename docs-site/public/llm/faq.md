@@ -16,6 +16,10 @@ No. Gait is CLI-first and offline-first for core workflows. Capture, verify, dif
 
 At tool-call execution intent, not prompt text alone. Non-allow gate outcomes do not execute side effects. Policy is expressed in YAML and evaluated deterministically.
 
+## What is the tool boundary in concrete terms?
+
+The tool boundary is the exact call site in your wrapper/adapter where a real tool side effect is about to execute. The adapter sends structured intent to Gait and only executes the tool when verdict is `allow`.
+
 ## How do I turn a failed agent run into a CI gate?
 
 Run `gait regress bootstrap --from <run_id> --junit output.xml`. This converts the run into a permanent regression fixture. Exit 0 means pass, exit 5 means the same drift was detected. Wire the JUnit output into any CI system.

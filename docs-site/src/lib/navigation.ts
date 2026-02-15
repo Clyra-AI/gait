@@ -10,6 +10,7 @@ export const navigation: NavItem[] = [
     href: '/docs',
     children: [
       { title: 'Install', href: '/docs/install' },
+      { title: 'Adopt In One PR', href: '/docs/adopt_in_one_pr' },
       { title: 'Mental Model', href: '/docs/concepts/mental_model' },
       { title: 'Architecture', href: '/docs/architecture' },
       { title: 'Flows', href: '/docs/flows' },
@@ -20,10 +21,13 @@ export const navigation: NavItem[] = [
   },
   {
     title: 'Durable Jobs & Packs',
-    href: '/docs/contracts/packspec_v1',
+    href: '/docs/durable_jobs',
     children: [
+      { title: 'Durable Jobs', href: '/docs/durable_jobs' },
       { title: 'PackSpec v1', href: '/docs/contracts/packspec_v1' },
       { title: 'PackSpec TCK', href: '/docs/contracts/packspec_tck' },
+      { title: 'Pack Producer Kit', href: '/docs/contracts/pack_producer_kit' },
+      { title: 'Compatibility Matrix', href: '/docs/contracts/compatibility_matrix' },
       { title: 'Artifact Graph', href: '/docs/contracts/artifact_graph' },
       { title: 'Skill Provenance', href: '/docs/contracts/skill_provenance' },
     ],
@@ -69,9 +73,10 @@ export const navigation: NavItem[] = [
     title: 'Hardening',
     href: '/docs/hardening/v2_2_contract',
     children: [
-      { title: 'v2.2 Contract', href: '/docs/hardening/v2_2_contract' },
+      { title: 'Hardening Contract', href: '/docs/hardening/v2_2_contract' },
       { title: 'Production Runbook', href: '/docs/hardening/prime_time_runbook' },
       { title: 'Release Checklist', href: '/docs/hardening/release_checklist' },
+      { title: 'Threat Model', href: '/docs/threat_model' },
       { title: 'Runtime SLO', href: '/docs/slo/runtime_slo' },
     ],
   },
@@ -83,6 +88,7 @@ export const navigation: NavItem[] = [
       { title: 'Intent+Receipt Spec', href: '/docs/contracts/intent_receipt_spec' },
       { title: 'Intent+Receipt Conformance', href: '/docs/contracts/intent_receipt_conformance' },
       { title: 'Endpoint Action Model', href: '/docs/contracts/endpoint_action_model' },
+      { title: 'Failure Taxonomy And Exit Codes', href: '/docs/failure_taxonomy_exit_codes' },
       { title: 'UI Contract', href: '/docs/contracts/ui_contract' },
     ],
   },

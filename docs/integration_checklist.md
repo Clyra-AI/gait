@@ -3,7 +3,7 @@ title: "Integration Checklist"
 description: "Step-by-step checklist for integrating Gait with agent frameworks including OpenAI Agents, LangChain, and AutoGen."
 ---
 
-# Gait Integration Checklist (Tiered v2.6)
+# Gait Integration Checklist
 
 This checklist is for OSS teams integrating Gait at the tool-call boundary.
 
@@ -13,7 +13,14 @@ Fast path scenario:
 
 - `docs/scenarios/simple_agent_tool_boundary.md`
 
-## Lane Governance (Locked for v2.3+)
+## Version Semantics
+
+This checklist is evergreen guidance. Release-specific rollouts belong in plan/changelog docs.
+
+- Pack and verifier compatibility: `docs/contracts/compatibility_matrix.md`
+- Pack contract evolution: `docs/contracts/packspec_v1.md`
+
+## Lane Governance (Locked)
 
 Blessed default lane:
 
@@ -95,7 +102,7 @@ Run these first. Stop if expected output is missing.
 
 Run after Core Track is green.
 
-### Context-Proof (v2.5) High-Risk Requirements
+### Context-Proof High-Risk Requirements
 
 1. Capture mode and evidence mode:
 
@@ -128,7 +135,7 @@ gait regress bootstrap --from <runpack_or_pack> --name context_guard --json
 gait regress run --context-conformance --allow-context-runtime-drift --json
 ```
 
-### Durable Job + Pack Runtime (v2.4) Validation
+### Durable Job + Pack Runtime Validation
 
 1. `gait demo --durable --json` should end with `job_status=completed`.
 2. `gait pack inspect ./gait-out/pack_job_demo_durable.zip --json` should parse successfully.

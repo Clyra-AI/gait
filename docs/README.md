@@ -2,6 +2,21 @@
 
 This file defines where each topic lives so docs stay accurate and non-duplicative.
 
+## Canonical Surface Taxonomy
+
+Core surfaces:
+
+- Jobs
+- Packs
+- Gate
+- Regress
+- Doctor
+
+Extended first-class surfaces:
+
+- Voice
+- Context Evidence
+
 ## Start Here
 
 1. `README.md` for product overview and first win
@@ -14,6 +29,7 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 
 - Architecture: `docs/architecture.md`
 - Runtime flows: `docs/flows.md`
+- Durable jobs lifecycle: `docs/durable_jobs.md`
 - Voice mode boundary: `docs/voice_mode.md`
 - Simple tool-boundary scenario: `docs/scenarios/simple_agent_tool_boundary.md`
 - Install paths: `docs/install.md`
@@ -39,6 +55,7 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 - PackSpec TCK: `docs/contracts/packspec_tck.md`
 - Pack producer kit: `docs/contracts/pack_producer_kit.md`
 - PackSpec compatibility matrix: `docs/contracts/compatibility_matrix.md`
+- Failure taxonomy and exit-code reference: `docs/failure_taxonomy_exit_codes.md`
 - Artifact graph: `docs/contracts/artifact_graph.md`
 - Intent+receipt conformance: `docs/contracts/intent_receipt_conformance.md`
 - Endpoint action taxonomy: `docs/contracts/endpoint_action_model.md`
@@ -52,6 +69,8 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 - Runtime SLOs: `docs/slo/runtime_slo.md`
 - Retention profiles: `docs/slo/retention_profiles.md`
 - CI regress runbook: `docs/ci_regress_kit.md`
+- One-PR adoption page: `docs/adopt_in_one_pr.md`
+- Threat model: `docs/threat_model.md`
 - UAT plan: `docs/uat_functional_plan.md`
 - Test cadence: `docs/test_cadence.md`
 - Hardening release checklist: `docs/hardening/release_checklist.md`

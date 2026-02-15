@@ -15,6 +15,20 @@ This is the canonical end-to-end scenario showing where Gait sits between an age
 - runpack/pack evidence path
 - regress fixture + CI guardrail conversion
 
+## Tool Boundary (Canonical Definition)
+
+A tool boundary is the exact call site where your runtime is about to execute a real tool side effect.
+
+- input to boundary: structured `IntentRequest`
+- decision surface: `gait gate eval` (or `gait mcp serve`)
+- hard rule: non-`allow` means non-execute
+
+Where to inspect this in code:
+
+- wrapper flow: `examples/integrations/openai_agents/quickstart.py`
+- gate command wiring: `cmd/gait/gate.go`
+- policy evaluation engine: `core/gate/`
+
 ## Preconditions
 
 ```bash

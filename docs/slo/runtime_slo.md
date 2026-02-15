@@ -1,6 +1,8 @@
-# Runtime SLO Contract (v2.1)
+# Runtime SLO Contract
 
-This document defines the measurable runtime contract for Gate evaluation in OSS v2.1.
+This document defines the measurable runtime contract for Gate evaluation in OSS runtime lanes.
+
+Version semantics: this page is evergreen guidance. Release-specific rollout notes belong in plan/changelog docs; compatibility details belong in `docs/contracts/compatibility_matrix.md`.
 
 ## Scope
 
