@@ -88,6 +88,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Restore deterministic fixture
+        id: restore_fixture
         shell: bash
         run: |
           : "${FIXTURE_RUNPACK_PATH:?FIXTURE_RUNPACK_PATH must be set}"
@@ -102,7 +103,19 @@ jobs:
             echo "fixture/config missing; generating deterministic fallback from ${SOURCE_RUN}"
             ./gait demo
             ./gait regress init --from "${SOURCE_RUN}" --json > "${ARTIFACT_ROOT}/regress_init_result.json"
+
+            # Re-point fixture verification to generated fallback artifacts.
+            if [[ -f "fixtures/${SOURCE_RUN}/runpack.zip" ]]; then
+              fixture_runpack="fixtures/${SOURCE_RUN}/runpack.zip"
+            elif [[ -f "fixtures/run_demo/runpack.zip" ]]; then
+              fixture_runpack="fixtures/run_demo/runpack.zip"
+            else
+              echo "fallback did not produce a fixture runpack for source_run=${SOURCE_RUN}" >&2
+              exit 1
+            fi
           fi
+
+          echo "fixture_runpack_effective=${fixture_runpack}" >> "$GITHUB_OUTPUT"
 
       - name: Run regress (capture stable exit code)
         id: regress_run
@@ -123,8 +136,9 @@ jobs:
       - name: Verify fixture pack integrity
         shell: bash
         run: |
-          : "${FIXTURE_RUNPACK_PATH:?FIXTURE_RUNPACK_PATH must be set}"
-          ./gait pack verify "${FIXTURE_RUNPACK_PATH}" --json > "${ARTIFACT_ROOT}/pack_verify_fixture.json"
+          fixture_runpack="${{ steps.restore_fixture.outputs.fixture_runpack_effective }}"
+          : "${fixture_runpack:?effective fixture runpack path must be set}"
+          ./gait pack verify "${fixture_runpack}" --json > "${ARTIFACT_ROOT}/pack_verify_fixture.json"
           python3 - "${ARTIFACT_ROOT}/pack_verify_fixture.json" <<'PY'
           import json
           import sys
