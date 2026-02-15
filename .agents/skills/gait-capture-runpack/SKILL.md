@@ -7,6 +7,19 @@ disable-model-invocation: true
 
 Execute this workflow to record an artifact safely and deterministically.
 
+## Gait Context
+
+Gait is an offline-first runtime for AI agents that enforces tool-boundary policy, emits signed and verifiable evidence artifacts, and supports deterministic regressions.
+
+Use this skill when:
+- incident triage needs captured run artifacts for reproduction
+- CI gate failures need verifiable artifact identity and integrity
+- receipt/evidence generation depends on runpack metadata and digests
+
+Do not use this skill when:
+- Gait CLI is unavailable in the environment
+- no Gait run input or artifact source is available
+
 ## Workflow
 
 1. Validate required input path: `<run_record.json>`.

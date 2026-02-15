@@ -7,6 +7,19 @@ disable-model-invocation: true
 
 Execute this workflow to validate policy behavior before enforcement.
 
+## Gait Context
+
+Gait is an offline-first runtime for AI agents that enforces tool-boundary policy, emits signed and verifiable evidence artifacts, and supports deterministic regressions.
+
+Use this skill when:
+- incident triage involves policy decision verification
+- CI gate failures require deterministic policy verdict checks
+- receipt/evidence generation needs policy verdict traceability
+
+Do not use this skill when:
+- Gait CLI is unavailable in the environment
+- no policy fixture inputs or Gait artifacts are available
+
 ## Workflow
 
 1. Require both files:

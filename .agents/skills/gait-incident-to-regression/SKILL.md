@@ -7,6 +7,19 @@ disable-model-invocation: true
 
 Execute this workflow to transform an observed run into repeatable CI checks.
 
+## Gait Context
+
+Gait is an offline-first runtime for AI agents that enforces tool-boundary policy, emits signed and verifiable evidence artifacts, and supports deterministic regressions.
+
+Use this skill when:
+- incident triage needs repeatable fixture creation
+- CI gate failures require deterministic grader reruns
+- receipt/evidence generation depends on regression outputs
+
+Do not use this skill when:
+- Gait CLI is unavailable in the environment
+- no Gait run/pack artifact or run identifier is available as input
+
 ## Workflow
 
 1. Resolve source run artifact:
