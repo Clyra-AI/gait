@@ -94,6 +94,10 @@ jobs:
           node-version: "22"
           cache: "npm"
           cache-dependency-path: docs-site/package-lock.json
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
       - name: Build docs site
         run: |
           cd docs-site
