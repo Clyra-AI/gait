@@ -14,6 +14,26 @@ fi
 PACK_A="$TMP_DIR/pack_a.zip"
 PACK_B="$TMP_DIR/pack_b.zip"
 
+sha256_file() {
+  local path="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$path" | awk '{print $1}'
+    return 0
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$path" | awk '{print $1}'
+    return 0
+  fi
+  python3 - "$path" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+print(hashlib.sha256(path.read_bytes()).hexdigest())
+PY
+}
+
 python3 "$REPO_ROOT/scripts/pack_producer_kit.py" \
   --out "$PACK_A" \
   --run-id "run_producer_kit_fixture" \
@@ -23,8 +43,8 @@ python3 "$REPO_ROOT/scripts/pack_producer_kit.py" \
   --run-id "run_producer_kit_fixture" \
   --created-at "2026-01-01T00:00:00Z" > "$TMP_DIR/out_b.json"
 
-SHA_A="$(shasum -a 256 "$PACK_A" | awk '{print $1}')"
-SHA_B="$(shasum -a 256 "$PACK_B" | awk '{print $1}')"
+SHA_A="$(sha256_file "$PACK_A")"
+SHA_B="$(sha256_file "$PACK_B")"
 if [[ "$SHA_A" != "$SHA_B" ]]; then
   echo "producer kit determinism failure: $SHA_A != $SHA_B" >&2
   exit 1
