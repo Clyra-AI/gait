@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/davidahmann/gait/core/contextproof"
@@ -21,20 +23,6 @@ type Runpack struct {
 }
 
 func ReadRunpack(path string) (Runpack, error) {
-	verifyResult, err := VerifyZip(path, VerifyOptions{
-		RequireSignature:        false,
-		SkipManifestDigestCheck: true,
-	})
-	if err != nil {
-		return Runpack{}, err
-	}
-	if len(verifyResult.MissingFiles) > 0 {
-		return Runpack{}, fmt.Errorf("missing runpack files: %s", strings.Join(verifyResult.MissingFiles, ", "))
-	}
-	if len(verifyResult.HashMismatches) > 0 {
-		return Runpack{}, fmt.Errorf("runpack hash mismatch")
-	}
-
 	zipReader, err := zip.OpenReader(path)
 	if err != nil {
 		return Runpack{}, fmt.Errorf("open zip: %w", err)
@@ -43,45 +31,40 @@ func ReadRunpack(path string) (Runpack, error) {
 		_ = zipReader.Close()
 	}()
 
-	files := make(map[string]*zip.File, len(zipReader.File))
-	for _, zipFile := range zipReader.File {
-		files[zipFile.Name] = zipFile
-	}
-
-	manifestFile := files["manifest.json"]
-	if manifestFile == nil {
+	manifestFile, manifestFound := findZipFile(zipReader.File, "manifest.json")
+	if !manifestFound {
 		return Runpack{}, fmt.Errorf("missing manifest.json")
 	}
 	manifestBytes, err := readZipFile(manifestFile)
 	if err != nil {
 		return Runpack{}, fmt.Errorf("read manifest: %w", err)
 	}
-	runFile := files["run.json"]
-	if runFile == nil {
+	runFile, runFound := findZipFile(zipReader.File, "run.json")
+	if !runFound {
 		return Runpack{}, fmt.Errorf("missing run.json")
 	}
 	runBytes, err := readZipFile(runFile)
 	if err != nil {
 		return Runpack{}, fmt.Errorf("read run: %w", err)
 	}
-	intentsFile := files["intents.jsonl"]
-	if intentsFile == nil {
+	intentsFile, intentsFound := findZipFile(zipReader.File, "intents.jsonl")
+	if !intentsFound {
 		return Runpack{}, fmt.Errorf("missing intents.jsonl")
 	}
 	intentsBytes, err := readZipFile(intentsFile)
 	if err != nil {
 		return Runpack{}, fmt.Errorf("read intents: %w", err)
 	}
-	resultsFile := files["results.jsonl"]
-	if resultsFile == nil {
+	resultsFile, resultsFound := findZipFile(zipReader.File, "results.jsonl")
+	if !resultsFound {
 		return Runpack{}, fmt.Errorf("missing results.jsonl")
 	}
 	resultsBytes, err := readZipFile(resultsFile)
 	if err != nil {
 		return Runpack{}, fmt.Errorf("read results: %w", err)
 	}
-	refsFile := files["refs.json"]
-	if refsFile == nil {
+	refsFile, refsFound := findZipFile(zipReader.File, "refs.json")
+	if !refsFound {
 		return Runpack{}, fmt.Errorf("missing refs.json")
 	}
 	refsBytes, err := readZipFile(refsFile)
@@ -93,6 +76,83 @@ func ReadRunpack(path string) (Runpack, error) {
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return Runpack{}, fmt.Errorf("parse manifest: %w", err)
 	}
+	if manifest.SchemaID != "gait.runpack.manifest" {
+		return Runpack{}, fmt.Errorf("manifest schema_id must be gait.runpack.manifest")
+	}
+	if manifest.SchemaVersion != "1.0.0" {
+		return Runpack{}, fmt.Errorf("manifest schema_version must be 1.0.0")
+	}
+	if manifest.RunID == "" {
+		return Runpack{}, fmt.Errorf("manifest missing run_id")
+	}
+
+	fileHashes := map[string]string{
+		"run.json":      sha256Hex(runBytes),
+		"intents.jsonl": sha256Hex(intentsBytes),
+		"results.jsonl": sha256Hex(resultsBytes),
+		"refs.json":     sha256Hex(refsBytes),
+	}
+	hasRun := false
+	hasIntents := false
+	hasResults := false
+	hasRefs := false
+	missingFiles := make([]string, 0, 4)
+	hashMismatch := false
+	for _, entry := range manifest.Files {
+		name := filepath.ToSlash(entry.Path)
+		switch name {
+		case "run.json":
+			hasRun = true
+		case "intents.jsonl":
+			hasIntents = true
+		case "results.jsonl":
+			hasResults = true
+		case "refs.json":
+			hasRefs = true
+		}
+		actualHash, known := fileHashes[name]
+		if !known {
+			zipFile, exists := findZipFile(zipReader.File, name)
+			if !exists {
+				missingFiles = append(missingFiles, name)
+				continue
+			}
+			actualHash, err = hashZipFile(zipFile)
+			if err != nil {
+				return Runpack{}, fmt.Errorf("hash %s: %w", name, err)
+			}
+		}
+		if !equalHex(actualHash, entry.SHA256) {
+			hashMismatch = true
+		}
+	}
+	if !hasRun {
+		missingFiles = append(missingFiles, "run.json")
+	}
+	if !hasIntents {
+		missingFiles = append(missingFiles, "intents.jsonl")
+	}
+	if !hasResults {
+		missingFiles = append(missingFiles, "results.jsonl")
+	}
+	if !hasRefs {
+		missingFiles = append(missingFiles, "refs.json")
+	}
+	computedManifestDigest, err := computeManifestDigest(manifest)
+	if err != nil {
+		return Runpack{}, fmt.Errorf("compute manifest digest: %w", err)
+	}
+	if !equalHex(manifest.ManifestDigest, computedManifestDigest) {
+		hashMismatch = true
+	}
+	if len(missingFiles) > 0 {
+		sort.Strings(missingFiles)
+		return Runpack{}, fmt.Errorf("missing runpack files: %s", strings.Join(missingFiles, ", "))
+	}
+	if hashMismatch {
+		return Runpack{}, fmt.Errorf("runpack hash mismatch")
+	}
+
 	var run schemarunpack.Run
 	if err := json.Unmarshal(runBytes, &run); err != nil {
 		return Runpack{}, fmt.Errorf("parse run: %w", err)
@@ -151,5 +211,3 @@ func decodeJSONL[T any](data []byte) ([]T, error) {
 	}
 	return records, nil
 }
-
-// no additional helpers

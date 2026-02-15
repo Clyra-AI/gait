@@ -61,6 +61,116 @@ func TestReadRunpackMissingFile(t *testing.T) {
 	}
 }
 
+func TestReadRunpackManifestDigestMismatch(t *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildManifestBytes("run_test", manifestFiles, nil)
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	var manifest schemarunpack.Manifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	manifest.ManifestDigest = "deadbeef"
+	tamperedManifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("encode manifest: %v", err)
+	}
+	archiveFiles := append([]zipx.File{
+		{Path: "manifest.json", Data: tamperedManifestBytes, Mode: 0o644},
+	}, runpackFiles...)
+	path := writeRunpackZip(t, archiveFiles)
+
+	if _, err := ReadRunpack(path); err == nil {
+		t.Fatalf("expected manifest digest mismatch to fail read")
+	} else if !strings.Contains(err.Error(), "runpack hash mismatch") {
+		t.Fatalf("expected runpack hash mismatch error, got %v", err)
+	}
+}
+
+func TestReadRunpackManifestSchemaValidation(t *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	baseManifestBytes, err := buildManifestBytes("run_test", manifestFiles, nil)
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+
+	cases := []struct {
+		name      string
+		mutate    func(*schemarunpack.Manifest)
+		errSubstr string
+	}{
+		{
+			name: "invalid schema id",
+			mutate: func(manifest *schemarunpack.Manifest) {
+				manifest.SchemaID = "bad.schema"
+			},
+			errSubstr: "schema_id must be gait.runpack.manifest",
+		},
+		{
+			name: "invalid schema version",
+			mutate: func(manifest *schemarunpack.Manifest) {
+				manifest.SchemaVersion = "9.9.9"
+			},
+			errSubstr: "schema_version must be 1.0.0",
+		},
+		{
+			name: "missing run id",
+			mutate: func(manifest *schemarunpack.Manifest) {
+				manifest.RunID = ""
+			},
+			errSubstr: "manifest missing run_id",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var manifest schemarunpack.Manifest
+			if err := json.Unmarshal(baseManifestBytes, &manifest); err != nil {
+				t.Fatalf("decode manifest: %v", err)
+			}
+			tc.mutate(&manifest)
+			mutatedBytes, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatalf("encode manifest: %v", err)
+			}
+			archiveFiles := append([]zipx.File{
+				{Path: "manifest.json", Data: mutatedBytes, Mode: 0o644},
+			}, runpackFiles...)
+			path := writeRunpackZip(t, archiveFiles)
+
+			if _, err := ReadRunpack(path); err == nil {
+				t.Fatalf("expected validation error")
+			} else if !strings.Contains(err.Error(), tc.errSubstr) {
+				t.Fatalf("expected %q, got %v", tc.errSubstr, err)
+			}
+		})
+	}
+}
+
+func TestReadRunpackFileHashMismatch(t *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildManifestBytes("run_test", manifestFiles, nil)
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	for index := range runpackFiles {
+		if runpackFiles[index].Path == "run.json" {
+			runpackFiles[index].Data = []byte("{\"run\":\"tampered\"}\n")
+		}
+	}
+	archiveFiles := append([]zipx.File{
+		{Path: "manifest.json", Data: manifestBytes, Mode: 0o644},
+	}, runpackFiles...)
+	path := writeRunpackZip(t, archiveFiles)
+
+	if _, err := ReadRunpack(path); err == nil {
+		t.Fatalf("expected hash mismatch error")
+	} else if !strings.Contains(err.Error(), "runpack hash mismatch") {
+		t.Fatalf("expected runpack hash mismatch, got %v", err)
+	}
+}
+
 func TestReplayStubSuccess(t *testing.T) {
 	path := writeTestRunpack(t, "run_replay", buildIntents("intent_1", "intent_2"), buildResults("intent_1", "intent_2"))
 

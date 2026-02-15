@@ -2,21 +2,25 @@
 
 This file gives coding assistants and contributors the project-wide rules for building **Gait**.
 
-## What Gait is (v1)
+## What Gait is
 
-Gait is an offline-first, default-safe CLI that makes production AI agent runs **controllable and debuggable by default** via:
+Gait is an offline-first durable agent runtime that dispatches long-running jobs, captures signed evidence, and enforces fail-closed policy at the tool boundary.
 
-- **Runpack**: record, inspect, verify, diff, receipt/reduce, replay (stub by default)
-- **Regress**: turn runpacks into deterministic CI regressions
-- **Gate**: evaluate tool-call intent against YAML policy, with approvals and signed traces
-- **Doctor**: first-5-minutes diagnostics (stable JSON + fixes)
-- **Scout**: local snapshot/diff/signal reporting for drift and incident clustering
-- **Guard / Incident**: deterministic evidence bundles, verification, retention, and incident packaging
+Core primitives:
 
-Supporting OSS surfaces shipped in v1:
+- **Jobs**: dispatch multi-step agent work with checkpoints, pause/resume/cancel, approval gates, and deterministic stop reasons (`gait job submit/status/checkpoint/pause/resume/cancel/approve/inspect`)
+- **Packs**: unified portable artifact envelope (PackSpec v1) for run, job, and call evidence with Ed25519 signatures and SHA-256 manifest (`gait pack verify/diff`)
+- **Gate**: evaluate structured tool-call intent against YAML policy with fail-closed enforcement (`gait gate eval`)
+- **Regress**: convert incidents into deterministic CI regression fixtures with JUnit output (`gait regress bootstrap`)
+- **Voice**: gate high-stakes spoken commitments before utterance via signed SayToken capability tokens and callpack artifacts (`gait voice token mint/verify`, `gait voice pack build/verify/diff`)
+- **Context Evidence**: deterministic proof of what context the model was working from, with privacy-aware envelopes and fail-closed enforcement when evidence is missing
+- **Doctor**: first-5-minutes diagnostics (stable JSON + fixes) (`gait doctor --json`)
+
+Supporting surfaces:
 
 - **Registry**: signed/pinned skill pack install + verify workflows
 - **MCP proxy/bridge/serve**: transport-aware boundary adapters (`stdio`, `SSE`, streamable HTTP) that route through Gate policy evaluation
+- **Scout**: local snapshot/diff/signal reporting for drift and incident clustering
 
 The durable product contract is **artifacts and schemas**, not a hosted UI.
 
@@ -31,10 +35,11 @@ The durable product contract is **artifacts and schemas**, not a hosted UI.
 
 ## Architecture boundaries
 
-- **Go is authoritative** for: schemas, canonicalization, hashing, signing/verification, zip packaging, diffing, stub replay, policy evaluation, and CLI output.
+- **Go is authoritative** for: schemas, canonicalization, hashing, signing/verification, zip packaging, diffing, stub replay, policy evaluation, job lifecycle, voice token minting/verification, and CLI output.
 - **Python is an adoption layer only**: capture intent, call local Go, return structured results. No policy parsing/logic in Python. Keep SDK ergonomics thin (`ToolAdapter`, minimal decorators), not framework replacement.
 - **Wrappers and sidecars are transport only**: all enforce/allow/block decisions come from Go (`gait gate eval`, `gait mcp proxy`, `gait mcp serve`), never framework-local logic.
-- **Node/TypeScript are not part of the v1 core**. If used later, keep it in adapters or tooling, not the core CLI path.
+- **Next.js docs site** (`docs-site/`): static export deployed to GitHub Pages. Reads markdown from `docs/` via gray-matter frontmatter. No runtime dependencies.
+- **Node/TypeScript**: limited to docs site and local UI shell (`ui/local/`). Not part of the core CLI path.
 
 Current reference adapter set (keep parity): `openai_agents`, `langchain`, `autogen`, `openclaw`, `autogpt`, and the canonical sidecar path.
 
@@ -78,6 +83,22 @@ Current reference adapter set (keep parity): `openai_agents`, `langchain`, `auto
 - Releases should produce checksums, SBOMs, and signed provenance/attestations; treat release integrity separately from runpack/trace signing.
 - Keep git hooks active (`make hooks`) with pre-push running `make prepush` by default (`make lint-fast` + `make test-fast`), and use `GAIT_PREPUSH_MODE=full git push` for full local gates; keep `.pre-commit-config.yaml` aligned with current checks if pre-commit is used locally.
 
+## Key paths
+
+- `cmd/gait/` — CLI entry points and command wiring
+- `core/gate/` — policy evaluation, voice token minting/verification
+- `core/jobruntime/` — durable job lifecycle (submit, checkpoint, pause, resume, cancel)
+- `core/pack/` — PackSpec v1 pack/verify/diff
+- `core/runpack/` — legacy runpack capture/verify/diff/replay
+- `core/contextproof/` — context evidence envelopes
+- `core/regress/` — regression bootstrap and execution
+- `core/mcp/` — MCP proxy/bridge/serve adapters
+- `schemas/v1/` — JSON schemas for all artifact types
+- `sdk/python/` — Python wrapper SDK
+- `docs/` — markdown docs (consumed by docs-site via gray-matter)
+- `docs-site/` — Next.js static docs site
+- `examples/integrations/` — reference adapters (voice, langchain, openai, etc.)
+
 ## Source of truth for assistants
 
 - CLI behavior and flag contracts: `cmd/gait/*` usage/help text and command tests in `cmd/gait/*_test.go`.
@@ -97,6 +118,16 @@ Current reference adapter set (keep parity): `openai_agents`, `langchain`, `auto
 - Maintain deterministic integration/e2e/acceptance suites for adapters, policy compliance, hardening, and release smoke paths.
 - Keep coverage gates at **>= 85%** for Go core/CLI and Python SDK in CI.
 - Tests must be offline and hermetic by default (no network, no cloud accounts).
+
+## What to watch for in changes
+
+- **Behavior regressions**: any change to `verify`, `diff`, `replay`, `regress`, or `gate eval` output must not break existing golden fixtures or exit code contracts. Run `make test-fast` at minimum before pushing.
+- **Safety / fail-closed controls**: never weaken a non-allow → non-execute path. If gate evaluation cannot reach a verdict, the default must remain block. Same for voice (no SayToken → no gated speech) and context evidence (missing envelope → fail-closed for high-risk actions).
+- **Determinism**: changes to JSON serialization, zip packaging, hashing, or signing must preserve byte-for-byte reproducibility. Test with existing fixtures, not just new ones.
+- **CI / portability**: CI templates live in `.github/workflows/` and must work across Go versions declared in `go.mod`. Don't add platform-specific paths or hardcoded tool versions without matrix coverage.
+- **Docs vs CLI drift**: if you change a command's flags, arguments, or exit codes, update `docs/`, `docs-site/public/llms.txt`, `docs-site/public/llm/*.md`, and `README.md` in the same change. Treat `cmd/gait/*` usage strings as the source of truth.
+- **Test artifact leaks**: tests that create artifacts (packs, tokens, journals) must use `t.TempDir()` or equivalent. Never write test output to the source tree.
+- **Shell quoting in PRs**: when using `gh pr create --body`, backticks and `$()` in the body text get interpreted by the shell. Use a `<<'EOF'` heredoc (single-quoted delimiter) to pass the body safely. Same applies to commit messages containing backticks.
 
 ## Repo hygiene
 

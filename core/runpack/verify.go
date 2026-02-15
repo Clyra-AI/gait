@@ -17,9 +17,9 @@ import (
 )
 
 type VerifyOptions struct {
-	PublicKey                  ed25519.PublicKey
-	RequireSignature           bool
-	SkipManifestDigestCheck    bool
+	PublicKey               ed25519.PublicKey
+	RequireSignature        bool
+	SkipManifestDigestCheck bool
 }
 
 type VerifyResult struct {
@@ -51,12 +51,7 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		_ = zipReader.Close()
 	}()
 
-	files := make(map[string]*zip.File, len(zipReader.File))
-	for _, zipFile := range zipReader.File {
-		files[zipFile.Name] = zipFile
-	}
-
-	manifestFile, manifestFound := files["manifest.json"]
+	manifestFile, manifestFound := findZipFile(zipReader.File, "manifest.json")
 	if !manifestFound {
 		return VerifyResult{}, fmt.Errorf("missing manifest.json")
 	}
@@ -103,7 +98,7 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		case "refs.json":
 			hasRefs = true
 		}
-		zipFile, exists := files[name]
+		zipFile, exists := findZipFile(zipReader.File, name)
 		if !exists {
 			result.MissingFiles = append(result.MissingFiles, name)
 			continue
@@ -147,11 +142,6 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		}
 	}
 
-	signable, err := signableManifestBytes(manifestBytes)
-	if err != nil {
-		return VerifyResult{}, fmt.Errorf("prepare manifest for signing: %w", err)
-	}
-
 	if len(manifest.Signatures) == 0 {
 		result.SignatureStatus = "missing"
 		if opts.RequireSignature {
@@ -161,6 +151,10 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		result.SignatureStatus = "skipped"
 		result.SignatureErrors = append(result.SignatureErrors, "public key not configured")
 	} else {
+		signable, err := signableManifestBytes(manifestBytes)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("prepare manifest for signing: %w", err)
+		}
 		valid := 0
 		for _, sig := range manifest.Signatures {
 			converted := sign.Signature{
@@ -204,6 +198,15 @@ func signableManifestBytes(manifest []byte) ([]byte, error) {
 	}
 	delete(obj, "signatures")
 	return json.Marshal(obj)
+}
+
+func findZipFile(files []*zip.File, name string) (*zip.File, bool) {
+	for _, zipFile := range files {
+		if filepath.ToSlash(zipFile.Name) == name {
+			return zipFile, true
+		}
+	}
+	return nil, false
 }
 
 func readZipFile(zipFile *zip.File) ([]byte, error) {
