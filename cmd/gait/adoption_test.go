@@ -251,20 +251,33 @@ func captureStdout(t *testing.T, fn func()) string {
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
 	}
-	defer func() {
-		_ = reader.Close()
-	}()
 	os.Stdout = writer
+	defer func() {
+		os.Stdout = original
+	}()
+
+	type readResult struct {
+		raw []byte
+		err error
+	}
+	resultCh := make(chan readResult, 1)
+	go func() {
+		raw, readErr := io.ReadAll(reader)
+		resultCh <- readResult{raw: raw, err: readErr}
+	}()
 
 	fn()
 
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close writer: %v", err)
 	}
-	os.Stdout = original
-	raw, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+
+	result := <-resultCh
+	if result.err != nil {
+		t.Fatalf("read stdout: %v", result.err)
 	}
-	return string(raw)
+	if err := reader.Close(); err != nil {
+		t.Fatalf("close reader: %v", err)
+	}
+	return string(result.raw)
 }

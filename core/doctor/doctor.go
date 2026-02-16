@@ -99,22 +99,32 @@ func Run(opts Options) Result {
 		producerVersion = "0.0.0-dev"
 	}
 
-	checks := []Check{
-		checkWorkDirWritable(workDir),
-		checkOutputDir(outputDir),
-		checkTempDirWritable(),
-		checkSchemaFiles(workDir),
-		checkHooksPath(workDir),
-		checkRegistryCacheHealth(),
-		checkRateLimitLock(outputDir),
-		checkOnboardingBinary(workDir),
-		checkOnboardingAssets(workDir),
-		checkKeySourceAmbiguity(opts.KeyConfig),
-		checkKeyFilePermissions(opts.KeyConfig),
-		checkKeyConfig(opts.KeyMode, opts.KeyConfig),
-	}
+	var checks []Check
 	if opts.ProductionReadiness {
+		checks = []Check{
+			checkWorkDirWritable(workDir),
+			checkOutputDir(outputDir),
+			checkTempDirWritable(),
+			checkKeySourceAmbiguity(opts.KeyConfig),
+			checkKeyFilePermissions(opts.KeyConfig),
+			checkKeyConfig(opts.KeyMode, opts.KeyConfig),
+		}
 		checks = append(checks, checkProductionReadiness(workDir)...)
+	} else {
+		checks = []Check{
+			checkWorkDirWritable(workDir),
+			checkOutputDir(outputDir),
+			checkTempDirWritable(),
+			checkSchemaFiles(workDir),
+			checkHooksPath(workDir),
+			checkRegistryCacheHealth(),
+			checkRateLimitLock(outputDir),
+			checkOnboardingBinary(workDir),
+			checkOnboardingAssets(workDir),
+			checkKeySourceAmbiguity(opts.KeyConfig),
+			checkKeyFilePermissions(opts.KeyConfig),
+			checkKeyConfig(opts.KeyMode, opts.KeyConfig),
+		}
 	}
 
 	failed := 0
