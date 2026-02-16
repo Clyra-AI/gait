@@ -78,12 +78,6 @@ If preconditions fail, stop and report.
 - Run only for actionable failures.
 - Loop cap: `2`.
 - For each loop:
-
-## Command Anchors
-
-- `gait doctor --json` before ship to capture machine-readable local readiness evidence.
-- `gait pack verify <artifact.zip> --json` when validating artifact integrity in a failing CI path.
-- `gait gate eval --policy <policy.yaml> --input <intent.json> --json` when policy-path checks are implicated.
 - Create branch from updated `main`: `codex/hotfix-<topic>-r<1|2>`
 - Implement minimal fix.
 - Run `make prepush-full`.
@@ -100,6 +94,12 @@ If preconditions fail, stop and report.
 - CI green on main: success.
 - Non-actionable failure class: stop and report.
 - Loop count exceeded (`>2`): stop and report blocker.
+
+## Command Anchors
+
+- `gait doctor --json` before ship to capture machine-readable local readiness evidence.
+- `gait pack verify <artifact.zip> --json` when validating artifact integrity in a failing CI path.
+- `gait gate eval --policy <policy.yaml> --intent <intent.json> --json` when policy-path checks are implicated.
 
 ## EOF Rule (Mandatory)
 

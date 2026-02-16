@@ -42,7 +42,7 @@ Execute this workflow when asked to perform app review, release readiness, archi
 
 - `gait doctor --json` to capture environment diagnostics in machine-readable form.
 - `gait pack inspect <artifact.zip> --json` to inspect artifact envelope integrity and payload shape.
-- `gait gate eval --policy <policy.yaml> --input <intent.json> --json` to validate fail-closed policy behavior.
+- `gait gate eval --policy <policy.yaml> --intent <intent.json> --json` to validate fail-closed policy behavior.
 
 ## Severity
 

@@ -152,7 +152,7 @@ Before finalizing, verify:
 
 - Include concrete plan tasks that reference verifiable CLI surfaces, for example:
   - `gait doctor --json`
-  - `gait gate eval --policy <policy.yaml> --input <intent.json> --json`
+  - `gait gate eval --policy <policy.yaml> --intent <intent.json> --json`
   - `gait pack verify <pack.zip> --json`
 
 ## Failure Mode

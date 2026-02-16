@@ -76,7 +76,7 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
 ## Command Anchors
 
 - `gait doctor --json` to verify baseline runtime diagnostics and dependency posture.
-- `gait gate eval --policy <policy.yaml> --input <intent.json> --json` to validate policy verdict/exit behavior.
+- `gait gate eval --policy <policy.yaml> --intent <intent.json> --json` to validate policy verdict/exit behavior.
 - `gait pack verify <artifact.zip> --json` to check artifact integrity and signature status.
 
 ## Output Contract

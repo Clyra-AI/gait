@@ -53,7 +53,7 @@ Validation rules:
 Use `gait` commands with `--json` whenever the plan needs machine-readable evidence, for example:
 
 - `gait doctor --json`
-- `gait regress bootstrap --runpack fixtures/run_demo/runpack.zip --json`
+- `gait regress bootstrap --from fixtures/run_demo/runpack.zip --json`
 
 ## Non-Negotiables
 

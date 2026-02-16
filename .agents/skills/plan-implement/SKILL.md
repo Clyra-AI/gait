@@ -78,14 +78,14 @@ Rules:
 7. Revalidate implementation against plan contracts:
 - Re-check every implemented story against acceptance criteria.
 - Re-check plan `Definition of Done`.
+- Re-check plan `Exit Criteria`.
+- Produce a `met/not met` checklist with command evidence for each item.
 
 ## Command Anchors
 
 - `gait doctor --json` to verify local environment and dependency readiness before implementation.
-- `gait gate eval --policy <policy.yaml> --input <intent.json> --json` for policy-story contract checks.
+- `gait gate eval --policy <policy.yaml> --intent <intent.json> --json` for policy-story contract checks.
 - `gait pack verify <artifact.zip> --json` for artifact-story integrity checks.
-- Re-check `Exit Criteria`.
-- Produce a `met/not met` checklist with command evidence for each item.
 
 ## Test Requirements by Work Type (Mandatory)
 
