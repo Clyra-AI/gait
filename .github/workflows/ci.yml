@@ -185,8 +185,15 @@ jobs:
       - name: Go tests with coverage
         shell: bash
         run: |
-          go test ./... -cover > coverage-go-packages.out
+          set +e
+          go test ./... -cover > coverage-go-packages.out 2>&1
+          package_test_status=$?
+          set -e
           cat coverage-go-packages.out
+          if [[ "${package_test_status}" -ne 0 ]]; then
+            echo "go test ./... -cover failed"
+            exit "${package_test_status}"
+          fi
           python scripts/check_go_package_coverage.py coverage-go-packages.out 75
           go test ./core/... ./cmd/gait -coverprofile=coverage-go.out
           if [[ "$RUNNER_OS" == "Linux" ]]; then
