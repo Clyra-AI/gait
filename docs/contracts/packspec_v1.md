@@ -69,6 +69,21 @@ Stable exit semantics:
 - `2`: differences detected
 - `6`: invalid input/usage
 
+## Export Contract
+
+`gait pack export` emits first-class downstream surfaces from a verified pack:
+
+- OTEL-style JSONL records (`--otel-out`) with:
+  - one `gait.pack.verify` span
+  - one metadata event
+  - stable metrics (`tool_calls_success_rate`, `policy_blocked_total`, `approval_required_total`, `regress_failures_total`)
+- PostgreSQL metadata/index SQL (`--postgres-sql-out`) with optional table/index DDL and deterministic upsert statements.
+
+Stable exit semantics:
+
+- `0`: export success
+- `6`: invalid input/usage
+
 ## Legacy Compatibility (v2.4)
 
 PackSpec v1 readers remain backward-compatible with legacy artifacts:

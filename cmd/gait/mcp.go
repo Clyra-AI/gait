@@ -12,7 +12,9 @@ import (
 
 	"github.com/davidahmann/gait/core/gate"
 	"github.com/davidahmann/gait/core/mcp"
+	"github.com/davidahmann/gait/core/pack"
 	"github.com/davidahmann/gait/core/runpack"
+	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 	"github.com/davidahmann/gait/core/sign"
 )
@@ -33,6 +35,8 @@ type mcpProxyOutput struct {
 	TraceID           string   `json:"trace_id,omitempty"`
 	TracePath         string   `json:"trace_path,omitempty"`
 	RunpackPath       string   `json:"runpack_path,omitempty"`
+	PackPath          string   `json:"pack_path,omitempty"`
+	PackID            string   `json:"pack_id,omitempty"`
 	LogExport         string   `json:"log_export,omitempty"`
 	OTelExport        string   `json:"otel_export,omitempty"`
 	Warnings          []string `json:"warnings,omitempty"`
@@ -45,6 +49,8 @@ type mcpProxyEvalOptions struct {
 	RunID         string
 	TracePath     string
 	RunpackOut    string
+	PackOut       string
+	AutoPackDir   string
 	LogExportPath string
 	OTelExport    string
 	KeyMode       string
@@ -85,6 +91,7 @@ func runMCPProxy(arguments []string) int {
 		"trace-out":       true,
 		"run-id":          true,
 		"runpack-out":     true,
+		"pack-out":        true,
 		"export-log-out":  true,
 		"export-otel-out": true,
 		"key-mode":        true,
@@ -101,6 +108,7 @@ func runMCPProxy(arguments []string) int {
 	var tracePath string
 	var runID string
 	var runpackOut string
+	var packOut string
 	var logExportPath string
 	var otelExportPath string
 	var keyMode string
@@ -116,6 +124,7 @@ func runMCPProxy(arguments []string) int {
 	flagSet.StringVar(&tracePath, "trace-out", "", "path to emitted trace JSON (default trace_<trace_id>.json)")
 	flagSet.StringVar(&runID, "run-id", "", "optional run_id override for proxy artifacts")
 	flagSet.StringVar(&runpackOut, "runpack-out", "", "optional path to emit a runpack zip for this proxy decision")
+	flagSet.StringVar(&packOut, "pack-out", "", "optional path to emit a PackSpec run pack for this proxy decision")
 	flagSet.StringVar(&logExportPath, "export-log-out", "", "optional JSONL log export path")
 	flagSet.StringVar(&otelExportPath, "export-otel-out", "", "optional OTEL-style JSONL export path")
 	flagSet.StringVar(&keyMode, "key-mode", string(sign.ModeDev), "signing key mode: dev or prod")
@@ -154,6 +163,7 @@ func runMCPProxy(arguments []string) int {
 		RunID:         runID,
 		TracePath:     tracePath,
 		RunpackOut:    runpackOut,
+		PackOut:       packOut,
 		LogExportPath: logExportPath,
 		OTelExport:    otelExportPath,
 		KeyMode:       keyMode,
@@ -249,6 +259,42 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		}
 	}
 
+	resolvedPackPath := strings.TrimSpace(options.PackOut)
+	if resolvedPackPath == "" && strings.TrimSpace(options.AutoPackDir) != "" && shouldAutoEmitMCPPack(evalResult.Intent) {
+		resolvedPackPath = filepath.Join(strings.TrimSpace(options.AutoPackDir), fmt.Sprintf("pack_%s_%s.zip", normalizeRunID(resolvedRunID), time.Now().UTC().Format("20060102T150405.000000000")))
+	}
+	resolvedPackID := ""
+	if resolvedPackPath != "" {
+		runpackPathForPack := resolvedRunpackPath
+		cleanup := func() {}
+		if runpackPathForPack == "" {
+			tmpDir, tmpErr := os.MkdirTemp("", "gait-mcp-pack-*")
+			if tmpErr != nil {
+				return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("create temp runpack directory for pack build: %w", tmpErr)
+			}
+			tmpRunpackPath := filepath.Join(tmpDir, "runpack.zip")
+			if err := writeMCPRunpack(tmpRunpackPath, resolvedRunID, evalResult, traceResult.Trace.TraceID); err != nil {
+				return mcpProxyOutput{}, exitInvalidInput, err
+			}
+			runpackPathForPack = tmpRunpackPath
+			cleanup = func() {
+				_ = os.RemoveAll(tmpDir)
+			}
+		}
+		buildResult, buildErr := pack.BuildRunPack(pack.BuildRunOptions{
+			RunpackPath:       runpackPathForPack,
+			OutputPath:        resolvedPackPath,
+			ProducerVersion:   version,
+			SigningPrivateKey: keyPair.Private,
+		})
+		cleanup()
+		if buildErr != nil {
+			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("build proxy pack: %w", buildErr)
+		}
+		resolvedPackPath = buildResult.Path
+		resolvedPackID = buildResult.Manifest.PackID
+	}
+
 	exportEvent := mcp.ExportEvent{
 		CreatedAt:       evalResult.Outcome.Result.CreatedAt,
 		ProducerVersion: version,
@@ -312,6 +358,8 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		TraceID:           traceResult.Trace.TraceID,
 		TracePath:         traceResult.TracePath,
 		RunpackPath:       resolvedRunpackPath,
+		PackPath:          resolvedPackPath,
+		PackID:            resolvedPackID,
 		LogExport:         resolvedLogExport,
 		OTelExport:        resolvedOTelExport,
 		Warnings:          warnings,
@@ -411,6 +459,129 @@ func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, trace
 	return nil
 }
 
+func shouldAutoEmitMCPPack(intent schemagate.IntentRequest) bool {
+	hasExplicitOperation := false
+	if len(intent.Targets) > 0 {
+		for _, target := range intent.Targets {
+			operation := normalizeMCPToolOperation(target.Operation)
+			if operation == "" {
+				continue
+			}
+			hasExplicitOperation = true
+			if _, ok := readOnlyMCPToolOperations[operation]; ok {
+				continue
+			}
+			return true
+		}
+		if hasExplicitOperation {
+			return false
+		}
+	}
+	operation := inferMCPToolOperation(intent.ToolName)
+	if operation == "" {
+		return false
+	}
+	if _, ok := readOnlyMCPToolOperations[operation]; ok {
+		return false
+	}
+	if _, ok := writeMCPToolOperations[operation]; ok {
+		return true
+	}
+	for _, prefix := range writeMCPToolPrefixes {
+		if strings.HasPrefix(operation, prefix) {
+			return true
+		}
+	}
+	for _, prefix := range readOnlyMCPToolPrefixes {
+		if strings.HasPrefix(operation, prefix) {
+			return false
+		}
+	}
+	return false
+}
+
+func normalizeMCPToolOperation(operation string) string {
+	return strings.ToLower(strings.TrimSpace(operation))
+}
+
+func inferMCPToolOperation(toolName string) string {
+	tokens := mcpToolNameTokenPattern.FindAllString(strings.ToLower(strings.TrimSpace(toolName)), -1)
+	if len(tokens) == 0 {
+		return ""
+	}
+	for _, token := range tokens {
+		if _, ok := writeMCPToolOperations[token]; ok {
+			return token
+		}
+		if _, ok := readOnlyMCPToolOperations[token]; ok {
+			return token
+		}
+	}
+	for _, token := range tokens {
+		for _, prefix := range writeMCPToolPrefixes {
+			if strings.HasPrefix(token, prefix) {
+				return token
+			}
+		}
+		for _, prefix := range readOnlyMCPToolPrefixes {
+			if strings.HasPrefix(token, prefix) {
+				return token
+			}
+		}
+	}
+	for _, token := range tokens {
+		switch token {
+		case "tool", "tools", "mcp", "function":
+			continue
+		default:
+			return token
+		}
+	}
+	return ""
+}
+
+var readOnlyMCPToolOperations = map[string]struct{}{
+	"read":     {},
+	"list":     {},
+	"query":    {},
+	"search":   {},
+	"inspect":  {},
+	"get":      {},
+	"fetch":    {},
+	"head":     {},
+	"describe": {},
+}
+
+var writeMCPToolOperations = map[string]struct{}{
+	"write":   {},
+	"create":  {},
+	"update":  {},
+	"delete":  {},
+	"remove":  {},
+	"insert":  {},
+	"upsert":  {},
+	"patch":   {},
+	"set":     {},
+	"put":     {},
+	"post":    {},
+	"commit":  {},
+	"apply":   {},
+	"approve": {},
+	"execute": {},
+	"exec":    {},
+	"run":     {},
+}
+
+var readOnlyMCPToolPrefixes = []string{
+	"get", "read", "list", "query", "search", "inspect", "fetch", "describe",
+}
+
+var writeMCPToolPrefixes = []string{
+	"write", "create", "update", "delete", "remove", "insert", "upsert", "patch", "set", "put", "post", "commit", "apply", "approve", "exec", "run",
+}
+
+var mcpToolNameTokenPattern = regexp.MustCompile(`[a-z0-9]+`)
+
 func sanitizeRunpackOutputPath(path string) (string, error) {
 	trimmed := strings.TrimSpace(path)
 	if trimmed == "" {
@@ -458,6 +629,9 @@ func writeMCPProxyOutput(jsonOutput bool, output mcpProxyOutput, exitCode int) i
 		if output.RunpackPath != "" {
 			fmt.Printf("runpack: %s\n", output.RunpackPath)
 		}
+		if output.PackPath != "" {
+			fmt.Printf("pack: %s\n", output.PackPath)
+		}
 		return exitCode
 	}
 	fmt.Printf("mcp proxy error: %s\n", output.Error)
@@ -466,13 +640,13 @@ func writeMCPProxyOutput(jsonOutput bool, output mcpProxyOutput, exitCode int) i
 
 func printMCPUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
 }
 
 func printMCPProxyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }

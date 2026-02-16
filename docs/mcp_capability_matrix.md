@@ -15,9 +15,9 @@ In this context, an adapter is the payload translation layer from a framework sc
 
 | Mode | Primary Use | Input | Output | Persistence | Notable Non-Goals |
 | --- | --- | --- | --- | --- | --- |
-| `gait mcp proxy` | One-shot local evaluation | Tool-call payload file/stdin + policy | JSON decision + optional trace/runpack exports | Optional trace/runpack/log/otel outputs | Not a long-running service |
+| `gait mcp proxy` | One-shot local evaluation | Tool-call payload file/stdin + policy | JSON decision + optional trace/runpack/pack exports | Optional trace/runpack/pack/log/otel outputs | Not a long-running service |
 | `gait mcp bridge` | Alias of proxy for bridge wording/UX | Same as proxy | Same as proxy | Same as proxy | Not a distinct evaluator |
-| `gait mcp serve` | Long-running local HTTP decision service | `POST /v1/evaluate*` JSON request | JSON/SSE/NDJSON decision payload with `exit_code` + verdict | Trace/runpack/session retention controls | Does not execute tools for caller |
+| `gait mcp serve` | Long-running local HTTP decision service | `POST /v1/evaluate*` JSON request | JSON/SSE/NDJSON decision payload with `exit_code` + verdict | Trace/runpack/pack/session retention controls + auto pack emission for state-changing calls (`emit_pack` + `--pack-dir`) | Does not execute tools for caller |
 
 ## Runtime Enforcement Responsibility
 

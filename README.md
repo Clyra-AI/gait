@@ -75,6 +75,7 @@ Use the short demo assets in `docs/assets/gait_demo_20s.*` for a quick artifact-
 **Durable jobs** — dispatch long-running agent work that survives failures. Checkpoints, pause/resume/cancel, approval gates, deterministic stop reasons. No more lost state at step 47.
 
 **Signed packs** — every run and job emits a tamper-evident artifact (Ed25519 + SHA-256 manifest). Verify offline. Attach to PRs, incidents, audits. One artifact is the entire proof.
+Export OTEL-style JSONL and deterministic PostgreSQL index SQL from the same pack metadata with `gait pack export`.
 
 **Incident → CI gate in one command** — `gait regress bootstrap` converts a bad run into a permanent regression fixture with JUnit output. Exit 0 = pass, exit 5 = drift. Never debug the same failure twice.
 
@@ -167,7 +168,7 @@ Hardening: [`docs/hardening/v2_2_contract.md`](docs/hardening/v2_2_contract.md) 
 gait demo                                         Create a signed pack offline
 gait verify <run_id|path>                          Verify integrity offline
 gait job submit|status|checkpoint|pause|resume     Durable job lifecycle
-gait pack build|verify|inspect|diff                Unified pack operations
+gait pack build|verify|inspect|diff|export         Unified pack operations + OTEL/Postgres sinks
 gait regress bootstrap|run                         Incident → CI gate
 gait gate eval                                     Policy enforcement + signed trace
 gait report top                                    Rank highest-risk actions

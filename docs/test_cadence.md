@@ -30,6 +30,7 @@ Core suites include:
 - `make test`
 - `make test-e2e`
 - acceptance wedges (`make test-acceptance`, `make test-v1-6-acceptance`, `make test-v1-7-acceptance`, `make test-v1-8-acceptance`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`, `make test-v2-5-acceptance`)
+- v2.4 acceptance includes trajectory regress assertions, `pack export` OTEL/Postgres sink checks, and canonical MCP per-call pack emission proof
 - voice boundary acceptance (`make test-voice-acceptance`)
 - v2.5 context lanes (`make test-context-conformance`, `make test-context-chaos`)
 - PackSpec contract lane (`make test-packspec-tck`)

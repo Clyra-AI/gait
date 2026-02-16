@@ -10,17 +10,6 @@ export const metadata: Metadata = {
 
 const tracks = [
   {
-    title: 'Track 0: Hub And Discovery',
-    steps: [
-      { label: 'Docs Home', href: '/docs' },
-      { label: 'LLM Context', href: '/llms' },
-      { label: 'llms.txt', href: '/llms.txt' },
-      { label: 'llms-full.txt', href: '/llms-full.txt' },
-      { label: 'AI Sitemap', href: '/ai-sitemap.xml' },
-      { label: 'Crawler Policy', href: '/robots.txt' },
-    ],
-  },
-  {
     title: 'Track 1: First Win (5 Minutes)',
     steps: [
       { label: 'Install', href: '/docs/install' },
@@ -74,6 +63,17 @@ const tracks = [
       { label: 'Launch Kit', href: '/docs/launch/readme' },
       { label: 'Secure Deploy OpenClaw', href: '/docs/launch/secure_deployment_openclaw' },
       { label: 'Secure Deploy Gas Town', href: '/docs/launch/secure_deployment_gastown' },
+    ],
+  },
+  {
+    title: 'Track 6: Hub And Discovery',
+    steps: [
+      { label: 'Docs Home', href: '/docs' },
+      { label: 'LLM Context', href: '/llms' },
+      { label: 'llms.txt', href: '/llms.txt' },
+      { label: 'llms-full.txt', href: '/llms-full.txt' },
+      { label: 'AI Sitemap', href: '/ai-sitemap.xml' },
+      { label: 'Crawler Policy', href: '/robots.txt' },
     ],
   },
 ];

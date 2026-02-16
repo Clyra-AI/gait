@@ -105,6 +105,29 @@ func TestRunPackLifecycleCommands(t *testing.T) {
 		t.Fatalf("expected diff output file: %v", err)
 	}
 
+	otelExportPath := filepath.Join(workDir, "pack_otel.jsonl")
+	postgresSQLPath := filepath.Join(workDir, "pack_index.sql")
+	exportCode, exportOut := runPackJSON(t, []string{
+		"export",
+		runBuildOut.Path,
+		"--otel-out", otelExportPath,
+		"--postgres-sql-out", postgresSQLPath,
+		"--postgres-table", "public.gait_pack_index",
+		"--json",
+	})
+	if exportCode != exitOK {
+		t.Fatalf("pack export expected %d got %d output=%#v", exitOK, exportCode, exportOut)
+	}
+	if exportOut.Export == nil || exportOut.Export.PackID == "" {
+		t.Fatalf("unexpected pack export output: %#v", exportOut)
+	}
+	if _, err := os.Stat(otelExportPath); err != nil {
+		t.Fatalf("expected otel export output: %v", err)
+	}
+	if _, err := os.Stat(postgresSQLPath); err != nil {
+		t.Fatalf("expected postgres sql output: %v", err)
+	}
+
 	var verifyTextCode int
 	verifyText := captureStdout(t, func() {
 		verifyTextCode = runPack([]string{"verify", runBuildOut.Path})
@@ -144,6 +167,7 @@ func TestRunPackHelpAndErrorPaths(t *testing.T) {
 		{"verify", "--help"},
 		{"inspect", "--help"},
 		{"diff", "--help"},
+		{"export", "--help"},
 	}
 	for _, args := range helpCases {
 		if code := runPack(args); code != exitOK {
@@ -168,6 +192,12 @@ func TestRunPackHelpAndErrorPaths(t *testing.T) {
 	}
 	if code := runPack([]string{"diff", "--json"}); code != exitInvalidInput {
 		t.Fatalf("diff missing args expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runPack([]string{"export", "missing.zip", "--json"}); code != exitInvalidInput {
+		t.Fatalf("export missing output flags expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runPack([]string{"export", "--postgres-sql-out", "out.sql", "--postgres-table", "bad-table", "--json"}); code != exitInvalidInput {
+		t.Fatalf("export invalid postgres table expected %d got %d", exitInvalidInput, code)
 	}
 }
 
@@ -475,6 +505,11 @@ func TestWritePackOutputTextBranches(t *testing.T) {
 			name:      "diff",
 			output:    packOutput{OK: true, Operation: "diff"},
 			expectSub: "pack diff ok",
+		},
+		{
+			name:      "export",
+			output:    packOutput{OK: true, Operation: "export", Path: "pack.zip", OTelPath: "pack.otel.jsonl", PostgresSQL: "pack_index.sql"},
+			expectSub: "pack export ok:",
 		},
 	}
 

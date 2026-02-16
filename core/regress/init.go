@@ -55,6 +55,8 @@ type fixtureMeta struct {
 	RunID                    string   `json:"run_id"`
 	Runpack                  string   `json:"runpack"`
 	ExpectedReplayExitCode   int      `json:"expected_replay_exit_code"`
+	ExpectedToolSequence     []string `json:"expected_tool_sequence,omitempty"`
+	ExpectedVerdictSequence  []string `json:"expected_verdict_sequence,omitempty"`
 	CandidateRunpack         string   `json:"candidate_runpack,omitempty"`
 	ContextConformance       string   `json:"context_conformance,omitempty"`
 	AllowContextRuntimeDrift bool     `json:"allow_context_runtime_drift,omitempty"`
@@ -147,6 +149,8 @@ func InitFixture(opts InitOptions) (InitResult, error) {
 		CheckpointIndex:        checkpointIndex,
 	}
 	if sourcePack, readErr := runpack.ReadRunpack(sourceRunpackPath); readErr == nil {
+		meta.ExpectedToolSequence = toolSequenceFromRunpack(sourcePack)
+		meta.ExpectedVerdictSequence = verdictSequenceFromRunpack(sourcePack)
 		if strings.TrimSpace(sourcePack.Refs.ContextSetDigest) != "" {
 			meta.ContextConformance = "required"
 			meta.ExpectedContextSetDigest = strings.TrimSpace(sourcePack.Refs.ContextSetDigest)
@@ -280,6 +284,12 @@ func readFixtureMeta(path string) (fixtureMeta, error) {
 	if meta.ExpectedContextSetDigest != "" && !digestPattern.MatchString(meta.ExpectedContextSetDigest) {
 		return fixtureMeta{}, fmt.Errorf("fixture expected_context_set_digest must be sha256 hex: %s", slashPath(path))
 	}
+	meta.ExpectedToolSequence = normalizeTrajectorySequence(meta.ExpectedToolSequence)
+	normalizedVerdicts, normalizeErr := normalizeTrajectoryVerdictSequence(meta.ExpectedVerdictSequence)
+	if normalizeErr != nil {
+		return fixtureMeta{}, fmt.Errorf("fixture expected_verdict_sequence invalid: %s (%s)", normalizeErr.Error(), slashPath(path))
+	}
+	meta.ExpectedVerdictSequence = normalizedVerdicts
 	return meta, nil
 }
 

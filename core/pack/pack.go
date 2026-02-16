@@ -18,6 +18,7 @@ import (
 
 	"github.com/davidahmann/gait/core/contextproof"
 	coreerrors "github.com/davidahmann/gait/core/errors"
+	"github.com/davidahmann/gait/core/fsx"
 	"github.com/davidahmann/gait/core/guard"
 	"github.com/davidahmann/gait/core/jcs"
 	"github.com/davidahmann/gait/core/jobruntime"
@@ -136,18 +137,17 @@ type JobCheckpointRef struct {
 }
 
 func BuildRunPack(options BuildRunOptions) (BuildResult, error) {
-	runpackPath := strings.TrimSpace(options.RunpackPath)
-	if runpackPath == "" {
-		return BuildResult{}, fmt.Errorf("runpack path is required")
+	runpackPath, err := normalizeLocalOrAbsolutePath(options.RunpackPath)
+	if err != nil {
+		return BuildResult{}, fmt.Errorf("runpack path: %w", err)
 	}
 	data, err := runpack.ReadRunpack(runpackPath)
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("read runpack: %w", err)
 	}
-	// #nosec G304 -- caller provides local path.
-	rawRunpack, err := os.ReadFile(runpackPath)
+	rawRunpack, err := normalizeZipArchiveBytes(runpackPath)
 	if err != nil {
-		return BuildResult{}, fmt.Errorf("read runpack bytes: %w", err)
+		return BuildResult{}, fmt.Errorf("normalize runpack bytes: %w", err)
 	}
 
 	payload := schemapack.RunPayload{
@@ -344,10 +344,11 @@ func buildPackWithFiles(options buildPackOptions) (BuildResult, error) {
 		}
 		outputPath = filepath.Join(baseDir, "pack_"+manifest.PackID+".zip")
 	}
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0o750); err != nil {
-		return BuildResult{}, fmt.Errorf("create output directory: %w", err)
+	outputPath, err = normalizeLocalOrAbsolutePath(outputPath)
+	if err != nil {
+		return BuildResult{}, fmt.Errorf("pack output path: %w", err)
 	}
-	if err := os.WriteFile(outputPath, buffer.Bytes(), 0o600); err != nil {
+	if err := fsx.WriteFileAtomic(outputPath, buffer.Bytes(), 0o600); err != nil {
 		return BuildResult{}, fmt.Errorf("write pack: %w", err)
 	}
 	return BuildResult{Path: outputPath, Manifest: manifest}, nil
@@ -790,6 +791,68 @@ func collectArtifactInfo(path string) (artifactInfo, error) {
 		}
 	}
 	return info, nil
+}
+
+func normalizeLocalOrAbsolutePath(path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", fmt.Errorf("path is required")
+	}
+	cleaned := filepath.Clean(trimmed)
+	if cleaned == "." || cleaned == string(filepath.Separator) {
+		return "", fmt.Errorf("path is required")
+	}
+	if filepath.IsLocal(cleaned) {
+		for _, segment := range strings.Split(filepath.ToSlash(cleaned), "/") {
+			if segment == ".." {
+				return "", fmt.Errorf("relative paths must not traverse parent directories")
+			}
+		}
+		return cleaned, nil
+	}
+	if strings.HasPrefix(cleaned, string(filepath.Separator)) {
+		return cleaned, nil
+	}
+	if volume := filepath.VolumeName(cleaned); volume != "" && strings.HasPrefix(cleaned, volume+string(filepath.Separator)) {
+		return cleaned, nil
+	}
+	return "", fmt.Errorf("path must be local relative or absolute")
+}
+
+func normalizeZipArchiveBytes(path string) ([]byte, error) {
+	zipReader, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, fmt.Errorf("open zip: %w", err)
+	}
+	defer func() {
+		_ = zipReader.Close()
+	}()
+
+	files := make([]zipx.File, 0, len(zipReader.File))
+	for _, entry := range zipReader.File {
+		if entry.FileInfo().IsDir() {
+			continue
+		}
+		payload, readErr := readZipFile(entry)
+		if readErr != nil {
+			return nil, fmt.Errorf("read zip entry %s: %w", entry.Name, readErr)
+		}
+		mode := entry.Mode().Perm()
+		if mode == 0 {
+			mode = 0o644
+		}
+		files = append(files, zipx.File{
+			Path: entry.Name,
+			Data: payload,
+			Mode: mode,
+		})
+	}
+
+	var buffer bytes.Buffer
+	if err := zipx.WriteDeterministicZip(&buffer, files); err != nil {
+		return nil, fmt.Errorf("normalize zip archive: %w", err)
+	}
+	return buffer.Bytes(), nil
 }
 
 func parsePackManifest(payload []byte) (schemapack.Manifest, error) {

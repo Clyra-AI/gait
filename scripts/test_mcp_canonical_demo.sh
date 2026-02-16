@@ -31,5 +31,7 @@ for key, (verdict, exit_code) in expected.items():
         raise SystemExit(f"case {key} missing trace artifact")
     if not pathlib.Path(case.get("runpack_path", "")).exists():
         raise SystemExit(f"case {key} missing runpack artifact")
+    if not pathlib.Path(case.get("pack_path", "")).exists():
+        raise SystemExit(f"case {key} missing pack artifact")
 print("mcp canonical demo: pass")
 PY

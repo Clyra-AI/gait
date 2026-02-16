@@ -102,6 +102,97 @@ func TestMCPServeHandlerEvaluateOpenAI(t *testing.T) {
 	}
 }
 
+func TestMCPServeHandlerAutoEmitsPackForStateChangingCall(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	packDir := filepath.Join(workDir, "packs")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:     policyPath,
+		DefaultAdapter: "mcp",
+		TraceDir:       filepath.Join(workDir, "traces"),
+		PackDir:        packDir,
+		KeyMode:        "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "run_id":"run_mcp_pack_auto",
+	  "call":{
+	    "name":"tool.write",
+	    "args":{"path":"/tmp/out.txt"},
+	    "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-pack-auto"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("evaluate status: expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode evaluate response: %v", err)
+	}
+	if strings.TrimSpace(response.PackPath) == "" || strings.TrimSpace(response.PackID) == "" {
+		t.Fatalf("expected auto-emitted pack metadata, got %#v", response)
+	}
+	if _, err := os.Stat(response.PackPath); err != nil {
+		t.Fatalf("expected emitted pack path to exist: %v", err)
+	}
+	if code := runPack([]string{"verify", response.PackPath, "--json"}); code != exitOK {
+		t.Fatalf("pack verify expected %d got %d", exitOK, code)
+	}
+}
+
+func TestMCPServeHandlerReadOnlyCallDoesNotAutoEmitPack(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:     policyPath,
+		DefaultAdapter: "openai",
+		TraceDir:       filepath.Join(workDir, "traces"),
+		PackDir:        filepath.Join(workDir, "packs"),
+		KeyMode:        "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "call": {
+	    "type": "function",
+	    "function": {
+	      "name": "tool.search",
+	      "arguments": "{\"query\":\"gait\"}"
+	    }
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("evaluate status: expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode evaluate response: %v", err)
+	}
+	if strings.TrimSpace(response.PackPath) != "" {
+		t.Fatalf("expected read-only call to skip auto pack emission, got %#v", response)
+	}
+}
+
 func TestMCPServeHandlerEvaluateValidation(t *testing.T) {
 	workDir := t.TempDir()
 	policyPath := filepath.Join(workDir, "policy.yaml")

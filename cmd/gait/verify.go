@@ -666,6 +666,7 @@ func printUsage() {
 	fmt.Println("  gait pack verify <pack.zip> [--profile standard|strict] [--json] [--explain]")
 	fmt.Println("  gait pack inspect <pack.zip> [--json] [--explain]")
 	fmt.Println("  gait pack diff <left.zip> <right.zip> [--json] [--explain]")
+	fmt.Println("  gait pack export <pack.zip> [--otel-out <otel.jsonl>] [--postgres-sql-out <pack_index.sql>] [--json] [--explain]")
 	fmt.Println("  gait voice pack build --from <call_record.json> [--json] [--explain]")
 	fmt.Println("  gait voice token mint --intent <commitment_intent.json> --policy <policy.yaml> [--json] [--explain]")
 	fmt.Println("  gait report top --runs <csv|run_id|dir> [--traces <csv|dir>] [--limit <n>] [--json] [--explain]")
