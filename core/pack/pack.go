@@ -348,6 +348,12 @@ func buildPackWithFiles(options buildPackOptions) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("pack output path: %w", err)
 	}
+	outputDir := filepath.Dir(outputPath)
+	if outputDir != "." && outputDir != "" {
+		if err := os.MkdirAll(outputDir, 0o750); err != nil {
+			return BuildResult{}, fmt.Errorf("create pack output directory: %w", err)
+		}
+	}
 	if err := fsx.WriteFileAtomic(outputPath, buffer.Bytes(), 0o600); err != nil {
 		return BuildResult{}, fmt.Errorf("write pack: %w", err)
 	}
