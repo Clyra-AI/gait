@@ -91,7 +91,31 @@ Before production use, apply hardened defaults and validate readiness:
 
 ```bash
 mkdir -p .gait
-cp examples/config/oss_prod_template.yaml .gait/config.yaml
+gait policy init baseline-highrisk --out .gait/policy.yaml
+cat > .gait/config.yaml <<'YAML'
+gate:
+  policy: .gait/policy.yaml
+  profile: oss-prod
+  key_mode: prod
+  private_key_env: GAIT_PRIVATE_KEY
+  credential_broker: env
+  credential_env_prefix: GAIT_BROKER_TOKEN_
+  rate_limit_state: ./gait-out/gate_rate_limits.json
+
+mcp_serve:
+  enabled: true
+  listen: 127.0.0.1:8787
+  auth_mode: token
+  auth_token_env: GAIT_MCP_TOKEN
+  max_request_bytes: 1048576
+  http_verdict_status: strict
+  allow_client_artifact_paths: false
+
+retention:
+  trace_ttl: 168h
+  session_ttl: 336h
+  export_ttl: 168h
+YAML
 gait doctor --production-readiness --json
 ```
 

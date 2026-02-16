@@ -35,6 +35,66 @@ func TestRunDetectsMissingSchemasAsNonFixable(t *testing.T) {
 	}
 }
 
+func TestRunProductionReadinessSkipsRepoOnlyChecks(t *testing.T) {
+	workDir := t.TempDir()
+	outputDir := filepath.Join(workDir, "gait-out")
+	if err := ensureDir(outputDir); err != nil {
+		t.Fatalf("create output dir: %v", err)
+	}
+
+	configPath := filepath.Join(workDir, filepath.FromSlash(projectconfig.DefaultPath))
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o750); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte(strings.Join([]string{
+		"gate:",
+		"  policy: .gait/policy.yaml",
+		"  profile: oss-prod",
+		"  key_mode: prod",
+		"mcp_serve:",
+		"  enabled: true",
+		"  listen: 127.0.0.1:8787",
+		"  auth_mode: token",
+		"  auth_token_env: GAIT_MCP_TOKEN",
+		"  max_request_bytes: 1048576",
+		"  http_verdict_status: strict",
+		"  allow_client_artifact_paths: false",
+		"retention:",
+		"  trace_ttl: 168h",
+		"  session_ttl: 336h",
+		"  export_ttl: 168h",
+	}, "\n")+"\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	result := Run(Options{
+		WorkDir:             workDir,
+		OutputDir:           outputDir,
+		ProducerVersion:     "test",
+		KeyMode:             sign.ModeDev,
+		ProductionReadiness: true,
+	})
+
+	if result.Status != statusPass {
+		t.Fatalf("expected pass status in production readiness mode, got: %s (%s)", result.Status, result.Summary)
+	}
+	if result.NonFixable {
+		t.Fatalf("expected non-fixable to be false")
+	}
+	if hasCheck(result.Checks, "schema_files") {
+		t.Fatalf("schema_files should not run in production readiness mode")
+	}
+	if hasCheck(result.Checks, "hooks_path") {
+		t.Fatalf("hooks_path should not run in production readiness mode")
+	}
+	if hasCheck(result.Checks, "onboarding_assets") {
+		t.Fatalf("onboarding_assets should not run in production readiness mode")
+	}
+	if !checkStatus(result.Checks, "production_profile", statusPass) {
+		t.Fatalf("expected production_profile pass check")
+	}
+}
+
 func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	installFakeGaitBinaryInPath(t)
 
@@ -552,6 +612,15 @@ func TestCheckRegistryCacheHealthGlobErrorPath(t *testing.T) {
 func checkStatus(checks []Check, name string, status string) bool {
 	for _, check := range checks {
 		if check.Name == name && check.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCheck(checks []Check, name string) bool {
+	for _, check := range checks {
+		if check.Name == name {
 			return true
 		}
 	}

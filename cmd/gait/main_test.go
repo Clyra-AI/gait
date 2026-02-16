@@ -1604,6 +1604,73 @@ func TestDoctorSummaryMode(t *testing.T) {
 	}
 }
 
+func TestDoctorProductionReadinessIgnoresRepoOnlyChecks(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	outputDir := filepath.Join(workDir, "gait-out")
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		t.Fatalf("mkdir output dir: %v", err)
+	}
+	configDir := filepath.Join(workDir, ".gait")
+	if err := os.MkdirAll(configDir, 0o750); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	mustWriteFile(t, filepath.Join(configDir, "config.yaml"), strings.Join([]string{
+		"gate:",
+		"  policy: .gait/policy.yaml",
+		"  profile: oss-prod",
+		"  key_mode: prod",
+		"mcp_serve:",
+		"  enabled: true",
+		"  listen: 127.0.0.1:8787",
+		"  auth_mode: token",
+		"  auth_token_env: GAIT_MCP_TOKEN",
+		"  max_request_bytes: 1048576",
+		"  http_verdict_status: strict",
+		"  allow_client_artifact_paths: false",
+		"retention:",
+		"  trace_ttl: 168h",
+		"  session_ttl: 336h",
+		"  export_ttl: 168h",
+	}, "\n")+"\n")
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runDoctor([]string{
+			"--workdir", workDir,
+			"--output-dir", outputDir,
+			"--production-readiness",
+			"--json",
+		})
+	})
+	if code != exitOK {
+		t.Fatalf("production readiness doctor expected %d got %d", exitOK, code)
+	}
+
+	var output doctorOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode doctor output: %v (%s)", err, raw)
+	}
+	if !output.OK {
+		t.Fatalf("expected ok=true in production readiness mode: %#v", output)
+	}
+	if output.NonFixable {
+		t.Fatalf("expected non_fixable=false in production readiness mode")
+	}
+	for _, check := range output.Checks {
+		if check.Name == "schema_files" {
+			t.Fatalf("schema_files check should not be present in production readiness mode")
+		}
+		if check.Name == "onboarding_assets" {
+			t.Fatalf("onboarding_assets check should not be present in production readiness mode")
+		}
+		if check.Name == "hooks_path" {
+			t.Fatalf("hooks_path check should not be present in production readiness mode")
+		}
+	}
+}
+
 func TestGateEvalApprovalChainAndSimulation(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
