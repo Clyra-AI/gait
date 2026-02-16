@@ -10,6 +10,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.2.2] - 2026-02-16
+
+### Added
+
+- Added productized adoption/distribution surfaces: reusable adoption regress workflow template, Marketplace-ready GitHub Action metadata/docs, and canonical MCP policy/evidence demo coverage.
+- Added PackSpec standardization docs: stability contract, producer kit, and compatibility matrix pages.
+- Added portable skill packs plus submission variants for incident-to-regression, CI failure triage, and evidence receipt generation workflows.
+
+### Changed
+
+- Refined docs and docs-site information architecture for clearer problem-first guidance, capability naming consistency, and stronger LLM/AEO discoverability.
+- Added docs hub navigation/discovery surfaces and crawler-facing resource links for `llms`, `llms.txt`, `llms-full.txt`, and AI sitemap resources.
+- Updated docs-site validation pipeline behavior to include required `ripgrep` installation before docs consistency checks.
+
+### Fixed
+
+- Hardened runpack verify contract behavior and integrity checks in read/verify paths while reducing verification-path allocations.
+- Fixed Windows pack-producer-kit checksum flow reliability in contracts CI.
+- Fixed docs-site favicon and static discovery alias regressions affecting browser rendering and extensionless route availability.
+
+### Upgrade Notes
+
+- No breaking CLI or schema major-version changes.
+- Recommended post-upgrade validation:
+  - `make test-fast`
+  - `make test-acceptance`
+  - `make docs-site-check`
+  - `make codeql`
+
 ## [1.2.1] - 2026-02-15
 
 ### Added

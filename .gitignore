@@ -25,7 +25,7 @@ perf/resource_budget_report.json
 perf/command_budget_report.json
 perf/context_budget_report.json
 perf/ui_budget_report.json
-/product/PLAN_ENT.md
+/product/
 /trace_*.json
 /sdk/python/trace_*.json
 /approval_audit_*.json

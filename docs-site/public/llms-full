@@ -1,0 +1,84 @@
+# Gait (Extended LLM Context)
+
+Gait is an offline-first runtime for AI agents that enforces policy at the tool boundary and emits signed, verifiable evidence artifacts.
+
+## What Gait Is
+
+- Durable job runtime for long-running agent work.
+- Policy enforcement boundary for tool calls (`allow|block|require_approval|dry_run`).
+- Evidence system with PackSpec artifacts and deterministic verification.
+- Incident-to-regression conversion path with stable CI exit codes.
+
+## Core Surfaces
+
+1. Jobs: `gait job submit|status|checkpoint|pause|approve|resume|cancel|inspect`
+2. Packs: `gait pack build|verify|inspect|diff`
+3. Gate: `gait gate eval`
+4. Regress: `gait regress init|run|bootstrap`
+5. Doctor: `gait doctor`
+
+Extended first-class surfaces:
+
+- Voice: `gait voice token mint|verify`, `gait voice pack build|verify|diff`
+- Context evidence: envelope and context-set digest enforcement in gate/regress flows
+
+Supporting surfaces:
+
+- MCP: `gait mcp proxy|serve`
+- Registry: `gait registry install|list|verify`
+- Scout: `gait scout snapshot|diff|signal`
+
+## Tool Boundary (Canonical)
+
+The tool boundary is the exact call site where your runtime is about to execute a real tool side effect.
+
+- Input crossing boundary: structured intent (`IntentRequest` shape).
+- Decision surface: `gait gate eval` or `gait mcp serve`.
+- Enforced rule: if verdict is not `allow`, do not execute the side effect.
+
+## When To Use
+
+- Agent tool calls can mutate external systems and must be policy-gated.
+- Teams need signed evidence artifacts for incidents, PRs, or audits.
+- Regressions must be deterministic and CI-enforced with stable exits.
+- Long-running jobs need checkpoints and durable local state.
+
+## When Not To Use
+
+- No local Gait CLI/artifact path is available.
+- Workflow has no tool side effects and no evidence/compliance requirements.
+- Hosted observability alone is sufficient and offline verification is unnecessary.
+
+## Stable Exit Codes
+
+- `0` success
+- `1` internal/runtime failure
+- `2` verification failure
+- `3` policy block
+- `4` approval required
+- `5` deterministic regress failure
+- `6` invalid input/usage
+- `7` missing dependency
+- `8` unsafe operation blocked
+
+## Canonical Docs
+
+- Adopt in one PR: https://davidahmann.github.io/gait/docs/adopt_in_one_pr/
+- Durable jobs: https://davidahmann.github.io/gait/docs/durable_jobs/
+- Integration checklist: https://davidahmann.github.io/gait/docs/integration_checklist/
+- Architecture: https://davidahmann.github.io/gait/docs/architecture/
+- Flows: https://davidahmann.github.io/gait/docs/flows/
+- Threat model: https://davidahmann.github.io/gait/docs/threat_model/
+- Failure taxonomy and exits: https://davidahmann.github.io/gait/docs/failure_taxonomy_exit_codes/
+- PackSpec v1: https://davidahmann.github.io/gait/docs/contracts/packspec_v1/
+- Pack producer kit: https://davidahmann.github.io/gait/docs/contracts/pack_producer_kit/
+- Compatibility matrix: https://davidahmann.github.io/gait/docs/contracts/compatibility_matrix/
+
+## LLM Files
+
+- https://davidahmann.github.io/gait/llms.txt
+- https://davidahmann.github.io/gait/llm/product.md
+- https://davidahmann.github.io/gait/llm/quickstart.md
+- https://davidahmann.github.io/gait/llm/security.md
+- https://davidahmann.github.io/gait/llm/faq.md
+- https://davidahmann.github.io/gait/llm/contracts.md
