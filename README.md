@@ -41,6 +41,23 @@ gait regress bootstrap --from run_demo --junit ./gait-out/junit.xml
 
 No account. No API key. No internet. You now have a verified artifact and a permanent regression test.
 
+## Dev vs Prod
+
+Development quickstart:
+
+- `gait demo`
+- `gait verify run_demo`
+
+Production hardening baseline:
+
+```bash
+mkdir -p .gait
+cp examples/config/oss_prod_template.yaml .gait/config.yaml
+gait doctor --production-readiness --json
+```
+
+Use production mode when gating real side effects in shared or customer-facing environments.
+
 Local UI playground: [`docs/ui_localhost.md`](docs/ui_localhost.md) | Launch with `gait ui`
 
 ## See It

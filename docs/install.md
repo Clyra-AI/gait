@@ -78,6 +78,25 @@ gait demo
 gait verify run_demo
 ```
 
+## Dev vs Prod Mode (Important)
+
+Use development mode for first-run validation:
+
+```bash
+gait demo
+gait verify run_demo
+```
+
+Before production use, apply hardened defaults and validate readiness:
+
+```bash
+mkdir -p .gait
+cp examples/config/oss_prod_template.yaml .gait/config.yaml
+gait doctor --production-readiness --json
+```
+
+Production readiness must report `ok=true` before enforcing high-risk runtime boundaries.
+
 If PATH is still not updated, run directly once:
 
 ```bash

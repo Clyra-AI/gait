@@ -189,6 +189,22 @@ func TestRunDispatch(t *testing.T) {
 	}
 }
 
+func TestTopLevelUsageIncludesSessionAndMCPServe(t *testing.T) {
+	raw := captureStdout(t, func() {
+		printUsage()
+	})
+	for _, snippet := range []string{
+		"gait run session start",
+		"gait run session append",
+		"gait run session checkpoint",
+		"gait mcp serve --policy <policy.yaml>",
+	} {
+		if !strings.Contains(raw, snippet) {
+			t.Fatalf("top-level usage missing %q", snippet)
+		}
+	}
+}
+
 func TestMainEntrypoint(t *testing.T) {
 	if os.Getenv("GAIT_TEST_MAIN") == "1" {
 		os.Args = []string{"gait", "version"}
