@@ -657,9 +657,14 @@ func mcpRetentionMatches(class string, fileName string) bool {
 	case "trace":
 		return strings.HasSuffix(lowered, ".json") && strings.Contains(lowered, "trace")
 	case "runpack":
-		return strings.HasSuffix(lowered, ".zip")
+		if !strings.HasSuffix(lowered, ".zip") {
+			return false
+		}
+		// Runpack retention applies only to runpack/checkpoint artifacts to avoid
+		// cross-pruning PackSpec outputs when directories are shared.
+		return strings.HasPrefix(lowered, "runpack_") || strings.Contains(lowered, "_cp_")
 	case "pack":
-		return strings.HasSuffix(lowered, ".zip")
+		return strings.HasSuffix(lowered, ".zip") && strings.HasPrefix(lowered, "pack_")
 	case "session":
 		return strings.HasSuffix(lowered, ".json") ||
 			strings.HasSuffix(lowered, ".jsonl") ||
