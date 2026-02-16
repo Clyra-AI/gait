@@ -1,6 +1,6 @@
 ---
 name: branches-clean
-description: Delete all non-main local and configured-remote branches one-by-one with safety checks, dry-run support, and final prune/report.
+description: Delete all non-main local and configured-remote branches one-by-one with safety checks and final prune/report.
 disable-model-invocation: true
 ---
 
@@ -19,12 +19,10 @@ Execute this workflow when asked to clean up branches by deleting all non-`main`
 
 ## Input Contract
 
-- `mode`: `dry-run` or `execute`
+- `mode`: `execute` only
+- `force_local_delete`: always `true` for this skill
 - Optional:
-- `force_local_delete`: `false` by default
 - `remote`: defaults to `origin`
-
-If `mode` is missing, default to `dry-run`.
 
 ## Safety Rules
 
@@ -36,7 +34,6 @@ If `mode` is missing, default to `dry-run`.
 - `git pull --ff-only <remote> main`
 - No grouped branch deletion commands.
 - Delete branches one-by-one only.
-- In `dry-run`, do not delete anything.
 
 ## Command Anchors (JSON Required)
 
@@ -56,28 +53,21 @@ If `mode` is missing, default to `dry-run`.
 2. Build delete candidates:
 - Local candidates: all local branches except `main`
 - Remote candidates: all `<remote>/<branch>` except `<remote>/main`
-- Exclude symbolic refs (`<remote>/HEAD`)
+- Exclude symbolic refs (`<remote>/HEAD`) and `<remote>` root alias if present.
 
-3. Dry-run report (always):
-- print local branches that would be deleted
-- print remote branches that would be deleted
-- print counts for local/remote
-
-4. Execute deletion only if `mode=execute`:
+3. Execute deletion (always):
 - Local deletion one-by-one:
-- try `git branch -d <branch>`
-- if fails and `force_local_delete=true`, retry `git branch -D <branch>`
-- otherwise record failure and continue
+- `git branch -D <branch>`
 - Remote deletion one-by-one:
 - `git push <remote> --delete <branch>`
 - if already deleted/not found, record as skipped and continue
 
-5. Final reconciliation:
+4. Final reconciliation:
 - `git fetch --prune <remote>`
 - list remaining local branches
 - list remaining `<remote>/*` branches
 
-6. Output summary:
+5. Output summary:
 - deleted local branches
 - deleted remote branches
 - skipped/failed branches with reasons
@@ -87,8 +77,7 @@ If `mode` is missing, default to `dry-run`.
 
 Use one-by-one commands only, such as:
 
-- `git branch -d <name>`
-- `git branch -D <name>` (only if `force_local_delete=true`)
+- `git branch -D <name>`
 - `git push <remote> --delete <name>`
 
 Do not use batched deletion forms.
@@ -101,7 +90,7 @@ Do not use batched deletion forms.
 
 ## Expected Output
 
-- `Mode`: dry-run or execute
+- `Mode`: execute
 - `Local candidates`: list + count
 - `Remote candidates`: list + count
 - `Deleted local`: list

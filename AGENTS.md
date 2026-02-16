@@ -41,7 +41,7 @@ The durable product contract is **artifacts and schemas**, not a hosted UI.
 - **Next.js docs site** (`docs-site/`): static export deployed to GitHub Pages. Reads markdown from `docs/` via gray-matter frontmatter. No runtime dependencies.
 - **Node/TypeScript**: limited to docs site and local UI shell (`ui/local/`). Not part of the core CLI path.
 
-Current reference adapter set (keep parity): `openai_agents`, `langchain`, `autogen`, `openclaw`, `autogpt`, and the canonical sidecar path.
+Current reference adapter set (keep parity): `openai_agents`, `langchain`, `autogen`, `openclaw`, `autogpt`, `gastown`, `voice_reference`, and the canonical sidecar path.
 
 ## Canonicalization, hashing, and artifacts
 
@@ -91,8 +91,11 @@ Current reference adapter set (keep parity): `openai_agents`, `langchain`, `auto
 - `core/pack/` — PackSpec v1 pack/verify/diff
 - `core/runpack/` — legacy runpack capture/verify/diff/replay
 - `core/contextproof/` — context evidence envelopes
+- `core/doctor/` — diagnostics and production-readiness checks
+- `core/guard/` — evidence retention, encryption, and incident pack handling
 - `core/regress/` — regression bootstrap and execution
 - `core/mcp/` — MCP proxy/bridge/serve adapters
+- `core/scout/` — drift snapshots, operational/adoption events, and signal reports
 - `schemas/v1/` — JSON schemas for all artifact types
 - `sdk/python/` — Python wrapper SDK
 - `docs/` — markdown docs (consumed by docs-site via gray-matter)
