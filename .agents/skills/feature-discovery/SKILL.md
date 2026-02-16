@@ -24,7 +24,7 @@ Execute this workflow when asked to identify strategic upgrades for Gait based o
 3. Collect AI/agent developments published within that window from credible sources.
 4. Filter to major market shifts only, excluding minor or incremental updates.
 5. Map each market signal to Gait’s product wedge and moat.
-6. Propose exactly 3 strategic upgrade features only when evidence is strong.
+6. Propose exactly 5 strategic upgrade features only when evidence is strong.
 7. If evidence is weak or not material, output no recommendations.
 8. Overwrite `product/ideas.md` from scratch with the final output.
 
@@ -49,7 +49,7 @@ Execute this workflow when asked to identify strategic upgrades for Gait based o
 
 - Validate current capability baselines before proposing upgrades:
   - `gait doctor --json`
-  - `gait gate eval --policy <policy.yaml> --input <intent.json> --json`
+  - `gait gate eval --policy <policy.yaml> --intent <intent.json> --json`
   - `gait pack inspect <artifact.zip> --json`
 
 ## Source Quality Bar
@@ -72,7 +72,7 @@ Write only a clean structured list to `product/ideas.md`:
 5. `Evidence`: source links used for that recommendation.
 
 Rules:
-- Output exactly 3 recommendations when qualified evidence exists.
+- Output exactly 5 recommendations when qualified evidence exists.
 - If not enough material signals exist, write only:
   - `No worthy strategic upgrades identified in the last 7 days.`
   - `Evidence note:` short explanation with links reviewed.

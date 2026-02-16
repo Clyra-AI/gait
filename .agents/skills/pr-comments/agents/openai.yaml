@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Comments"
+  short_description: "Triage PR comments into implement or defer"
+  default_prompt: "Use $pr-comments to analyze PR comments and recommend what should be implemented next."

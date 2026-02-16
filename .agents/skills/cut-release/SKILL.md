@@ -21,7 +21,7 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 
 - Mandatory input argument: `release_version`
 - Normalize to `vX.Y.Z`
-- If missing prompt for missing version input
+- If missing, resolve silently from first semantic version token in user request; otherwise use latest tag + patch increment.
 
 ## Constants
 
@@ -49,8 +49,19 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 3. `git pull --ff-only origin main`
 4. Ensure clean worktree (`git status --porcelain` must be empty)
 5. Ensure target tag does not already exist locally/remotely
-6. Run local release preflight:
+6. Run local release preflight (mirror release workflow gate coverage):
 - `make prepush-full`
+- `make test-v2-3-acceptance`
+- `make test-v2-4-acceptance`
+- `make test-packspec-tck`
+- `make test-e2e`
+- `go test ./internal/integration -count=1`
+- `make test-chaos`
+- `make test-runtime-slo`
+- `make bench-check`
+- `make test-v2-5-acceptance`
+- `make test-context-conformance`
+- `make test-context-chaos`
 - `make test-release-smoke`
 
 If any step fails, stop and report blocker.
@@ -136,7 +147,7 @@ For loop `r1..r2`:
 Capture release diagnostics using `gait` commands with `--json`, for example:
 
 - `gait doctor --json`
-- `gait pack verify --path gait-out/pack_<id>.zip --json`
+- `gait pack verify gait-out/pack_<id>.zip --json`
 
 ## EOF Rule (Mandatory)
 
