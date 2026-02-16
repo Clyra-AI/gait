@@ -226,6 +226,8 @@ func TestExportValueHelpers(t *testing.T) {
 		{name: "uint64_overflow", value: uint64(math.MaxUint64), want: 0, ok: false},
 		{name: "float_nan", value: math.NaN(), want: 0, ok: false},
 		{name: "float_pos_inf", value: math.Inf(1), want: 0, ok: false},
+		{name: "float_pos_int_limit", value: math.Ldexp(1, strconv.IntSize-1), want: 0, ok: false},
+		{name: "json_signed_overflow_edge", value: json.Number("9223372036854775808"), want: 0, ok: false},
 		{name: "json_overflow", value: json.Number("18446744073709551615"), want: 0, ok: false},
 	} {
 		t.Run(candidate.name, func(t *testing.T) {

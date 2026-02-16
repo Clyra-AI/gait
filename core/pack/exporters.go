@@ -649,13 +649,12 @@ func intFromFloat64(value float64) (int, bool) {
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		return 0, false
 	}
-	const maxInt = int64(^uint(0) >> 1)
-	const minInt = -maxInt - 1
 	truncated := math.Trunc(value)
-	if truncated < float64(minInt) || truncated > float64(maxInt) {
+	positiveLimit := math.Ldexp(1, strconv.IntSize-1)
+	if truncated < -positiveLimit || truncated >= positiveLimit {
 		return 0, false
 	}
-	return int(truncated), true
+	return intFromInt64(int64(truncated))
 }
 
 func toString(value any) string {
