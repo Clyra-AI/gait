@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -597,9 +598,9 @@ func intFromAny(value any) (int, bool) {
 	case int32:
 		return int(typed), true
 	case int64:
-		return int(typed), true
+		return intFromInt64(typed)
 	case uint:
-		return int(typed), true
+		return intFromUint64(uint64(typed))
 	case uint8:
 		return int(typed), true
 	case uint16:
@@ -607,24 +608,54 @@ func intFromAny(value any) (int, bool) {
 	case uint32:
 		return int(typed), true
 	case uint64:
-		return int(typed), true
+		return intFromUint64(typed)
 	case float32:
-		return int(typed), true
+		return intFromFloat64(float64(typed))
 	case float64:
-		return int(typed), true
+		return intFromFloat64(typed)
 	case json.Number:
 		parsed, err := typed.Int64()
 		if err == nil {
-			return int(parsed), true
+			return intFromInt64(parsed)
 		}
 		floatParsed, floatErr := typed.Float64()
 		if floatErr != nil {
 			return 0, false
 		}
-		return int(floatParsed), true
+		return intFromFloat64(floatParsed)
 	default:
 		return 0, false
 	}
+}
+
+func intFromInt64(value int64) (int, bool) {
+	const maxInt = int64(^uint(0) >> 1)
+	const minInt = -maxInt - 1
+	if value < minInt || value > maxInt {
+		return 0, false
+	}
+	return int(value), true
+}
+
+func intFromUint64(value uint64) (int, bool) {
+	const maxInt = uint64(^uint(0) >> 1)
+	if value > maxInt {
+		return 0, false
+	}
+	return int(value), true
+}
+
+func intFromFloat64(value float64) (int, bool) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, false
+	}
+	const maxInt = int64(^uint(0) >> 1)
+	const minInt = -maxInt - 1
+	truncated := math.Trunc(value)
+	if truncated < float64(minInt) || truncated > float64(maxInt) {
+		return 0, false
+	}
+	return int(truncated), true
 }
 
 func toString(value any) string {

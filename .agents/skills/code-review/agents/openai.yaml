@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Review"
+  short_description: "Run full-repo Codex-style risk review"
+  default_prompt: "Use $code-review to review the entire repository and report severity-ranked technical risks."

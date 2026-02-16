@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Implement"
+  short_description: "Execute plan stories with required test gates"
+  default_prompt: "Use $plan-implement to execute plan stories end-to-end with required validation and DoD checks."

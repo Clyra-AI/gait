@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Audit"
+  short_description: "Audit Gait MVP with evidence and blockers"
+  default_prompt: "Use $app-audit to run a full MVP readiness audit and return a strict blocker-ranked verdict."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backlog Plan"
+  short_description: "Turn ideas into test-wired backlog plan"
+  default_prompt: "Use $backlog-plan to convert strategic ideas into an execution-ready plan with matrix-wired tests."

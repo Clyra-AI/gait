@@ -39,6 +39,7 @@ perf/ui_budget_report.json
 /regress_result.json
 /fixtures/
 /.uat_local/
+/.tmp/
 docs-site/node_modules/
 docs-site/.next/
 docs-site/out/

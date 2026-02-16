@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,6 +21,21 @@ import (
 	schemaregistry "github.com/davidahmann/gait/core/schema/v1/registry"
 	"github.com/davidahmann/gait/core/sign"
 )
+
+func newIPv4LocalServer(t *testing.T, handler http.Handler) *httptest.Server {
+	t.Helper()
+
+	server := httptest.NewUnstartedServer(handler)
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		server.Close()
+		t.Skipf("skip local HTTP test server: %v", err)
+	}
+	server.Listener = listener
+	server.Start()
+	t.Cleanup(server.Close)
+	return server
+}
 
 func TestInstallRemoteWithSignatureAndPin(t *testing.T) {
 	keyPair, err := sign.GenerateKeyPair()
@@ -60,10 +76,9 @@ func TestInstallRemoteWithSignatureAndPin(t *testing.T) {
 		t.Fatalf("marshal manifest: %v", err)
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	server := newIPv4LocalServer(t, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		_, _ = writer.Write(payload)
 	}))
-	defer server.Close()
 
 	cacheDir := filepath.Join(t.TempDir(), "cache")
 	result, err := Install(context.Background(), InstallOptions{
@@ -114,10 +129,9 @@ func TestInstallRemoteWithSignatureAndPin(t *testing.T) {
 }
 
 func TestInstallRemoteRequiresAllowlist(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	server := newIPv4LocalServer(t, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		_, _ = writer.Write([]byte(`{}`))
 	}))
-	defer server.Close()
 
 	_, err := Install(context.Background(), InstallOptions{
 		Source:            server.URL,

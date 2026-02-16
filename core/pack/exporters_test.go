@@ -3,6 +3,7 @@ package pack
 import (
 	"bytes"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -221,6 +222,11 @@ func TestExportValueHelpers(t *testing.T) {
 		{name: "json_float", value: json.Number("20.5"), want: 20, ok: true},
 		{name: "invalid", value: json.Number("nope"), want: 0, ok: false},
 		{name: "unsupported", value: "21", want: 0, ok: false},
+		{name: "uint_overflow", value: ^uint(0), want: 0, ok: false},
+		{name: "uint64_overflow", value: uint64(math.MaxUint64), want: 0, ok: false},
+		{name: "float_nan", value: math.NaN(), want: 0, ok: false},
+		{name: "float_pos_inf", value: math.Inf(1), want: 0, ok: false},
+		{name: "json_overflow", value: json.Number("18446744073709551615"), want: 0, ok: false},
 	} {
 		t.Run(candidate.name, func(t *testing.T) {
 			got, ok := intFromAny(candidate.value)

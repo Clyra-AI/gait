@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Discovery"
+  short_description: "Discover market-driven strategic product upgrades"
+  default_prompt: "Use $feature-discovery to scan the last 7 days and propose only high-leverage strategic upgrades."
