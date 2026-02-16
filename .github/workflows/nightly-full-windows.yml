@@ -1,0 +1,100 @@
+name: nightly-full-windows
+
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: nightly-full-windows-lint
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Run lint suite on Windows
+        shell: bash
+        run: |
+          git config core.hooksPath .githooks
+          make lint
+
+  test:
+    name: nightly-full-windows-test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Go tests with coverage
+        shell: bash
+        run: |
+          set +e
+          go test ./... -cover > coverage-go-packages.out 2>&1
+          package_test_status=$?
+          set -e
+          cat coverage-go-packages.out
+          if [[ "${package_test_status}" -ne 0 ]]; then
+            echo "go test ./... -cover failed"
+            exit "${package_test_status}"
+          fi
+          python scripts/check_go_package_coverage.py coverage-go-packages.out 75
+          go test ./core/... ./cmd/gait -coverprofile=coverage-go.out
+          go tool cover -func=coverage-go.out | tail -n 1
+      - name: Python tests with coverage
+        env:
+          PYTHONPATH: .
+        shell: bash
+        run: |
+          cd sdk/python
+          python -m uv run --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=85
+
+  e2e:
+    name: nightly-full-windows-e2e
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: E2E tests
+        shell: bash
+        run: |
+          go test ./internal/e2e -count=1
+
+  contracts:
+    name: nightly-full-windows-contracts
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Contract and compatibility checks
+        shell: bash
+        run: |
+          go build -o ./gait ./cmd/gait
+          bash scripts/test_contracts.sh ./gait
+          bash scripts/test_ent_consumer_contract.sh ./gait

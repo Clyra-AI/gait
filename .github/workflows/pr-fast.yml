@@ -54,3 +54,17 @@ jobs:
           PYTHONPATH: .
         run: |
           make test-fast
+
+  windows-fast:
+    name: pr-fast-windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Windows Go smoke suite
+        shell: bash
+        run: |
+          go test ./...
+          go build ./cmd/gait

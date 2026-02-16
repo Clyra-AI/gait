@@ -14,6 +14,7 @@ Required PR checks on `main`:
 
 - `pr-fast-lint`
 - `pr-fast-test`
+- `pr-fast-windows`
 - `codeql-scan`
 
 Optional local full gate before large/risky PRs:
@@ -46,7 +47,7 @@ Nightly workflows cover slower/systemic checks:
 - `adoption-nightly.yml`
 - `hardening-nightly.yml`
 - `perf-nightly.yml`
-- `windows-lint-nightly.yml`
+- `nightly-full-windows.yml`
 
 Nightly context coverage requirements:
 

@@ -16,7 +16,7 @@ branch_default="$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.na
 
 repo="${GAIT_GH_REPO:-$repo_default}"
 branch="${GAIT_GH_BRANCH:-$branch_default}"
-checks_csv="${GAIT_REQUIRED_CHECKS:-pr-fast-lint,pr-fast-test,codeql-scan}"
+checks_csv="${GAIT_REQUIRED_CHECKS:-pr-fast-lint,pr-fast-test,pr-fast-windows,codeql-scan}"
 required_reviews="${GAIT_REQUIRED_REVIEWS:-0}"
 require_codeowners="${GAIT_REQUIRE_CODEOWNER_REVIEWS:-false}"
 dismiss_stale="${GAIT_DISMISS_STALE_REVIEWS:-true}"

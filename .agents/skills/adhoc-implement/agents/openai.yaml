@@ -1,0 +1,4 @@
+interface:
+  display_name: "Adhoc Implement"
+  short_description: "Execute backlog plans into validated repo changes"
+  default_prompt: "Use $adhoc-implement to execute a provided plan path story-by-story with required matrix checks and evidence."

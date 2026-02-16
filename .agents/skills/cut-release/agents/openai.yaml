@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cut Release"
+  short_description: "Cut release tags and drive monitored hotfix loops"
+  default_prompt: "Use $cut-release to cut a version tag from main, monitor release/UAT, and run bounded hotfix loops when needed."

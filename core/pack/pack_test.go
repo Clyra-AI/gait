@@ -652,6 +652,9 @@ func TestBuildAndUtilityErrorBranches(t *testing.T) {
 	if err := os.MkdirAll(dirOutput, 0o750); err != nil {
 		t.Fatalf("mkdir output dir: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(dirOutput, "keep"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("seed output dir fixture: %v", err)
+	}
 	if _, err := buildPackWithFiles(buildPackOptions{
 		PackType:   string(BuildTypeRun),
 		SourceRef:  "src",

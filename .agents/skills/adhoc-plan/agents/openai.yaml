@@ -1,0 +1,4 @@
+interface:
+  display_name: "Adhoc Plan"
+  short_description: "Convert recommendations into executable backlog plans"
+  default_prompt: "Use $adhoc-plan to turn provided recommendations into an execution-ready backlog plan at the requested output path."
