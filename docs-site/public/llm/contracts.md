@@ -3,6 +3,7 @@
 Stable OSS contracts include:
 
 - **PackSpec v1**: Unified portable artifact envelope for run, job, and call evidence with Ed25519 signatures and SHA-256 manifest. Schema: `schemas/v1/pack/manifest.schema.json`.
+  - includes first-class export surfaces: `gait pack export --otel-out ...` and `--postgres-sql-out ...` for observability and metadata indexing.
 - **ContextSpec v1**: Deterministic context evidence envelopes with privacy-aware modes and fail-closed enforcement.
 - **Primitive Contract**: Four deterministic primitives — capture, enforce, regress, diagnose.
 - **Intent+Receipt Spec**: Structured tool-call intent with deterministic receipt generation.

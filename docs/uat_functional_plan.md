@@ -31,6 +31,7 @@ The UAT script refreshes Homebrew taps before reinstall to avoid stale formula r
 - `scripts/test_v1_8_acceptance.sh` (v1.8 interception/ecosystem checks)
 - `scripts/test_v2_3_acceptance.sh` (v2.3 adoption/conformance/distribution gate + metrics snapshot)
 - `scripts/test_v2_4_acceptance.sh` (v2.4 job/pack/signing/replay/credential-ttl acceptance gate)
+- `scripts/test_mcp_canonical_demo.sh` (canonical MCP allow/block/require-approval boundary demo with per-call pack evidence)
 - `scripts/test_v2_5_acceptance.sh` (v2.5 context-evidence and context-policy gate)
 - `scripts/test_v2_6_acceptance.sh` (v2.6 activation guidance + durable/policy demo + tour gate)
 - `scripts/test_voice_acceptance.sh` (voice mode commitment gate + say-token + callpack gate)
@@ -54,6 +55,7 @@ The acceptance suites together exercise command families including:
 - `demo`, `verify`, `run replay`, `run diff`, `run receipt`
 - `run inspect` (human-readable runpack timeline)
 - `regress init`, `regress run`, `regress bootstrap`
+- trajectory regression assertions (`expected_tool_sequence`, `expected_verdict_sequence`) through regress fixture/run paths
 - `policy init`, `policy validate`, `policy fmt`, `policy test`, `policy simulate`
 - `keys init`, `keys rotate`, `keys verify`
 - `gate eval`, `approve`
@@ -62,6 +64,8 @@ The acceptance suites together exercise command families including:
 - `voice token mint`, `voice token verify`, `voice pack build|verify|inspect|diff`
 - `registry install`, `registry verify`
 - `mcp bridge/proxy/serve` coverage through adapter and acceptance suites
+- MCP canonical boundary coverage includes state-changing per-call PackSpec emission and verification
+- `pack export` coverage includes OTEL JSONL emission and PostgreSQL metadata-index SQL sink generation
 - v2.2 chaos abuse coverage (boundary abuse, payload limits, exporter corruption, session contention, trace uniqueness)
 - long-running session soak coverage (append/checkpoint/verify + contention budget)
 - v2.3 blessed lane coverage (OpenAI wrapper flow + reusable CI regress template assumptions)

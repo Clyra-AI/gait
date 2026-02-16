@@ -10,6 +10,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.2.3] - 2026-02-16
+
+### Added
+
+- Added trajectory regression assertions to `gait regress` so fixtures can enforce expected tool-call order and expected policy-verdict sequence with stable fail reasons.
+- Added first-class pack export sinks via `gait pack export`:
+  - OTEL-style JSONL span/event/metric emission from verified pack metadata.
+  - Deterministic PostgreSQL metadata-index SQL generation (optional DDL + upsert).
+- Added canonical MCP boundary acceptance coverage for per-state-changing-call PackSpec emission (`emit_pack` + `--pack-dir`) and downstream pack verification.
+
+### Changed
+
+- Expanded v2.4 acceptance coverage to include:
+  - `pack export` sink validation (OTEL + PostgreSQL SQL output),
+  - trajectory mismatch regression-fail path verification,
+  - canonical MCP allow/block/require-approval pack evidence checks.
+- Updated contract/docs guidance to include `pack export` capabilities and MCP auto-pack emission behavior in matrix/cadence/UAT references.
+
+### Fixed
+
+- Fixed MCP canonical demo script binary resolution so validation runs against the requested `GAIT_BIN` instead of stale local binaries.
+- Fixed Python summary generation indentation in MCP canonical demo script.
+- Fixed CodeQL `go/path-injection` findings in pack build paths by:
+  - normalizing runpack zip bytes through deterministic zip reconstruction before embedding,
+  - validating output paths and writing packs through atomic filesystem helpers.
+
+### Upgrade Notes
+
+- No breaking CLI or schema major-version changes.
+- Recommended post-upgrade validation:
+  - `make test`
+  - `make test-v2-4-acceptance`
+  - `make codeql`
+  - `make test-docs-consistency`
+
 ## [1.2.2] - 2026-02-16
 
 ### Added

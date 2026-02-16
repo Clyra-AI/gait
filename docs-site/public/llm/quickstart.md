@@ -15,6 +15,10 @@ gait demo
 # Prove it's intact
 gait verify run_demo
 
+# Export OTEL + Postgres index SQL from the same pack
+gait pack build --type run --from run_demo --out ./gait-out/pack_run_demo.zip
+gait pack export ./gait-out/pack_run_demo.zip --otel-out ./gait-out/pack_run_demo.otel.jsonl --postgres-sql-out ./gait-out/pack_index.sql
+
 # Turn it into a CI regression gate
 gait regress bootstrap --from run_demo --junit ./gait-out/junit.xml
 

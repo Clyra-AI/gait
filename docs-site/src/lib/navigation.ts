@@ -6,17 +6,6 @@ export interface NavItem {
 
 export const navigation: NavItem[] = [
   {
-    title: 'Docs Hub',
-    href: '/docs',
-    children: [
-      { title: 'Docs Home', href: '/docs' },
-      { title: 'LLM Context', href: '/llms' },
-      { title: 'llms.txt', href: '/llms.txt' },
-      { title: 'llms-full.txt', href: '/llms-full.txt' },
-      { title: 'AI Sitemap', href: '/ai-sitemap.xml' },
-    ],
-  },
-  {
     title: 'Start Here',
     href: '/docs',
     children: [
@@ -118,6 +107,17 @@ export const navigation: NavItem[] = [
       { title: 'Contribute', href: '/docs/ecosystem/contribute' },
       { title: 'Homebrew', href: '/docs/homebrew' },
       { title: 'Packaging', href: '/docs/packaging' },
+    ],
+  },
+  {
+    title: 'Docs Hub',
+    href: '/docs',
+    children: [
+      { title: 'Docs Home', href: '/docs' },
+      { title: 'LLM Context', href: '/llms' },
+      { title: 'llms.txt', href: '/llms.txt' },
+      { title: 'llms-full.txt', href: '/llms-full.txt' },
+      { title: 'AI Sitemap', href: '/ai-sitemap.xml' },
     ],
   },
 ];

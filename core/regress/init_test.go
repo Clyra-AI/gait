@@ -46,6 +46,13 @@ func TestInitFixtureCreatesLayout(t *testing.T) {
 	if _, err := os.Stat(fixtureMetaPath); err != nil {
 		t.Fatalf("expected fixture metadata to exist: %v", err)
 	}
+	meta := mustReadFixtureMetaFromInit(t, fixtureMetaPath)
+	if len(meta.ExpectedToolSequence) != 1 || meta.ExpectedToolSequence[0] != "tool.demo" {
+		t.Fatalf("unexpected expected_tool_sequence defaults: %#v", meta.ExpectedToolSequence)
+	}
+	if len(meta.ExpectedVerdictSequence) != 1 || meta.ExpectedVerdictSequence[0] != "allow" {
+		t.Fatalf("unexpected expected_verdict_sequence defaults: %#v", meta.ExpectedVerdictSequence)
+	}
 
 	rawConfig, err := os.ReadFile(filepath.Join(workDir, "gait.yaml"))
 	if err != nil {
@@ -403,6 +410,27 @@ func TestReadFixtureMetaRejectsNegativeCheckpointIndex(t *testing.T) {
 	}
 	if _, err := readFixtureMeta(metaPath); err == nil {
 		t.Fatalf("expected negative checkpoint_index to fail")
+	}
+}
+
+func TestReadFixtureMetaRejectsInvalidExpectedVerdictSequence(t *testing.T) {
+	workDir := t.TempDir()
+	metaPath := filepath.Join(workDir, "fixture.json")
+	meta := fixtureMeta{
+		SchemaID:                fixtureSchemaID,
+		SchemaVersion:           fixtureSchemaV1,
+		Name:                    "demo",
+		RunID:                   "run_demo",
+		Runpack:                 "runpack.zip",
+		ExpectedReplayExitCode:  0,
+		ExpectedToolSequence:    []string{"tool.demo"},
+		ExpectedVerdictSequence: []string{"not_a_verdict"},
+	}
+	if err := writeJSON(metaPath, meta); err != nil {
+		t.Fatalf("write fixture metadata: %v", err)
+	}
+	if _, err := readFixtureMeta(metaPath); err == nil {
+		t.Fatalf("expected invalid expected_verdict_sequence to fail")
 	}
 }
 

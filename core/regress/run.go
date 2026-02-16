@@ -129,6 +129,7 @@ func Run(opts RunOptions) (RunResult, error) {
 	graders := []Grader{
 		schemaValidationGrader{},
 		expectedReplayExitCodeGrader{},
+		trajectoryGrader{},
 		diffGrader{},
 	}
 	if shouldRunContextConformance(opts, fixtures) {
@@ -444,6 +445,79 @@ func (expectedReplayExitCodeGrader) Grade(ctx FixtureContext) (schemaregress.Gra
 	}, nil
 }
 
+type trajectoryGrader struct{}
+
+func (trajectoryGrader) Name() string { return "trajectory" }
+
+func (trajectoryGrader) Deterministic() bool { return true }
+
+func (trajectoryGrader) Grade(ctx FixtureContext) (schemaregress.GraderResult, error) {
+	candidatePath, err := resolveCandidatePath(ctx.Fixture)
+	if err != nil {
+		return failResult("trajectory", "candidate_path_invalid", map[string]any{
+			"error": err.Error(),
+		}), nil
+	}
+
+	candidatePack, err := runpack.ReadRunpack(candidatePath)
+	if err != nil {
+		return failResult("trajectory", "candidate_runpack_invalid", map[string]any{
+			"error": err.Error(),
+		}), nil
+	}
+
+	expectedTools := normalizeTrajectorySequence(ctx.Fixture.Meta.ExpectedToolSequence)
+	expectedVerdicts := ctx.Fixture.Meta.ExpectedVerdictSequence
+	actualTools := toolSequenceFromRunpack(candidatePack)
+	actualVerdicts := verdictSequenceFromRunpack(candidatePack)
+
+	details := map[string]any{
+		"candidate_runpack":         candidatePath,
+		"expected_tool_sequence":    expectedTools,
+		"actual_tool_sequence":      actualTools,
+		"expected_verdict_sequence": expectedVerdicts,
+		"actual_verdict_sequence":   actualVerdicts,
+	}
+
+	reasonCodes := []string{}
+	if len(expectedTools) > 0 && !equalOrderedSequence(expectedTools, actualTools) {
+		reasonCodes = append(reasonCodes, "unexpected_tool_sequence")
+		index, expectedValue, actualValue := firstSequenceMismatch(expectedTools, actualTools)
+		details["tool_sequence_mismatch_index"] = index
+		details["tool_sequence_expected_at_mismatch"] = expectedValue
+		details["tool_sequence_actual_at_mismatch"] = actualValue
+	}
+	if len(expectedVerdicts) > 0 && !equalOrderedSequence(expectedVerdicts, actualVerdicts) {
+		reasonCodes = append(reasonCodes, "unexpected_verdict_sequence")
+		index, expectedValue, actualValue := firstSequenceMismatch(expectedVerdicts, actualVerdicts)
+		details["verdict_sequence_mismatch_index"] = index
+		details["verdict_sequence_expected_at_mismatch"] = expectedValue
+		details["verdict_sequence_actual_at_mismatch"] = actualValue
+	}
+
+	if len(reasonCodes) > 0 {
+		return schemaregress.GraderResult{
+			Name:        "trajectory",
+			Status:      regressStatusFail,
+			ReasonCodes: uniqueSortedStrings(reasonCodes),
+			Details:     details,
+		}, nil
+	}
+
+	passReasons := []string{}
+	if len(expectedTools) == 0 && len(expectedVerdicts) == 0 {
+		passReasons = append(passReasons, "trajectory_not_required")
+	} else {
+		passReasons = append(passReasons, "trajectory_match")
+	}
+	return schemaregress.GraderResult{
+		Name:        "trajectory",
+		Status:      regressStatusPass,
+		ReasonCodes: passReasons,
+		Details:     details,
+	}, nil
+}
+
 type diffGrader struct{}
 
 func (diffGrader) Name() string { return "diff" }
@@ -656,6 +730,38 @@ func uniqueSortedStrings(values []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func equalOrderedSequence(expected []string, actual []string) bool {
+	if len(expected) != len(actual) {
+		return false
+	}
+	for index := range expected {
+		if expected[index] != actual[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func firstSequenceMismatch(expected []string, actual []string) (int, string, string) {
+	shared := len(expected)
+	if len(actual) < shared {
+		shared = len(actual)
+	}
+	for index := 0; index < shared; index++ {
+		if expected[index] != actual[index] {
+			return index, expected[index], actual[index]
+		}
+	}
+	switch {
+	case len(expected) > len(actual):
+		return len(actual), expected[len(actual)], "<missing>"
+	case len(actual) > len(expected):
+		return len(expected), "<missing>", actual[len(expected)]
+	default:
+		return -1, "<none>", "<none>"
+	}
 }
 
 func writeJUnitReport(path string, result schemaregress.RegressResult) error {

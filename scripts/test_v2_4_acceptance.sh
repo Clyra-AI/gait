@@ -104,6 +104,101 @@ for name in ("pack_inspect_run.json", "pack_inspect_job.json"):
         raise SystemExit(f"{name} expected ok=true")
 PY
 
+echo "==> v2.4: pack export sinks (OTel + Postgres index SQL)"
+"$BIN_PATH" pack export "$WORK_DIR/pack_run.zip" \
+  --otel-out "$WORK_DIR/pack_run.otel.jsonl" \
+  --postgres-sql-out "$WORK_DIR/pack_index.sql" \
+  --postgres-table public.gait_pack_index \
+  --json > "$WORK_DIR/pack_export.json"
+
+python3 - "$WORK_DIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+work = Path(sys.argv[1])
+payload = json.loads((work / "pack_export.json").read_text(encoding="utf-8"))
+if not payload.get("ok"):
+    raise SystemExit("pack export expected ok=true")
+export_payload = payload.get("export") or {}
+if (export_payload.get("metrics") or {}).get("tool_calls_total", 0) <= 0:
+    raise SystemExit("pack export expected tool_calls_total > 0")
+
+otel_lines = [line for line in (work / "pack_run.otel.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+if len(otel_lines) < 3:
+    raise SystemExit("expected otel export to contain span/event/metrics records")
+sql_text = (work / "pack_index.sql").read_text(encoding="utf-8")
+required = (
+    "CREATE TABLE IF NOT EXISTS",
+    "INSERT INTO",
+    "ON CONFLICT (pack_id) DO UPDATE",
+)
+missing = [token for token in required if token not in sql_text]
+if missing:
+    raise SystemExit(f"postgres sql export missing fragments: {missing}")
+PY
+
+echo "==> v2.4: trajectory regress assertions"
+mkdir -p "$WORK_DIR/trajectory"
+(
+  cd "$WORK_DIR/trajectory"
+  "$BIN_PATH" regress init --from "$WORK_DIR/gait-out/runpack_run_tck.zip" --name trajectory_case --json > "$WORK_DIR/trajectory/regress_init.json"
+  "$BIN_PATH" regress run --json --output "$WORK_DIR/trajectory/regress_pass.json" > "$WORK_DIR/trajectory/regress_pass_stdout.json"
+)
+
+python3 - "$WORK_DIR/trajectory/regress_pass_stdout.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if payload.get("ok") is not True:
+    raise SystemExit("regress run expected ok=true before trajectory mutation")
+if payload.get("status") != "pass":
+    raise SystemExit(f"expected pass status before mutation, got {payload.get('status')}")
+PY
+
+python3 - "$WORK_DIR/trajectory/regress_init.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+init_payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if init_payload.get("ok") is not True:
+    raise SystemExit("regress init expected ok=true")
+fixture_dir = Path(sys.argv[1]).parent / init_payload["fixture_dir"]
+fixture_path = fixture_dir / "fixture.json"
+fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+fixture["expected_tool_sequence"] = ["tool.unexpected"]
+fixture_path.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
+PY
+
+set +e
+(
+  cd "$WORK_DIR/trajectory"
+  "$BIN_PATH" regress run --json --output "$WORK_DIR/trajectory/regress_fail.json" > "$WORK_DIR/trajectory/regress_fail_stdout.json"
+)
+TRAJECTORY_CODE=$?
+set -e
+if [[ "$TRAJECTORY_CODE" -ne 5 ]]; then
+  echo "expected trajectory mismatch regress exit code 5, got $TRAJECTORY_CODE" >&2
+  exit 1
+fi
+
+python3 - "$WORK_DIR/trajectory/regress_fail_stdout.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if payload.get("ok") is not False:
+    raise SystemExit("expected regress run ok=false after trajectory mutation")
+if payload.get("status") != "fail":
+    raise SystemExit(f"expected fail status after mutation, got {payload.get('status')}")
+if payload.get("top_failure_reason") != "unexpected_tool_sequence":
+    raise SystemExit(f"expected top_failure_reason=unexpected_tool_sequence, got {payload.get('top_failure_reason')}")
+PY
+
 echo "==> v2.4: replay interlocks + real execution"
 set +e
 "$BIN_PATH" run replay "$WORK_DIR/gait-out/runpack_run_tck.zip" --real-tools --json > "$WORK_DIR/replay_blocked.json"
@@ -194,5 +289,8 @@ command = json.loads((work / "credential_command.json").read_text(encoding="utf-
 if command.get("credential_ref") != "cmd:no-ttl":
     raise SystemExit("command credential_ref mismatch")
 PY
+
+echo "==> v2.4: canonical MCP allow/block/require-approval pack emission"
+GAIT_BIN="$BIN_PATH" bash "$REPO_ROOT/scripts/test_mcp_canonical_demo.sh"
 
 echo "v2.4 acceptance: pass"

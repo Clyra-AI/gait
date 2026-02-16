@@ -28,6 +28,7 @@ type mcpServeConfig struct {
 	AuthToken                string
 	TraceDir                 string
 	RunpackDir               string
+	PackDir                  string
 	SessionDir               string
 	MaxRequestBytes          int64
 	HTTPVerdictStatus        string
@@ -36,6 +37,8 @@ type mcpServeConfig struct {
 	TraceMaxCount            int
 	RunpackMaxAge            time.Duration
 	RunpackMaxCount          int
+	PackMaxAge               time.Duration
+	PackMaxCount             int
 	SessionMaxAge            time.Duration
 	SessionMaxCount          int
 	LogExportPath            string
@@ -55,6 +58,8 @@ type mcpServeEvaluateRequest struct {
 	TracePath          string         `json:"trace_path,omitempty"`
 	RunpackOut         string         `json:"runpack_out,omitempty"`
 	EmitRunpack        bool           `json:"emit_runpack,omitempty"`
+	PackOut            string         `json:"pack_out,omitempty"`
+	EmitPack           bool           `json:"emit_pack,omitempty"`
 }
 
 type mcpServeEvaluateResponse struct {
@@ -84,6 +89,7 @@ func runMCPServe(arguments []string) int {
 		"auth-token-env":              true,
 		"trace-dir":                   true,
 		"runpack-dir":                 true,
+		"pack-dir":                    true,
 		"session-dir":                 true,
 		"max-request-bytes":           true,
 		"http-verdict-status":         true,
@@ -92,6 +98,8 @@ func runMCPServe(arguments []string) int {
 		"trace-max-count":             true,
 		"runpack-max-age":             true,
 		"runpack-max-count":           true,
+		"pack-max-age":                true,
+		"pack-max-count":              true,
 		"session-max-age":             true,
 		"session-max-count":           true,
 		"export-log-out":              true,
@@ -111,6 +119,7 @@ func runMCPServe(arguments []string) int {
 	var authTokenEnv string
 	var traceDir string
 	var runpackDir string
+	var packDir string
 	var sessionDir string
 	var maxRequestBytes int64
 	var httpVerdictStatus string
@@ -119,6 +128,8 @@ func runMCPServe(arguments []string) int {
 	var traceMaxCount int
 	var runpackMaxAgeRaw string
 	var runpackMaxCount int
+	var packMaxAgeRaw string
+	var packMaxCount int
 	var sessionMaxAgeRaw string
 	var sessionMaxCount int
 	var logExportPath string
@@ -137,6 +148,7 @@ func runMCPServe(arguments []string) int {
 	flagSet.StringVar(&authTokenEnv, "auth-token-env", "", "env var containing bearer token for --auth-mode token")
 	flagSet.StringVar(&traceDir, "trace-dir", "./gait-out/mcp-serve/traces", "directory for emitted traces")
 	flagSet.StringVar(&runpackDir, "runpack-dir", "", "optional directory for emitted runpacks")
+	flagSet.StringVar(&packDir, "pack-dir", "", "optional directory for emitted PackSpec artifacts")
 	flagSet.StringVar(&sessionDir, "session-dir", "./gait-out/mcp-serve/sessions", "directory for session journals")
 	flagSet.Int64Var(&maxRequestBytes, "max-request-bytes", 1<<20, "maximum request body size in bytes")
 	flagSet.StringVar(&httpVerdictStatus, "http-verdict-status", "compat", "verdict http status mode: compat|strict")
@@ -145,6 +157,8 @@ func runMCPServe(arguments []string) int {
 	flagSet.IntVar(&traceMaxCount, "trace-max-count", 0, "optional retention max file count for trace files (0 disables)")
 	flagSet.StringVar(&runpackMaxAgeRaw, "runpack-max-age", "0", "optional retention max age for runpack files (for example 336h, 0 disables)")
 	flagSet.IntVar(&runpackMaxCount, "runpack-max-count", 0, "optional retention max file count for runpack files (0 disables)")
+	flagSet.StringVar(&packMaxAgeRaw, "pack-max-age", "0", "optional retention max age for pack files (for example 336h, 0 disables)")
+	flagSet.IntVar(&packMaxCount, "pack-max-count", 0, "optional retention max file count for pack files (0 disables)")
 	flagSet.StringVar(&sessionMaxAgeRaw, "session-max-age", "0", "optional retention max age for session files (for example 336h, 0 disables)")
 	flagSet.IntVar(&sessionMaxCount, "session-max-count", 0, "optional retention max file count for session files (0 disables)")
 	flagSet.StringVar(&logExportPath, "export-log-out", "", "optional JSONL log export path")
@@ -179,12 +193,14 @@ func runMCPServe(arguments []string) int {
 		AuthMode:                 strings.ToLower(strings.TrimSpace(authMode)),
 		TraceDir:                 strings.TrimSpace(traceDir),
 		RunpackDir:               strings.TrimSpace(runpackDir),
+		PackDir:                  strings.TrimSpace(packDir),
 		SessionDir:               strings.TrimSpace(sessionDir),
 		MaxRequestBytes:          maxRequestBytes,
 		HTTPVerdictStatus:        strings.ToLower(strings.TrimSpace(httpVerdictStatus)),
 		AllowClientArtifactPaths: allowClientArtifactPaths,
 		TraceMaxCount:            traceMaxCount,
 		RunpackMaxCount:          runpackMaxCount,
+		PackMaxCount:             packMaxCount,
 		SessionMaxCount:          sessionMaxCount,
 		LogExportPath:            strings.TrimSpace(logExportPath),
 		OTelExport:               strings.TrimSpace(otelExportPath),
@@ -200,12 +216,17 @@ func runMCPServe(arguments []string) int {
 	if parseRunpackErr != nil {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: fmt.Sprintf("parse --runpack-max-age: %v", parseRunpackErr)}, exitInvalidInput)
 	}
+	packMaxAge, parsePackErr := parseOptionalDuration(packMaxAgeRaw)
+	if parsePackErr != nil {
+		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: fmt.Sprintf("parse --pack-max-age: %v", parsePackErr)}, exitInvalidInput)
+	}
 	sessionMaxAge, parseSessionErr := parseOptionalDuration(sessionMaxAgeRaw)
 	if parseSessionErr != nil {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: fmt.Sprintf("parse --session-max-age: %v", parseSessionErr)}, exitInvalidInput)
 	}
 	config.TraceMaxAge = traceMaxAge
 	config.RunpackMaxAge = runpackMaxAge
+	config.PackMaxAge = packMaxAge
 	config.SessionMaxAge = sessionMaxAge
 	if config.AuthMode != "off" && config.AuthMode != "token" {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: "unsupported --auth-mode value (expected off or token)"}, exitInvalidInput)
@@ -233,7 +254,7 @@ func runMCPServe(arguments []string) int {
 	if config.HTTPVerdictStatus != "compat" && config.HTTPVerdictStatus != "strict" {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: "unsupported --http-verdict-status value (expected compat or strict)"}, exitInvalidInput)
 	}
-	if config.TraceMaxCount < 0 || config.RunpackMaxCount < 0 || config.SessionMaxCount < 0 {
+	if config.TraceMaxCount < 0 || config.RunpackMaxCount < 0 || config.PackMaxCount < 0 || config.SessionMaxCount < 0 {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: "retention max-count values must be >= 0"}, exitInvalidInput)
 	}
 	handler, err := newMCPServeHandler(config)
@@ -293,6 +314,11 @@ func newMCPServeHandler(config mcpServeConfig) (http.Handler, error) {
 	if config.RunpackDir != "" {
 		if err := os.MkdirAll(config.RunpackDir, 0o750); err != nil {
 			return nil, fmt.Errorf("create runpack directory: %w", err)
+		}
+	}
+	if config.PackDir != "" {
+		if err := os.MkdirAll(config.PackDir, 0o750); err != nil {
+			return nil, fmt.Errorf("create pack directory: %w", err)
 		}
 	}
 	if config.SessionDir != "" {
@@ -397,6 +423,16 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 	if runpackPath == "" && input.EmitRunpack && config.RunpackDir != "" {
 		runpackPath = filepath.Join(config.RunpackDir, fmt.Sprintf("runpack_%s_%s.zip", normalizeRunID(input.RunID), time.Now().UTC().Format("20060102T150405.000000000")))
 	}
+	packPath := strings.TrimSpace(input.PackOut)
+	if packPath != "" && !config.AllowClientArtifactPaths {
+		return mcpServeEvaluateResponse{}, fmt.Errorf("request.pack_out is not allowed by server configuration")
+	}
+	if packPath == "" && input.EmitPack {
+		if config.PackDir == "" {
+			return mcpServeEvaluateResponse{}, fmt.Errorf("request.emit_pack requires server --pack-dir")
+		}
+		packPath = filepath.Join(config.PackDir, fmt.Sprintf("pack_%s_%s.zip", normalizeRunID(input.RunID), time.Now().UTC().Format("20060102T150405.000000000")))
+	}
 
 	output, exitCode, evalErr := evaluateMCPProxyPayload(config.PolicyPath, callPayload, mcpProxyEvalOptions{
 		Adapter:       adapter,
@@ -404,6 +440,8 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 		RunID:         input.RunID,
 		TracePath:     tracePath,
 		RunpackOut:    runpackPath,
+		PackOut:       packPath,
+		AutoPackDir:   config.PackDir,
 		LogExportPath: config.LogExportPath,
 		OTelExport:    config.OTelExport,
 		KeyMode:       config.KeyMode,
@@ -539,6 +577,7 @@ func applyMCPServeRetention(config mcpServeConfig, now time.Time) []string {
 	warnings := make([]string, 0)
 	warnings = append(warnings, applyMCPServeRetentionClass("trace", config.TraceDir, config.TraceMaxAge, config.TraceMaxCount, now)...)
 	warnings = append(warnings, applyMCPServeRetentionClass("runpack", config.RunpackDir, config.RunpackMaxAge, config.RunpackMaxCount, now)...)
+	warnings = append(warnings, applyMCPServeRetentionClass("pack", config.PackDir, config.PackMaxAge, config.PackMaxCount, now)...)
 	warnings = append(warnings, applyMCPServeRetentionClass("session", config.SessionDir, config.SessionMaxAge, config.SessionMaxCount, now)...)
 	return warnings
 }
@@ -618,7 +657,14 @@ func mcpRetentionMatches(class string, fileName string) bool {
 	case "trace":
 		return strings.HasSuffix(lowered, ".json") && strings.Contains(lowered, "trace")
 	case "runpack":
-		return strings.HasSuffix(lowered, ".zip")
+		if !strings.HasSuffix(lowered, ".zip") {
+			return false
+		}
+		// Runpack retention applies only to runpack/checkpoint artifacts to avoid
+		// cross-pruning PackSpec outputs when directories are shared.
+		return strings.HasPrefix(lowered, "runpack_") || strings.Contains(lowered, "_cp_")
+	case "pack":
+		return strings.HasSuffix(lowered, ".zip") && strings.HasPrefix(lowered, "pack_")
 	case "session":
 		return strings.HasSuffix(lowered, ".json") ||
 			strings.HasSuffix(lowered, ".jsonl") ||
@@ -630,7 +676,7 @@ func mcpRetentionMatches(class string, fileName string) bool {
 
 func printMCPServeUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  endpoints: POST /v1/evaluate (json), POST /v1/evaluate/sse (text/event-stream), POST /v1/evaluate/stream (application/x-ndjson)")
 }
 

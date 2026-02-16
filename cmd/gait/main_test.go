@@ -115,6 +115,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "pack", "diff", "--help"}); code != exitOK {
 		t.Fatalf("run pack diff help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "pack", "export", "--help"}); code != exitOK {
+		t.Fatalf("run pack export help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "report", "top", "--help"}); code != exitOK {
 		t.Fatalf("run report top help: expected %d got %d", exitOK, code)
 	}

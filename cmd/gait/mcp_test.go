@@ -40,6 +40,7 @@ rules:
 
 	tracePath := filepath.Join(workDir, "trace_mcp.json")
 	runpackPath := filepath.Join(workDir, "runpack_mcp.zip")
+	packPath := filepath.Join(workDir, "pack_mcp.zip")
 	logPath := filepath.Join(workDir, "mcp_events.jsonl")
 	otelPath := filepath.Join(workDir, "mcp_otel.jsonl")
 
@@ -48,6 +49,7 @@ rules:
 		"--call", callPath,
 		"--trace-out", tracePath,
 		"--runpack-out", runpackPath,
+		"--pack-out", packPath,
 		"--export-log-out", logPath,
 		"--export-otel-out", otelPath,
 		"--key-mode", "prod",
@@ -63,6 +65,9 @@ rules:
 	if _, err := os.Stat(runpackPath); err != nil {
 		t.Fatalf("expected runpack artifact: %v", err)
 	}
+	if _, err := os.Stat(packPath); err != nil {
+		t.Fatalf("expected pack artifact: %v", err)
+	}
 	if _, err := os.Stat(logPath); err != nil {
 		t.Fatalf("expected log export artifact: %v", err)
 	}
@@ -71,6 +76,9 @@ rules:
 	}
 	if code := runVerify([]string{"--json", runpackPath}); code != exitOK {
 		t.Fatalf("runVerify expected %d got %d", exitOK, code)
+	}
+	if code := runPack([]string{"verify", packPath, "--json"}); code != exitOK {
+		t.Fatalf("pack verify expected %d got %d", exitOK, code)
 	}
 }
 
@@ -96,6 +104,69 @@ func TestRunMCPProxyOpenAIAdapter(t *testing.T) {
 		"--json",
 	}); code != exitOK {
 		t.Fatalf("runMCPProxy openai expected %d got %d", exitOK, code)
+	}
+}
+
+func TestShouldAutoEmitMCPPack(t *testing.T) {
+	tests := []struct {
+		name     string
+		intent   schemagate.IntentRequest
+		expected bool
+	}{
+		{
+			name: "explicit write target emits",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.search",
+				Targets:  []schemagate.IntentTarget{{Operation: "write"}},
+			},
+			expected: true,
+		},
+		{
+			name: "explicit read target does not emit",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.write",
+				Targets:  []schemagate.IntentTarget{{Operation: "read"}},
+			},
+			expected: false,
+		},
+		{
+			name: "tool name write emits",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.write_file",
+			},
+			expected: true,
+		},
+		{
+			name: "tool name read-only does not emit",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.search",
+			},
+			expected: false,
+		},
+		{
+			name: "empty operations in targets falls back to tool name",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.search",
+				Targets:  []schemagate.IntentTarget{{Operation: ""}},
+			},
+			expected: false,
+		},
+		{
+			name: "unknown operation remains conservative",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.custom",
+			},
+			expected: false,
+		},
+	}
+	for _, testCase := range tests {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			actual := shouldAutoEmitMCPPack(testCase.intent)
+			if actual != testCase.expected {
+				t.Fatalf("shouldAutoEmitMCPPack expected %t got %t", testCase.expected, actual)
+			}
+		})
 	}
 }
 
@@ -299,6 +370,48 @@ func TestRunMCPProxyValidation(t *testing.T) {
 	}
 	printMCPUsage()
 	printMCPProxyUsage()
+}
+
+func TestRunMCPProxyPackOutWithoutRunpackOut(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	callPath := filepath.Join(workDir, "call.json")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.write",
+  "args":{"path":"/tmp/out.txt"},
+  "target":"api.internal.local",
+  "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","run_id":"run_pack_only"}
+}`)
+
+	packPath := filepath.Join(workDir, "pack_only.zip")
+	var runCode int
+	raw := captureStdout(t, func() {
+		runCode = runMCPProxy([]string{
+			"--policy", policyPath,
+			"--call", callPath,
+			"--pack-out", packPath,
+			"--json",
+		})
+	})
+	if runCode != exitOK {
+		t.Fatalf("runMCPProxy expected %d got %d", exitOK, runCode)
+	}
+	if _, err := os.Stat(packPath); err != nil {
+		t.Fatalf("expected pack artifact: %v", err)
+	}
+	var output mcpProxyOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("parse mcp proxy output: %v (%s)", err, raw)
+	}
+	if strings.TrimSpace(output.PackPath) == "" || strings.TrimSpace(output.PackID) == "" {
+		t.Fatalf("expected pack metadata in output, got %#v", output)
+	}
+	if code := runPack([]string{"verify", packPath, "--json"}); code != exitOK {
+		t.Fatalf("pack verify expected %d got %d", exitOK, code)
+	}
 }
 
 func TestReadMCPPayloadAndRunIDHelpers(t *testing.T) {

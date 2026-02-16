@@ -677,6 +677,25 @@ func TestBuildAndUtilityErrorBranches(t *testing.T) {
 		t.Fatalf("expected default output path under gait-out, got %s", defaultOut.Path)
 	}
 
+	nestedOutPath := filepath.Join(workDir, "nested", "pack", "pack_nested.zip")
+	nestedOut, err := buildPackWithFiles(buildPackOptions{
+		PackType:   string(BuildTypeRun),
+		SourceRef:  "nested_out",
+		OutputPath: nestedOutPath,
+		Files: []zipx.File{
+			{Path: "run_payload.json", Data: []byte(`{"ok":true}`), Mode: 0o644},
+		},
+	})
+	if err != nil {
+		t.Fatalf("build pack with nested output path: %v", err)
+	}
+	if nestedOut.Path != nestedOutPath {
+		t.Fatalf("expected nested output path %s got %s", nestedOutPath, nestedOut.Path)
+	}
+	if _, err := os.Stat(nestedOutPath); err != nil {
+		t.Fatalf("expected nested output pack file to exist: %v", err)
+	}
+
 	if _, err := parsePackManifest([]byte("{")); err == nil {
 		t.Fatalf("expected parsePackManifest invalid json error")
 	}

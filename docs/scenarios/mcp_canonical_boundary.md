@@ -1,6 +1,6 @@
 ---
 title: "MCP Canonical Boundary Demo"
-description: "Single-command MCP enforcement demo showing allow, block, and require_approval with emitted trace/runpack evidence."
+description: "Single-command MCP enforcement demo showing allow, block, and require_approval with emitted trace/runpack/pack evidence."
 ---
 
 # MCP Canonical Boundary Demo
@@ -15,7 +15,9 @@ It produces, in one run:
 For each case it emits:
 - `trace_path`
 - `runpack_path`
+- `pack_path`
 - runpack integrity verification output
+- pack integrity verification output
 
 ## Run
 
@@ -38,6 +40,7 @@ Key outputs:
 - `mcp_canonical_summary.json`
 - `traces/*`
 - `runpacks/*`
+- `packs/*`
 
 ## Validate
 
@@ -52,6 +55,7 @@ Expected contract:
 - require approval -> `verdict=require_approval`, `exit_code=4`
 - all non-allow outcomes are non-executing at caller boundary
 - all emitted runpacks verify via `gait verify`
+- all emitted packs verify via `gait pack verify`
 
 ## Why this is canonical
 

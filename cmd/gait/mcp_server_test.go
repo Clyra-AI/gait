@@ -102,6 +102,97 @@ func TestMCPServeHandlerEvaluateOpenAI(t *testing.T) {
 	}
 }
 
+func TestMCPServeHandlerAutoEmitsPackForStateChangingCall(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	packDir := filepath.Join(workDir, "packs")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:     policyPath,
+		DefaultAdapter: "mcp",
+		TraceDir:       filepath.Join(workDir, "traces"),
+		PackDir:        packDir,
+		KeyMode:        "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "run_id":"run_mcp_pack_auto",
+	  "call":{
+	    "name":"tool.write",
+	    "args":{"path":"/tmp/out.txt"},
+	    "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-pack-auto"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("evaluate status: expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode evaluate response: %v", err)
+	}
+	if strings.TrimSpace(response.PackPath) == "" || strings.TrimSpace(response.PackID) == "" {
+		t.Fatalf("expected auto-emitted pack metadata, got %#v", response)
+	}
+	if _, err := os.Stat(response.PackPath); err != nil {
+		t.Fatalf("expected emitted pack path to exist: %v", err)
+	}
+	if code := runPack([]string{"verify", response.PackPath, "--json"}); code != exitOK {
+		t.Fatalf("pack verify expected %d got %d", exitOK, code)
+	}
+}
+
+func TestMCPServeHandlerReadOnlyCallDoesNotAutoEmitPack(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:     policyPath,
+		DefaultAdapter: "openai",
+		TraceDir:       filepath.Join(workDir, "traces"),
+		PackDir:        filepath.Join(workDir, "packs"),
+		KeyMode:        "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "call": {
+	    "type": "function",
+	    "function": {
+	      "name": "tool.search",
+	      "arguments": "{\"query\":\"gait\"}"
+	    }
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("evaluate status: expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode evaluate response: %v", err)
+	}
+	if strings.TrimSpace(response.PackPath) != "" {
+		t.Fatalf("expected read-only call to skip auto pack emission, got %#v", response)
+	}
+}
+
 func TestMCPServeHandlerEvaluateValidation(t *testing.T) {
 	workDir := t.TempDir()
 	policyPath := filepath.Join(workDir, "policy.yaml")
@@ -722,7 +813,12 @@ func TestMCPRetentionMatches(t *testing.T) {
 		{name: "trace json", class: "trace", fileName: "trace_abc.json", want: true},
 		{name: "trace non-json", class: "trace", fileName: "trace_abc.txt", want: false},
 		{name: "runpack zip", class: "runpack", fileName: "runpack_abc.zip", want: true},
+		{name: "runpack checkpoint", class: "runpack", fileName: "sess_1_cp_000001.zip", want: true},
+		{name: "runpack excludes pack", class: "runpack", fileName: "pack_abc.zip", want: false},
+		{name: "runpack generic zip", class: "runpack", fileName: "artifact.zip", want: false},
 		{name: "runpack json", class: "runpack", fileName: "runpack_abc.json", want: false},
+		{name: "pack zip", class: "pack", fileName: "pack_abc.zip", want: true},
+		{name: "pack excludes runpack", class: "pack", fileName: "runpack_abc.zip", want: false},
 		{name: "session json", class: "session", fileName: "sess_1.json", want: true},
 		{name: "session jsonl", class: "session", fileName: "sess_1.journal.jsonl", want: true},
 		{name: "session state", class: "session", fileName: "sess_1.state", want: true},
@@ -739,6 +835,65 @@ func TestMCPRetentionMatches(t *testing.T) {
 				t.Fatalf("mcpRetentionMatches(%q,%q): expected %v got %v", testCase.class, testCase.fileName, testCase.want, got)
 			}
 		})
+	}
+}
+
+func TestApplyMCPServeRetentionKeepsPackAndRunpackClassesIsolated(t *testing.T) {
+	artifactDir := t.TempDir()
+	now := time.Now().UTC()
+
+	runpackOld := filepath.Join(artifactDir, "runpack_old.zip")
+	runpackNew := filepath.Join(artifactDir, "runpack_new.zip")
+	packOld := filepath.Join(artifactDir, "pack_old.zip")
+	packNew := filepath.Join(artifactDir, "pack_new.zip")
+
+	mustWriteFile(t, runpackOld, "runpack old")
+	mustWriteFile(t, runpackNew, "runpack new")
+	mustWriteFile(t, packOld, "pack old")
+	mustWriteFile(t, packNew, "pack new")
+
+	if err := os.Chtimes(runpackOld, now.Add(-4*time.Hour), now.Add(-4*time.Hour)); err != nil {
+		t.Fatalf("chtimes runpack_old: %v", err)
+	}
+	if err := os.Chtimes(runpackNew, now.Add(-10*time.Minute), now.Add(-10*time.Minute)); err != nil {
+		t.Fatalf("chtimes runpack_new: %v", err)
+	}
+	if err := os.Chtimes(packOld, now.Add(-3*time.Hour), now.Add(-3*time.Hour)); err != nil {
+		t.Fatalf("chtimes pack_old: %v", err)
+	}
+	if err := os.Chtimes(packNew, now.Add(-20*time.Minute), now.Add(-20*time.Minute)); err != nil {
+		t.Fatalf("chtimes pack_new: %v", err)
+	}
+
+	warnings := applyMCPServeRetention(mcpServeConfig{
+		RunpackDir:      artifactDir,
+		PackDir:         artifactDir,
+		RunpackMaxAge:   0,
+		RunpackMaxCount: 1,
+		PackMaxAge:      0,
+		PackMaxCount:    1,
+	}, now)
+	if len(warnings) == 0 {
+		t.Fatalf("expected retention warnings for removed files")
+	}
+	if !containsWarningPrefix(warnings, "retention_runpack_removed_age=") {
+		t.Fatalf("expected runpack retention warning, got %#v", warnings)
+	}
+	if !containsWarningPrefix(warnings, "retention_pack_removed_age=") {
+		t.Fatalf("expected pack retention warning, got %#v", warnings)
+	}
+
+	if _, err := os.Stat(runpackNew); err != nil {
+		t.Fatalf("expected latest runpack to remain: %v", err)
+	}
+	if _, err := os.Stat(packNew); err != nil {
+		t.Fatalf("expected latest pack to remain: %v", err)
+	}
+	if _, err := os.Stat(runpackOld); !os.IsNotExist(err) {
+		t.Fatalf("expected old runpack to be pruned, err=%v", err)
+	}
+	if _, err := os.Stat(packOld); !os.IsNotExist(err) {
+		t.Fatalf("expected old pack to be pruned, err=%v", err)
 	}
 }
 
@@ -844,4 +999,13 @@ func TestRunMCPServeValidationErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+func containsWarningPrefix(warnings []string, prefix string) bool {
+	for _, warning := range warnings {
+		if strings.HasPrefix(warning, prefix) {
+			return true
+		}
+	}
+	return false
 }

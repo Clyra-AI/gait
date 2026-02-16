@@ -15,6 +15,7 @@
 - gait run replay <run_id>
 - gait pack verify <pack.zip>
 - gait pack diff <left.zip> <right.zip>
+- gait pack export <pack.zip> --otel-out <otel.jsonl>
 - gait regress bootstrap --from <run_id|path> --junit <path>
 - gait regress run --json --junit <path>
 - gait policy test <policy.yaml> <intent.json>

@@ -44,8 +44,8 @@ func TestRunPassesWithDefaultFixture(t *testing.T) {
 	if result.FailedGraders != 0 {
 		t.Fatalf("expected zero failed graders, got %d", result.FailedGraders)
 	}
-	if len(result.Result.Graders) != 3 {
-		t.Fatalf("expected 3 graders, got %d", len(result.Result.Graders))
+	if len(result.Result.Graders) != 4 {
+		t.Fatalf("expected 4 graders, got %d", len(result.Result.Graders))
 	}
 
 	// #nosec G304 -- test controls output path in temp dir.
@@ -163,6 +163,42 @@ func TestRunDiffToleranceRules(t *testing.T) {
 	}
 	if secondRun.Result.Status != regressStatusPass {
 		t.Fatalf("expected pass with diff tolerances, got %s", secondRun.Result.Status)
+	}
+}
+
+func TestRunFailsOnTrajectoryMismatch(t *testing.T) {
+	workDir := t.TempDir()
+	sourceRunpack := createRunpack(t, workDir, "run_demo")
+
+	if _, err := InitFixture(InitOptions{
+		SourceRunpackPath: sourceRunpack,
+		WorkDir:           workDir,
+	}); err != nil {
+		t.Fatalf("init fixture: %v", err)
+	}
+
+	candidatePath := createVariantRunpackWithTool(t, workDir, "run_demo", "trajectory", "tool.changed")
+	metaPath := filepath.Join(workDir, "fixtures", "run_demo", "fixture.json")
+	meta := mustReadFixtureMeta(t, metaPath)
+	meta.CandidateRunpack = candidatePath
+	meta.DiffAllowChangedFiles = summarizeChangedFiles(mustDiffRunpacks(t, sourceRunpack, candidatePath).Summary)
+	if err := writeJSON(metaPath, meta); err != nil {
+		t.Fatalf("write fixture metadata: %v", err)
+	}
+
+	result, err := Run(RunOptions{
+		ConfigPath: filepath.Join(workDir, "gait.yaml"),
+		OutputPath: filepath.Join(workDir, "regress_result.json"),
+		WorkDir:    workDir,
+	})
+	if err != nil {
+		t.Fatalf("run regress: %v", err)
+	}
+	if result.Result.Status != regressStatusFail {
+		t.Fatalf("expected trajectory failure status, got %s", result.Result.Status)
+	}
+	if !hasFailedReason(result.Result.Graders, "run_demo/trajectory", "unexpected_tool_sequence") {
+		t.Fatalf("expected unexpected_tool_sequence failure, got %#v", result.Result.Graders)
 	}
 }
 
@@ -298,7 +334,7 @@ func TestRunWritesStableJUnitReport(t *testing.T) {
 	}
 
 	report := mustReadJUnit(t, firstPath)
-	if report.Tests != 3 || report.Failures != 0 {
+	if report.Tests != 4 || report.Failures != 0 {
 		t.Fatalf("unexpected junit summary: tests=%d failures=%d", report.Tests, report.Failures)
 	}
 	if len(report.Suites) != 1 || report.Suites[0].Name != "gait.regress.default" {
@@ -571,6 +607,12 @@ func TestGraderMetadata(t *testing.T) {
 	}
 	if !(diffGrader{}).Deterministic() {
 		t.Fatalf("diff grader should be deterministic")
+	}
+	if name := (trajectoryGrader{}).Name(); name != "trajectory" {
+		t.Fatalf("unexpected trajectory grader name: %s", name)
+	}
+	if !(trajectoryGrader{}).Deterministic() {
+		t.Fatalf("trajectory grader should be deterministic")
 	}
 }
 
@@ -872,6 +914,10 @@ func hasFailedReason(results []schemaregress.GraderResult, name, reason string) 
 }
 
 func createVariantRunpack(t *testing.T, dir, runID, variant string) string {
+	return createVariantRunpackWithTool(t, dir, runID, variant, "tool.demo")
+}
+
+func createVariantRunpackWithTool(t *testing.T, dir, runID, variant string, toolName string) string {
 	t.Helper()
 	path := filepath.Join(dir, "candidate_"+variant+".zip")
 	ts := time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)
@@ -888,7 +934,7 @@ func createVariantRunpack(t *testing.T, dir, runID, variant string) string {
 		Intents: []schemarunpack.IntentRecord{
 			{
 				IntentID:   "intent_1",
-				ToolName:   "tool.demo",
+				ToolName:   toolName,
 				ArgsDigest: "2222222222222222222222222222222222222222222222222222222222222222",
 				Args:       map[string]any{"input": "demo"},
 			},
@@ -909,6 +955,15 @@ func createVariantRunpack(t *testing.T, dir, runID, variant string) string {
 		t.Fatalf("write variant runpack: %v", err)
 	}
 	return path
+}
+
+func mustDiffRunpacks(t *testing.T, left string, right string) runpack.DiffResult {
+	t.Helper()
+	diffResult, err := runpack.DiffRunpacks(left, right, runpack.DiffPrivacy("full"))
+	if err != nil {
+		t.Fatalf("diff runpacks: %v", err)
+	}
+	return diffResult
 }
 
 func createContextRunpack(t *testing.T, dir, runID, refID string, retrievedAt time.Time, contextDigest string) string {
