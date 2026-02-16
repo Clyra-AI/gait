@@ -1,5 +1,9 @@
 # Gait — Run Durable Agent Jobs, Capture Tool Calls, Prove What Happened
 
+![CI](https://github.com/davidahmann/gait/actions/workflows/ci.yml/badge.svg)
+![CodeQL](https://github.com/davidahmann/gait/actions/workflows/codeql.yml/badge.svg)
+![Intent+Receipt Conformance](https://github.com/davidahmann/gait/actions/workflows/intent-receipt-conformance.yml/badge.svg)
+
 Agents are capable enough to execute real work. The limiting factor is not intelligence — it is control, proof, and reproducibility. Long-running work fails mid-flight with no recovery. State-changing tool calls are impossible to reconstruct. Post-hoc logs are not dispute-grade evidence.
 
 Gait is an offline-first Go CLI that fixes this. Dispatch durable jobs with checkpointed state. Capture every tool call as a signed pack. Verify, diff, and replay offline. Turn incidents into deterministic CI regressions. Gate high-risk actions before side effects execute.
@@ -27,10 +31,6 @@ Incident-to-surface mapping:
 - Your workflow only needs prompt orchestration without tool-side effects or evidence contracts.
 - You only need hosted observability dashboards and do not need offline verification or deterministic replay.
 
-![PR Fast](https://github.com/davidahmann/gait/actions/workflows/pr-fast.yml/badge.svg)
-![CodeQL](https://github.com/davidahmann/gait/actions/workflows/codeql.yml/badge.svg)
-![Intent+Receipt Conformance](https://github.com/davidahmann/gait/actions/workflows/intent-receipt-conformance.yml/badge.svg)
-
 **For platform and AI engineering teams** — run multi-step, multi-hour agent jobs without losing work, state, or provenance.
 
 **For security engineers and production owners** — every high-risk tool call passes a deterministic policy decision with portable, independently verifiable proof.
@@ -54,6 +54,7 @@ gait regress bootstrap --from run_demo --junit ./gait-out/junit.xml
 No account. No API key. No internet. You now have a verified artifact and a permanent regression test.
 
 Install details: [`docs/install.md`](docs/install.md) | Homebrew: [`docs/homebrew.md`](docs/homebrew.md)
+Local UI playground: [`docs/ui_localhost.md`](docs/ui_localhost.md) | Launch with `gait ui`
 
 ## See It
 
