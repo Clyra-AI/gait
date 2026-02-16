@@ -25,6 +25,15 @@ require_pattern() {
   fi
 }
 
+require_readme_intro_heading_near_top() {
+  local path="$1"
+  local max_lines="${2:-40}"
+  local pattern="$3"
+  if ! sed -n "1,${max_lines}p" "${path}" | rg -q --pcre2 "${pattern}"; then
+    fail "README must include an intro heading near the top (within first ${max_lines} lines): ${pattern} (${path})"
+  fi
+}
+
 for path in \
   "${REPO_ROOT}/README.md" \
   "${REPO_ROOT}/docs/README.md" \
@@ -70,7 +79,10 @@ for cmd in "gait job" "gait pack" "gait gate eval" "gait regress" "gait doctor";
 done
 
 # Required onboarding sections.
-require_pattern "${REPO_ROOT}/README.md" "^## In Plain Language$" "README must include incident priming section"
+require_readme_intro_heading_near_top \
+  "${REPO_ROOT}/README.md" \
+  "40" \
+  "^## (Overview|What Gait Is|Quick Context|In Brief|At a Glance)$"
 require_pattern "${REPO_ROOT}/README.md" "^## When To Use Gait$" "README must include when-to-use guidance"
 require_pattern "${REPO_ROOT}/README.md" "^## When Not To Use Gait$" "README must include when-not-to-use guidance"
 require_pattern "${REPO_ROOT}/docs/concepts/mental_model.md" "^## Problem-First View$" "mental model must lead with problems"
