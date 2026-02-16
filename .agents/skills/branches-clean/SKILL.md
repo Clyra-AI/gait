@@ -1,12 +1,12 @@
 ---
 name: branches-clean
-description: Delete all non-main local and origin remote branches one-by-one with safety checks, dry-run support, and final prune/report.
+description: Delete all non-main local and configured-remote branches one-by-one with safety checks, dry-run support, and final prune/report.
 disable-model-invocation: true
 ---
 
 # Branches Clean (Gait)
 
-Execute this workflow when asked to clean up branches by deleting all non-`main` branches locally and on `origin`.
+Execute this workflow when asked to clean up branches by deleting all non-`main` branches locally and on a configured remote (default `origin`).
 
 ## Scope
 
@@ -15,7 +15,7 @@ Execute this workflow when asked to clean up branches by deleting all non-`main`
 - Deletion style: one-by-one only (no grouped delete commands)
 - Applies to:
 - local branches
-- remote `origin/*` branches
+- remote `<remote>/*` branches (default `origin`)
 
 ## Input Contract
 
@@ -31,9 +31,9 @@ If `mode` is missing, default to `dry-run`.
 - Never delete `main`.
 - Always switch to `main` before deletion.
 - Always sync main before deletion:
-- `git fetch origin main`
+- `git fetch <remote> main`
 - `git checkout main`
-- `git pull --ff-only origin main`
+- `git pull --ff-only <remote> main`
 - No grouped branch deletion commands.
 - Delete branches one-by-one only.
 - In `dry-run`, do not delete anything.
@@ -49,6 +49,7 @@ If `mode` is missing, default to `dry-run`.
 1. Preflight:
 - confirm repo is valid git repo
 - resolve current branch
+- verify `<remote>/main` exists
 - switch to `main` and sync fast-forward
 - fetch/prune remote refs (`git fetch --prune <remote>`)
 
@@ -88,7 +89,7 @@ Use one-by-one commands only, such as:
 
 - `git branch -d <name>`
 - `git branch -D <name>` (only if `force_local_delete=true`)
-- `git push origin --delete <name>`
+- `git push <remote> --delete <name>`
 
 Do not use batched deletion forms.
 
@@ -96,7 +97,7 @@ Do not use batched deletion forms.
 
 - Continue on per-branch failures; do not abort whole run.
 - Record each failure with command + stderr reason.
-- If cannot switch to `main` or cannot sync `main`, stop immediately.
+- If `<remote>/main` is missing, or if cannot switch/sync `main`, stop immediately.
 
 ## Expected Output
 
