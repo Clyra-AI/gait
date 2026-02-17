@@ -14,8 +14,8 @@ Usage:
 Options:
   --version <tag>         Release tag to publish (required, e.g. v1.0.0)
   --source-repo <owner/repo>
-                          Source release repository (default: davidahmann/gait)
-  --tap-repo <owner/repo> Target tap repository (default: davidahmann/homebrew-tap)
+                          Source release repository (default: Clyra-AI/gait)
+  --tap-repo <owner/repo> Target tap repository (default: Clyra-AI/homebrew-tap)
   --formula <name>        Formula file name without .rb (default: gait)
   --branch <name>         Target branch in tap repo (default: main)
   --checksums <path>      Use local checksums file instead of downloading release asset
@@ -29,8 +29,8 @@ EOF
 }
 
 version=""
-source_repo="davidahmann/gait"
-tap_repo="davidahmann/homebrew-tap"
+source_repo="Clyra-AI/gait"
+tap_repo="Clyra-AI/homebrew-tap"
 formula_name="gait"
 target_branch="main"
 checksums_override=""

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/jcs"
+	"github.com/Clyra-AI/gait/core/jcs"
 )
 
 func TestRunPackLifecycleCommands(t *testing.T) {

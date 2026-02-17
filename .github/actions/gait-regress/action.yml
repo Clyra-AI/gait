@@ -78,9 +78,9 @@ runs:
         fi
 
         if [[ "${version}" == "latest" ]]; then
-          release_base="https://github.com/davidahmann/gait/releases/latest/download"
+          release_base="https://github.com/Clyra-AI/gait/releases/latest/download"
         else
-          release_base="https://github.com/davidahmann/gait/releases/download/${version}"
+          release_base="https://github.com/Clyra-AI/gait/releases/download/${version}"
         fi
 
         work_root="${RUNNER_TEMP}/gait-action"

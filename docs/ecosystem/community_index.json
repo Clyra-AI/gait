@@ -8,7 +8,7 @@
       "kind": "adapter",
       "name": "AutoGen Adapter Example",
       "summary": "Reference integration that routes tool calls through Gate with deterministic traces.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable",
       "integration": "autogen"
@@ -18,7 +18,7 @@
       "kind": "adapter",
       "name": "AutoGPT Adapter Example",
       "summary": "Reference integration for AutoGPT with fail-closed verdict handling and parity checks.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable",
       "integration": "autogpt"
@@ -28,7 +28,7 @@
       "kind": "adapter",
       "name": "Gas Town Adapter Example",
       "summary": "Reference integration for Gas Town worker hooks with deterministic traces and fail-closed controls.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable",
       "integration": "gastown"
@@ -38,7 +38,7 @@
       "kind": "adapter",
       "name": "LangChain Adapter Example",
       "summary": "Reference integration showing wrapper-based tool interception and Gate evaluation flow.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable",
       "integration": "langchain"
@@ -48,7 +48,7 @@
       "kind": "adapter",
       "name": "OpenAI Agents Adapter Example",
       "summary": "Reference OpenAI Agents integration preserving no-bypass execution-boundary controls.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable",
       "integration": "openai_agents"
@@ -58,7 +58,7 @@
       "kind": "adapter",
       "name": "OpenClaw Adapter Example",
       "summary": "Reference OpenClaw integration that normalizes intents and emits deterministic artifacts.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable",
       "integration": "openclaw"
@@ -68,7 +68,7 @@
       "kind": "skill",
       "name": "Capture Runpack Skill",
       "summary": "Codex skill for deterministic runpack capture and ticket-ready evidence output.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable"
     },
@@ -77,7 +77,7 @@
       "kind": "skill",
       "name": "Incident To Regression Skill",
       "summary": "Codex skill to convert run artifacts into deterministic regression fixtures and reports.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable"
     },
@@ -86,7 +86,7 @@
       "kind": "skill",
       "name": "Policy Rollout Skill",
       "summary": "Codex skill to validate policy deltas and staged rollout outcomes with stable reason codes.",
-      "repo": "https://github.com/davidahmann/gait",
+      "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable"
     }

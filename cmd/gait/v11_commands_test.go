@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	coreregistry "github.com/davidahmann/gait/core/registry"
-	"github.com/davidahmann/gait/core/runpack"
-	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
+	coreregistry "github.com/Clyra-AI/gait/core/registry"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemaregress "github.com/Clyra-AI/gait/core/schema/v1/regress"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
 )
 
 func TestScoutCommandsAndWriters(t *testing.T) {

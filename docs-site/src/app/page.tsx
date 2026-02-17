@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 const QUICKSTART = `# Install
-curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
 
 # Create a signed pack from a synthetic agent run
 gait demo
@@ -107,9 +107,9 @@ const softwareApplicationJsonLd = {
   operatingSystem: 'Linux, macOS, Windows',
   description:
     'Offline-first runtime for production AI agents: durable jobs with checkpointed state, signed packs, voice agent gating, context evidence, deterministic regressions, and fail-closed policy gates at the tool boundary.',
-  url: 'https://davidahmann.github.io/gait/',
-  softwareHelp: 'https://davidahmann.github.io/gait/docs/',
-  codeRepository: 'https://github.com/davidahmann/gait',
+  url: 'https://clyra-ai.github.io/gait/',
+  softwareHelp: 'https://clyra-ai.github.io/gait/docs/',
+  codeRepository: 'https://github.com/Clyra-AI/gait',
   offers: {
     '@type': 'Offer',
     price: '0',

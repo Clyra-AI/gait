@@ -16,14 +16,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/jcs"
-	"github.com/davidahmann/gait/core/runpack"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	schemaguard "github.com/davidahmann/gait/core/schema/v1/guard"
-	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
-	"github.com/davidahmann/gait/core/sign"
-	"github.com/davidahmann/gait/core/zipx"
+	"github.com/Clyra-AI/gait/core/jcs"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	schemaguard "github.com/Clyra-AI/gait/core/schema/v1/guard"
+	schemaregress "github.com/Clyra-AI/gait/core/schema/v1/regress"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
+	"github.com/Clyra-AI/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/zipx"
 )
 
 type BuildOptions struct {

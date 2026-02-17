@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/projectconfig"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/projectconfig"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func TestRunDetectsMissingSchemasAsNonFixable(t *testing.T) {

@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/pack"
-	"github.com/davidahmann/gait/core/runpack"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	schemavoice "github.com/davidahmann/gait/core/schema/v1/voice"
+	"github.com/Clyra-AI/gait/core/pack"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	schemavoice "github.com/Clyra-AI/gait/core/schema/v1/voice"
 )
 
 func TestInitFixtureCreatesLayout(t *testing.T) {

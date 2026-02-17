@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	schemaregistry "github.com/davidahmann/gait/core/schema/v1/registry"
-	"github.com/davidahmann/gait/core/sign"
+	schemaregistry "github.com/Clyra-AI/gait/core/schema/v1/registry"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func BenchmarkInstallLocalTypical(b *testing.B) {

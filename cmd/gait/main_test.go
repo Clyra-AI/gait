@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/doctor"
-	gatecore "github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/jcs"
-	"github.com/davidahmann/gait/core/runpack"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/doctor"
+	gatecore "github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/jcs"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func TestRunDispatch(t *testing.T) {

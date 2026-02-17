@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/mcp"
-	"github.com/davidahmann/gait/core/pack"
-	"github.com/davidahmann/gait/core/runpack"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/mcp"
+	"github.com/Clyra-AI/gait/core/pack"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 type mcpProxyOutput struct {

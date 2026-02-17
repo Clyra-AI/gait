@@ -272,7 +272,7 @@ homebrew-formula:
 	bash scripts/render_homebrew_formula.sh --version "$(VERSION)" --checksums dist/checksums.txt --out dist/gait.rb
 
 wiki-publish:
-	@if [ -z "$(REPO)" ]; then REPO=davidahmann/gait; else REPO=$(REPO); fi; \
+	@if [ -z "$(REPO)" ]; then REPO=Clyra-AI/gait; else REPO=$(REPO); fi; \
 	bash scripts/publish_wiki.sh --repo "$$REPO"
 
 tool-allowlist-policy:

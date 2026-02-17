@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/scout"
+	"github.com/Clyra-AI/gait/core/scout"
 )
 
 func TestRunWritesAdoptionLogWhenEnabled(t *testing.T) {

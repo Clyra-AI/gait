@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/davidahmann/gait/core/scout"
+	"github.com/Clyra-AI/gait/core/scout"
 )
 
 type reportTopOutput struct {

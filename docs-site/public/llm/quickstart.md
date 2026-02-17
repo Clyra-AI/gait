@@ -4,7 +4,7 @@ Use this when you need deterministic control + evidence at agent tool boundaries
 
 ```bash
 # Install
-curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
 
 # Guided tour
 gait tour

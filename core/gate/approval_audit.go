@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/fsx"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	"github.com/Clyra-AI/gait/core/fsx"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
 const (

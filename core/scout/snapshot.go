@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/jcs"
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
+	"github.com/Clyra-AI/gait/core/jcs"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
 	"github.com/goccy/go-yaml"
 )
 

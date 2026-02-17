@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/runpack"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	schemaguard "github.com/davidahmann/gait/core/schema/v1/guard"
-	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	schemaguard "github.com/Clyra-AI/gait/core/schema/v1/guard"
+	schemaregress "github.com/Clyra-AI/gait/core/schema/v1/regress"
 )
 
 type IncidentPackOptions struct {

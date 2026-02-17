@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
 func BenchmarkEvaluatePolicyTypical(b *testing.B) {

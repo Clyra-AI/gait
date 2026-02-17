@@ -16,7 +16,7 @@ Prove that a user can:
 
 1. Primary: GitHub release installer (`scripts/install.sh`)
 2. Alternate: source build (`go build -o ./gait ./cmd/gait`)
-3. Alternate: Homebrew tap (`davidahmann/tap/gait`)
+3. Alternate: Homebrew tap (`Clyra-AI/tap/gait`)
 
 Windows is included in CI matrix validation, but this local script focuses on Linux/macOS hosts.
 

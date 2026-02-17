@@ -6,9 +6,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/davidahmann/gait/core/contextproof"
-	"github.com/davidahmann/gait/core/jcs"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/contextproof"
+	"github.com/Clyra-AI/gait/core/jcs"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 type DiffPrivacy string

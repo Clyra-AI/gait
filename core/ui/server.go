@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/internal/uiassets"
+	"github.com/Clyra-AI/gait/internal/uiassets"
 )
 
 func NewStaticHandler() (http.Handler, error) {

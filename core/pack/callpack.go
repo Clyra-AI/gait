@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/runpack"
-	schemapack "github.com/davidahmann/gait/core/schema/v1/pack"
-	schemavoice "github.com/davidahmann/gait/core/schema/v1/voice"
-	"github.com/davidahmann/gait/core/zipx"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemapack "github.com/Clyra-AI/gait/core/schema/v1/pack"
+	schemavoice "github.com/Clyra-AI/gait/core/schema/v1/voice"
+	"github.com/Clyra-AI/gait/core/zipx"
 )
 
 const (

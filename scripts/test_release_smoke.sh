@@ -103,7 +103,7 @@ cat > "$WORK_DIR/checksums.txt" <<'EOF'
 EOF
 
 bash "$REPO_ROOT/scripts/render_homebrew_formula.sh" \
-  --repo "davidahmann/gait" \
+  --repo "Clyra-AI/gait" \
   --version "v0.0.0" \
   --checksums "$WORK_DIR/checksums.txt" \
   --out "$WORK_DIR/gait.rb"

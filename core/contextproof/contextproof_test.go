@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	schemacontext "github.com/davidahmann/gait/core/schema/v1/context"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 func TestNormalizeEnvelopeComputesDigest(t *testing.T) {

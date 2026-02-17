@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	coreerrors "github.com/davidahmann/gait/core/errors"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
 func TestEnforceRateLimitBlocksAfterLimit(t *testing.T) {

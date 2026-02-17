@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	coreerrors "github.com/davidahmann/gait/core/errors"
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
 )
 
 func TestMarshalOutputWithErrorEnvelope(t *testing.T) {

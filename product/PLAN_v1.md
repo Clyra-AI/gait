@@ -89,7 +89,7 @@ Tasks:
   - `golang 1.25.x`
   - `python 3.13.x`
 - Go module init at repo root:
-  - `go mod init github.com/davidahmann/gait`
+  - `go mod init github.com/Clyra-AI/gait`
 - Python SDK uses `uv`:
   - `sdk/python/pyproject.toml`
   - `sdk/python/uv.lock`

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	"github.com/davidahmann/gait/core/scout"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	"github.com/Clyra-AI/gait/core/scout"
 )
 
 func TestRunReportTopJSONFromRunIDAndTraceDir(t *testing.T) {

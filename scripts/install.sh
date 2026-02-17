@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DEFAULT="davidahmann/gait"
+REPO_DEFAULT="Clyra-AI/gait"
 INSTALL_DIR_DEFAULT="${HOME}/.local/bin"
 VERSION_DEFAULT="latest"
 
@@ -14,7 +14,7 @@ Usage:
 
 Options:
   --version <tag>      Release tag (default: latest)
-  --repo <owner/name>  GitHub repository (default: davidahmann/gait)
+  --repo <owner/name>  GitHub repository (default: Clyra-AI/gait)
   --install-dir <path> Binary install directory (default: ~/.local/bin)
   -h, --help           Show this help
 

@@ -3,8 +3,8 @@
 > Offline-first durable agent runtime: dispatch long-running jobs with checkpoints, capture signed packs, gate tool calls and voice commitments with fail-closed policy, and turn incidents into deterministic CI regressions.
 
 ## Canonical
-- https://github.com/davidahmann/gait
-- https://davidahmann.github.io/gait/
+- https://github.com/Clyra-AI/gait
+- https://clyra-ai.github.io/gait/
 
 ## Core Commands
 - gait demo

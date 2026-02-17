@@ -61,8 +61,8 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 - [ ] `gait doctor --json` includes green checks for hooks, cache, lock staleness, temp writeability, and key-source ambiguity.
 - [ ] Correlation IDs and operational events are emitted in opt-in logs where enabled.
 - [ ] Homebrew tap install/test smoke passes for the release:
-  - `brew reinstall davidahmann/tap/gait`
-  - `brew test davidahmann/tap/gait`
+  - `brew reinstall Clyra-AI/tap/gait`
+  - `brew test Clyra-AI/tap/gait`
 - [ ] Relevant hardening docs updated:
   - `docs/hardening/contracts.md`
   - `docs/hardening/risk_register.md`

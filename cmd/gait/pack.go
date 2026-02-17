@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/davidahmann/gait/core/pack"
-	"github.com/davidahmann/gait/core/runpack"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/pack"
+	"github.com/Clyra-AI/gait/core/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 const (

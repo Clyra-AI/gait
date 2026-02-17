@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	coreerrors "github.com/davidahmann/gait/core/errors"
-	"github.com/davidahmann/gait/core/fsx"
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
+	"github.com/Clyra-AI/gait/core/fsx"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
 )
 
 const (

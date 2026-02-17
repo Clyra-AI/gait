@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/gate"
-	schemavoice "github.com/davidahmann/gait/core/schema/v1/voice"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/gate"
+	schemavoice "github.com/Clyra-AI/gait/core/schema/v1/voice"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 type voiceTokenOutput struct {

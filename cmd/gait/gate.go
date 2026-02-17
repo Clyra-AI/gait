@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/credential"
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/projectconfig"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/credential"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/projectconfig"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 type gateEvalOutput struct {

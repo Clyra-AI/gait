@@ -75,7 +75,7 @@ resolve_release_version() {
     return 0
   fi
 
-  RELEASE_VERSION="$(gh release view --repo davidahmann/gait --json tagName --jq '.tagName' 2>/dev/null || true)"
+  RELEASE_VERSION="$(gh release view --repo Clyra-AI/gait --json tagName --jq '.tagName' 2>/dev/null || true)"
   if [[ -z "${RELEASE_VERSION}" ]]; then
     echo "error: unable to resolve latest release tag; pass --release-version explicitly" >&2
     exit 2
@@ -249,10 +249,10 @@ log "PRIMARY_INSTALL_PATH_STATUS release-installer PASS"
 if [[ "${SKIP_BREW}" == "true" ]]; then
   log "SKIP brew_path (requested)"
 else
-  run_step "brew_tap" brew tap davidahmann/tap
+  run_step "brew_tap" brew tap Clyra-AI/tap
   run_step "brew_update" brew update
-  run_step "brew_reinstall" brew reinstall davidahmann/tap/gait
-  run_step "brew_test_formula" brew test davidahmann/tap/gait
+  run_step "brew_reinstall" brew reinstall Clyra-AI/tap/gait
+  run_step "brew_test_formula" brew test Clyra-AI/tap/gait
 
   BREW_PREFIX="$(brew --prefix)"
   BREW_BIN="${BREW_PREFIX}/bin/gait"

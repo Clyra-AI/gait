@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func TestCLIDemoVerify(t *testing.T) {

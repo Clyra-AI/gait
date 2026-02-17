@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 type approveOutput struct {

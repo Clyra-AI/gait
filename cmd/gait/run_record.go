@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/davidahmann/gait/core/contextproof"
-	"github.com/davidahmann/gait/core/runpack"
-	schemacontext "github.com/davidahmann/gait/core/schema/v1/context"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/contextproof"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 type runRecordInput struct {

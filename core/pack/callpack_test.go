@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	coreerrors "github.com/davidahmann/gait/core/errors"
-	schemapack "github.com/davidahmann/gait/core/schema/v1/pack"
-	schemavoice "github.com/davidahmann/gait/core/schema/v1/voice"
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
+	schemapack "github.com/Clyra-AI/gait/core/schema/v1/pack"
+	schemavoice "github.com/Clyra-AI/gait/core/schema/v1/voice"
 )
 
 func TestBuildCallPackVerifyInspectAndExtractRunpack(t *testing.T) {

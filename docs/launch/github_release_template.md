@@ -19,7 +19,7 @@ Gait is the offline-first Agent Control Plane for production tool actions.
 ## First 5 Minutes
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
 gait doctor --json
 gait demo
 gait verify run_demo

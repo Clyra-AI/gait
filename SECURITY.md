@@ -5,7 +5,7 @@
 Please report security issues privately.
 
 - Email: dahmann@lumyn.cc
-- GitHub Security Advisory: https://github.com/davidahmann/gait/security/advisories/new
+- GitHub Security Advisory: https://github.com/Clyra-AI/gait/security/advisories/new
 
 Do not open public issues for security vulnerabilities.
 

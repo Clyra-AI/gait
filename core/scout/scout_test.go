@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
 )
 
 func TestSnapshotCoverageAndDiff(t *testing.T) {

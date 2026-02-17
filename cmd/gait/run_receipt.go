@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/davidahmann/gait/core/runpack"
+	"github.com/Clyra-AI/gait/core/runpack"
 )
 
 type runReceiptOutput struct {

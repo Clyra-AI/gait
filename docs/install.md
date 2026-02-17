@@ -16,7 +16,7 @@ Gait's default install path is the release installer script.
 ## Recommended Path (Binary + Checksum Verification)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
 ```
 
 What the script does:
@@ -29,14 +29,14 @@ What the script does:
 ## Alternate Path: Homebrew (Tap)
 
 ```bash
-brew tap davidahmann/tap
+brew tap Clyra-AI/tap
 brew install gait
 ```
 
 Validate install:
 
 ```bash
-brew test davidahmann/tap/gait
+brew test Clyra-AI/tap/gait
 gait demo --json
 ```
 
@@ -132,7 +132,7 @@ If PATH is still not updated, run directly once:
 After installation:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/quickstart.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/quickstart.sh | bash
 ```
 
 ## Windows Install (Manual Path)
@@ -153,7 +153,7 @@ gait.exe verify run_demo
 Use this only when developing Gait itself.
 
 ```bash
-git clone https://github.com/davidahmann/gait.git
+git clone https://github.com/Clyra-AI/gait.git
 cd gait
 go build -o ./gait ./cmd/gait
 ```

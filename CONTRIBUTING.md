@@ -298,19 +298,19 @@ Formula update workflow:
 
 1. Cut and publish a signed GitHub release tag (`vX.Y.Z`).
 2. Render formula from release checksums:
-   - `bash scripts/render_homebrew_formula.sh --repo davidahmann/gait --version vX.Y.Z --checksums dist/checksums.txt --out Formula/gait.rb`
-3. Ensure repo secret `HOMEBREW_TAP_TOKEN` is configured with `contents: write` on `davidahmann/homebrew-tap`.
+   - `bash scripts/render_homebrew_formula.sh --repo Clyra-AI/gait --version vX.Y.Z --checksums dist/checksums.txt --out Formula/gait.rb`
+3. Ensure repo secret `HOMEBREW_TAP_TOKEN` is configured with `contents: write` on `Clyra-AI/homebrew-tap`.
 4. Tag push triggers release workflow job `publish-homebrew-tap` to update `Formula/gait.rb`.
 5. Verify:
    - `brew update`
-   - `brew tap davidahmann/tap`
-   - `brew reinstall davidahmann/tap/gait`
-   - `brew test davidahmann/tap/gait`
+   - `brew tap Clyra-AI/tap`
+   - `brew reinstall Clyra-AI/tap/gait`
+   - `brew test Clyra-AI/tap/gait`
    - `gait demo --json`
 
 Manual fallback:
 
-- `bash scripts/publish_homebrew_tap.sh --version vX.Y.Z --source-repo davidahmann/gait --tap-repo davidahmann/homebrew-tap --formula gait --branch main`
+- `bash scripts/publish_homebrew_tap.sh --version vX.Y.Z --source-repo Clyra-AI/gait --tap-repo Clyra-AI/homebrew-tap --formula gait --branch main`
 
 Reference:
 

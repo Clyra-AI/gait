@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/davidahmann/gait/core/fsx"
-	"github.com/davidahmann/gait/core/pack"
-	"github.com/davidahmann/gait/core/runpack"
+	"github.com/Clyra-AI/gait/core/fsx"
+	"github.com/Clyra-AI/gait/core/pack"
+	"github.com/Clyra-AI/gait/core/runpack"
 )
 
 const (

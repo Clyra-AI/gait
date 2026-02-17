@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/davidahmann/gait/core/gate"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	schemapolicytest "github.com/davidahmann/gait/core/schema/v1/policytest"
+	"github.com/Clyra-AI/gait/core/gate"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	schemapolicytest "github.com/Clyra-AI/gait/core/schema/v1/policytest"
 )
 
 const (

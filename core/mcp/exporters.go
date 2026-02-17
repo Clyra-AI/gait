@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/fsx"
+	"github.com/Clyra-AI/gait/core/fsx"
 )
 
 type ExportEvent struct {

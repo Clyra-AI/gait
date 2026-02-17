@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/jcs"
-	schemacontext "github.com/davidahmann/gait/core/schema/v1/context"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/jcs"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 const (

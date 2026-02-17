@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/guard"
+	"github.com/Clyra-AI/gait/core/guard"
 )
 
 type incidentPackOutput struct {

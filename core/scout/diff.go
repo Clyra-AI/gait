@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sort"
 
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
 )
 
 type SnapshotDiff struct {

@@ -29,7 +29,7 @@ Quick first win:
 4) gait regress init --from run_demo --json
 5) gait regress run --json
 
-Repo: https://github.com/davidahmann/gait
+Repo: https://github.com/Clyra-AI/gait
 ```
 
 ## First Comment Template (important)
