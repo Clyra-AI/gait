@@ -39,7 +39,7 @@ Execute this workflow when asked to clean up branches by deleting all non-`main`
 
 - Capture machine-readable diagnostics before destructive actions:
   - `gait doctor --json`
-  - `gait gate eval --policy <policy.yaml> --intent <intent.json> --json`
+  - `gait gate eval --policy examples/policy/base_low_risk.yaml --intent examples/policy/intents/intent_read.json --json`
 
 ## Workflow
 
@@ -53,13 +53,14 @@ Execute this workflow when asked to clean up branches by deleting all non-`main`
 2. Build delete candidates:
 - Local candidates: all local branches except `main`
 - Remote candidates: all `<remote>/<branch>` except `<remote>/main`
-- Exclude symbolic refs (`<remote>/HEAD`) and `<remote>` root alias if present.
+- Exclude symbolic refs (`<remote>/HEAD`) and `<remote>` root alias (`<remote>`) if present.
 
 3. Execute deletion (always):
 - Local deletion one-by-one:
 - `git branch -D <branch>`
 - Remote deletion one-by-one:
 - `git push <remote> --delete <branch>`
+- Never run `git push <remote> --delete <remote>`; `<remote>` is not a branch.
 - if already deleted/not found, record as skipped and continue
 
 4. Final reconciliation:
@@ -82,10 +83,17 @@ Use one-by-one commands only, such as:
 
 Do not use batched deletion forms.
 
+## Shell Portability
+
+- Do not rely on `mapfile`.
+- Build branch candidate lists with portable `while IFS= read -r` loops.
+- Ensure commands work under default macOS shell environments (`zsh`, older `bash`).
+
 ## Failure Handling
 
 - Continue on per-branch failures; do not abort whole run.
 - Record each failure with command + stderr reason.
+- If remote delete returns `remote ref does not exist`, record as `skipped` and continue.
 - If `<remote>/main` is missing, or if cannot switch/sync `main`, stop immediately.
 
 ## Expected Output
