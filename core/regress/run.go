@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/contextproof"
-	"github.com/davidahmann/gait/core/fsx"
-	"github.com/davidahmann/gait/core/runpack"
-	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
+	"github.com/Clyra-AI/gait/core/contextproof"
+	"github.com/Clyra-AI/gait/core/fsx"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemaregress "github.com/Clyra-AI/gait/core/schema/v1/regress"
 )
 
 const (

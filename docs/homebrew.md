@@ -7,7 +7,7 @@ This doc defines the Homebrew strategy for Gait.
 - GitHub Releases are the release source of truth.
 - Homebrew is a distribution adapter, not the release system.
 - Publish to a custom tap first (`homebrew/core` later, only after stability proof).
-- Current tap repo: `davidahmann/homebrew-tap` (tap alias `davidahmann/tap`).
+- Current tap repo: `Clyra-AI/homebrew-tap` (tap alias `Clyra-AI/tap`).
 
 ## Preconditions (Release Gate)
 
@@ -45,21 +45,21 @@ If `gait` is taken in your target ecosystem, use a prefixed tap formula name (fo
 
 ```bash
 bash scripts/render_homebrew_formula.sh \
-  --repo davidahmann/gait \
+  --repo Clyra-AI/gait \
   --version vX.Y.Z \
   --checksums dist/checksums.txt \
   --out Formula/gait.rb
 ```
 
-4. Commit formula in tap repo (`davidahmann/homebrew-tap`, `Formula/gait.rb`).
+4. Commit formula in tap repo (`Clyra-AI/homebrew-tap`, `Formula/gait.rb`).
 5. Open PR (or direct push if you own the tap), require macOS verification green.
 6. Merge and verify:
 
 ```bash
 brew update
-brew tap davidahmann/tap
-brew reinstall davidahmann/tap/gait
-brew test davidahmann/tap/gait
+brew tap Clyra-AI/tap
+brew reinstall Clyra-AI/tap/gait
+brew test Clyra-AI/tap/gait
 gait demo --json
 ```
 
@@ -67,9 +67,9 @@ gait demo --json
 
 `release.yml` includes a `publish-homebrew-tap` job that runs on version tags after release artifacts are published.
 
-Required repository secret in `davidahmann/gait`:
+Required repository secret in `Clyra-AI/gait`:
 
-- `HOMEBREW_TAP_TOKEN`: fine-grained token with `contents: write` on `davidahmann/homebrew-tap`
+- `HOMEBREW_TAP_TOKEN`: fine-grained token with `contents: write` on `Clyra-AI/homebrew-tap`
 
 Behavior:
 

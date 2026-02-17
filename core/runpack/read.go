@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/davidahmann/gait/core/contextproof"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/contextproof"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 type Runpack struct {

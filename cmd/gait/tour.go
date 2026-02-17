@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/regress"
+	"github.com/Clyra-AI/gait/core/regress"
 )
 
 type tourOutput struct {

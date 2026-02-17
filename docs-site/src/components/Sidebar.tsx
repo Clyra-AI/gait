@@ -58,7 +58,7 @@ export default function Sidebar() {
             LLM Context
           </Link>
           <a
-            href="https://github.com/davidahmann/gait"
+            href="https://github.com/Clyra-AI/gait"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-sm text-gray-400 hover:text-gray-200"

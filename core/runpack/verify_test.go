@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	"github.com/davidahmann/gait/core/sign"
-	"github.com/davidahmann/gait/core/zipx"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/zipx"
 )
 
 func TestVerifyZipSuccess(test *testing.T) {

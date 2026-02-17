@@ -33,7 +33,7 @@ jobs:
       - name: Install gait
         shell: bash
         run: |
-          curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
           echo "${HOME}/.local/bin" >> "$GITHUB_PATH"
 
       - name: Emit and verify pack

@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	gatecore "github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/jcs"
-	"github.com/davidahmann/gait/core/jobruntime"
-	"github.com/davidahmann/gait/core/pack"
-	"github.com/davidahmann/gait/core/runpack"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	gatecore "github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/jcs"
+	"github.com/Clyra-AI/gait/core/jobruntime"
+	"github.com/Clyra-AI/gait/core/pack"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 const demoRunID = "run_demo"

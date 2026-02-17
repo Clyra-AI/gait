@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	coreui "github.com/davidahmann/gait/core/ui"
+	coreui "github.com/Clyra-AI/gait/core/ui"
 )
 
 type uiOutput struct {

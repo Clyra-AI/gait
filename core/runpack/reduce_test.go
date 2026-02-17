@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 func TestReduceToMinimalMissingResult(t *testing.T) {

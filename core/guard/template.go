@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	schemaguard "github.com/davidahmann/gait/core/schema/v1/guard"
+	schemaguard "github.com/Clyra-AI/gait/core/schema/v1/guard"
 )
 
 const (

@@ -7,7 +7,7 @@ import (
 	"net"
 	"strings"
 
-	coreerrors "github.com/davidahmann/gait/core/errors"
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
 )
 
 func writeJSONOutput(output any, exitCode int) int {

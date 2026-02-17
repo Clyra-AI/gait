@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
-	"github.com/davidahmann/gait/core/scout"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
+	"github.com/Clyra-AI/gait/core/scout"
 )
 
 type scoutSnapshotOutput struct {

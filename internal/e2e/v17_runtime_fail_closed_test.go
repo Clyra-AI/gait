@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/jcs"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/jcs"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func TestCLIV17FailClosedMatrix(t *testing.T) {

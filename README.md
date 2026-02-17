@@ -8,7 +8,7 @@ Gait is not an agent framework, not a model host, and not a dashboard. It is an 
 
 Capture every agent tool call as a signed, offline-verifiable pack. Enforce fail-closed policy before high-risk actions execute. Turn incidents into CI regressions in one command.
 
-Docs: [davidahmann.github.io/gait](https://davidahmann.github.io/gait/) | Install: [`docs/install.md`](docs/install.md) | Homebrew: [`docs/homebrew.md`](docs/homebrew.md)
+Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`docs/install.md`](docs/install.md) | Homebrew: [`docs/homebrew.md`](docs/homebrew.md)
 
 ## When To Use Gait
 
@@ -27,7 +27,7 @@ Docs: [davidahmann.github.io/gait](https://davidahmann.github.io/gait/) | Instal
 
 ```bash
 # Install (checksums at docs/install.md)
-curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
 
 # Create a signed pack from a synthetic agent run
 gait demo
@@ -163,13 +163,13 @@ Hardening: [`docs/hardening/v2_2_contract.md`](docs/hardening/v2_2_contract.md) 
 5. [`docs/durable_jobs.md`](docs/durable_jobs.md) — durable job lifecycle and differentiation
 6. [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md) — normative spec
 
-Public docs: [davidahmann.github.io/gait](https://davidahmann.github.io/gait/) | Wiki: [github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki) | Changelog: [CHANGELOG.md](CHANGELOG.md)
+Public docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Wiki: [github.com/Clyra-AI/gait/wiki](https://github.com/Clyra-AI/gait/wiki) | Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ## Developer Workflow
 
-![CI](https://github.com/davidahmann/gait/actions/workflows/ci.yml/badge.svg)
-![CodeQL](https://github.com/davidahmann/gait/actions/workflows/codeql.yml/badge.svg)
-![Intent+Receipt Conformance](https://github.com/davidahmann/gait/actions/workflows/intent-receipt-conformance.yml/badge.svg)
+![CI](https://github.com/Clyra-AI/gait/actions/workflows/ci.yml/badge.svg)
+![CodeQL](https://github.com/Clyra-AI/gait/actions/workflows/codeql.yml/badge.svg)
+![Intent+Receipt Conformance](https://github.com/Clyra-AI/gait/actions/workflows/intent-receipt-conformance.yml/badge.svg)
 
 ```bash
 make fmt && make lint && make test
@@ -220,4 +220,4 @@ All commands support `--json`. Most support `--explain`.
 
 ## Feedback
 
-Issues: [github.com/davidahmann/gait/issues](https://github.com/davidahmann/gait/issues) | Security: [`SECURITY.md`](SECURITY.md) | Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md) | Code of conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+Issues: [github.com/Clyra-AI/gait/issues](https://github.com/Clyra-AI/gait/issues) | Security: [`SECURITY.md`](SECURITY.md) | Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md) | Code of conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)

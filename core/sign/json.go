@@ -4,7 +4,7 @@ import (
 	"crypto/ed25519"
 	"fmt"
 
-	"github.com/davidahmann/gait/core/jcs"
+	"github.com/Clyra-AI/gait/core/jcs"
 )
 
 func DigestJSON(input []byte) (string, error) {

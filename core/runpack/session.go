@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davidahmann/gait/core/fsx"
-	"github.com/davidahmann/gait/core/jcs"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/fsx"
+	"github.com/Clyra-AI/gait/core/jcs"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 const (

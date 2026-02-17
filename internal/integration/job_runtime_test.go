@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/jobruntime"
-	"github.com/davidahmann/gait/core/pack"
-	"github.com/davidahmann/gait/core/regress"
-	"github.com/davidahmann/gait/core/runpack"
+	"github.com/Clyra-AI/gait/core/jobruntime"
+	"github.com/Clyra-AI/gait/core/pack"
+	"github.com/Clyra-AI/gait/core/regress"
+	"github.com/Clyra-AI/gait/core/runpack"
 )
 
 func TestJobRuntimeToPackRoundTrip(t *testing.T) {

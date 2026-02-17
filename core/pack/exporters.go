@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/fsx"
-	"github.com/davidahmann/gait/core/jcs"
-	"github.com/davidahmann/gait/core/runpack"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/fsx"
+	"github.com/Clyra-AI/gait/core/jcs"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 type ExportMetrics struct {

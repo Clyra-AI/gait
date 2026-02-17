@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	"github.com/davidahmann/gait/core/sign"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 const (

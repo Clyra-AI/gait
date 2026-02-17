@@ -162,7 +162,7 @@ jobs:
           bash scripts/publish_homebrew_tap.sh \
             --version "${GITHUB_REF_NAME}" \
             --source-repo "${GITHUB_REPOSITORY}" \
-            --tap-repo "davidahmann/homebrew-tap" \
+            --tap-repo "Clyra-AI/homebrew-tap" \
             --formula "gait" \
             --branch "main"
       - name: Download release assets
@@ -206,10 +206,10 @@ jobs:
           cat > provenance.json <<JSON
           {
             "buildType": "gait.release",
-            "builder": { "id": "github.com/davidahmann/gait" },
+            "builder": { "id": "github.com/Clyra-AI/gait" },
             "invocation": {
               "configSource": {
-                "uri": "git+https://github.com/davidahmann/gait",
+                "uri": "git+https://github.com/Clyra-AI/gait",
                 "digest": { "sha1": "${GITHUB_SHA}" }
               }
             },
@@ -251,7 +251,7 @@ jobs:
           digest = hashlib.sha256(pathlib.Path("dist/checksums.txt").read_bytes()).hexdigest()
           if provenance.get("buildType") != "gait.release":
               raise SystemExit("provenance buildType mismatch")
-          if provenance.get("builder", {}).get("id") != "github.com/davidahmann/gait":
+          if provenance.get("builder", {}).get("id") != "github.com/Clyra-AI/gait":
               raise SystemExit("provenance builder mismatch")
 
           envelope = json.loads(pathlib.Path("dist/checksums.txt.intoto.jsonl").read_text(encoding="utf-8"))

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/doctor"
-	"github.com/davidahmann/gait/core/scout"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/doctor"
+	"github.com/Clyra-AI/gait/core/scout"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 type doctorOutput struct {

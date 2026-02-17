@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     title: 'Gait | Durable Agent Runtime with Signed Proof',
     description:
       'Offline-first runtime for production AI agents: durable jobs, signed packs, voice gating, context evidence, and fail-closed policy enforcement.',
-    url: 'https://davidahmann.github.io/gait',
+    url: 'https://clyra-ai.github.io/gait',
     siteName: 'Gait',
     type: 'website',
     images: [

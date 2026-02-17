@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/davidahmann/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/gate"
 )
 
 func TestDecodeToolCallAdapters(t *testing.T) {

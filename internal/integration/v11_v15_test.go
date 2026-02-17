@@ -11,16 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/guard"
-	"github.com/davidahmann/gait/core/jcs"
-	"github.com/davidahmann/gait/core/mcp"
-	"github.com/davidahmann/gait/core/registry"
-	"github.com/davidahmann/gait/core/runpack"
-	schemaregistry "github.com/davidahmann/gait/core/schema/v1/registry"
-	"github.com/davidahmann/gait/core/schema/validate"
-	"github.com/davidahmann/gait/core/scout"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/guard"
+	"github.com/Clyra-AI/gait/core/jcs"
+	"github.com/Clyra-AI/gait/core/mcp"
+	"github.com/Clyra-AI/gait/core/registry"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemaregistry "github.com/Clyra-AI/gait/core/schema/v1/registry"
+	"github.com/Clyra-AI/gait/core/schema/validate"
+	"github.com/Clyra-AI/gait/core/scout"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func TestV11ToV15CrossModuleSchemaFlow(t *testing.T) {

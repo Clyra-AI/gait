@@ -127,14 +127,14 @@ for route in \
 done
 
 for route in \
-  "https://davidahmann.github.io/gait/docs/adopt_in_one_pr/" \
-  "https://davidahmann.github.io/gait/docs/durable_jobs/" \
-  "https://davidahmann.github.io/gait/docs/failure_taxonomy_exit_codes/" \
-  "https://davidahmann.github.io/gait/docs/threat_model/" \
-  "https://davidahmann.github.io/gait/docs/contracts/pack_producer_kit/" \
-  "https://davidahmann.github.io/gait/docs/contracts/compatibility_matrix/" \
-  "https://davidahmann.github.io/gait/llms.txt" \
-  "https://davidahmann.github.io/gait/llms-full.txt"; do
+  "https://clyra-ai.github.io/gait/docs/adopt_in_one_pr/" \
+  "https://clyra-ai.github.io/gait/docs/durable_jobs/" \
+  "https://clyra-ai.github.io/gait/docs/failure_taxonomy_exit_codes/" \
+  "https://clyra-ai.github.io/gait/docs/threat_model/" \
+  "https://clyra-ai.github.io/gait/docs/contracts/pack_producer_kit/" \
+  "https://clyra-ai.github.io/gait/docs/contracts/compatibility_matrix/" \
+  "https://clyra-ai.github.io/gait/llms.txt" \
+  "https://clyra-ai.github.io/gait/llms-full.txt"; do
   require_pattern "${REPO_ROOT}/docs-site/public/sitemap.xml" "${route}" "required URL missing from sitemap.xml"
 done
 
@@ -142,10 +142,10 @@ done
 require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "^## When To Use$" "llms.txt missing when-to-use section"
 require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "^## When Not To Use$" "llms.txt missing when-not-to-use section"
 require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "/llms-full.txt" "llms.txt missing llms-full resource"
-require_pattern "${REPO_ROOT}/docs-site/public/ai-sitemap.xml" "https://davidahmann.github.io/gait/llms.txt" "ai sitemap missing llms.txt"
-require_pattern "${REPO_ROOT}/docs-site/public/ai-sitemap.xml" "https://davidahmann.github.io/gait/llms-full.txt" "ai sitemap missing llms-full.txt"
-require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "Sitemap: https://davidahmann.github.io/gait/sitemap.xml" "robots.txt missing sitemap.xml pointer"
-require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "Sitemap: https://davidahmann.github.io/gait/ai-sitemap.xml" "robots.txt missing ai-sitemap pointer"
+require_pattern "${REPO_ROOT}/docs-site/public/ai-sitemap.xml" "https://clyra-ai.github.io/gait/llms.txt" "ai sitemap missing llms.txt"
+require_pattern "${REPO_ROOT}/docs-site/public/ai-sitemap.xml" "https://clyra-ai.github.io/gait/llms-full.txt" "ai sitemap missing llms-full.txt"
+require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "Sitemap: https://clyra-ai.github.io/gait/sitemap.xml" "robots.txt missing sitemap.xml pointer"
+require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "Sitemap: https://clyra-ai.github.io/gait/ai-sitemap.xml" "robots.txt missing ai-sitemap pointer"
 require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "User-agent: PerplexityBot" "robots.txt missing PerplexityBot allow rule"
 require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "User-agent: ChatGPT-User" "robots.txt missing ChatGPT-User allow rule"
 

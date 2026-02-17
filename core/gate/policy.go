@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	gaitjcs "github.com/davidahmann/gait/core/jcs"
+	gaitjcs "github.com/Clyra-AI/gait/core/jcs"
 	"github.com/goccy/go-yaml"
 
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
 const (

@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	coreerrors "github.com/davidahmann/gait/core/errors"
-	"github.com/davidahmann/gait/core/guard"
-	"github.com/davidahmann/gait/core/jobruntime"
-	"github.com/davidahmann/gait/core/runpack"
-	schemapack "github.com/davidahmann/gait/core/schema/v1/pack"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	"github.com/davidahmann/gait/core/sign"
-	"github.com/davidahmann/gait/core/zipx"
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
+	"github.com/Clyra-AI/gait/core/guard"
+	"github.com/Clyra-AI/gait/core/jobruntime"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemapack "github.com/Clyra-AI/gait/core/schema/v1/pack"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/zipx"
 )
 
 func TestBuildRunPackVerifyInspectAndDiff(t *testing.T) {

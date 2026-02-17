@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/davidahmann/gait/core/regress"
-	"github.com/davidahmann/gait/core/runpack"
+	"github.com/Clyra-AI/gait/core/regress"
+	"github.com/Clyra-AI/gait/core/runpack"
 )
 
 const regressStatusPass = "pass"

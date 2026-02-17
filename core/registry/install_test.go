@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/jcs"
-	schemaregistry "github.com/davidahmann/gait/core/schema/v1/registry"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/jcs"
+	schemaregistry "github.com/Clyra-AI/gait/core/schema/v1/registry"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func newIPv4LocalServer(t *testing.T, handler http.Handler) *httptest.Server {

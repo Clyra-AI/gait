@@ -1,4 +1,4 @@
-module github.com/davidahmann/gait
+module github.com/Clyra-AI/gait
 
 go 1.25.7
 

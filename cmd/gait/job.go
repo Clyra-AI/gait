@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/davidahmann/gait/core/jobruntime"
+	"github.com/Clyra-AI/gait/core/jobruntime"
 )
 
 const (

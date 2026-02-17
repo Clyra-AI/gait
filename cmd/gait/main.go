@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davidahmann/gait/core/fsx"
-	"github.com/davidahmann/gait/core/scout"
+	"github.com/Clyra-AI/gait/core/fsx"
+	"github.com/Clyra-AI/gait/core/scout"
 )
 
 // version is stamped at release time via ldflags; default stays dev for local builds.

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/policytest"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/policytest"
 	"github.com/goccy/go-yaml"
 )
 

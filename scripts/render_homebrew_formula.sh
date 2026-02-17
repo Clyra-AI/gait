@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DEFAULT="davidahmann/gait"
+REPO_DEFAULT="Clyra-AI/gait"
 VERSION_DEFAULT=""
 CHECKSUMS_DEFAULT="dist/checksums.txt"
 OUT_DEFAULT="dist/gait.rb"
@@ -19,7 +19,7 @@ Usage:
 
 Options:
   --version <tag>      Release tag (required, e.g. v1.7.0)
-  --repo <owner/name>  GitHub repository (default: davidahmann/gait)
+  --repo <owner/name>  GitHub repository (default: Clyra-AI/gait)
   --checksums <path>   checksums.txt path (default: dist/checksums.txt)
   --out <path>         Output formula path (default: dist/gait.rb)
   --project <name>     Release archive prefix (default: gait)

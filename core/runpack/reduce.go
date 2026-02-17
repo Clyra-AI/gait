@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 type ReducePredicate string

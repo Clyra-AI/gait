@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/davidahmann/gait/core/runpack"
+	"github.com/Clyra-AI/gait/core/runpack"
 )
 
 type migrateOutput struct {

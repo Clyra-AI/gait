@@ -182,7 +182,7 @@ else
 
   bash "${REPO_ROOT}/scripts/render_homebrew_formula.sh" \
     --version "${release_version_tag}" \
-    --repo "davidahmann/gait" \
+    --repo "Clyra-AI/gait" \
     --project "gait-local" \
     --checksums "${release_dir}/checksums.txt" \
     --release-base-url "file://${release_dir}" \

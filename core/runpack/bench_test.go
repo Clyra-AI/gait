@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	"github.com/davidahmann/gait/core/sign"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func BenchmarkVerifyZipTypical(b *testing.B) {

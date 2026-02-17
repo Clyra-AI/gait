@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/runpack"
-	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemaregress "github.com/Clyra-AI/gait/core/schema/v1/regress"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 func TestRunPassesWithDefaultFixture(t *testing.T) {

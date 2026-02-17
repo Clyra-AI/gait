@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 type traceVerifyOutput struct {

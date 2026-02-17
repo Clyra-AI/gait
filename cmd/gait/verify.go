@@ -7,10 +7,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/guard"
-	"github.com/davidahmann/gait/core/runpack"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/guard"
+	"github.com/Clyra-AI/gait/core/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 const (

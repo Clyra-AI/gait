@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/fsx"
-	"github.com/davidahmann/gait/core/jcs"
-	schemaregistry "github.com/davidahmann/gait/core/schema/v1/registry"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/fsx"
+	"github.com/Clyra-AI/gait/core/jcs"
+	schemaregistry "github.com/Clyra-AI/gait/core/schema/v1/registry"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 type InstallOptions struct {

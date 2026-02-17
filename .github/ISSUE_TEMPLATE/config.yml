@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Open-ended ideas and product discussion
-    url: https://github.com/davidahmann/gait/discussions
+    url: https://github.com/Clyra-AI/gait/discussions
     about: Use Discussions for brainstorming and early ideas. Convert accepted ideas into Issues for execution tracking.
   - name: Security vulnerability reporting (private)
     url: mailto:dahmann@lumyn.cc

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	"github.com/davidahmann/gait/core/zipx"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/zipx"
 )
 
 func TestDiffRunpacksNoChange(t *testing.T) {

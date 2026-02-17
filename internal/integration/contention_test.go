@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	coreerrors "github.com/davidahmann/gait/core/errors"
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/runpack"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
 func TestConcurrentGateRateLimitStateIsDeterministic(t *testing.T) {

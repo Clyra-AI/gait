@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/davidahmann/gait/core/gate"
-	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
+	"github.com/Clyra-AI/gait/core/gate"
+	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
 )
 
 type CoverageReport struct {

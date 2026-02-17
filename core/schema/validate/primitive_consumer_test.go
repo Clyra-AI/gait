@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/davidahmann/gait/core/gate"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/gate"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 func TestPrimitiveFixturesParseInGoConsumers(t *testing.T) {

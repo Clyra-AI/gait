@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/contextproof"
-	"github.com/davidahmann/gait/core/gate"
-	"github.com/davidahmann/gait/core/pack"
-	"github.com/davidahmann/gait/core/runpack"
-	schemacontext "github.com/davidahmann/gait/core/schema/v1/context"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	"github.com/davidahmann/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/contextproof"
+	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/pack"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
 )
 
 func TestContextProofCaptureGatePackFlow(t *testing.T) {

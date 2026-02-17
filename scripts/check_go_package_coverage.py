@@ -42,7 +42,7 @@ def main() -> int:
         package, coverage_text = match.groups()
         if package in allowlist:
             continue
-        if not package.startswith("github.com/davidahmann/gait/"):
+        if not package.startswith("github.com/Clyra-AI/gait/"):
             continue
         package_coverage[package] = float(coverage_text)
 

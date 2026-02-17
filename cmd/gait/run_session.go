@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/davidahmann/gait/core/runpack"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/runpack"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
 type runSessionOutput struct {

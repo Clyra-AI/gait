@@ -63,22 +63,22 @@ The tool boundary is the exact call site where your runtime is about to execute 
 
 ## Canonical Docs
 
-- Adopt in one PR: https://davidahmann.github.io/gait/docs/adopt_in_one_pr/
-- Durable jobs: https://davidahmann.github.io/gait/docs/durable_jobs/
-- Integration checklist: https://davidahmann.github.io/gait/docs/integration_checklist/
-- Architecture: https://davidahmann.github.io/gait/docs/architecture/
-- Flows: https://davidahmann.github.io/gait/docs/flows/
-- Threat model: https://davidahmann.github.io/gait/docs/threat_model/
-- Failure taxonomy and exits: https://davidahmann.github.io/gait/docs/failure_taxonomy_exit_codes/
-- PackSpec v1: https://davidahmann.github.io/gait/docs/contracts/packspec_v1/
-- Pack producer kit: https://davidahmann.github.io/gait/docs/contracts/pack_producer_kit/
-- Compatibility matrix: https://davidahmann.github.io/gait/docs/contracts/compatibility_matrix/
+- Adopt in one PR: https://clyra-ai.github.io/gait/docs/adopt_in_one_pr/
+- Durable jobs: https://clyra-ai.github.io/gait/docs/durable_jobs/
+- Integration checklist: https://clyra-ai.github.io/gait/docs/integration_checklist/
+- Architecture: https://clyra-ai.github.io/gait/docs/architecture/
+- Flows: https://clyra-ai.github.io/gait/docs/flows/
+- Threat model: https://clyra-ai.github.io/gait/docs/threat_model/
+- Failure taxonomy and exits: https://clyra-ai.github.io/gait/docs/failure_taxonomy_exit_codes/
+- PackSpec v1: https://clyra-ai.github.io/gait/docs/contracts/packspec_v1/
+- Pack producer kit: https://clyra-ai.github.io/gait/docs/contracts/pack_producer_kit/
+- Compatibility matrix: https://clyra-ai.github.io/gait/docs/contracts/compatibility_matrix/
 
 ## LLM Files
 
-- https://davidahmann.github.io/gait/llms.txt
-- https://davidahmann.github.io/gait/llm/product.md
-- https://davidahmann.github.io/gait/llm/quickstart.md
-- https://davidahmann.github.io/gait/llm/security.md
-- https://davidahmann.github.io/gait/llm/faq.md
-- https://davidahmann.github.io/gait/llm/contracts.md
+- https://clyra-ai.github.io/gait/llms.txt
+- https://clyra-ai.github.io/gait/llm/product.md
+- https://clyra-ai.github.io/gait/llm/quickstart.md
+- https://clyra-ai.github.io/gait/llm/security.md
+- https://clyra-ai.github.io/gait/llm/faq.md
+- https://clyra-ai.github.io/gait/llm/contracts.md

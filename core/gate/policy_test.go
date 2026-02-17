@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidahmann/gait/core/jcs"
-	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	"github.com/Clyra-AI/gait/core/jcs"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
 func TestParsePolicyYAMLDefaultsAndSorting(t *testing.T) {

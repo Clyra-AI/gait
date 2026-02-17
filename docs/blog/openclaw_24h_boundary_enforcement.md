@@ -9,7 +9,7 @@ We ran the experiment.
 
 ## The 60-Second Version
 
-![Gait in 60 seconds terminal demo](https://raw.githubusercontent.com/davidahmann/gait/main/docs/assets/gait_demo_60s.gif)
+![Gait in 60 seconds terminal demo](https://raw.githubusercontent.com/Clyra-AI/gait/main/docs/assets/gait_demo_60s.gif)
 
 One binary. No network. Demo, verify, block, regress — all offline.
 
@@ -162,7 +162,7 @@ The full artifact bundle — decisions, traces, runpacks, policy, summary — is
 ## Try It Yourself
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
 gait demo
 gait verify run_demo
 ```
@@ -170,13 +170,13 @@ gait verify run_demo
 Block a dangerous tool call:
 
 ```bash
-git clone https://github.com/davidahmann/gait.git && cd gait
+git clone https://github.com/Clyra-AI/gait.git && cd gait
 gait policy test examples/prompt-injection/policy.yaml examples/prompt-injection/intent_injected.json --json
 ```
 
 Result: `verdict: block`, `reason_codes: ["blocked_prompt_injection"]`.
 
-Full source, artifacts, and integration guides: [github.com/davidahmann/gait](https://github.com/davidahmann/gait)
+Full source, artifacts, and integration guides: [github.com/Clyra-AI/gait](https://github.com/Clyra-AI/gait)
 
 ## What This Means
 
@@ -188,4 +188,4 @@ Gait is an open-source agent control plane. One CLI, no network required, every 
 
 ---
 
-*Policy examples, integration guides, and simulation tooling are included in the [Gait repository](https://github.com/davidahmann/gait).*
+*Policy examples, integration guides, and simulation tooling are included in the [Gait repository](https://github.com/Clyra-AI/gait).*

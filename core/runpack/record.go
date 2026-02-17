@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidahmann/gait/core/contextproof"
-	"github.com/davidahmann/gait/core/fsx"
-	"github.com/davidahmann/gait/core/jcs"
-	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
-	"github.com/davidahmann/gait/core/sign"
-	"github.com/davidahmann/gait/core/zipx"
+	"github.com/Clyra-AI/gait/core/contextproof"
+	"github.com/Clyra-AI/gait/core/fsx"
+	"github.com/Clyra-AI/gait/core/jcs"
+	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/sign"
+	"github.com/Clyra-AI/gait/core/zipx"
 )
 
 type RecordOptions struct {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="davidahmann/gait"
+REPO="Clyra-AI/gait"
 SOURCE_DIR="docs/wiki"
 COMMIT_MESSAGE="docs(wiki): sync wiki pages from docs/wiki"
 
@@ -12,7 +12,7 @@ Usage: scripts/publish_wiki.sh [--repo owner/name] [--source-dir docs/wiki] [--m
 Syncs markdown pages from the source directory to the GitHub wiki git repo.
 
 Example:
-  bash scripts/publish_wiki.sh --repo davidahmann/gait
+  bash scripts/publish_wiki.sh --repo Clyra-AI/gait
 USAGE
 }
 
