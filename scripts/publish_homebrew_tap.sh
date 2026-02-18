@@ -99,6 +99,15 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 2
 fi
 
+should_retry_transient() {
+  local output="$1"
+  # Retry on common transient API/transport failures and throttling signals.
+  if printf '%s' "$output" | grep -Eiq '(^|[^0-9])(429|5[0-9]{2})([^0-9]|$)|throttl|bad gateway'; then
+    return 0
+  fi
+  return 1
+}
+
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
@@ -119,7 +128,7 @@ if [[ -z "$checksums_path" ]]; then
       checksums_path="${workdir}/checksums.txt"
       break
     fi
-    if printf '%s' "$download_out" | rg -q "429|throttl" && [[ $attempt -lt $attempts ]]; then
+    if should_retry_transient "$download_out" && [[ $attempt -lt $attempts ]]; then
       sleep_seconds=$((attempt * 30))
       echo "gh release download throttled (attempt ${attempt}/${attempts}); retrying in ${sleep_seconds}s..."
       sleep "${sleep_seconds}"
@@ -182,7 +191,7 @@ for attempt in $(seq 1 "${attempts}"); do
     echo "published ${tap_repo}/${target_formula} for ${version}"
     exit 0
   fi
-  if printf '%s' "$push_out" | rg -q "429|throttl" && [[ $attempt -lt $attempts ]]; then
+  if should_retry_transient "$push_out" && [[ $attempt -lt $attempts ]]; then
     sleep_seconds=$((attempt * 30))
     echo "git push throttled (attempt ${attempt}/${attempts}); retrying in ${sleep_seconds}s..."
     sleep "${sleep_seconds}"
