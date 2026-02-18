@@ -303,6 +303,7 @@ func fetchRemoteSourceOnce(ctx context.Context, source string, client *http.Clie
 	if err != nil {
 		return nil, fmt.Errorf("build source request: %w", err)
 	}
+	// #nosec G704 -- source URL is policy-controlled and validated by caller before fetch.
 	response, err := httpClient.Do(request)
 	if err != nil {
 		return nil, err

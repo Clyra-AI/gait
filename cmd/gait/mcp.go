@@ -55,7 +55,7 @@ type mcpProxyEvalOptions struct {
 	LogExportPath string
 	OTelExport    string
 	KeyMode       string
-	PrivateKey    string
+	PrivateKey    string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
 	PrivateKeyEnv string
 }
 

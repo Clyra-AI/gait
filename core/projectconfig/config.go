@@ -20,7 +20,7 @@ type GateDefaults struct {
 	Policy                 string `yaml:"policy"`
 	Profile                string `yaml:"profile"`
 	KeyMode                string `yaml:"key_mode"`
-	PrivateKey             string `yaml:"private_key"`
+	PrivateKey             string `yaml:"private_key"` // #nosec G117 -- config key name documents expected secret input.
 	PrivateKeyEnv          string `yaml:"private_key_env"`
 	ApprovalPublicKey      string `yaml:"approval_public_key"`
 	ApprovalPublicKeyEnv   string `yaml:"approval_public_key_env"`

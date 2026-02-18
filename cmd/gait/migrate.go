@@ -131,8 +131,8 @@ func runMigrate(arguments []string) int {
 	}
 
 	status := "migrated"
-	oldBytes, oldErr := os.ReadFile(resolvedInput)
-	newBytes, newErr := os.ReadFile(outputPath)
+	oldBytes, oldErr := os.ReadFile(resolvedInput) // #nosec G304 -- resolvedInput is canonicalized local path from CLI input.
+	newBytes, newErr := os.ReadFile(outputPath)    // #nosec G304 -- outputPath is a local destination path selected by command.
 	if oldErr == nil && newErr == nil && bytes.Equal(oldBytes, newBytes) {
 		status = "no_change"
 	}

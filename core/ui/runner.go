@@ -21,7 +21,7 @@ func defaultRunner(ctx context.Context, workDir string, argv []string) (runResul
 	if len(argv) == 0 {
 		return runResult{}, fmt.Errorf("missing command")
 	}
-	command := exec.CommandContext(ctx, argv[0], argv[1:]...) // #nosec G204
+	command := exec.CommandContext(ctx, argv[0], argv[1:]...) // #nosec G204,G702
 	command.Dir = strings.TrimSpace(workDir)
 	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer

@@ -107,6 +107,7 @@ func renameWithValidatedTempPath(tempPath string, path string, goos string) erro
 }
 
 func renameWithWindowsSemantics(tempPath string, path string, goos string) error {
+	// #nosec G703 -- both paths are validated local/absolute before entering this function.
 	if err := os.Rename(tempPath, path); err != nil {
 		if goos != "windows" {
 			return fmt.Errorf("rename temp file: %w", err)
@@ -114,6 +115,7 @@ func renameWithWindowsSemantics(tempPath string, path string, goos string) error
 		if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
 			return fmt.Errorf("remove destination before rename: %w", removeErr)
 		}
+		// #nosec G703 -- both paths are validated local/absolute before entering this function.
 		if renameErr := os.Rename(tempPath, path); renameErr != nil {
 			return fmt.Errorf("rename temp file after remove: %w", renameErr)
 		}

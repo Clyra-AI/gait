@@ -25,7 +25,7 @@ type mcpServeConfig struct {
 	DefaultAdapter           string
 	Profile                  string
 	AuthMode                 string
-	AuthToken                string
+	AuthToken                string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
 	TraceDir                 string
 	RunpackDir               string
 	PackDir                  string
@@ -44,7 +44,7 @@ type mcpServeConfig struct {
 	LogExportPath            string
 	OTelExport               string
 	KeyMode                  string
-	PrivateKey               string
+	PrivateKey               string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
 	PrivateKeyEnv            string
 }
 
@@ -535,7 +535,7 @@ func writeMCPServeSSE(writer http.ResponseWriter, status int, payload mcpServeEv
 	}
 	_, _ = writer.Write([]byte("event: evaluate\n"))
 	_, _ = writer.Write([]byte("data: "))
-	_, _ = writer.Write(encoded)
+	_, _ = writer.Write(encoded) // #nosec G705 -- writes JSON payload to SSE stream, not HTML.
 	_, _ = writer.Write([]byte("\n\n"))
 	if flusher, ok := writer.(http.Flusher); ok {
 		flusher.Flush()

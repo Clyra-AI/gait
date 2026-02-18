@@ -324,10 +324,12 @@ func materializeRunpackSource(sourcePath string) (string, func(), error) {
 	tempPath := tempFile.Name()
 	if _, err := tempFile.Write(extracted); err != nil {
 		_ = tempFile.Close()
+		// #nosec G703 -- tempPath is created by os.CreateTemp in this function.
 		_ = os.Remove(tempPath)
 		return "", func() {}, fmt.Errorf("materialize source runpack: %w", err)
 	}
 	if err := tempFile.Close(); err != nil {
+		// #nosec G703 -- tempPath is created by os.CreateTemp in this function.
 		_ = os.Remove(tempPath)
 		return "", func() {}, fmt.Errorf("materialize source runpack: %w", err)
 	}
