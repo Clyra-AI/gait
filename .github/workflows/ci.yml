@@ -207,6 +207,10 @@ jobs:
         run: |
           cd sdk/python
           python -m uv run --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=85
+      - name: Tier 11 scenario suite
+        shell: bash
+        run: |
+          make test-scenarios
 
   e2e:
     needs: changes

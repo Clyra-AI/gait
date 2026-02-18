@@ -1,0 +1,5 @@
+exit_code: 0
+verdict: allow
+simulate_mode: true
+reason_codes:
+  - simulate_mode_non_enforcing

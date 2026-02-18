@@ -1,0 +1,20 @@
+{
+  "schema_id": "gait.gate.delegation_token",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-18T19:13:04.96196Z",
+  "producer_version": "0.0.0-dev",
+  "token_id": "7e37847cf7d9320eb0854cc8",
+  "delegator_identity": "agent.manager",
+  "delegate_identity": "agent.senior",
+  "scope": [
+    "tool:tool.write"
+  ],
+  "scope_class": "write",
+  "expires_at": "2036-02-16T19:13:04.96196Z",
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "854baff4855aef78ee7bff54778815baba4f4c8dd693e12ad4429edd118f6590",
+    "sig": "bd15cvO/JBhJoCKov4WlPAB0A1jitmoIK3ISnBUqJNMq0cB9SzfTb1NlhSmhx9cHNC/vGYinfvzi+Vf1E+jfDw==",
+    "signed_digest": "3a9e00573bb8527ca7a89813547ec21043a60c77b0c891eb5c817896262344e8"
+  }
+}

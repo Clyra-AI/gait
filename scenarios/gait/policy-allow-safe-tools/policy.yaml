@@ -1,0 +1,6 @@
+default_verdict: block
+rules:
+  - name: allow-safe-tools
+    effect: allow
+    match:
+      tool_names: [tool.read, tool.list, tool.info]

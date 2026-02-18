@@ -5,4 +5,9 @@
 /cmd/gait/** @davidahmann
 /core/** @davidahmann
 /schemas/** @davidahmann
+
+# Scenario fixtures are contract artifacts and require explicit owner review.
+# Changes under /scenarios/ should be reviewed for expected behavior drift.
+/scenarios/ @davidahmann
+
 /.github/workflows/** @davidahmann

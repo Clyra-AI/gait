@@ -54,6 +54,9 @@ jobs:
           PYTHONPATH: .
         run: |
           make test-fast
+      - name: Validate scenario fixtures
+        run: |
+          bash scripts/validate_scenarios.sh
 
   windows-fast:
     name: pr-fast-windows

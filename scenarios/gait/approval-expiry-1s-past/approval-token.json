@@ -1,0 +1,21 @@
+{
+  "schema_id": "gait.gate.approval_token",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-18T19:13:05.165818Z",
+  "producer_version": "0.0.0-dev",
+  "token_id": "dfa1d0984e22f984a9c0ca45",
+  "approver_identity": "human.reviewer",
+  "reason_code": "MANUAL_APPROVAL",
+  "intent_digest": "350b03d56a4427cdddccb78038cf7ce3eb47d497242749793ddc15d0c809a24b",
+  "policy_digest": "07a528a879e4f0e0cd5a0e2ca801924746b47dac624862207ef21d4ec266f8f9",
+  "scope": [
+    "tool:tool.write"
+  ],
+  "expires_at": "2026-02-18T19:13:06.165818Z",
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "4057fdde7cca116d12910f084ed93107c06bf44ed971c9c7ef72ea172776c4da",
+    "sig": "e0lnN37/bjusfb5lfIC/tin5NSbZL5zIn/bhOB5kmzQ8asCfVYejple6c86bfam+pWnPqycKAGTb63yfvw7MCQ==",
+    "signed_digest": "e30643b2f6fbb5d3929b08173f8f61f56c3a2c06b0e7ed3795b2e6ad191e317e"
+  }
+}

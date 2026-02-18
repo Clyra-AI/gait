@@ -1,0 +1,3 @@
+{"index":1,"tool_name":"tool.read","verdict":"allow","exit_code":0}
+{"index":2,"tool_name":"tool.list","verdict":"allow","exit_code":0}
+{"index":3,"tool_name":"tool.info","verdict":"allow","exit_code":0}
