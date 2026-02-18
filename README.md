@@ -1,4 +1,4 @@
-# Gait — Signed Proof and Fail-Closed Control for AI Agent Tool Calls
+# Gait — Signed Proof and Fail-Closed Control for Production AI Agent Tool Calls
 
 ## Overview
 
@@ -6,7 +6,7 @@ Use Gait when an AI agent can cause real side effects and you need deterministic
 
 Gait is not an agent framework, not a model host, and not a dashboard. It is an offline-first Go CLI that sits at the tool boundary.
 
-Capture every agent tool call as a signed, offline-verifiable pack. Enforce fail-closed policy before high-risk actions execute. Turn incidents into CI regressions in one command.
+Capture every prod agent tool call as a signed, offline-verifiable pack. Enforce fail-closed policy before high-risk actions execute. Turn incidents into CI regressions in one command.
 
 Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`docs/install.md`](docs/install.md) | Homebrew: [`docs/homebrew.md`](docs/homebrew.md)
 
