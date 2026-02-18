@@ -130,7 +130,7 @@ def main() -> int:
         return completed.returncode if completed.returncode != 0 else 6
 
     response = {
-        "ok": completed.returncode in (0, 4),
+        "ok": completed.returncode in (0, 3, 4),
         "exit_code": completed.returncode,
         "gate_result": parsed_output,
         "trace_path": parsed_output.get("trace_path"),

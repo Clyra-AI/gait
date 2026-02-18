@@ -317,6 +317,7 @@ fi
 printf "%b" "$broker_fail_script" >"$broker_fail_path"
 chmod 700 "$broker_fail_path" 2>/dev/null || true
 (
+  set +e
   cd "$WORK_DIR"
   "$BIN_PATH" gate eval \
     --policy "$WORK_DIR/high_risk_with_broker.yaml" \
@@ -328,6 +329,12 @@ chmod 700 "$broker_fail_path" 2>/dev/null || true
     --credential-command "$broker_fail_path" \
     --credential-evidence-out "$WORK_DIR/credential_evidence.json" \
     --json >fail_closed_broker.json
+  broker_fail_code=$?
+  set -e
+  if [[ "$broker_fail_code" -ne 3 ]]; then
+    echo "broker fail-closed exit mismatch: $broker_fail_code" >&2
+    exit 1
+  fi
 )
 if grep -q "secret-broker-token" "$WORK_DIR/fail_closed_broker.json"; then
   echo "broker failure output leaked secret token" >&2

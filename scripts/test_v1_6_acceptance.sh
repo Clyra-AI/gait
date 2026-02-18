@@ -129,7 +129,7 @@ if [[ $ALLOW_CODE -ne 0 ]]; then
   echo "unexpected allow sidecar exit code: $ALLOW_CODE" >&2
   exit 1
 fi
-if [[ $BLOCK_CODE -ne 0 ]]; then
+if [[ $BLOCK_CODE -ne 3 ]]; then
   echo "unexpected block sidecar exit code: $BLOCK_CODE" >&2
   exit 1
 fi
