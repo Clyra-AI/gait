@@ -1,0 +1,4 @@
+exit_code: 4
+verdict: require_approval
+reason_codes_must_include:
+  - approval_token_expired

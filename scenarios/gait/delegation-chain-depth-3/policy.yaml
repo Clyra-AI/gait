@@ -1,0 +1,11 @@
+default_verdict: block
+rules:
+  - name: allow-delegated-write
+    effect: allow
+    match:
+      tool_names: [tool.write]
+      require_delegation: true
+      allowed_delegator_identities: [agent.lead, agent.manager, agent.senior]
+      allowed_delegate_identities: [agent.manager, agent.senior, agent.worker]
+      delegation_scopes: [write]
+      max_delegation_depth: 3
