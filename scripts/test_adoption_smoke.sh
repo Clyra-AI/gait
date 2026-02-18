@@ -68,6 +68,40 @@ python3 examples/integrations/template/quickstart.py --scenario allow
 python3 examples/integrations/template/quickstart.py --scenario block
 python3 examples/integrations/template/quickstart.py --scenario require_approval
 python3 examples/integrations/openai_agents/quickstart.py --scenario require_approval
+python3 examples/integrations/claude_code/quickstart.py --scenario require_approval
+for scenario in allow block require_approval; do
+  hook_output="$(
+    GAIT_CLAUDE_POLICY="examples/integrations/claude_code/policy_${scenario}.yaml" \
+      examples/integrations/claude_code/gait-gate.sh <<'JSON'
+{"session_id":"sess-adoption","tool_name":"Write","tool_input":{"path":"/tmp/gait-claude-hook.json","content":"ok"},"hook_event_name":"PreToolUse"}
+JSON
+  )"
+  printf '%s\n' "$hook_output"
+  CLAUDE_HOOK_SCENARIO="$scenario" CLAUDE_HOOK_OUTPUT="$hook_output" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+scenario = os.environ["CLAUDE_HOOK_SCENARIO"]
+output = os.environ["CLAUDE_HOOK_OUTPUT"]
+parsed = json.loads(output)
+if not isinstance(parsed, dict):
+    raise SystemExit(f"claude hook output must be a JSON object: {output}")
+decision = str(parsed.get("permissionDecision", ""))
+expected = {
+    "allow": "allow",
+    "block": "deny",
+    "require_approval": "ask",
+}[scenario]
+if decision != expected:
+    raise SystemExit(
+        f"claude hook decision mismatch for {scenario}: expected={expected} got={decision}"
+    )
+trace_path = Path(str(parsed.get("tracePath", "")))
+if not trace_path.exists():
+    raise SystemExit(f"claude hook trace missing: {trace_path}")
+PY
+done
 for scenario in allow block require_approval; do
   voice_output="$(python3 examples/integrations/voice_reference/quickstart.py --scenario "$scenario")"
   printf '%s\n' "$voice_output"
@@ -116,6 +150,7 @@ required = [
     Path("gait-out/integrations/template/trace_block.json"),
     Path("gait-out/integrations/template/trace_require_approval.json"),
     Path("gait-out/integrations/openai_agents/trace_require_approval.json"),
+    Path("gait-out/integrations/claude_code/trace_require_approval.json"),
     Path("gait-out/integrations/voice_reference/callpack_allow.zip"),
     Path("gait-out/integrations/voice_reference/callpack_block.zip"),
     Path("gait-out/integrations/voice_reference/callpack_require_approval.zip"),

@@ -12,6 +12,12 @@ import (
 	"github.com/Clyra-AI/gait/core/gate"
 )
 
+type testStringer string
+
+func (value testStringer) String() string {
+	return string(value)
+}
+
 func TestDecodeToolCallAdapters(t *testing.T) {
 	openaiPayload := []byte(`{
   "type": "function",
@@ -41,6 +47,26 @@ func TestDecodeToolCallAdapters(t *testing.T) {
 		t.Fatalf("unexpected anthropic call: %#v", call)
 	}
 
+	claudePayload := []byte(`{
+  "session_id":"sess-claude-1",
+  "tool_name":"Bash",
+  "tool_input":{"command":"npm test"},
+  "hook_event_name":"PreToolUse"
+}`)
+	call, err = DecodeToolCall("claude_code", claudePayload)
+	if err != nil {
+		t.Fatalf("decode claude code call: %v", err)
+	}
+	if call.Name != "tool.exec" || call.Args["command"] != "npm test" {
+		t.Fatalf("unexpected claude code call: %#v", call)
+	}
+	if call.Context.SessionID != "sess-claude-1" {
+		t.Fatalf("expected claude code session_id passthrough: %#v", call.Context)
+	}
+	if hookName, ok := call.Context.AuthContext["hook_event_name"].(string); !ok || hookName != "PreToolUse" {
+		t.Fatalf("expected claude code hook_event_name passthrough: %#v", call.Context.AuthContext)
+	}
+
 	langchainPayload := []byte(`{
   "tool": "tool.search",
   "tool_input": {"query":"gait"}
@@ -68,6 +94,121 @@ func TestDecodeToolCallAdapters(t *testing.T) {
 
 	if _, err := DecodeToolCall("unsupported", []byte(`{}`)); err == nil {
 		t.Fatalf("expected unsupported adapter error")
+	}
+}
+
+func TestDecodeToolCallClaudeCodeFallbackNameAndTargets(t *testing.T) {
+	payload := []byte(`{
+  "tool_name":"NotebookEdit",
+  "tool_input":{"file_path":"/tmp/notebook.ipynb"}
+}`)
+	call, err := DecodeToolCall("claude-code", payload)
+	if err != nil {
+		t.Fatalf("decode claude code fallback: %v", err)
+	}
+	if call.Name != "tool.write" {
+		t.Fatalf("unexpected mapped tool name: %#v", call)
+	}
+	if len(call.Targets) != 1 || call.Targets[0].Kind != "path" || call.Targets[0].Operation != "write" {
+		t.Fatalf("expected inferred path write target, got: %#v", call.Targets)
+	}
+
+	unknownPayload := []byte(`{
+  "name":"Custom Action",
+  "input":{"arg":"value"}
+}`)
+	call, err = DecodeToolCall("claudecode", unknownPayload)
+	if err != nil {
+		t.Fatalf("decode claudecode unknown mapping: %v", err)
+	}
+	if call.Name != "tool.custom_action" {
+		t.Fatalf("expected fallback tool.custom_action, got %q", call.Name)
+	}
+}
+
+func TestDecodeToolCallClaudeCodeErrorBranches(t *testing.T) {
+	if _, err := DecodeToolCall("claude_code", []byte(`{`)); err == nil {
+		t.Fatalf("expected parse error for malformed claude_code payload")
+	}
+	if _, err := DecodeToolCall("claude_code", []byte(`{"tool_name":" "}`)); err == nil {
+		t.Fatalf("expected name-required error for empty claude_code tool name")
+	}
+	if _, err := DecodeToolCall("claude_code", []byte(`{"tool_name":"Read","tool_input":["not","an","object"]}`)); err == nil {
+		t.Fatalf("expected decode error for invalid claude_code tool_input")
+	}
+
+	call, err := DecodeToolCall("claude_code", []byte(`{
+  "name":"Read",
+  "input":{"url":"https://example.local/resource"}
+}`))
+	if err != nil {
+		t.Fatalf("decode claude_code legacy input fallback: %v", err)
+	}
+	if call.Name != "tool.read" {
+		t.Fatalf("expected fallback name mapping to tool.read, got %q", call.Name)
+	}
+	if len(call.Targets) != 1 || call.Targets[0].Kind != "url" || call.Targets[0].Operation != "read" {
+		t.Fatalf("expected url read target from legacy input fallback, got %#v", call.Targets)
+	}
+}
+
+func TestNormalizeClaudeCodeToolName(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{raw: "", want: ""},
+		{raw: "Web Search", want: "tool.read"},
+		{raw: "Notebook-Edit", want: "tool.write"},
+		{raw: "tool.custom.ACTION", want: "tool.custom.action"},
+		{raw: "Custom Action", want: "tool.custom_action"},
+	}
+	for _, testCase := range cases {
+		if got := normalizeClaudeCodeToolName(testCase.raw); got != testCase.want {
+			t.Fatalf("normalizeClaudeCodeToolName(%q): got=%q want=%q", testCase.raw, got, testCase.want)
+		}
+	}
+}
+
+func TestInferClaudeCodeTargetsAndFirstNonEmptyString(t *testing.T) {
+	readTargets := inferClaudeCodeTargets("tool.read", map[string]any{
+		"file_path": "/tmp/read.txt",
+		"url":       "https://example.local/read",
+	})
+	if len(readTargets) != 2 || readTargets[0].Kind != "path" || readTargets[1].Kind != "url" {
+		t.Fatalf("unexpected read targets: %#v", readTargets)
+	}
+
+	writeTargets := inferClaudeCodeTargets("tool.write", map[string]any{
+		"filepath": "/tmp/write.txt",
+	})
+	if len(writeTargets) != 1 || writeTargets[0].Kind != "path" || writeTargets[0].Operation != "write" {
+		t.Fatalf("unexpected write targets: %#v", writeTargets)
+	}
+
+	execTargets := inferClaudeCodeTargets("tool.exec", map[string]any{
+		"cmd": testStringer("npm test"),
+	})
+	if len(execTargets) != 1 || execTargets[0].Kind != "other" || execTargets[0].Value != "npm test" {
+		t.Fatalf("unexpected exec targets: %#v", execTargets)
+	}
+
+	delegateTargets := inferClaudeCodeTargets("tool.delegate", map[string]any{
+		"description": "review the failing run",
+	})
+	if len(delegateTargets) != 1 || delegateTargets[0].Operation != "delegate" {
+		t.Fatalf("unexpected delegate targets: %#v", delegateTargets)
+	}
+
+	if unknown := inferClaudeCodeTargets("tool.unknown", map[string]any{"path": "/tmp/ignored"}); unknown != nil {
+		t.Fatalf("expected nil targets for unknown tool, got %#v", unknown)
+	}
+
+	if got := firstNonEmptyString(map[string]any{
+		"first":  " ",
+		"second": testStringer("fallback"),
+	}, "first", "second"); got != "fallback" {
+		t.Fatalf("firstNonEmptyString did not use Stringer fallback, got %q", got)
 	}
 }
 
@@ -156,6 +297,26 @@ func TestToIntentRequestWithStrictContext(t *testing.T) {
 	}
 	if oauth, ok := intent.Context.AuthContext["oauth_evidence"]; !ok || oauth == nil {
 		t.Fatalf("expected oauth_evidence to be propagated into auth_context: %#v", intent.Context.AuthContext)
+	}
+}
+
+func TestToIntentRequestWrapper(t *testing.T) {
+	intent, err := ToIntentRequest(ToolCall{
+		Name: "tool.read",
+		Args: map[string]any{"path": "/tmp/input.txt"},
+		Targets: []Target{
+			{
+				Kind:      "path",
+				Value:     "/tmp/input.txt",
+				Operation: "read",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ToIntentRequest wrapper failed: %v", err)
+	}
+	if intent.ToolName != "tool.read" {
+		t.Fatalf("unexpected tool name from ToIntentRequest wrapper: %q", intent.ToolName)
 	}
 }
 

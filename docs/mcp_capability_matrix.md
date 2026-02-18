@@ -9,7 +9,7 @@ This page clarifies what `gait mcp proxy`, `gait mcp bridge`, and `gait mcp serv
 
 ## Adapter Definition
 
-In this context, an adapter is the payload translation layer from a framework schema (`mcp`, `openai`, `anthropic`, `langchain`) into Gait's normalized `IntentRequest` shape for policy evaluation.
+In this context, an adapter is the payload translation layer from a framework schema (`mcp`, `openai`, `anthropic`, `langchain`, `claude_code`) into Gait's normalized `IntentRequest` shape for policy evaluation.
 
 ## Capability Matrix
 

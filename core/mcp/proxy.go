@@ -179,6 +179,8 @@ func DecodeToolCall(adapter string, payload []byte) (ToolCall, error) {
 		return decodeOpenAIToolCall(payload)
 	case "anthropic":
 		return decodeAnthropicToolCall(payload)
+	case "claude_code", "claude-code", "claudecode":
+		return decodeClaudeCodeToolCall(payload)
 	case "langchain":
 		return decodeLangChainToolCall(payload)
 	default:
@@ -222,6 +224,56 @@ func decodeAnthropicToolCall(payload []byte) (ToolCall, error) {
 	}, nil
 }
 
+func decodeClaudeCodeToolCall(payload []byte) (ToolCall, error) {
+	var envelope struct {
+		Type          string `json:"type"`
+		Name          string `json:"name"`
+		Input         any    `json:"input"`
+		SessionID     string `json:"session_id"`
+		ToolName      string `json:"tool_name"`
+		ToolInput     any    `json:"tool_input"`
+		HookEventName string `json:"hook_event_name"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return ToolCall{}, fmt.Errorf("parse claude code tool call: %w", err)
+	}
+
+	rawName := strings.TrimSpace(envelope.ToolName)
+	if rawName == "" {
+		rawName = strings.TrimSpace(envelope.Name)
+	}
+	name := normalizeClaudeCodeToolName(rawName)
+	if name == "" {
+		return ToolCall{}, fmt.Errorf("claude code tool call name is required")
+	}
+
+	rawArgs := envelope.ToolInput
+	if rawArgs == nil {
+		rawArgs = envelope.Input
+	}
+	args, err := decodeArguments(rawArgs)
+	if err != nil {
+		return ToolCall{}, fmt.Errorf("decode claude code tool_input: %w", err)
+	}
+
+	call := ToolCall{
+		Name: name,
+		Args: args,
+	}
+	if sessionID := strings.TrimSpace(envelope.SessionID); sessionID != "" {
+		call.Context.SessionID = sessionID
+	}
+	if hookEventName := strings.TrimSpace(envelope.HookEventName); hookEventName != "" {
+		call.Context.AuthContext = map[string]any{
+			"hook_event_name": hookEventName,
+			"adapter":         "claude_code",
+		}
+	}
+
+	call.Targets = inferClaudeCodeTargets(name, args)
+	return call, nil
+}
+
 func decodeLangChainToolCall(payload []byte) (ToolCall, error) {
 	var envelope struct {
 		Tool      string `json:"tool"`
@@ -238,6 +290,104 @@ func decodeLangChainToolCall(payload []byte) (ToolCall, error) {
 		Name: envelope.Tool,
 		Args: args,
 	}, nil
+}
+
+var claudeCodeToolNameMap = map[string]string{
+	"read":         "tool.read",
+	"grep":         "tool.read",
+	"glob":         "tool.read",
+	"webfetch":     "tool.read",
+	"websearch":    "tool.read",
+	"write":        "tool.write",
+	"edit":         "tool.write",
+	"notebookedit": "tool.write",
+	"bash":         "tool.exec",
+	"task":         "tool.delegate",
+}
+
+func normalizeClaudeCodeToolName(rawName string) string {
+	trimmed := strings.TrimSpace(rawName)
+	if trimmed == "" {
+		return ""
+	}
+	canonical := strings.ToLower(strings.TrimSpace(trimmed))
+	canonical = strings.NewReplacer(" ", "", "_", "", "-", "").Replace(canonical)
+	if mapped, ok := claudeCodeToolNameMap[canonical]; ok {
+		return mapped
+	}
+	if strings.Contains(trimmed, ".") {
+		return strings.ToLower(trimmed)
+	}
+	normalized := strings.ToLower(strings.TrimSpace(trimmed))
+	normalized = strings.NewReplacer(" ", "_", "-", "_").Replace(normalized)
+	return "tool." + normalized
+}
+
+func inferClaudeCodeTargets(toolName string, args map[string]any) []Target {
+	switch toolName {
+	case "tool.read":
+		targets := make([]Target, 0, 2)
+		if path := firstNonEmptyString(args, "path", "file_path", "filepath", "file"); path != "" {
+			targets = append(targets, Target{
+				Kind:      "path",
+				Value:     path,
+				Operation: "read",
+			})
+		}
+		if url := firstNonEmptyString(args, "url", "uri"); url != "" {
+			targets = append(targets, Target{
+				Kind:      "url",
+				Value:     url,
+				Operation: "read",
+			})
+		}
+		return targets
+	case "tool.write":
+		if path := firstNonEmptyString(args, "path", "file_path", "filepath", "file"); path != "" {
+			return []Target{{
+				Kind:      "path",
+				Value:     path,
+				Operation: "write",
+			}}
+		}
+	case "tool.exec":
+		if command := firstNonEmptyString(args, "command", "cmd", "script"); command != "" {
+			return []Target{{
+				Kind:      "other",
+				Value:     command,
+				Operation: "execute",
+			}}
+		}
+	case "tool.delegate":
+		if task := firstNonEmptyString(args, "task", "prompt", "description"); task != "" {
+			return []Target{{
+				Kind:      "other",
+				Value:     task,
+				Operation: "delegate",
+			}}
+		}
+	}
+	return nil
+}
+
+func firstNonEmptyString(args map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value, ok := args[key]
+		if !ok {
+			continue
+		}
+		switch typed := value.(type) {
+		case string:
+			if trimmed := strings.TrimSpace(typed); trimmed != "" {
+				return trimmed
+			}
+		case fmt.Stringer:
+			if trimmed := strings.TrimSpace(typed.String()); trimmed != "" {
+				return trimmed
+			}
+		}
+	}
+	return ""
 }
 
 func decodeArguments(raw any) (map[string]any, error) {

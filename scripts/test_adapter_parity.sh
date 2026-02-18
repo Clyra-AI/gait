@@ -7,7 +7,7 @@ cd "$repo_root"
 go build -o ./gait ./cmd/gait
 export PATH="$repo_root:$PATH"
 
-frameworks=(openai_agents langchain autogen openclaw autogpt gastown)
+frameworks=(openai_agents langchain autogen openclaw autogpt gastown claude_code)
 
 echo "==> adapter parity smoke"
 for framework in "${frameworks[@]}"; do

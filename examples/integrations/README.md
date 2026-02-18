@@ -10,6 +10,7 @@ Current adapters:
 - `openclaw`
 - `autogpt`
 - `gastown`
+- `claude_code`
 - `voice_reference`
 - `template` (canonical copy/paste template)
 

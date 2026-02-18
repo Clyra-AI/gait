@@ -120,7 +120,7 @@ func runMCPProxy(arguments []string) int {
 
 	flagSet.StringVar(&policyPath, "policy", "", "path to policy YAML")
 	flagSet.StringVar(&callPath, "call", "", "path to tool call JSON (use '-' for stdin)")
-	flagSet.StringVar(&adapter, "adapter", "mcp", "adapter payload format: mcp|openai|anthropic|langchain")
+	flagSet.StringVar(&adapter, "adapter", "mcp", "adapter payload format: mcp|openai|anthropic|langchain|claude_code")
 	flagSet.StringVar(&profile, "profile", string(gateProfileStandard), "runtime profile: standard|oss-prod")
 	flagSet.StringVar(&tracePath, "trace-out", "", "path to emitted trace JSON (default trace_<trace_id>.json)")
 	flagSet.StringVar(&runID, "run-id", "", "optional run_id override for proxy artifacts")
@@ -753,13 +753,13 @@ func writeMCPProxyOutput(jsonOutput bool, output mcpProxyOutput, exitCode int) i
 
 func printMCPUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
 }
 
 func printMCPProxyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }

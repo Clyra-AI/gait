@@ -142,7 +142,7 @@ func runMCPServe(arguments []string) int {
 
 	flagSet.StringVar(&policyPath, "policy", "", "path to policy YAML")
 	flagSet.StringVar(&listenAddr, "listen", "127.0.0.1:8787", "listen address")
-	flagSet.StringVar(&adapter, "adapter", "mcp", "default adapter: mcp|openai|anthropic|langchain")
+	flagSet.StringVar(&adapter, "adapter", "mcp", "default adapter: mcp|openai|anthropic|langchain|claude_code")
 	flagSet.StringVar(&profile, "profile", "standard", "runtime profile: standard|oss-prod")
 	flagSet.StringVar(&authMode, "auth-mode", "off", "serve auth mode: off|token")
 	flagSet.StringVar(&authTokenEnv, "auth-token-env", "", "env var containing bearer token for --auth-mode token")
@@ -676,7 +676,7 @@ func mcpRetentionMatches(class string, fileName string) bool {
 
 func printMCPServeUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  endpoints: POST /v1/evaluate (json), POST /v1/evaluate/sse (text/event-stream), POST /v1/evaluate/stream (application/x-ndjson)")
 }
 

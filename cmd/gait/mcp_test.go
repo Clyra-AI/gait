@@ -381,6 +381,11 @@ func TestRunMCPProxyAdaptersSupportRunpackAndRegressInit(t *testing.T) {
 			adapter: "langchain",
 			payload: `{"tool":"tool.search","tool_input":{"query":"gait"}}`,
 		},
+		{
+			name:    "claude_code",
+			adapter: "claude_code",
+			payload: `{"session_id":"sess-claude-case","tool_name":"WebSearch","tool_input":{"query":"gait"}}`,
+		},
 	}
 
 	for _, testCase := range cases {
