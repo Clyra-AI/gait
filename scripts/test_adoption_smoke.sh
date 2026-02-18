@@ -126,16 +126,28 @@ if missing:
 PY
 
 echo "==> sidecar smoke"
+set +e
 python3 examples/sidecar/gate_sidecar.py \
   --policy examples/policy-test/allow.yaml \
   --intent-file core/schema/testdata/gate_intent_request_valid.json \
   --trace-out "$repo_root/gait-out/trace_sidecar_allow.json" \
   > "$repo_root/gait-out/sidecar_allow.json"
+ALLOW_CODE=$?
 python3 examples/sidecar/gate_sidecar.py \
   --policy examples/policy-test/block.yaml \
   --intent-file core/schema/testdata/gate_intent_request_valid.json \
   --trace-out "$repo_root/gait-out/trace_sidecar_block.json" \
   > "$repo_root/gait-out/sidecar_block.json"
+BLOCK_CODE=$?
+set -e
+if [[ "$ALLOW_CODE" -ne 0 ]]; then
+  echo "sidecar allow exit mismatch: $ALLOW_CODE" >&2
+  exit 1
+fi
+if [[ "$BLOCK_CODE" -ne 3 ]]; then
+  echo "sidecar block exit mismatch: $BLOCK_CODE" >&2
+  exit 1
+fi
 python3 - <<'PY'
 import json
 from pathlib import Path
