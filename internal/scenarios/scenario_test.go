@@ -119,7 +119,7 @@ func runPolicyVerdictScenario(t *testing.T, repoRoot string, binaryPath string, 
 		if err := os.WriteFile(intentPath, []byte(intents[i]), 0o600); err != nil {
 			t.Fatalf("write intent fixture %s: %v", intentPath, err)
 		}
-		output, code := runCommand(t, workDir, binaryPath,
+		output, code := mustRunCommand(t, workDir, binaryPath,
 			"gate", "eval",
 			"--policy", policyPath,
 			"--intent", intentPath,
@@ -148,7 +148,7 @@ func runDryRunScenario(t *testing.T, repoRoot string, binaryPath string, scenari
 	if flags.Simulate {
 		args = append(args, "--simulate")
 	}
-	output, code := runCommand(t, t.TempDir(), binaryPath, args...)
+	output, code := mustRunCommand(t, t.TempDir(), binaryPath, args...)
 	if code != expected.ExitCode {
 		t.Fatalf("unexpected exit code: got=%d want=%d output=%s", code, expected.ExitCode, output)
 	}
@@ -192,12 +192,16 @@ func runConcurrentScenario(t *testing.T, repoRoot string, binaryPath string, sce
 				errCh <- fmt.Errorf("mkdir workdir: %w", err)
 				return
 			}
-			output, code := runCommand(t, workDir, binaryPath,
+			output, code, err := runCommand(workDir, binaryPath,
 				"gate", "eval",
 				"--policy", policyPath,
 				"--intent", intentPath,
 				"--json",
 			)
+			if err != nil {
+				errCh <- fmt.Errorf("run gate eval run=%d: %w", i+1, err)
+				return
+			}
 			if code != expected.ExitCode {
 				errCh <- fmt.Errorf("unexpected exit code run=%d got=%d want=%d output=%s", i+1, code, expected.ExitCode, output)
 				return
@@ -234,12 +238,12 @@ func runPackScenario(t *testing.T, repoRoot string, binaryPath string, scenarioP
 	expected := readExpectedYAML(t, filepath.Join(scenarioPath, "expected.yaml"))
 	workDir := t.TempDir()
 
-	_, demoCode := runCommand(t, workDir, binaryPath, "demo", "--json")
+	_, demoCode := mustRunCommand(t, workDir, binaryPath, "demo", "--json")
 	if demoCode != 0 {
 		t.Fatalf("demo failed with exit code %d", demoCode)
 	}
 	packPath := filepath.Join(workDir, "scenario-pack.zip")
-	buildOutput, buildCode := runCommand(t, workDir, binaryPath,
+	buildOutput, buildCode := mustRunCommand(t, workDir, binaryPath,
 		"pack", "build",
 		"--type", "run",
 		"--from", "run_demo",
@@ -249,7 +253,7 @@ func runPackScenario(t *testing.T, repoRoot string, binaryPath string, scenarioP
 	if buildCode != 0 {
 		t.Fatalf("pack build failed: code=%d output=%s", buildCode, buildOutput)
 	}
-	verifyOutput, verifyCode := runCommand(t, workDir, binaryPath,
+	verifyOutput, verifyCode := mustRunCommand(t, workDir, binaryPath,
 		"pack", "verify",
 		packPath,
 		"--json",
@@ -282,7 +286,7 @@ func runDelegationScenario(t *testing.T, repoRoot string, binaryPath string, sce
 	for _, rel := range flags.DelegationChainFiles {
 		chain = append(chain, filepath.Join(scenarioPath, rel))
 	}
-	output, code := runCommand(t, t.TempDir(), binaryPath,
+	output, code := mustRunCommand(t, t.TempDir(), binaryPath,
 		"gate", "eval",
 		"--policy", filepath.Join(scenarioPath, "policy.yaml"),
 		"--intent", filepath.Join(scenarioPath, "intent.json"),
@@ -313,7 +317,7 @@ func runDelegationScenario(t *testing.T, repoRoot string, binaryPath string, sce
 
 func runApprovalScenario(t *testing.T, repoRoot string, binaryPath string, scenarioPath string) {
 	expected := readExpectedYAML(t, filepath.Join(scenarioPath, "expected.yaml"))
-	output, code := runCommand(t, t.TempDir(), binaryPath,
+	output, code := mustRunCommand(t, t.TempDir(), binaryPath,
 		"gate", "eval",
 		"--policy", filepath.Join(scenarioPath, "policy.yaml"),
 		"--intent", filepath.Join(scenarioPath, "intent.json"),
@@ -356,20 +360,27 @@ func buildGaitBinary(t *testing.T, repoRoot string) string {
 	return binaryPath
 }
 
-func runCommand(t *testing.T, workDir string, binaryPath string, args ...string) (string, int) {
+func mustRunCommand(t *testing.T, workDir string, binaryPath string, args ...string) (string, int) {
 	t.Helper()
+	output, code, err := runCommand(workDir, binaryPath, args...)
+	if err != nil {
+		t.Fatalf("run command %v: %v", args, err)
+	}
+	return output, code
+}
+
+func runCommand(workDir string, binaryPath string, args ...string) (string, int, error) {
 	cmd := exec.Command(binaryPath, args...)
 	cmd.Dir = workDir
 	output, err := cmd.CombinedOutput()
 	if err == nil {
-		return strings.TrimSpace(string(output)), 0
+		return strings.TrimSpace(string(output)), 0, nil
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
-		return strings.TrimSpace(string(output)), exitErr.ExitCode()
+		return strings.TrimSpace(string(output)), exitErr.ExitCode(), nil
 	}
-	t.Fatalf("run command %v: %v output=%s", args, err, string(output))
-	return "", -1
+	return strings.TrimSpace(string(output)), -1, fmt.Errorf("%w output=%s", err, string(output))
 }
 
 func readScenarioFlags(t *testing.T, path string) scenarioFlags {
