@@ -266,7 +266,14 @@ cat >"${TMP_DIR}/intent_missing.json" <<'JSON'
 }
 JSON
 
+set +e
 "${BIN_PATH}" gate eval --policy "${TMP_DIR}/policy.yaml" --intent "${TMP_DIR}/intent_missing.json" --json >"${TMP_DIR}/gate_missing.json"
+MISSING_CONTEXT_GATE_EXIT=$?
+set -e
+if [[ "${MISSING_CONTEXT_GATE_EXIT}" -ne 3 ]]; then
+  echo "error: expected context-evidence block exit code 3, got ${MISSING_CONTEXT_GATE_EXIT}" >&2
+  exit 1
+fi
 python3 - <<'PY' "${TMP_DIR}/gate_missing.json"
 import json, sys
 payload = json.load(open(sys.argv[1], encoding="utf-8"))
