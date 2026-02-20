@@ -40,7 +40,7 @@ status=${PIPESTATUS[0]}
 set -e
 
 pass_count=$(grep -c -- '--- PASS: TestTier11Scenarios/' "$OUT_FILE" || true)
-expected_count=8
+expected_count=13
 if [[ "$status" -ne 0 ]]; then
   echo "scenario test execution failed for $PRODUCT" >&2
   exit "$status"

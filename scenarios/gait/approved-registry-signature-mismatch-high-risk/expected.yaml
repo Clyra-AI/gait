@@ -1,0 +1,3 @@
+exit_code: 3
+ok: false
+error_contains: approved script registry verification failed at entry 0

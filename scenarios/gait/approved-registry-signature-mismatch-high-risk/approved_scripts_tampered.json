@@ -1,0 +1,25 @@
+{
+  "entries": [
+    {
+      "schema_id": "gait.gate.approved_script_entry",
+      "schema_version": "1.0.0",
+      "created_at": "2026-02-20T02:31:28.283948Z",
+      "producer_version": "0.0.0-dev",
+      "pattern_id": "pattern_a0dce61c1eb7",
+      "policy_digest": "44ae19688443915c381be9f806b7fc9ddb2736d286c4e40464b7575a874e9420",
+      "script_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "tool_sequence": [
+        "tool.read",
+        "tool.write"
+      ],
+      "approver_identity": "secops",
+      "expires_at": "2026-02-27T02:31:28.283948Z",
+      "signature": {
+        "alg": "ed25519",
+        "key_id": "8393424682c702d59a923d26924b2d4827711e6c585117077766645e22efeb52",
+        "sig": "uS11HrmDO+D1b/IaSosCRfEmolp5FTP2J6fWsMHg/Nvn1TAVaT24VUJdnJrfbcZTbUmW0WqQ4+FnoalnYMpVCg==",
+        "signed_digest": "1e19eb1f8f11a450139cbe01ad9081be99a455c51157ed5f9793e08dc613dce1"
+      }
+    }
+  ]
+}

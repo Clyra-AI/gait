@@ -1,0 +1,3 @@
+repeat: 1
+approved_script_registry: approved_scripts_tampered.json
+approved_script_public_key: approval_public.key

@@ -1,0 +1,5 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: allow
+scripts:
+  block_mixed_risk: true

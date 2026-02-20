@@ -8,12 +8,17 @@ SCENARIO_ROOT="$REPO_ROOT/scenarios/gait"
 required_scenarios=(
   "approval-expiry-1s-past"
   "approval-token-valid"
+  "approved-registry-signature-mismatch-high-risk"
   "concurrent-evaluation-10"
   "delegation-chain-depth-3"
   "dry-run-no-side-effects"
   "pack-integrity-round-trip"
   "policy-allow-safe-tools"
   "policy-block-destructive"
+  "script-max-steps-exceeded"
+  "script-mixed-risk-block"
+  "script-threshold-approval-determinism"
+  "wrkr-missing-fail-closed-high-risk"
 )
 
 if [[ ! -d "$SCENARIO_ROOT" ]]; then

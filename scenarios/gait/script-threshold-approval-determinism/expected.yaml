@@ -1,0 +1,9 @@
+exit_code: 4
+ok: true
+verdict: require_approval
+script: true
+step_count: 2
+step_verdict_count: 2
+composite_risk_class: medium
+reason_codes_must_include:
+  - script_step_threshold_approval

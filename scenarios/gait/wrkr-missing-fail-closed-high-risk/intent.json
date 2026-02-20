@@ -1,0 +1,32 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-20T00:00:00Z",
+  "producer_version": "scenario-wrkr-missing",
+  "tool_name": "script",
+  "args": {},
+  "targets": [],
+  "context": {
+    "identity": "alice",
+    "workspace": "/repo/gait",
+    "risk_class": "high"
+  },
+  "script": {
+    "steps": [
+      {
+        "tool_name": "tool.read",
+        "args": {
+          "path": "/tmp/input.txt"
+        },
+        "targets": [
+          {
+            "kind": "path",
+            "value": "/tmp/input.txt",
+            "operation": "read",
+            "endpoint_class": "fs.read"
+          }
+        ]
+      }
+    ]
+  }
+}

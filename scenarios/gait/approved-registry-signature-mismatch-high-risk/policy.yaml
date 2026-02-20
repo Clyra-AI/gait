@@ -1,0 +1,10 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: allow
+rules:
+  - name: require_write_approval
+    priority: 10
+    effect: require_approval
+    match:
+      tool_names: [tool.write]
+    reason_codes: [approval_required_write]

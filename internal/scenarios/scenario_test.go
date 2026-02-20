@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -22,6 +23,10 @@ type scenarioFlags struct {
 	Simulate             bool     `yaml:"simulate"`
 	Concurrency          int      `yaml:"concurrency"`
 	DelegationChainFiles []string `yaml:"delegation_chain_files"`
+	Repeat               int      `yaml:"repeat"`
+	WrkrInventory        string   `yaml:"wrkr_inventory"`
+	ApprovedRegistry     string   `yaml:"approved_script_registry"`
+	ApprovedPublicKey    string   `yaml:"approved_script_public_key"`
 }
 
 type expectedYAML struct {
@@ -34,6 +39,15 @@ type expectedYAML struct {
 	ValidDelegations       int      `yaml:"valid_delegations"`
 	ReasonCodes            []string `yaml:"reason_codes"`
 	ReasonCodesMustInclude []string `yaml:"reason_codes_must_include"`
+	Script                 *bool    `yaml:"script"`
+	StepCount              int      `yaml:"step_count"`
+	StepVerdictCount       int      `yaml:"step_verdict_count"`
+	CompositeRiskClass     string   `yaml:"composite_risk_class"`
+	ContextSource          string   `yaml:"context_source"`
+	PreApproved            *bool    `yaml:"pre_approved"`
+	RegistryReason         string   `yaml:"registry_reason"`
+	OK                     *bool    `yaml:"ok"`
+	ErrorContains          string   `yaml:"error_contains"`
 }
 
 type expectedVerdictLine struct {
@@ -44,10 +58,30 @@ type expectedVerdictLine struct {
 }
 
 type gateEvalOutput struct {
-	Verdict          string   `json:"verdict"`
-	ReasonCodes      []string `json:"reason_codes"`
-	SimulateMode     bool     `json:"simulate_mode"`
-	ValidDelegations int      `json:"valid_delegations"`
+	OK                 bool          `json:"ok"`
+	Verdict            string        `json:"verdict"`
+	ReasonCodes        []string      `json:"reason_codes"`
+	SimulateMode       bool          `json:"simulate_mode"`
+	ValidDelegations   int           `json:"valid_delegations"`
+	Script             bool          `json:"script"`
+	StepCount          int           `json:"step_count"`
+	ScriptHash         string        `json:"script_hash"`
+	CompositeRiskClass string        `json:"composite_risk_class"`
+	StepVerdicts       []stepVerdict `json:"step_verdicts"`
+	ContextSource      string        `json:"context_source"`
+	PreApproved        bool          `json:"pre_approved"`
+	PatternID          string        `json:"pattern_id"`
+	RegistryReason     string        `json:"registry_reason"`
+	Error              string        `json:"error"`
+}
+
+type stepVerdict struct {
+	Index       int      `json:"index"`
+	ToolName    string   `json:"tool_name"`
+	Verdict     string   `json:"verdict"`
+	ReasonCodes []string `json:"reason_codes"`
+	Violations  []string `json:"violations"`
+	MatchedRule string   `json:"matched_rule"`
 }
 
 type packVerifyOutput struct {
@@ -99,6 +133,12 @@ func runScenario(t *testing.T, repoRoot string, binaryPath string, name string, 
 		runDelegationScenario(t, repoRoot, binaryPath, scenarioPath)
 	case "approval-expiry-1s-past", "approval-token-valid":
 		runApprovalScenario(t, repoRoot, binaryPath, scenarioPath)
+	case "script-threshold-approval-determinism",
+		"script-max-steps-exceeded",
+		"script-mixed-risk-block",
+		"wrkr-missing-fail-closed-high-risk",
+		"approved-registry-signature-mismatch-high-risk":
+		runScriptGovernanceScenario(t, repoRoot, binaryPath, scenarioPath)
 	default:
 		t.Fatalf("unsupported scenario: %s", name)
 	}
@@ -338,6 +378,110 @@ func runApprovalScenario(t *testing.T, repoRoot string, binaryPath string, scena
 	for _, required := range expected.ReasonCodesMustInclude {
 		if !contains(got.ReasonCodes, required) {
 			t.Fatalf("missing required reason code %q in %v", required, got.ReasonCodes)
+		}
+	}
+}
+
+func runScriptGovernanceScenario(t *testing.T, repoRoot string, binaryPath string, scenarioPath string) {
+	expected := readExpectedYAML(t, filepath.Join(scenarioPath, "expected.yaml"))
+	flags := readScenarioFlags(t, filepath.Join(scenarioPath, "flags.yaml"))
+	repeats := flags.Repeat
+	if repeats <= 0 {
+		repeats = 1
+	}
+
+	var baseline *gateEvalOutput
+	for attempt := 0; attempt < repeats; attempt++ {
+		args := []string{
+			"gate", "eval",
+			"--policy", filepath.Join(scenarioPath, "policy.yaml"),
+			"--intent", filepath.Join(scenarioPath, "intent.json"),
+			"--json",
+		}
+		if strings.TrimSpace(flags.WrkrInventory) != "" {
+			args = append(args, "--wrkr-inventory", filepath.Join(scenarioPath, flags.WrkrInventory))
+		}
+		if strings.TrimSpace(flags.ApprovedRegistry) != "" {
+			args = append(args, "--approved-script-registry", filepath.Join(scenarioPath, flags.ApprovedRegistry))
+		}
+		if strings.TrimSpace(flags.ApprovedPublicKey) != "" {
+			args = append(args, "--approved-script-public-key", filepath.Join(scenarioPath, flags.ApprovedPublicKey))
+		}
+
+		output, code := mustRunCommand(t, t.TempDir(), binaryPath, args...)
+		if code != expected.ExitCode {
+			t.Fatalf("script governance exit mismatch: got=%d want=%d output=%s", code, expected.ExitCode, output)
+		}
+
+		var got gateEvalOutput
+		if err := json.Unmarshal([]byte(output), &got); err != nil {
+			t.Fatalf("parse script governance output: %v output=%s", err, output)
+		}
+		assertScriptGovernanceOutput(t, expected, got, output)
+
+		if repeats > 1 {
+			current := got
+			if baseline == nil {
+				baseline = &current
+			} else {
+				if current.ScriptHash != baseline.ScriptHash {
+					t.Fatalf("non-deterministic script_hash across runs: first=%s next=%s", baseline.ScriptHash, current.ScriptHash)
+				}
+				if current.Verdict != baseline.Verdict {
+					t.Fatalf("non-deterministic verdict across runs: first=%s next=%s", baseline.Verdict, current.Verdict)
+				}
+				if !reflect.DeepEqual(current.ReasonCodes, baseline.ReasonCodes) {
+					t.Fatalf("non-deterministic reason_codes across runs: first=%v next=%v", baseline.ReasonCodes, current.ReasonCodes)
+				}
+				if !reflect.DeepEqual(current.StepVerdicts, baseline.StepVerdicts) {
+					t.Fatalf("non-deterministic step_verdicts across runs: first=%v next=%v", baseline.StepVerdicts, current.StepVerdicts)
+				}
+			}
+		}
+	}
+}
+
+func assertScriptGovernanceOutput(t *testing.T, expected expectedYAML, got gateEvalOutput, raw string) {
+	t.Helper()
+	if expected.OK != nil && got.OK != *expected.OK {
+		t.Fatalf("unexpected ok field: got=%v want=%v output=%s", got.OK, *expected.OK, raw)
+	}
+	if expected.Verdict != "" && got.Verdict != expected.Verdict {
+		t.Fatalf("unexpected verdict: got=%s want=%s output=%s", got.Verdict, expected.Verdict, raw)
+	}
+	if expected.Script != nil && got.Script != *expected.Script {
+		t.Fatalf("unexpected script flag: got=%v want=%v output=%s", got.Script, *expected.Script, raw)
+	}
+	if expected.StepCount > 0 && got.StepCount != expected.StepCount {
+		t.Fatalf("unexpected step_count: got=%d want=%d output=%s", got.StepCount, expected.StepCount, raw)
+	}
+	if expected.StepVerdictCount > 0 && len(got.StepVerdicts) != expected.StepVerdictCount {
+		t.Fatalf("unexpected step_verdict_count: got=%d want=%d output=%s", len(got.StepVerdicts), expected.StepVerdictCount, raw)
+	}
+	if expected.CompositeRiskClass != "" && got.CompositeRiskClass != expected.CompositeRiskClass {
+		t.Fatalf("unexpected composite_risk_class: got=%s want=%s output=%s", got.CompositeRiskClass, expected.CompositeRiskClass, raw)
+	}
+	if expected.ContextSource != "" && got.ContextSource != expected.ContextSource {
+		t.Fatalf("unexpected context_source: got=%s want=%s output=%s", got.ContextSource, expected.ContextSource, raw)
+	}
+	if expected.PreApproved != nil && got.PreApproved != *expected.PreApproved {
+		t.Fatalf("unexpected pre_approved: got=%v want=%v output=%s", got.PreApproved, *expected.PreApproved, raw)
+	}
+	if expected.RegistryReason != "" && got.RegistryReason != expected.RegistryReason {
+		t.Fatalf("unexpected registry_reason: got=%s want=%s output=%s", got.RegistryReason, expected.RegistryReason, raw)
+	}
+	if expected.ErrorContains != "" && !strings.Contains(got.Error, expected.ErrorContains) {
+		t.Fatalf("missing expected error substring %q in %q output=%s", expected.ErrorContains, got.Error, raw)
+	}
+
+	for _, required := range expected.ReasonCodes {
+		if !contains(got.ReasonCodes, required) {
+			t.Fatalf("missing required reason code %q in %v output=%s", required, got.ReasonCodes, raw)
+		}
+	}
+	for _, required := range expected.ReasonCodesMustInclude {
+		if !contains(got.ReasonCodes, required) {
+			t.Fatalf("missing required reason code %q in %v output=%s", required, got.ReasonCodes, raw)
 		}
 	}
 }

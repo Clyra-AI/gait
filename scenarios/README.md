@@ -25,3 +25,8 @@ All fixtures are offline-first and deterministic.
 6. `delegation-chain-depth-3`
 7. `approval-expiry-1s-past`
 8. `approval-token-valid`
+9. `script-threshold-approval-determinism`
+10. `script-max-steps-exceeded`
+11. `script-mixed-risk-block`
+12. `wrkr-missing-fail-closed-high-risk`
+13. `approved-registry-signature-mismatch-high-risk`

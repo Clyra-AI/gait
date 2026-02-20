@@ -9,14 +9,19 @@ import (
 const scenarioRootRelativePath = "scenarios/gait"
 
 var requiredScenarioMinimumFiles = map[string][]string{
-	"policy-block-destructive":  {"README.md", "policy.yaml", "intents.jsonl", "expected-verdicts.jsonl"},
-	"policy-allow-safe-tools":   {"README.md", "policy.yaml", "intents.jsonl", "expected-verdicts.jsonl"},
-	"dry-run-no-side-effects":   {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml"},
-	"concurrent-evaluation-10":  {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml"},
-	"pack-integrity-round-trip": {"README.md", "expected.yaml"},
-	"delegation-chain-depth-3":  {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml", "delegation-token-1.json", "delegation-token-2.json", "delegation-token-3.json", "delegation_public.key"},
-	"approval-expiry-1s-past":   {"README.md", "policy.yaml", "intent.json", "expected.yaml", "approval-token.json", "approval_public.key"},
-	"approval-token-valid":      {"README.md", "policy.yaml", "intent.json", "expected.yaml", "approval-token.json", "approval_public.key"},
+	"policy-block-destructive":                       {"README.md", "policy.yaml", "intents.jsonl", "expected-verdicts.jsonl"},
+	"policy-allow-safe-tools":                        {"README.md", "policy.yaml", "intents.jsonl", "expected-verdicts.jsonl"},
+	"dry-run-no-side-effects":                        {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml"},
+	"concurrent-evaluation-10":                       {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml"},
+	"pack-integrity-round-trip":                      {"README.md", "expected.yaml"},
+	"delegation-chain-depth-3":                       {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml", "delegation-token-1.json", "delegation-token-2.json", "delegation-token-3.json", "delegation_public.key"},
+	"approval-expiry-1s-past":                        {"README.md", "policy.yaml", "intent.json", "expected.yaml", "approval-token.json", "approval_public.key"},
+	"approval-token-valid":                           {"README.md", "policy.yaml", "intent.json", "expected.yaml", "approval-token.json", "approval_public.key"},
+	"script-threshold-approval-determinism":          {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml"},
+	"script-max-steps-exceeded":                      {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml"},
+	"script-mixed-risk-block":                        {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml"},
+	"wrkr-missing-fail-closed-high-risk":             {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml"},
+	"approved-registry-signature-mismatch-high-risk": {"README.md", "policy.yaml", "intent.json", "flags.yaml", "expected.yaml", "approved_scripts_tampered.json", "approval_public.key"},
 }
 
 func findRepoRoot(startDir string) (string, error) {

@@ -1,0 +1,3 @@
+exit_code: 3
+ok: false
+error_contains: wrkr inventory unavailable in fail-closed mode
