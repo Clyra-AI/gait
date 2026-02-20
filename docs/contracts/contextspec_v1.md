@@ -84,6 +84,32 @@ Signed trace records may include:
 
 Tampering with context linkage fields MUST fail signature verification.
 
+## Wrkr Context Enrichment Contract
+
+Wrkr enrichment is an optional local-file context source for gate matching.
+
+Accepted inventory keys per entry:
+
+- `tool_name`
+- `data_class`
+- `endpoint_class`
+- `autonomy_level`
+
+Normalization and matching rules:
+
+- tool names and class values are normalized to lowercase during load.
+- inventory is local-file only and does not require network.
+- policy matching keys are explicit:
+  - `context_tool_names`
+  - `context_data_classes`
+  - `context_endpoint_classes`
+  - `context_autonomy_levels`
+
+Fail-closed expectations:
+
+- missing/invalid inventory blocks in high-risk contexts (`risk_class` high/critical) and oss-prod profile.
+- lower-risk contexts may continue without enrichment and should emit an explicit warning.
+
 ## CLI Contract Examples
 
 Capture with required context evidence:

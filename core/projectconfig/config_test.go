@@ -38,6 +38,7 @@ gate:
   key_mode: " prod "
   private_key: " examples/scenarios/keys/approval_private.key "
   credential_broker: " stub "
+  wrkr_inventory_path: " ./.gait/wrkr_inventory.json "
 mcp_serve:
   enabled: true
   listen: " 0.0.0.0:8787 "
@@ -69,6 +70,9 @@ retention:
 	}
 	if configuration.Gate.CredentialBroker != "stub" {
 		t.Fatalf("unexpected credential_broker %q", configuration.Gate.CredentialBroker)
+	}
+	if configuration.Gate.WrkrInventoryPath != "./.gait/wrkr_inventory.json" {
+		t.Fatalf("unexpected wrkr_inventory_path %q", configuration.Gate.WrkrInventoryPath)
 	}
 	if !configuration.MCPServe.Enabled {
 		t.Fatalf("expected mcp_serve enabled=true")

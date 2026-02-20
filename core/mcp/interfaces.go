@@ -8,12 +8,24 @@ import (
 type ToolCall struct {
 	Name          string          `json:"name"`
 	Args          map[string]any  `json:"args,omitempty"`
+	Script        *ScriptCall     `json:"script,omitempty"`
 	Target        string          `json:"target,omitempty"`
 	Targets       []Target        `json:"targets,omitempty"`
 	ArgProvenance []ArgProvenance `json:"arg_provenance,omitempty"`
 	Context       CallContext     `json:"context,omitempty"`
 	Delegation    *Delegation     `json:"delegation,omitempty"`
 	CreatedAt     time.Time       `json:"created_at,omitempty"`
+}
+
+type ScriptCall struct {
+	Steps []ScriptStep `json:"steps"`
+}
+
+type ScriptStep struct {
+	Name          string          `json:"name"`
+	Args          map[string]any  `json:"args,omitempty"`
+	Targets       []Target        `json:"targets,omitempty"`
+	ArgProvenance []ArgProvenance `json:"arg_provenance,omitempty"`
 }
 
 type Target struct {

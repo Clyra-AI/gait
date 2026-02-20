@@ -102,7 +102,7 @@ See: [2,880 tool calls gate-checked in 24 hours](docs/blog/openclaw_24h_boundary
 
 **Signed packs** — every run and job emits a tamper-evident artifact (Ed25519 + SHA-256 manifest). Verify offline. Attach to PRs, incidents, audits. One artifact is the entire proof. Export OTEL-style JSONL and deterministic PostgreSQL index SQL with `gait pack export`.
 
-**Fail-closed policy enforcement** — `gait gate eval` evaluates a structured tool-call intent against YAML policy before the side effect runs. Non-allow means non-execute. Signed trace proves the decision.
+**Fail-closed policy enforcement** — `gait gate eval` evaluates a structured tool-call intent against YAML policy before the side effect runs. Non-allow means non-execute. Signed trace proves the decision. Script mode supports deterministic step rollups, optional Wrkr context enrichment, and signed approved-script fast-path allow.
 
 **Incident → CI gate in one command** — `gait regress bootstrap` converts a bad run into a permanent regression fixture with JUnit output. Exit 0 = pass, exit 5 = drift. Never debug the same failure twice.
 
@@ -202,7 +202,9 @@ gait job approve|cancel|inspect                    Job approval and inspection
 gait pack build|verify|inspect|diff|export         Unified pack operations + OTEL/Postgres sinks
 gait regress init|bootstrap|run                    Incident → CI gate
 gait gate eval                                     Policy enforcement + signed trace
+gait approve-script                                Mint signed approved-script registry entries
 gait approve                                       Mint signed approval tokens
+gait list-scripts                                  Inspect approved-script registry status
 gait delegate mint|verify                          Delegation token lifecycle
 gait report top                                    Rank highest-risk actions
 gait voice token mint|verify                       Voice commitment gating

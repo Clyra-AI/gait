@@ -133,6 +133,24 @@ func TestRunSessionStatusAndHelpPaths(t *testing.T) {
 	}
 }
 
+func TestSessionVerdictLabel(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{input: "allow", expected: "allow"},
+		{input: " block ", expected: "block"},
+		{input: "DRY_RUN", expected: "dry_run"},
+		{input: "require_approval", expected: "require_approval"},
+		{input: "invalid", expected: "unknown"},
+	}
+	for _, testCase := range cases {
+		if got := sessionVerdictLabel(testCase.input); got != testCase.expected {
+			t.Fatalf("sessionVerdictLabel(%q) got %q expected %q", testCase.input, got, testCase.expected)
+		}
+	}
+}
+
 func TestWriteRunSessionOutputTextModes(t *testing.T) {
 	now := time.Date(2026, time.February, 11, 3, 0, 0, 0, time.UTC)
 	text := captureStdout(t, func() {

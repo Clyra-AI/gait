@@ -76,6 +76,7 @@ Run these first. Stop if expected output is missing.
 3. Policy decision shape:
 - `gait gate eval ... --json`
 - expect deterministic `verdict`, `reason_codes`, `intent_digest`, `policy_digest`, `trace_path`
+- for script payloads also expect stable `script_hash`, `step_count`, `step_verdicts`
 4. Wrapper allow path:
 - run wrapper quickstart allow scenario
 - expect `executed=true`
@@ -97,6 +98,10 @@ Run these first. Stop if expected output is missing.
 10. Observe->enforce rollout baseline:
 - observe: `gait gate eval ... --simulate --json`
 - enforce: `gait gate eval ... --json`
+11. Approved script registry path (if script automation is used):
+- mint entry: `gait approve-script --policy <policy.yaml> --intent <script_intent.json> --registry <registry.json> --approver <id> --key-mode prod --private-key <path> --json`
+- inspect entry: `gait list-scripts --registry <registry.json> --json`
+- enforce with registry: `gait gate eval ... --approved-script-registry <registry.json> --approved-script-public-key <path> --json`
 
 ## Advanced Track (Hardening and Scale)
 
@@ -121,6 +126,15 @@ gait run record \
 - verify deterministic reason codes:
 - `context_evidence_missing`
 - `context_set_digest_missing`
+
+Wrkr inventory enrichment (optional, local-file only):
+
+- add `--wrkr-inventory <inventory.json>` on gate eval
+- map inventory metadata into explicit policy match keys:
+  - `context_tool_names`
+  - `context_data_classes`
+  - `context_endpoint_classes`
+  - `context_autonomy_levels`
 
 3. Trace signature verification:
 

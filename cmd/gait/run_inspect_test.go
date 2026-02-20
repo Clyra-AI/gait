@@ -201,4 +201,27 @@ func TestRunInspectHelperBranches(t *testing.T) {
 	if !strings.Contains(errorOutput, "inspect error: boom") {
 		t.Fatalf("unexpected error output: %q", errorOutput)
 	}
+
+	sessionChainOutput := captureStdout(t, func() {
+		code := writeRunInspectOutput(false, runInspectOutput{
+			OK:           true,
+			ArtifactType: "session_chain",
+			SessionID:    "sess_demo",
+			RunID:        "run_demo",
+			Path:         "./sessions/run_demo.chain.json",
+			Checkpoints: []runInspectCheckpoint{
+				{CheckpointIndex: 1, RunpackPath: "./gait-out/cp_0001.zip", SequenceStart: 1, SequenceEnd: 2},
+			},
+			CheckpointCount: 1,
+		}, exitOK)
+		if code != exitOK {
+			t.Fatalf("writeRunInspectOutput session chain expected %d got %d", exitOK, code)
+		}
+	})
+	if !strings.Contains(sessionChainOutput, "artifact=session_chain session_id=sess_demo run_id=run_demo checkpoints=1") {
+		t.Fatalf("unexpected session-chain inspect output: %q", sessionChainOutput)
+	}
+	if !strings.Contains(sessionChainOutput, "1. runpack=./gait-out/cp_0001.zip seq=1..2") {
+		t.Fatalf("expected checkpoint line in session-chain inspect output: %q", sessionChainOutput)
+	}
 }

@@ -159,3 +159,71 @@ func TestParseArtifactVerifyProfile(t *testing.T) {
 		t.Fatalf("expected invalid profile parse error")
 	}
 }
+
+func TestSignatureStatusNoteAndNextCommands(t *testing.T) {
+	tests := []struct {
+		name             string
+		status           string
+		requireSignature bool
+		expected         string
+	}{
+		{
+			name:             "missing_non_strict",
+			status:           "missing",
+			requireSignature: false,
+			expected:         "unsigned local/dev artifacts are expected by default; use --require-signature for strict verification",
+		},
+		{
+			name:             "missing_strict",
+			status:           "missing",
+			requireSignature: true,
+			expected:         "signatures are required in this mode; provide signing keys and re-run verify",
+		},
+		{
+			name:             "skipped_non_strict",
+			status:           "skipped",
+			requireSignature: false,
+			expected:         "signature checks were skipped because no verify key was provided",
+		},
+		{
+			name:             "skipped_strict",
+			status:           "skipped",
+			requireSignature: true,
+			expected:         "signature checks were expected but skipped; provide a public key or private key source",
+		},
+		{
+			name:             "verified",
+			status:           "verified",
+			requireSignature: true,
+			expected:         "signatures verified",
+		},
+		{
+			name:             "failed",
+			status:           "failed",
+			requireSignature: true,
+			expected:         "signature verification failed; inspect signature_errors and re-run with the correct key",
+		},
+		{
+			name:             "unknown",
+			status:           "unknown",
+			requireSignature: true,
+			expected:         "",
+		},
+	}
+	for _, testCase := range tests {
+		if got := signatureStatusNote(testCase.status, testCase.requireSignature); got != testCase.expected {
+			t.Fatalf("%s: signatureStatusNote mismatch: got=%q expected=%q", testCase.name, got, testCase.expected)
+		}
+	}
+
+	if commands := verifyNextCommands(""); commands != nil {
+		t.Fatalf("expected nil commands for blank run id, got %#v", commands)
+	}
+	commands := verifyNextCommands("run_demo")
+	if len(commands) != 3 {
+		t.Fatalf("expected 3 follow-up commands, got %#v", commands)
+	}
+	if !strings.Contains(commands[0], "run_demo") {
+		t.Fatalf("expected run id in first follow-up command, got %#v", commands)
+	}
+}

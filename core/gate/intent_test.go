@@ -295,6 +295,112 @@ func TestNormalizeIntentDelegationDigesting(t *testing.T) {
 	}
 }
 
+func TestNormalizeIntentScriptDigestDeterminism(t *testing.T) {
+	intentA := schemagate.IntentRequest{
+		ToolName: "script",
+		Args:     map[string]any{},
+		Context:  schemagate.IntentContext{Identity: "alice", Workspace: "/repo/gait", RiskClass: "high"},
+		Script: &schemagate.IntentScript{
+			Steps: []schemagate.IntentScriptStep{
+				{
+					ToolName: "tool.read",
+					Args:     map[string]any{"path": "/tmp/in.txt", "opts": map[string]any{"follow": true}},
+					Targets: []schemagate.IntentTarget{
+						{Kind: "path", Value: "/tmp/in.txt", Operation: "read"},
+						{Kind: "path", Value: "/tmp/in.txt", Operation: "read"},
+					},
+				},
+				{
+					ToolName: "tool.write",
+					Args:     map[string]any{"path": "/tmp/out.txt"},
+					Targets: []schemagate.IntentTarget{
+						{Kind: "path", Value: "/tmp/out.txt", Operation: "write"},
+					},
+				},
+			},
+		},
+	}
+	intentB := schemagate.IntentRequest{
+		ToolName: " script ",
+		Args:     map[string]any{},
+		Context:  schemagate.IntentContext{Identity: "alice", Workspace: "/repo/gait", RiskClass: "high"},
+		Script: &schemagate.IntentScript{
+			Steps: []schemagate.IntentScriptStep{
+				{
+					ToolName: " tool.read ",
+					Args:     map[string]any{"opts": map[string]any{"follow": true}, "path": "/tmp/in.txt"},
+					Targets: []schemagate.IntentTarget{
+						{Kind: " path ", Value: " /tmp/in.txt ", Operation: "read"},
+					},
+				},
+				{
+					ToolName: "tool.write",
+					Args:     map[string]any{"path": "/tmp/out.txt"},
+					Targets: []schemagate.IntentTarget{
+						{Kind: "path", Value: "/tmp/out.txt", Operation: "write"},
+					},
+				},
+			},
+		},
+	}
+	normalizedA, err := NormalizeIntent(intentA)
+	if err != nil {
+		t.Fatalf("normalize script intent A: %v", err)
+	}
+	normalizedB, err := NormalizeIntent(intentB)
+	if err != nil {
+		t.Fatalf("normalize script intent B: %v", err)
+	}
+	if normalizedA.ScriptHash == "" {
+		t.Fatalf("expected script hash to be populated")
+	}
+	if normalizedA.ScriptHash != normalizedB.ScriptHash {
+		t.Fatalf("expected equivalent scripts to produce the same script hash: %q != %q", normalizedA.ScriptHash, normalizedB.ScriptHash)
+	}
+	if normalizedA.IntentDigest != normalizedB.IntentDigest {
+		t.Fatalf("expected equivalent scripts to produce same intent digest")
+	}
+}
+
+func TestNormalizeIntentScriptValidation(t *testing.T) {
+	_, err := NormalizeIntent(schemagate.IntentRequest{
+		ToolName: "script",
+		Args:     map[string]any{},
+		Context:  schemagate.IntentContext{Identity: "alice", Workspace: "/repo/gait", RiskClass: "high"},
+		Script:   &schemagate.IntentScript{Steps: []schemagate.IntentScriptStep{}},
+	})
+	if err == nil {
+		t.Fatalf("expected empty script.steps to fail normalization")
+	}
+}
+
+func TestScriptHash(t *testing.T) {
+	intent := schemagate.IntentRequest{
+		ToolName: "script",
+		Args:     map[string]any{},
+		Context:  schemagate.IntentContext{Identity: "alice", Workspace: "/repo/gait", RiskClass: "high"},
+		Script: &schemagate.IntentScript{
+			Steps: []schemagate.IntentScriptStep{
+				{
+					ToolName: "tool.read",
+					Args:     map[string]any{"path": "/tmp/in.txt"},
+				},
+			},
+		},
+	}
+	hash, err := ScriptHash(intent)
+	if err != nil {
+		t.Fatalf("script hash: %v", err)
+	}
+	if len(hash) != 64 {
+		t.Fatalf("expected 64-char script hash, got %q", hash)
+	}
+
+	if _, err := ScriptHash(baseIntent()); err == nil {
+		t.Fatalf("expected script hash to fail when script payload is missing")
+	}
+}
+
 func TestNormalizeIntentValidationErrors(t *testing.T) {
 	tests := []struct {
 		name   string

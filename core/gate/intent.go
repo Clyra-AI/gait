@@ -17,6 +17,7 @@ import (
 const (
 	intentRequestSchemaID = "gait.gate.intent_request"
 	intentRequestSchemaV1 = "1.0.0"
+	maxScriptSteps        = 64
 )
 
 var (
@@ -55,11 +56,24 @@ var (
 type normalizedIntent struct {
 	ToolName        string                           `json:"tool_name"`
 	Args            map[string]any                   `json:"args"`
+	ScriptHash      string                           `json:"script_hash,omitempty"`
+	Script          *normalizedScript                `json:"script,omitempty"`
 	Targets         []schemagate.IntentTarget        `json:"targets"`
 	ArgProvenance   []schemagate.IntentArgProvenance `json:"arg_provenance,omitempty"`
 	SkillProvenance *schemagate.SkillProvenance      `json:"skill_provenance,omitempty"`
 	Delegation      *schemagate.IntentDelegation     `json:"delegation,omitempty"`
 	Context         schemagate.IntentContext         `json:"context"`
+}
+
+type normalizedScript struct {
+	Steps []normalizedScriptStep `json:"steps"`
+}
+
+type normalizedScriptStep struct {
+	ToolName      string                           `json:"tool_name"`
+	Args          map[string]any                   `json:"args"`
+	Targets       []schemagate.IntentTarget        `json:"targets,omitempty"`
+	ArgProvenance []schemagate.IntentArgProvenance `json:"arg_provenance,omitempty"`
 }
 
 func NormalizeIntent(input schemagate.IntentRequest) (schemagate.IntentRequest, error) {
@@ -88,6 +102,10 @@ func NormalizeIntent(input schemagate.IntentRequest) (schemagate.IntentRequest, 
 	output.Args = normalized.Args
 	output.ArgsDigest = argsDigest
 	output.IntentDigest = intentDigest
+	output.ScriptHash = normalized.ScriptHash
+	if normalized.Script != nil {
+		output.Script = toSchemaIntentScript(normalized.Script)
+	}
 	output.Targets = normalized.Targets
 	output.ArgProvenance = normalized.ArgProvenance
 	output.SkillProvenance = normalized.SkillProvenance
@@ -116,6 +134,20 @@ func IntentDigest(input schemagate.IntentRequest) (string, error) {
 	return digestNormalizedIntent(normalized)
 }
 
+func ScriptHash(input schemagate.IntentRequest) (string, error) {
+	normalized, err := normalizeIntent(input)
+	if err != nil {
+		return "", err
+	}
+	if normalized.Script == nil {
+		return "", fmt.Errorf("script is required")
+	}
+	if normalized.ScriptHash == "" {
+		return "", fmt.Errorf("script hash missing after normalization")
+	}
+	return normalized.ScriptHash, nil
+}
+
 func ArgsDigest(args map[string]any) (string, error) {
 	normalizedValue, err := normalizeJSONValue(args)
 	if err != nil {
@@ -129,7 +161,15 @@ func ArgsDigest(args map[string]any) (string, error) {
 }
 
 func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
+	script, err := normalizeScript(input.Script)
+	if err != nil {
+		return normalizedIntent{}, err
+	}
+
 	toolName := strings.ToLower(strings.TrimSpace(input.ToolName))
+	if script != nil {
+		toolName = "script"
+	}
 	if toolName == "" {
 		return normalizedIntent{}, fmt.Errorf("tool_name is required")
 	}
@@ -143,11 +183,23 @@ func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
 		return normalizedIntent{}, fmt.Errorf("args must be a JSON object")
 	}
 
-	targets, err := normalizeTargets(toolName, input.Targets)
+	targetsInput := input.Targets
+	if script != nil && len(targetsInput) == 0 {
+		for _, step := range script.Steps {
+			targetsInput = append(targetsInput, step.Targets...)
+		}
+	}
+	targets, err := normalizeTargets(toolName, targetsInput)
 	if err != nil {
 		return normalizedIntent{}, err
 	}
-	provenance, err := normalizeArgProvenance(input.ArgProvenance)
+	provenanceInput := input.ArgProvenance
+	if script != nil && len(provenanceInput) == 0 {
+		for _, step := range script.Steps {
+			provenanceInput = append(provenanceInput, step.ArgProvenance...)
+		}
+	}
+	provenance, err := normalizeArgProvenance(provenanceInput)
 	if err != nil {
 		return normalizedIntent{}, err
 	}
@@ -164,15 +216,67 @@ func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
 		return normalizedIntent{}, err
 	}
 
+	scriptHash := ""
+	if script != nil {
+		scriptHash, err = digestNormalizedScript(*script)
+		if err != nil {
+			return normalizedIntent{}, err
+		}
+	}
+
 	return normalizedIntent{
 		ToolName:        toolName,
 		Args:            args,
+		ScriptHash:      scriptHash,
+		Script:          script,
 		Targets:         targets,
 		ArgProvenance:   provenance,
 		SkillProvenance: skillProvenance,
 		Delegation:      delegation,
 		Context:         context,
 	}, nil
+}
+
+func normalizeScript(input *schemagate.IntentScript) (*normalizedScript, error) {
+	if input == nil {
+		return nil, nil
+	}
+	if len(input.Steps) == 0 {
+		return nil, fmt.Errorf("script.steps must not be empty")
+	}
+	if len(input.Steps) > maxScriptSteps {
+		return nil, fmt.Errorf("script.steps exceeds max supported steps (%d)", maxScriptSteps)
+	}
+	steps := make([]normalizedScriptStep, 0, len(input.Steps))
+	for index, step := range input.Steps {
+		toolName := strings.ToLower(strings.TrimSpace(step.ToolName))
+		if toolName == "" {
+			return nil, fmt.Errorf("script.steps[%d].tool_name is required", index)
+		}
+		normalizedValue, err := normalizeJSONValue(step.Args)
+		if err != nil {
+			return nil, fmt.Errorf("normalize script.steps[%d].args: %w", index, err)
+		}
+		args, ok := normalizedValue.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("script.steps[%d].args must be a JSON object", index)
+		}
+		targets, err := normalizeTargets(toolName, step.Targets)
+		if err != nil {
+			return nil, fmt.Errorf("normalize script.steps[%d].targets: %w", index, err)
+		}
+		provenance, err := normalizeArgProvenance(step.ArgProvenance)
+		if err != nil {
+			return nil, fmt.Errorf("normalize script.steps[%d].arg_provenance: %w", index, err)
+		}
+		steps = append(steps, normalizedScriptStep{
+			ToolName:      toolName,
+			Args:          args,
+			Targets:       targets,
+			ArgProvenance: provenance,
+		})
+	}
+	return &normalizedScript{Steps: steps}, nil
 }
 
 func normalizeTargets(toolName string, targets []schemagate.IntentTarget) ([]schemagate.IntentTarget, error) {
@@ -674,4 +778,32 @@ func digestNormalizedIntent(intent normalizedIntent) (string, error) {
 		return "", fmt.Errorf("digest normalized intent: %w", err)
 	}
 	return digest, nil
+}
+
+func digestNormalizedScript(script normalizedScript) (string, error) {
+	raw, err := json.Marshal(script)
+	if err != nil {
+		return "", fmt.Errorf("marshal normalized script: %w", err)
+	}
+	digest, err := jcs.DigestJCS(raw)
+	if err != nil {
+		return "", fmt.Errorf("digest normalized script: %w", err)
+	}
+	return digest, nil
+}
+
+func toSchemaIntentScript(input *normalizedScript) *schemagate.IntentScript {
+	if input == nil {
+		return nil
+	}
+	steps := make([]schemagate.IntentScriptStep, 0, len(input.Steps))
+	for _, step := range input.Steps {
+		steps = append(steps, schemagate.IntentScriptStep{
+			ToolName:      step.ToolName,
+			Args:          step.Args,
+			Targets:       step.Targets,
+			ArgProvenance: step.ArgProvenance,
+		})
+	}
+	return &schemagate.IntentScript{Steps: steps}
 }

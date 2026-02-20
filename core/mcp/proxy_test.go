@@ -320,6 +320,50 @@ func TestToIntentRequestWrapper(t *testing.T) {
 	}
 }
 
+func TestToIntentRequestScriptPayload(t *testing.T) {
+	intent, err := ToIntentRequest(ToolCall{
+		Script: &ScriptCall{
+			Steps: []ScriptStep{
+				{
+					Name: "tool.read",
+					Args: map[string]any{"path": "/tmp/input.txt"},
+					Targets: []Target{{
+						Kind:      "path",
+						Value:     "/tmp/input.txt",
+						Operation: "read",
+					}},
+				},
+				{
+					Name: "tool.write",
+					Args: map[string]any{"path": "/tmp/output.txt"},
+					Targets: []Target{{
+						Kind:      "path",
+						Value:     "/tmp/output.txt",
+						Operation: "write",
+					}},
+				},
+			},
+		},
+		Context: CallContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ToIntentRequest script payload failed: %v", err)
+	}
+	if intent.Script == nil || len(intent.Script.Steps) != 2 {
+		t.Fatalf("expected script steps in intent conversion: %#v", intent.Script)
+	}
+	if intent.ToolName != "script" {
+		t.Fatalf("expected script tool name for script payload, got %q", intent.ToolName)
+	}
+	if intent.Script.Steps[0].ToolName != "tool.read" || intent.Script.Steps[1].ToolName != "tool.write" {
+		t.Fatalf("unexpected converted script steps: %#v", intent.Script.Steps)
+	}
+}
+
 func TestExportersWriteJSONL(t *testing.T) {
 	workDir := t.TempDir()
 	logPath := filepath.Join(workDir, "mcp.log.jsonl")

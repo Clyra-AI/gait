@@ -11,6 +11,8 @@ from gait import client as client_module
 from gait import (
     IntentContext,
     IntentRequest,
+    IntentScript,
+    IntentScriptStep,
     IntentTarget,
     capture_demo_runpack,
     capture_intent,
@@ -68,6 +70,26 @@ def test_evaluate_gate_require_approval_exit_code(tmp_path: Path) -> None:
     assert result.exit_code == 4
     assert result.verdict == "require_approval"
     assert result.reason_codes == ["approval_required"]
+
+
+def test_capture_intent_script_payload() -> None:
+    intent = capture_intent(
+        tool_name="script",
+        args={},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+        script=IntentScript(
+            steps=[
+                IntentScriptStep(tool_name="tool.read", args={"path": "/tmp/input.txt"}),
+                IntentScriptStep(tool_name="tool.write", args={"path": "/tmp/output.txt"}),
+            ]
+        ),
+    )
+
+    payload = intent.to_dict()
+    assert intent.script is not None
+    assert payload["tool_name"] == "script"
+    assert payload["script"]["steps"][0]["tool_name"] == "tool.read"
+    assert payload["script"]["steps"][1]["tool_name"] == "tool.write"
 
 
 def test_write_trace_copies_source_record(tmp_path: Path) -> None:

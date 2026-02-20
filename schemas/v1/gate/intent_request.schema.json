@@ -22,6 +22,75 @@
     "args": { "type": "object" },
     "args_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "script_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "script": {
+      "type": "object",
+      "required": ["steps"],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["tool_name", "args"],
+            "properties": {
+              "tool_name": { "type": "string", "minLength": 1 },
+              "args": { "type": "object" },
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "value"],
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": ["path", "url", "host", "repo", "bucket", "table", "queue", "topic", "other"]
+                    },
+                    "value": { "type": "string", "minLength": 1 },
+                    "operation": { "type": "string" },
+                    "sensitivity": { "type": "string" },
+                    "endpoint_class": {
+                      "type": "string",
+                      "enum": [
+                        "fs.read",
+                        "fs.write",
+                        "fs.delete",
+                        "proc.exec",
+                        "net.http",
+                        "net.dns",
+                        "ui.click",
+                        "ui.type",
+                        "ui.navigate",
+                        "other"
+                      ]
+                    },
+                    "endpoint_domain": { "type": "string" },
+                    "destructive": { "type": "boolean" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "arg_provenance": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["arg_path", "source"],
+                  "properties": {
+                    "arg_path": { "type": "string", "minLength": 1 },
+                    "source": { "type": "string", "enum": ["user", "tool_output", "external", "system"] },
+                    "source_ref": { "type": "string" },
+                    "integrity_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "targets": {
       "type": "array",
       "items": {

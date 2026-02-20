@@ -62,6 +62,7 @@ var requiredSchemaPaths = []string{
 	"schemas/v1/gate/approval_token.schema.json",
 	"schemas/v1/gate/approval_audit_record.schema.json",
 	"schemas/v1/gate/broker_credential_record.schema.json",
+	"schemas/v1/gate/approved_script_entry.schema.json",
 	"schemas/v1/context/envelope.schema.json",
 	"schemas/v1/context/reference_record.schema.json",
 	"schemas/v1/context/budget_report.schema.json",

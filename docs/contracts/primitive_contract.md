@@ -57,6 +57,9 @@ Producer obligations:
   - `context.context_evidence_mode` (`best_effort|required`)
   - `context.context_refs` (string array of reference ids)
 - SHOULD provide `args_digest` and `intent_digest` when available.
+- MAY include script intent fields for compound workflows:
+  - `script.steps[]` (ordered step list with per-step `tool_name`, `args`, optional `targets`, optional `arg_provenance`)
+  - `script_hash` (sha256 hex over canonical script payload)
 - SHOULD provide `skill_provenance` when execution originates from a packaged skill.
 - SHOULD provide `delegation` when tool execution is delegated across agents:
   - `requester_identity`
@@ -68,6 +71,12 @@ Consumer obligations:
 
 - MUST fail closed for high-risk paths when intent cannot be evaluated.
 - MUST NOT execute side effects on non-`allow` outcomes.
+
+Script mode semantics:
+
+- Producers MUST keep `script.steps[]` order stable because evaluation and digesting are order-sensitive.
+- Producers MUST keep step payloads canonicalizable (objects/arrays only, no non-JSON values).
+- Consumers MUST evaluate script mode deterministically and preserve stable reason-code ordering.
 
 ## GateResult (`gait.gate.result`, `1.0.0`)
 
@@ -125,6 +134,12 @@ Producer obligations:
 - SHOULD carry `delegation_ref` when delegated execution evidence is present.
 - SHOULD include `observed_at` for runtime wall-clock incident reconstruction.
 - SHOULD include `event_id` as a per-emission runtime identity.
+- SHOULD include script-governance metadata when script mode is evaluated:
+  - `script`, `step_count`, `script_hash`
+  - `composite_risk_class`
+  - `step_verdicts[]`
+  - `pre_approved`, `pattern_id`, `registry_reason`
+  - `context_source` when Wrkr enrichment is applied
 - SHOULD carry context-proof linkage when present in intent:
   - `context_set_digest`
   - `context_evidence_mode`
@@ -227,6 +242,19 @@ Consumer obligations:
   - `--allow-context-runtime-drift`
 - `gait pack diff --json`:
   - emits `context_drift_classification`, `context_changed`, `context_runtime_only_changes` when applicable
+
+## Command Contract Additions (Script Governance)
+
+- `gait gate eval`:
+  - supports script-intent evaluation with deterministic step rollup metadata in JSON output
+  - supports Wrkr enrichment via `--wrkr-inventory <inventory.json>`
+  - supports signed pre-approved fast-path via:
+    - `--approved-script-registry <registry.json>`
+    - `--approved-script-public-key <path>` or `--approved-script-public-key-env <VAR>`
+- `gait approve-script`:
+  - creates signed approved-script entries bound to policy digest + script hash
+- `gait list-scripts`:
+  - lists registry entries with expiry/active status
 
 ## Session Chain Artifacts (`gait.runpack.session_*`, `1.0.0`)
 

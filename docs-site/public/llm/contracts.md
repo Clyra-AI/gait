@@ -6,6 +6,7 @@ Stable OSS contracts include:
   - includes first-class export surfaces: `gait pack export --otel-out ...` and `--postgres-sql-out ...` for observability and metadata indexing.
 - **ContextSpec v1**: Deterministic context evidence envelopes with privacy-aware modes and fail-closed enforcement.
 - **Primitive Contract**: Four deterministic primitives — capture, enforce, regress, diagnose.
+- **Script Governance Contract**: Script intent steps, deterministic `script_hash`, Wrkr-derived context matching fields, and signed approved-script registry entries.
 - **Intent+Receipt Spec**: Structured tool-call intent with deterministic receipt generation.
 - **Endpoint Action Model**: Maps tool-call intent to policy-evaluated action outcomes.
 - Artifact schemas (`schemas/v1/*`)

@@ -3,28 +3,46 @@ package gate
 import "time"
 
 type TraceRecord struct {
-	SchemaID            string           `json:"schema_id"`
-	SchemaVersion       string           `json:"schema_version"`
-	CreatedAt           time.Time        `json:"created_at"`
-	ObservedAt          time.Time        `json:"observed_at,omitempty"`
-	ProducerVersion     string           `json:"producer_version"`
-	TraceID             string           `json:"trace_id"`
-	EventID             string           `json:"event_id,omitempty"`
-	CorrelationID       string           `json:"correlation_id,omitempty"`
-	ToolName            string           `json:"tool_name"`
-	ArgsDigest          string           `json:"args_digest"`
-	IntentDigest        string           `json:"intent_digest"`
-	PolicyDigest        string           `json:"policy_digest"`
-	Verdict             string           `json:"verdict"`
-	ContextSetDigest    string           `json:"context_set_digest,omitempty"`
-	ContextEvidenceMode string           `json:"context_evidence_mode,omitempty"`
-	ContextRefCount     int              `json:"context_ref_count,omitempty"`
-	Violations          []string         `json:"violations,omitempty"`
-	LatencyMS           float64          `json:"latency_ms,omitempty"`
-	ApprovalTokenRef    string           `json:"approval_token_ref,omitempty"`
-	DelegationRef       *DelegationRef   `json:"delegation_ref,omitempty"`
-	SkillProvenance     *SkillProvenance `json:"skill_provenance,omitempty"`
-	Signature           *Signature       `json:"signature,omitempty"`
+	SchemaID            string             `json:"schema_id"`
+	SchemaVersion       string             `json:"schema_version"`
+	CreatedAt           time.Time          `json:"created_at"`
+	ObservedAt          time.Time          `json:"observed_at,omitempty"`
+	ProducerVersion     string             `json:"producer_version"`
+	TraceID             string             `json:"trace_id"`
+	EventID             string             `json:"event_id,omitempty"`
+	CorrelationID       string             `json:"correlation_id,omitempty"`
+	ToolName            string             `json:"tool_name"`
+	ArgsDigest          string             `json:"args_digest"`
+	IntentDigest        string             `json:"intent_digest"`
+	PolicyDigest        string             `json:"policy_digest"`
+	Verdict             string             `json:"verdict"`
+	ContextSetDigest    string             `json:"context_set_digest,omitempty"`
+	ContextEvidenceMode string             `json:"context_evidence_mode,omitempty"`
+	ContextRefCount     int                `json:"context_ref_count,omitempty"`
+	ContextSource       string             `json:"context_source,omitempty"`
+	Script              bool               `json:"script,omitempty"`
+	StepCount           int                `json:"step_count,omitempty"`
+	ScriptHash          string             `json:"script_hash,omitempty"`
+	CompositeRiskClass  string             `json:"composite_risk_class,omitempty"`
+	StepVerdicts        []TraceStepVerdict `json:"step_verdicts,omitempty"`
+	PreApproved         bool               `json:"pre_approved,omitempty"`
+	PatternID           string             `json:"pattern_id,omitempty"`
+	RegistryReason      string             `json:"registry_reason,omitempty"`
+	Violations          []string           `json:"violations,omitempty"`
+	LatencyMS           float64            `json:"latency_ms,omitempty"`
+	ApprovalTokenRef    string             `json:"approval_token_ref,omitempty"`
+	DelegationRef       *DelegationRef     `json:"delegation_ref,omitempty"`
+	SkillProvenance     *SkillProvenance   `json:"skill_provenance,omitempty"`
+	Signature           *Signature         `json:"signature,omitempty"`
+}
+
+type TraceStepVerdict struct {
+	Index       int      `json:"index"`
+	ToolName    string   `json:"tool_name"`
+	Verdict     string   `json:"verdict"`
+	ReasonCodes []string `json:"reason_codes,omitempty"`
+	Violations  []string `json:"violations,omitempty"`
+	MatchedRule string   `json:"matched_rule,omitempty"`
 }
 
 type Signature struct {
@@ -43,11 +61,24 @@ type IntentRequest struct {
 	Args            map[string]any        `json:"args"`
 	ArgsDigest      string                `json:"args_digest,omitempty"`
 	IntentDigest    string                `json:"intent_digest,omitempty"`
+	ScriptHash      string                `json:"script_hash,omitempty"`
+	Script          *IntentScript         `json:"script,omitempty"`
 	Targets         []IntentTarget        `json:"targets"`
 	ArgProvenance   []IntentArgProvenance `json:"arg_provenance,omitempty"`
 	SkillProvenance *SkillProvenance      `json:"skill_provenance,omitempty"`
 	Delegation      *IntentDelegation     `json:"delegation,omitempty"`
 	Context         IntentContext         `json:"context"`
+}
+
+type IntentScript struct {
+	Steps []IntentScriptStep `json:"steps"`
+}
+
+type IntentScriptStep struct {
+	ToolName      string                `json:"tool_name"`
+	Args          map[string]any        `json:"args"`
+	Targets       []IntentTarget        `json:"targets,omitempty"`
+	ArgProvenance []IntentArgProvenance `json:"arg_provenance,omitempty"`
 }
 
 type IntentTarget struct {
@@ -226,4 +257,19 @@ type BrokerCredentialRecord struct {
 	IssuedAt        time.Time `json:"issued_at,omitempty"`
 	ExpiresAt       time.Time `json:"expires_at,omitempty"`
 	TTLSeconds      int64     `json:"ttl_seconds,omitempty"`
+}
+
+type ApprovedScriptEntry struct {
+	SchemaID         string     `json:"schema_id"`
+	SchemaVersion    string     `json:"schema_version"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ProducerVersion  string     `json:"producer_version"`
+	PatternID        string     `json:"pattern_id"`
+	PolicyDigest     string     `json:"policy_digest"`
+	ScriptHash       string     `json:"script_hash"`
+	ToolSequence     []string   `json:"tool_sequence"`
+	Scope            []string   `json:"scope,omitempty"`
+	ApproverIdentity string     `json:"approver_identity"`
+	ExpiresAt        time.Time  `json:"expires_at"`
+	Signature        *Signature `json:"signature,omitempty"`
 }

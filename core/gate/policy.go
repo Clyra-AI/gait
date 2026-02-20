@@ -23,6 +23,11 @@ const (
 	gateSchemaID   = "gait.gate.result"
 	gateSchemaV1   = "1.0.0"
 	maxInt64Uint64 = ^uint64(0) >> 1
+
+	wrkrContextToolNameKey      = "wrkr.tool_name"
+	wrkrContextDataClassKey     = "wrkr.data_class"
+	wrkrContextEndpointClassKey = "wrkr.endpoint_class"
+	wrkrContextAutonomyLevelKey = "wrkr.autonomy_level"
 )
 
 var (
@@ -58,8 +63,15 @@ type Policy struct {
 	SchemaID       string           `yaml:"schema_id"`
 	SchemaVersion  string           `yaml:"schema_version"`
 	DefaultVerdict string           `yaml:"default_verdict"`
+	Scripts        ScriptPolicy     `yaml:"scripts"`
 	FailClosed     FailClosedPolicy `yaml:"fail_closed"`
 	Rules          []PolicyRule     `yaml:"rules"`
+}
+
+type ScriptPolicy struct {
+	MaxSteps             int  `yaml:"max_steps"`
+	RequireApprovalAbove int  `yaml:"require_approval_above"`
+	BlockMixedRisk       bool `yaml:"block_mixed_risk"`
 }
 
 type FailClosedPolicy struct {
@@ -133,6 +145,10 @@ type PolicyMatch struct {
 	ProvenanceSources          []string `yaml:"provenance_sources"`
 	Identities                 []string `yaml:"identities"`
 	WorkspacePrefixes          []string `yaml:"workspace_prefixes"`
+	ContextToolNames           []string `yaml:"context_tool_names"`
+	ContextDataClasses         []string `yaml:"context_data_classes"`
+	ContextEndpointClasses     []string `yaml:"context_endpoint_classes"`
+	ContextAutonomyLevels      []string `yaml:"context_autonomy_levels"`
 	RequireDelegation          bool     `yaml:"require_delegation"`
 	AllowedDelegatorIdentities []string `yaml:"allowed_delegator_identities"`
 	AllowedDelegateIdentities  []string `yaml:"allowed_delegate_identities"`
@@ -142,6 +158,8 @@ type PolicyMatch struct {
 
 type EvalOptions struct {
 	ProducerVersion string
+	WrkrInventory   map[string]WrkrToolMetadata
+	WrkrSource      string
 }
 
 type EvalOutcome struct {
@@ -155,6 +173,15 @@ type EvalOutcome struct {
 	BrokerScopes             []string
 	RateLimit                RateLimitPolicy
 	DataflowTriggered        bool
+	Script                   bool
+	StepCount                int
+	ScriptHash               string
+	CompositeRiskClass       string
+	StepVerdicts             []schemagate.TraceStepVerdict
+	ContextSource            string
+	PreApproved              bool
+	PatternID                string
+	RegistryReason           string
 }
 
 func LoadPolicyFile(path string) (Policy, error) {
@@ -246,8 +273,24 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 		}
 	}
 
-	for _, rule := range normalizedPolicy.Rules {
-		if !ruleMatches(rule.Match, normalizedIntent) {
+	if normalizedIntent.Script != nil {
+		return evaluateScriptPolicyDetailed(normalizedPolicy, normalizedIntent, opts)
+	}
+	enrichedIntent := normalizedIntent
+	contextApplied := ApplyWrkrContext(&enrichedIntent, enrichedIntent.ToolName, opts.WrkrInventory)
+	outcome, err := evaluateSingleIntent(normalizedPolicy, enrichedIntent, opts)
+	if err != nil {
+		return EvalOutcome{}, err
+	}
+	if contextApplied {
+		outcome.ContextSource = resolveWrkrSource(opts.WrkrSource)
+	}
+	return outcome, nil
+}
+
+func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (EvalOutcome, error) {
+	for _, rule := range policy.Rules {
+		if !ruleMatches(rule.Match, intent) {
 			continue
 		}
 		effect := rule.Effect
@@ -256,19 +299,19 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 		if len(reasons) == 0 {
 			reasons = []string{"matched_rule_" + sanitizeName(rule.Name)}
 		}
-		dataflowTriggered, dataflowEffect, dataflowReasons, dataflowViolations := evaluateDataflowConstraint(rule.Dataflow, normalizedIntent)
+		dataflowTriggered, dataflowEffect, dataflowReasons, dataflowViolations := evaluateDataflowConstraint(rule.Dataflow, intent)
 		if dataflowTriggered {
 			effect = dataflowEffect
 			reasons = mergeUniqueSorted(reasons, dataflowReasons)
 			violations = mergeUniqueSorted(violations, dataflowViolations)
 		}
-		endpointTriggered, endpointEffect, endpointReasons, endpointViolations := evaluateEndpointConstraint(rule.Endpoint, normalizedIntent)
+		endpointTriggered, endpointEffect, endpointReasons, endpointViolations := evaluateEndpointConstraint(rule.Endpoint, intent)
 		if endpointTriggered {
 			effect = mostRestrictiveVerdict(effect, endpointEffect)
 			reasons = mergeUniqueSorted(reasons, endpointReasons)
 			violations = mergeUniqueSorted(violations, endpointViolations)
 		}
-		contextTriggered, contextEffect, contextReasons, contextViolations := evaluateContextConstraint(rule, normalizedIntent)
+		contextTriggered, contextEffect, contextReasons, contextViolations := evaluateContextConstraint(rule, intent)
 		if contextTriggered {
 			effect = mostRestrictiveVerdict(effect, contextEffect)
 			reasons = mergeUniqueSorted(reasons, contextReasons)
@@ -279,7 +322,7 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 			minApprovals = 1
 		}
 		return EvalOutcome{
-			Result:                   buildGateResult(normalizedPolicy, normalizedIntent, opts, effect, reasons, violations),
+			Result:                   buildGateResult(policy, intent, opts, effect, reasons, violations),
 			MatchedRule:              rule.Name,
 			MinApprovals:             minApprovals,
 			RequireDistinctApprovers: rule.RequireDistinctApprovers,
@@ -293,20 +336,208 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 	}
 
 	minApprovals := 0
-	if normalizedPolicy.DefaultVerdict == "require_approval" {
+	if policy.DefaultVerdict == "require_approval" {
 		minApprovals = 1
 	}
 	return EvalOutcome{
 		Result: buildGateResult(
-			normalizedPolicy,
-			normalizedIntent,
+			policy,
+			intent,
 			opts,
-			normalizedPolicy.DefaultVerdict,
-			[]string{"default_" + normalizedPolicy.DefaultVerdict},
+			policy.DefaultVerdict,
+			[]string{"default_" + policy.DefaultVerdict},
 			[]string{},
 		),
 		MinApprovals: minApprovals,
 	}, nil
+}
+
+func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (EvalOutcome, error) {
+	if intent.Script == nil || len(intent.Script.Steps) == 0 {
+		return EvalOutcome{}, fmt.Errorf("script intent requires at least one step")
+	}
+	stepVerdicts := make([]schemagate.TraceStepVerdict, 0, len(intent.Script.Steps))
+	reasons := []string{}
+	violations := []string{}
+	matchedRules := []string{}
+	verdict := "allow"
+	minApprovals := 0
+	requireDistinctApprovers := false
+	requireBrokerCredential := false
+	requireDelegation := false
+	brokerScopes := []string{}
+	brokerReference := ""
+	dataflowTriggered := false
+	riskClasses := []string{}
+	aggregatedRateLimit := RateLimitPolicy{}
+	contextSource := ""
+
+	for index, step := range intent.Script.Steps {
+		stepIntent := intent
+		stepIntent.Script = nil
+		stepIntent.ScriptHash = ""
+		stepIntent.ToolName = step.ToolName
+		stepIntent.Args = step.Args
+		stepIntent.Targets = step.Targets
+		stepIntent.ArgProvenance = step.ArgProvenance
+		contextApplied := ApplyWrkrContext(&stepIntent, step.ToolName, opts.WrkrInventory)
+
+		stepOutcome, err := evaluateSingleIntent(policy, stepIntent, opts)
+		if err != nil {
+			return EvalOutcome{}, err
+		}
+		stepVerdicts = append(stepVerdicts, schemagate.TraceStepVerdict{
+			Index:       index,
+			ToolName:    step.ToolName,
+			Verdict:     stepOutcome.Result.Verdict,
+			ReasonCodes: mergeUniqueSorted(nil, stepOutcome.Result.ReasonCodes),
+			Violations:  mergeUniqueSorted(nil, stepOutcome.Result.Violations),
+			MatchedRule: stepOutcome.MatchedRule,
+		})
+
+		verdict = mostRestrictiveVerdict(verdict, stepOutcome.Result.Verdict)
+		reasons = mergeUniqueSorted(reasons, stepOutcome.Result.ReasonCodes)
+		violations = mergeUniqueSorted(violations, stepOutcome.Result.Violations)
+		if stepOutcome.MatchedRule != "" {
+			matchedRules = append(matchedRules, stepOutcome.MatchedRule)
+		}
+		if stepOutcome.MinApprovals > minApprovals {
+			minApprovals = stepOutcome.MinApprovals
+		}
+		if stepOutcome.RequireDistinctApprovers {
+			requireDistinctApprovers = true
+		}
+		if stepOutcome.RequireBrokerCredential {
+			requireBrokerCredential = true
+		}
+		if stepOutcome.RequireDelegation {
+			requireDelegation = true
+		}
+		if brokerReference == "" {
+			brokerReference = stepOutcome.BrokerReference
+		}
+		brokerScopes = mergeUniqueSorted(brokerScopes, stepOutcome.BrokerScopes)
+		aggregatedRateLimit = mergeRateLimitPolicy(aggregatedRateLimit, stepOutcome.RateLimit)
+		if stepOutcome.DataflowTriggered {
+			dataflowTriggered = true
+		}
+		riskClasses = mergeUniqueSorted(riskClasses, []string{classifyScriptStepRisk(step.Targets)})
+		if contextApplied {
+			contextSource = resolveWrkrSource(opts.WrkrSource)
+		}
+	}
+
+	maxSteps := policy.Scripts.MaxSteps
+	if maxSteps <= 0 {
+		maxSteps = maxScriptSteps
+	}
+	if len(intent.Script.Steps) > maxSteps {
+		verdict = "block"
+		reasons = mergeUniqueSorted(reasons, []string{"script_max_steps_exceeded"})
+		violations = mergeUniqueSorted(violations, []string{"script_max_steps_exceeded"})
+	}
+	if policy.Scripts.RequireApprovalAbove > 0 && len(intent.Script.Steps) > policy.Scripts.RequireApprovalAbove {
+		verdict = mostRestrictiveVerdict(verdict, "require_approval")
+		reasons = mergeUniqueSorted(reasons, []string{"script_step_threshold_approval"})
+		if minApprovals == 0 {
+			minApprovals = 1
+		}
+	}
+	if policy.Scripts.BlockMixedRisk && len(riskClasses) > 1 {
+		verdict = "block"
+		reasons = mergeUniqueSorted(reasons, []string{"script_mixed_risk_blocked"})
+		violations = mergeUniqueSorted(violations, []string{"script_mixed_risk"})
+	}
+
+	return EvalOutcome{
+		Result: buildGateResult(
+			policy,
+			intent,
+			opts,
+			verdict,
+			reasons,
+			violations,
+		),
+		MatchedRule:              strings.Join(uniqueSorted(matchedRules), ","),
+		MinApprovals:             minApprovals,
+		RequireDistinctApprovers: requireDistinctApprovers,
+		RequireBrokerCredential:  requireBrokerCredential,
+		RequireDelegation:        requireDelegation,
+		BrokerReference:          brokerReference,
+		BrokerScopes:             uniqueSorted(brokerScopes),
+		RateLimit:                aggregatedRateLimit,
+		DataflowTriggered:        dataflowTriggered,
+		Script:                   true,
+		StepCount:                len(intent.Script.Steps),
+		ScriptHash:               intent.ScriptHash,
+		CompositeRiskClass:       compositeRiskClass(riskClasses),
+		StepVerdicts:             stepVerdicts,
+		ContextSource:            contextSource,
+	}, nil
+}
+
+func mergeRateLimitPolicy(current RateLimitPolicy, candidate RateLimitPolicy) RateLimitPolicy {
+	if candidate.Requests <= 0 {
+		return current
+	}
+	if current.Requests <= 0 {
+		return candidate
+	}
+	if candidate.Requests < current.Requests {
+		return candidate
+	}
+	if candidate.Requests > current.Requests {
+		return current
+	}
+	if normalizedWindowPriority(candidate.Window) < normalizedWindowPriority(current.Window) {
+		return candidate
+	}
+	if normalizedWindowPriority(candidate.Window) > normalizedWindowPriority(current.Window) {
+		return current
+	}
+	if strings.ToLower(strings.TrimSpace(candidate.Scope)) < strings.ToLower(strings.TrimSpace(current.Scope)) {
+		return candidate
+	}
+	return current
+}
+
+func normalizedWindowPriority(window string) int {
+	switch strings.ToLower(strings.TrimSpace(window)) {
+	case "minute":
+		return 0
+	case "hour":
+		return 1
+	default:
+		return 2
+	}
+}
+
+func classifyScriptStepRisk(targets []schemagate.IntentTarget) string {
+	risk := "low"
+	for _, target := range targets {
+		switch target.EndpointClass {
+		case "fs.delete", "proc.exec":
+			return "high"
+		case "fs.write", "net.http", "net.dns":
+			if risk == "low" {
+				risk = "medium"
+			}
+		}
+		if target.Destructive {
+			return "high"
+		}
+	}
+	return risk
+}
+
+func compositeRiskClass(riskClasses []string) string {
+	if contains(riskClasses, "high") {
+		return "high"
+	}
+	if contains(riskClasses, "medium") {
+		return "medium"
+	}
+	return "low"
 }
 
 func PolicyDigest(policy Policy) (string, error) {
@@ -357,6 +588,18 @@ func policyDigestPayload(policy Policy) map[string]any {
 		}
 		if len(rule.Match.DestinationOps) > 0 {
 			matchPayload["DestinationOps"] = rule.Match.DestinationOps
+		}
+		if len(rule.Match.ContextToolNames) > 0 {
+			matchPayload["ContextToolNames"] = rule.Match.ContextToolNames
+		}
+		if len(rule.Match.ContextDataClasses) > 0 {
+			matchPayload["ContextDataClasses"] = rule.Match.ContextDataClasses
+		}
+		if len(rule.Match.ContextEndpointClasses) > 0 {
+			matchPayload["ContextEndpointClasses"] = rule.Match.ContextEndpointClasses
+		}
+		if len(rule.Match.ContextAutonomyLevels) > 0 {
+			matchPayload["ContextAutonomyLevels"] = rule.Match.ContextAutonomyLevels
 		}
 		if rule.Match.RequireDelegation {
 			matchPayload["RequireDelegation"] = true
@@ -450,7 +693,7 @@ func policyDigestPayload(policy Policy) map[string]any {
 		rules = append(rules, rulePayload)
 	}
 
-	return map[string]any{
+	payload := map[string]any{
 		"SchemaID":       policy.SchemaID,
 		"SchemaVersion":  policy.SchemaVersion,
 		"DefaultVerdict": policy.DefaultVerdict,
@@ -461,6 +704,14 @@ func policyDigestPayload(policy Policy) map[string]any {
 		},
 		"Rules": rules,
 	}
+	if policy.Scripts.MaxSteps > 0 || policy.Scripts.RequireApprovalAbove > 0 || policy.Scripts.BlockMixedRisk {
+		payload["Scripts"] = map[string]any{
+			"MaxSteps":             policy.Scripts.MaxSteps,
+			"RequireApprovalAbove": policy.Scripts.RequireApprovalAbove,
+			"BlockMixedRisk":       policy.Scripts.BlockMixedRisk,
+		}
+	}
+	return payload
 }
 
 func isHighRiskActionRule(rule PolicyRule) bool {
@@ -508,6 +759,12 @@ func normalizePolicy(input Policy) (Policy, error) {
 			return Policy{}, fmt.Errorf("unsupported fail_closed required_field: %s", field)
 		}
 	}
+	if output.Scripts.MaxSteps < 0 {
+		return Policy{}, fmt.Errorf("scripts.max_steps must be >= 0")
+	}
+	if output.Scripts.RequireApprovalAbove < 0 {
+		return Policy{}, fmt.Errorf("scripts.require_approval_above must be >= 0")
+	}
 
 	output.Rules = append([]PolicyRule(nil), output.Rules...)
 	for index := range output.Rules {
@@ -544,6 +801,10 @@ func normalizePolicy(input Policy) (Policy, error) {
 		rule.Match.ProvenanceSources = normalizeStringListLower(rule.Match.ProvenanceSources)
 		rule.Match.Identities = normalizeStringList(rule.Match.Identities)
 		rule.Match.WorkspacePrefixes = normalizeStringList(rule.Match.WorkspacePrefixes)
+		rule.Match.ContextToolNames = normalizeStringListLower(rule.Match.ContextToolNames)
+		rule.Match.ContextDataClasses = normalizeStringListLower(rule.Match.ContextDataClasses)
+		rule.Match.ContextEndpointClasses = normalizeStringListLower(rule.Match.ContextEndpointClasses)
+		rule.Match.ContextAutonomyLevels = normalizeStringListLower(rule.Match.ContextAutonomyLevels)
 		rule.Match.AllowedDelegatorIdentities = normalizeStringList(rule.Match.AllowedDelegatorIdentities)
 		rule.Match.AllowedDelegateIdentities = normalizeStringList(rule.Match.AllowedDelegateIdentities)
 		rule.Match.DelegationScopes = normalizeStringListLower(rule.Match.DelegationScopes)
@@ -691,6 +952,30 @@ func ruleMatches(match PolicyMatch, intent schemagate.IntentRequest) bool {
 			}
 		}
 		if !workspaceMatched {
+			return false
+		}
+	}
+	if len(match.ContextToolNames) > 0 {
+		value := contextString(intent.Context.AuthContext, wrkrContextToolNameKey)
+		if value == "" || !contains(match.ContextToolNames, value) {
+			return false
+		}
+	}
+	if len(match.ContextDataClasses) > 0 {
+		value := contextString(intent.Context.AuthContext, wrkrContextDataClassKey)
+		if value == "" || !contains(match.ContextDataClasses, value) {
+			return false
+		}
+	}
+	if len(match.ContextEndpointClasses) > 0 {
+		value := contextString(intent.Context.AuthContext, wrkrContextEndpointClassKey)
+		if value == "" || !contains(match.ContextEndpointClasses, value) {
+			return false
+		}
+	}
+	if len(match.ContextAutonomyLevels) > 0 {
+		value := contextString(intent.Context.AuthContext, wrkrContextAutonomyLevelKey)
+		if value == "" || !contains(match.ContextAutonomyLevels, value) {
 			return false
 		}
 	}
@@ -1315,6 +1600,29 @@ func contains(values []string, wanted string) bool {
 		}
 	}
 	return false
+}
+
+func contextString(values map[string]any, key string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	raw, ok := values[key]
+	if !ok {
+		return ""
+	}
+	text, ok := raw.(string)
+	if !ok {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(text))
+}
+
+func resolveWrkrSource(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "wrkr_inventory"
+	}
+	return trimmed
 }
 
 func sanitizeName(value string) string {

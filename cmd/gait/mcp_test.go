@@ -349,6 +349,133 @@ func TestRunMCPProxyOSSProdOAuthEvidenceValidation(t *testing.T) {
 	}
 }
 
+func TestValidateMCPBoundaryOAuthEvidence(t *testing.T) {
+	validEvidence := &mcp.OAuthEvidence{
+		Issuer:      "https://auth.example.com",
+		Audience:    []string{"gait-boundary"},
+		Subject:     "user:alice",
+		ClientID:    "cli-123",
+		TokenType:   "bearer",
+		Scopes:      []string{"tools.read"},
+		RedirectURI: "https://app.example.com/callback",
+		AuthTime:    "2026-02-18T00:00:00Z",
+		EvidenceRef: "oauth:receipt:1",
+	}
+
+	if err := validateMCPBoundaryOAuthEvidence(mcp.ToolCall{
+		Context: mcp.CallContext{AuthMode: "token"},
+	}, gateProfileOSSProd); err != nil {
+		t.Fatalf("expected token auth mode to bypass OAuth evidence checks, got %v", err)
+	}
+
+	if err := validateMCPBoundaryOAuthEvidence(mcp.ToolCall{
+		Context: mcp.CallContext{AuthMode: "oauth"},
+	}, gateProfileStandard); err != nil {
+		t.Fatalf("expected standard profile to skip OAuth evidence enforcement, got %v", err)
+	}
+
+	if err := validateMCPBoundaryOAuthEvidence(mcp.ToolCall{
+		Context: mcp.CallContext{
+			AuthMode:      "oauth",
+			OAuthEvidence: validEvidence,
+		},
+	}, gateProfileOSSProd); err != nil {
+		t.Fatalf("expected valid OAuth evidence to pass in oss-prod, got %v", err)
+	}
+
+	if err := validateMCPBoundaryOAuthEvidence(mcp.ToolCall{
+		Context: mcp.CallContext{
+			AuthMode: "oauth",
+			AuthContext: map[string]any{
+				"oauth_evidence": map[string]any{
+					"issuer":       validEvidence.Issuer,
+					"audience":     validEvidence.Audience,
+					"subject":      validEvidence.Subject,
+					"client_id":    validEvidence.ClientID,
+					"token_type":   validEvidence.TokenType,
+					"scopes":       validEvidence.Scopes,
+					"redirect_uri": validEvidence.RedirectURI,
+					"auth_time":    validEvidence.AuthTime,
+					"evidence_ref": validEvidence.EvidenceRef,
+				},
+			},
+		},
+	}, gateProfileOSSProd); err != nil {
+		t.Fatalf("expected auth_context OAuth evidence fallback to pass, got %v", err)
+	}
+
+	if err := validateMCPBoundaryOAuthEvidence(mcp.ToolCall{
+		Context: mcp.CallContext{AuthMode: "unsupported"},
+	}, gateProfileOSSProd); err == nil {
+		t.Fatalf("expected invalid auth mode validation error")
+	}
+
+	if err := validateMCPBoundaryOAuthEvidence(mcp.ToolCall{
+		Context: mcp.CallContext{AuthMode: "oauth"},
+	}, gateProfileOSSProd); err == nil {
+		t.Fatalf("expected missing OAuth evidence to fail in oss-prod")
+	}
+
+	invalidAuthTime := *validEvidence
+	invalidAuthTime.AuthTime = "not-rfc3339"
+	if err := validateMCPBoundaryOAuthEvidence(mcp.ToolCall{
+		Context: mcp.CallContext{
+			AuthMode:      "oauth",
+			OAuthEvidence: &invalidAuthTime,
+		},
+	}, gateProfileOSSProd); err == nil {
+		t.Fatalf("expected invalid auth_time to fail validation")
+	}
+
+	missingDCR := *validEvidence
+	if err := validateMCPBoundaryOAuthEvidence(mcp.ToolCall{
+		Context: mcp.CallContext{
+			AuthMode:      "oauth_dcr",
+			OAuthEvidence: &missingDCR,
+		},
+	}, gateProfileOSSProd); err == nil {
+		t.Fatalf("expected oauth_dcr missing fields to fail validation")
+	}
+}
+
+func TestOAuthEvidenceFromAuthContext(t *testing.T) {
+	if evidence := oauthEvidenceFromAuthContext(nil); evidence != nil {
+		t.Fatalf("expected nil evidence for nil auth context")
+	}
+	if evidence := oauthEvidenceFromAuthContext(map[string]any{}); evidence != nil {
+		t.Fatalf("expected nil evidence for missing oauth_evidence key")
+	}
+	if evidence := oauthEvidenceFromAuthContext(map[string]any{
+		"oauth_evidence": map[string]any{
+			"bad": make(chan int),
+		},
+	}); evidence != nil {
+		t.Fatalf("expected nil evidence when oauth_evidence cannot marshal")
+	}
+	if evidence := oauthEvidenceFromAuthContext(map[string]any{
+		"oauth_evidence": "not-an-object",
+	}); evidence != nil {
+		t.Fatalf("expected nil evidence when oauth_evidence cannot unmarshal into struct")
+	}
+
+	evidence := oauthEvidenceFromAuthContext(map[string]any{
+		"oauth_evidence": map[string]any{
+			"issuer":       "https://auth.example.com",
+			"audience":     []string{"gait-boundary"},
+			"subject":      "user:alice",
+			"client_id":    "cli-123",
+			"token_type":   "bearer",
+			"scopes":       []string{"tools.read"},
+			"redirect_uri": "https://app.example.com/callback",
+			"auth_time":    "2026-02-18T00:00:00Z",
+			"evidence_ref": "oauth:receipt:1",
+		},
+	})
+	if evidence == nil || evidence.ClientID != "cli-123" || len(evidence.Scopes) != 1 {
+		t.Fatalf("unexpected decoded OAuth evidence: %#v", evidence)
+	}
+}
+
 func TestRunMCPProxyAdaptersSupportRunpackAndRegressInit(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)

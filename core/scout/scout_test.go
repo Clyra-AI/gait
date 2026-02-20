@@ -245,3 +245,28 @@ func TestSnapshotDiffAddedAndRemoved(t *testing.T) {
 		t.Fatalf("unexpected diff added/removed entries: %#v", diff)
 	}
 }
+
+func TestSortInventoryItemsDeterministicOrdering(t *testing.T) {
+	items := []schemascout.InventoryItem{
+		{ID: "b", Kind: "tool", Name: "beta", Locator: "z.py"},
+		{ID: "a", Kind: "tool", Name: "zeta", Locator: "b.py"},
+		{ID: "a", Kind: "adapter", Name: "zeta", Locator: "a.py"},
+		{ID: "a", Kind: "adapter", Name: "alpha", Locator: "c.py"},
+	}
+	sortInventoryItems(items)
+
+	expected := []schemascout.InventoryItem{
+		{ID: "a", Kind: "adapter", Name: "alpha", Locator: "c.py"},
+		{ID: "a", Kind: "adapter", Name: "zeta", Locator: "a.py"},
+		{ID: "a", Kind: "tool", Name: "zeta", Locator: "b.py"},
+		{ID: "b", Kind: "tool", Name: "beta", Locator: "z.py"},
+	}
+	for index := range expected {
+		if items[index].ID != expected[index].ID ||
+			items[index].Kind != expected[index].Kind ||
+			items[index].Name != expected[index].Name ||
+			items[index].Locator != expected[index].Locator {
+			t.Fatalf("unexpected sorted order at index %d: got=%#v expected=%#v", index, items[index], expected[index])
+		}
+	}
+}

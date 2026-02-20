@@ -20,6 +20,9 @@
 - gait regress run --json --junit <path>
 - gait policy test <policy.yaml> <intent.json>
 - gait gate eval --policy <policy.yaml> --intent <intent.json>
+- gait gate eval --policy <policy.yaml> --intent <intent.json> --wrkr-inventory <inventory.json>
+- gait approve-script --policy <policy.yaml> --intent <script_intent.json> --registry <registry.json> --approver <id>
+- gait list-scripts --registry <registry.json>
 - gait job submit --id <job_id>
 - gait job status --id <job_id>
 - gait job checkpoint add --id <job_id> --type <type> --summary <text>

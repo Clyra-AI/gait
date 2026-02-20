@@ -29,6 +29,7 @@ The UAT script refreshes Homebrew taps before reinstall to avoid stale formula r
 - `scripts/test_v1_6_acceptance.sh` (v1.6 wedge/flow checks)
 - `scripts/test_v1_7_acceptance.sh` (v1.7 endpoint/provenance/fail-closed checks)
 - `scripts/test_v1_8_acceptance.sh` (v1.8 interception/ecosystem checks)
+- `scripts/test_script_intent_acceptance.sh` (script-intent governance + Wrkr enrichment + approved-script registry fail-closed checks)
 - `scripts/test_v2_3_acceptance.sh` (v2.3 adoption/conformance/distribution gate + metrics snapshot)
 - `scripts/test_v2_4_acceptance.sh` (v2.4 job/pack/signing/replay/credential-ttl acceptance gate)
 - `scripts/test_mcp_canonical_demo.sh` (canonical MCP allow/block/require-approval boundary demo with per-call pack evidence)

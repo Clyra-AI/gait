@@ -37,6 +37,12 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "approve", "--help"}); code != exitOK {
 		t.Fatalf("run approve help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "approve-script", "--help"}); code != exitOK {
+		t.Fatalf("run approve-script help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "list-scripts", "--help"}); code != exitOK {
+		t.Fatalf("run list-scripts help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "delegate", "mint", "--help"}); code != exitOK {
 		t.Fatalf("run delegate mint help: expected %d got %d", exitOK, code)
 	}
@@ -1576,6 +1582,41 @@ func TestWriteTourOutputFailureShowsContext(t *testing.T) {
 	}
 }
 
+func TestWriteTourOutputSuccessShowsGuidance(t *testing.T) {
+	raw := captureStdout(t, func() {
+		code := writeTourOutput(false, tourOutput{
+			OK:            true,
+			Mode:          "activation",
+			RunID:         demoRunID,
+			VerifyStatus:  "ok",
+			VerifyPath:    "./gait-out/runpack_run_demo.zip",
+			FixtureName:   demoRunID,
+			FixtureDir:    "./fixtures/run_demo",
+			RegressStatus: regressStatusPass,
+			NextCommands:  []string{"gait demo --durable", "gait doctor --summary"},
+			BranchHints:   []string{"durable branch", "policy branch"},
+			MetricsOptIn:  demoMetricsOptInCommand,
+		}, exitOK)
+		if code != exitOK {
+			t.Fatalf("writeTourOutput expected %d got %d", exitOK, code)
+		}
+	})
+	for _, snippet := range []string{
+		"tour mode=activation",
+		"a1_demo=ok run_id=run_demo",
+		"a2_verify=ok path=./gait-out/runpack_run_demo.zip",
+		"a3_regress_init=ok fixture=run_demo dir=./fixtures/run_demo",
+		"a4_regress_run=pass failed=0",
+		"next=gait demo --durable | gait doctor --summary",
+		"branch_hints=durable branch | policy branch",
+		"metrics_opt_in=" + demoMetricsOptInCommand,
+	} {
+		if !strings.Contains(raw, snippet) {
+			t.Fatalf("expected success tour output to contain %q, got %q", snippet, raw)
+		}
+	}
+}
+
 func TestVerifyJSONIncludesGuidance(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
@@ -2268,6 +2309,38 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	if code := writeApproveOutput(false, approveOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
 		t.Fatalf("writeApproveOutput text: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := writeApproveScriptOutput(true, approveScriptOutput{OK: true, PatternID: "pattern_123"}, exitOK); code != exitOK {
+		t.Fatalf("writeApproveScriptOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeApproveScriptOutput(false, approveScriptOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeApproveScriptOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeApproveScriptOutput(false, approveScriptOutput{
+		OK:           true,
+		PatternID:    "pattern_123",
+		RegistryPath: "approved_scripts.json",
+		PolicyDigest: "sha256:policy",
+		ScriptHash:   "sha256:script",
+	}, exitOK); code != exitOK {
+		t.Fatalf("writeApproveScriptOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writeListScriptsOutput(true, listScriptsOutput{OK: true, Registry: "approved_scripts.json"}, exitOK); code != exitOK {
+		t.Fatalf("writeListScriptsOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeListScriptsOutput(false, listScriptsOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeListScriptsOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeListScriptsOutput(false, listScriptsOutput{
+		OK:       true,
+		Registry: "approved_scripts.json",
+		Count:    2,
+		Entries: []listScriptsEntry{
+			{PatternID: "pattern_active", ApproverIdentity: "secops", ExpiresAt: "2026-02-22T00:00:00Z", Expired: false},
+			{PatternID: "pattern_expired", ApproverIdentity: "secops", ExpiresAt: "2026-02-19T00:00:00Z", Expired: true},
+		},
+	}, exitOK); code != exitOK {
+		t.Fatalf("writeListScriptsOutput text ok: expected %d got %d", exitOK, code)
+	}
 
 	if code := writeGateEvalOutput(true, gateEvalOutput{OK: true, Verdict: "allow"}, exitOK); code != exitOK {
 		t.Fatalf("writeGateEvalOutput json: expected %d got %d", exitOK, code)
@@ -2480,6 +2553,27 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	}, exitOK); code != exitOK {
 		t.Fatalf("writeDoctorOutput text ok: expected %d got %d", exitOK, code)
 	}
+	if code := writeDoctorOutput(false, doctorOutput{
+		OK:          true,
+		Summary:     "doctor summary",
+		SummaryMode: true,
+		Status:      "pass",
+		NonFixable:  false,
+	}, exitOK); code != exitOK {
+		t.Fatalf("writeDoctorOutput summary tips: expected %d got %d", exitOK, code)
+	}
+	if code := writeDoctorOutput(false, doctorOutput{
+		OK:          true,
+		Summary:     "doctor summary",
+		SummaryMode: true,
+		Status:      "warn",
+		Checks: []doctor.Check{
+			{Name: "check_warn", Status: "warn", Message: "needs action", FixCommand: "gait doctor --summary"},
+			{Name: "check_pass", Status: "pass", Message: "ok"},
+		},
+	}, exitOK); code != exitOK {
+		t.Fatalf("writeDoctorOutput summary checks: expected %d got %d", exitOK, code)
+	}
 	if code := writeDoctorOutput(false, doctorOutput{Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
 		t.Fatalf("writeDoctorOutput text error: expected %d got %d", exitInvalidInput, code)
 	}
@@ -2582,6 +2676,7 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 
 	printUsage()
 	printApproveUsage()
+	printApproveScriptUsage()
 	printDemoUsage()
 	printTourUsage()
 	printDoctorUsage()
@@ -2608,6 +2703,7 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printRunReceiptUsage()
 	printReplayUsage()
 	printDiffUsage()
+	printListScriptsUsage()
 	printMigrateUsage()
 	printVerifyUsage()
 	printVerifyChainUsage()

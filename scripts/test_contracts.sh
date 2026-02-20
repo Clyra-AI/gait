@@ -201,6 +201,22 @@ expected = {
         ],
         "verdict_enum": ["allow", "block", "dry_run", "require_approval"],
     },
+    "schemas/v1/gate/approved_script_entry.schema.json": {
+        "schema_id": "gait.gate.approved_script_entry",
+        "schema_version_pattern": r"^1\.0\.0$",
+        "required": [
+            "schema_id",
+            "schema_version",
+            "created_at",
+            "producer_version",
+            "pattern_id",
+            "policy_digest",
+            "script_hash",
+            "tool_sequence",
+            "approver_identity",
+            "expires_at",
+        ],
+    },
     "schemas/v1/runpack/manifest.schema.json": {
         "schema_id": "gait.runpack.manifest",
         "schema_version_pattern": r"^1\.0\.0$",

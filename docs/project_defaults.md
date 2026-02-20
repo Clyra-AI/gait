@@ -19,6 +19,7 @@ gate:
   profile: oss-prod
   key_mode: prod
   private_key: examples/scenarios/keys/approval_private.key
+  wrkr_inventory_path: ./.gait/wrkr_inventory.json
   credential_broker: stub
 ```
 
@@ -48,6 +49,7 @@ gait gate eval --intent examples/policy/intents/intent_delete.json --json
 - `credential_command_args`
 - `credential_evidence_path`
 - `trace_path`
+- `wrkr_inventory_path`
 
 ## Guardrails
 

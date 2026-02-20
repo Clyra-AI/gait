@@ -195,6 +195,19 @@ func TestNormalizeRequestValidation(t *testing.T) {
 	}
 }
 
+func TestParseInt64(t *testing.T) {
+	value, err := parseInt64(" 42 ")
+	if err != nil || value != 42 {
+		t.Fatalf("parseInt64 expected 42, got value=%d err=%v", value, err)
+	}
+	if _, err := parseInt64(""); err == nil {
+		t.Fatalf("expected parseInt64 to reject empty input")
+	}
+	if _, err := parseInt64("invalid"); err == nil {
+		t.Fatalf("expected parseInt64 to reject invalid integer")
+	}
+}
+
 func TestCommandBrokerIssuePlainTextAndTimeout(t *testing.T) {
 	executable, err := os.Executable()
 	if err != nil {

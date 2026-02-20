@@ -24,6 +24,12 @@ type EmitTraceOptions struct {
 	DelegationTokenRef    string
 	DelegationReasonCodes []string
 	LatencyMS             float64
+	ContextSource         string
+	CompositeRiskClass    string
+	StepVerdicts          []schemagate.TraceStepVerdict
+	PreApproved           bool
+	PatternID             string
+	RegistryReason        string
 	SigningPrivateKey     ed25519.PrivateKey
 	TracePath             string
 }
@@ -87,10 +93,21 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		ContextSetDigest:    normalizedIntent.Context.ContextSetDigest,
 		ContextEvidenceMode: normalizedIntent.Context.ContextEvidenceMode,
 		ContextRefCount:     len(normalizedIntent.Context.ContextRefs),
+		ContextSource:       strings.TrimSpace(opts.ContextSource),
+		Script:              normalizedIntent.Script != nil,
+		ScriptHash:          normalizedIntent.ScriptHash,
+		CompositeRiskClass:  strings.ToLower(strings.TrimSpace(opts.CompositeRiskClass)),
+		StepVerdicts:        append([]schemagate.TraceStepVerdict(nil), opts.StepVerdicts...),
+		PreApproved:         opts.PreApproved,
+		PatternID:           strings.TrimSpace(opts.PatternID),
+		RegistryReason:      strings.TrimSpace(opts.RegistryReason),
 		Violations:          uniqueSorted(gateResult.Violations),
 		LatencyMS:           clampLatency(opts.LatencyMS),
 		ApprovalTokenRef:    strings.TrimSpace(opts.ApprovalTokenRef),
 		SkillProvenance:     normalizedIntent.SkillProvenance,
+	}
+	if normalizedIntent.Script != nil {
+		trace.StepCount = len(normalizedIntent.Script.Steps)
 	}
 	trace.EventID = computeTraceEventID(trace.TraceID, trace.ObservedAt)
 	if normalizedIntent.Delegation != nil {

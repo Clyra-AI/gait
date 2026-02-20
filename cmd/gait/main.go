@@ -65,12 +65,16 @@ func runDispatch(arguments []string) int {
 	switch arguments[1] {
 	case "approve":
 		return runApprove(arguments[2:])
+	case "approve-script":
+		return runApproveScript(arguments[2:])
 	case "delegate":
 		return runDelegate(arguments[2:])
 	case "demo":
 		return runDemo(arguments[2:])
 	case "doctor":
 		return runDoctor(arguments[2:])
+	case "list-scripts":
+		return runListScripts(arguments[2:])
 	case "gate":
 		return runGate(arguments[2:])
 	case "policy":
@@ -134,7 +138,7 @@ func normalizeAdoptionCommand(arguments []string) string {
 		return "version"
 	case "--explain":
 		return "explain"
-	case "gate", "policy", "keys", "trace", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "mcp", "voice", "doctor", "delegate", "ui":
+	case "approve-script", "list-scripts", "gate", "policy", "keys", "trace", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "mcp", "voice", "doctor", "delegate", "ui":
 		if len(arguments) > 2 {
 			subcommand := strings.TrimSpace(arguments[2])
 			if subcommand != "" && !strings.HasPrefix(subcommand, "-") {

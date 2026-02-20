@@ -1297,6 +1297,151 @@ func TestEvaluateFailClosedRequiredFieldsContextEvidence(t *testing.T) {
 	}
 }
 
+func TestEvaluateScriptIntentRollup(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+scripts:
+  max_steps: 8
+  require_approval_above: 1
+rules:
+  - name: allow-read
+    effect: allow
+    match:
+      tool_names: [tool.read]
+  - name: approval-write
+    effect: require_approval
+    min_approvals: 2
+    match:
+      tool_names: [tool.write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.ToolName = "script"
+	intent.Script = &schemagate.IntentScript{
+		Steps: []schemagate.IntentScriptStep{
+			{
+				ToolName: "tool.read",
+				Args:     map[string]any{"path": "/tmp/in.txt"},
+				Targets: []schemagate.IntentTarget{
+					{Kind: "path", Value: "/tmp/in.txt", Operation: "read"},
+				},
+			},
+			{
+				ToolName: "tool.write",
+				Args:     map[string]any{"path": "/tmp/out.txt"},
+				Targets: []schemagate.IntentTarget{
+					{Kind: "path", Value: "/tmp/out.txt", Operation: "write"},
+				},
+			},
+		},
+	}
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate script policy: %v", err)
+	}
+	if outcome.Result.Verdict != "require_approval" {
+		t.Fatalf("unexpected script verdict: %#v", outcome.Result)
+	}
+	if !outcome.Script || outcome.StepCount != 2 {
+		t.Fatalf("expected script metadata in outcome: %#v", outcome)
+	}
+	if outcome.ScriptHash == "" {
+		t.Fatalf("expected script hash in outcome")
+	}
+	if outcome.MinApprovals != 2 {
+		t.Fatalf("expected max min_approvals rollup=2, got %d", outcome.MinApprovals)
+	}
+	if len(outcome.StepVerdicts) != 2 {
+		t.Fatalf("expected per-step verdicts, got %#v", outcome.StepVerdicts)
+	}
+	if outcome.StepVerdicts[0].ToolName != "tool.read" || outcome.StepVerdicts[1].ToolName != "tool.write" {
+		t.Fatalf("unexpected step verdict ordering: %#v", outcome.StepVerdicts)
+	}
+}
+
+func TestRuleMatchesWrkrContextFields(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: block-wrkr-data-class
+    effect: block
+    match:
+      tool_names: [tool.read]
+      context_tool_names: [tool.read]
+      context_data_classes: [pii]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.ToolName = "tool.read"
+	intent.Context.AuthContext = map[string]any{
+		"wrkr.tool_name":  "tool.read",
+		"wrkr.data_class": "pii",
+	}
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+	if outcome.Result.Verdict != "block" {
+		t.Fatalf("expected block verdict from wrkr context match, got %#v", outcome.Result)
+	}
+}
+
+func TestMergeRateLimitPolicy(t *testing.T) {
+	if merged := mergeRateLimitPolicy(RateLimitPolicy{Requests: 10, Window: "hour", Scope: "identity"}, RateLimitPolicy{}); merged.Requests != 10 {
+		t.Fatalf("expected empty candidate to keep current policy, got %#v", merged)
+	}
+	if merged := mergeRateLimitPolicy(RateLimitPolicy{}, RateLimitPolicy{Requests: 5, Window: "hour", Scope: "identity"}); merged.Requests != 5 {
+		t.Fatalf("expected empty current policy to adopt candidate, got %#v", merged)
+	}
+	if merged := mergeRateLimitPolicy(
+		RateLimitPolicy{Requests: 10, Window: "hour", Scope: "workspace"},
+		RateLimitPolicy{Requests: 5, Window: "hour", Scope: "identity"},
+	); merged.Requests != 5 {
+		t.Fatalf("expected lower request budget to win, got %#v", merged)
+	}
+	if merged := mergeRateLimitPolicy(
+		RateLimitPolicy{Requests: 5, Window: "hour", Scope: "identity"},
+		RateLimitPolicy{Requests: 10, Window: "minute", Scope: "global"},
+	); merged.Requests != 5 || merged.Window != "hour" {
+		t.Fatalf("expected stricter current request budget to remain, got %#v", merged)
+	}
+	if merged := mergeRateLimitPolicy(
+		RateLimitPolicy{Requests: 5, Window: "hour", Scope: "workspace"},
+		RateLimitPolicy{Requests: 5, Window: "minute", Scope: "workspace"},
+	); merged.Window != "minute" {
+		t.Fatalf("expected tighter minute window to win ties, got %#v", merged)
+	}
+	if merged := mergeRateLimitPolicy(
+		RateLimitPolicy{Requests: 5, Window: "minute", Scope: "workspace"},
+		RateLimitPolicy{Requests: 5, Window: "minute", Scope: "global"},
+	); merged.Scope != "global" {
+		t.Fatalf("expected lexicographically smaller scope to break ties, got %#v", merged)
+	}
+}
+
+func TestWindowPriorityAndWrkrSourceHelpers(t *testing.T) {
+	if got := normalizedWindowPriority("minute"); got != 0 {
+		t.Fatalf("expected minute priority 0, got %d", got)
+	}
+	if got := normalizedWindowPriority(" hour "); got != 1 {
+		t.Fatalf("expected hour priority 1, got %d", got)
+	}
+	if got := normalizedWindowPriority("day"); got != 2 {
+		t.Fatalf("expected unknown window priority 2, got %d", got)
+	}
+
+	if source := resolveWrkrSource(""); source != "wrkr_inventory" {
+		t.Fatalf("expected default wrkr source, got %q", source)
+	}
+	if source := resolveWrkrSource("  wrkr_api  "); source != "wrkr_api" {
+		t.Fatalf("expected trimmed wrkr source, got %q", source)
+	}
+}
+
 func baseIntent() schemagate.IntentRequest {
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",

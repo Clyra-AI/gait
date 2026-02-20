@@ -32,6 +32,30 @@
     "context_set_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "context_evidence_mode": { "type": "string", "enum": ["best_effort", "required"] },
     "context_ref_count": { "type": "integer", "minimum": 0 },
+    "context_source": { "type": "string" },
+    "script": { "type": "boolean" },
+    "step_count": { "type": "integer", "minimum": 0 },
+    "script_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "composite_risk_class": { "type": "string" },
+    "step_verdicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "tool_name", "verdict"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "tool_name": { "type": "string" },
+          "verdict": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] },
+          "reason_codes": { "type": "array", "items": { "type": "string" } },
+          "violations": { "type": "array", "items": { "type": "string" } },
+          "matched_rule": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "pre_approved": { "type": "boolean" },
+    "pattern_id": { "type": "string" },
+    "registry_reason": { "type": "string" },
     "violations": { "type": "array", "items": { "type": "string" }, "default": [] },
     "latency_ms": { "type": "number" },
     "approval_token_ref": { "type": "string" },

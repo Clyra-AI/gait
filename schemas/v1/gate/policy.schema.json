@@ -10,6 +10,15 @@
       "type": "string",
       "enum": ["allow", "block", "dry_run", "require_approval"]
     },
+    "scripts": {
+      "type": "object",
+      "properties": {
+        "max_steps": { "type": "integer", "minimum": 1 },
+        "require_approval_above": { "type": "integer", "minimum": 0 },
+        "block_mixed_risk": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
     "fail_closed": {
       "type": "object",
       "properties": {
@@ -57,6 +66,10 @@
               "provenance_sources": { "type": "array", "items": { "type": "string" } },
               "identities": { "type": "array", "items": { "type": "string" } },
               "workspace_prefixes": { "type": "array", "items": { "type": "string" } },
+              "context_tool_names": { "type": "array", "items": { "type": "string" } },
+              "context_data_classes": { "type": "array", "items": { "type": "string" } },
+              "context_endpoint_classes": { "type": "array", "items": { "type": "string" } },
+              "context_autonomy_levels": { "type": "array", "items": { "type": "string" } },
               "require_delegation": { "type": "boolean" },
               "allowed_delegator_identities": { "type": "array", "items": { "type": "string" } },
               "allowed_delegate_identities": { "type": "array", "items": { "type": "string" } },

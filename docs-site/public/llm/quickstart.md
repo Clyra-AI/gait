@@ -34,3 +34,11 @@ Then continue with:
 - production integration checklist: `/docs/integration_checklist/`
 
 Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries.
+
+For script automation boundaries, add:
+
+```bash
+gait approve-script --policy ./policy.yaml --intent ./script_intent.json --registry ./approved_scripts.json --approver secops --json
+gait list-scripts --registry ./approved_scripts.json --json
+gait gate eval --policy ./policy.yaml --intent ./script_intent.json --approved-script-registry ./approved_scripts.json --json
+```

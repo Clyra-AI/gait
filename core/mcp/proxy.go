@@ -56,7 +56,8 @@ func ToIntentRequest(call ToolCall) (schemagate.IntentRequest, error) {
 
 func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.IntentRequest, error) {
 	name := strings.TrimSpace(call.Name)
-	if name == "" {
+	hasScript := call.Script != nil && len(call.Script.Steps) > 0
+	if name == "" && !hasScript {
 		return schemagate.IntentRequest{}, fmt.Errorf("tool call name is required")
 	}
 
@@ -87,6 +88,47 @@ func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.I
 
 	args := call.Args
 	if args == nil {
+		args = map[string]any{}
+	}
+	var script *schemagate.IntentScript
+	if hasScript {
+		steps := make([]schemagate.IntentScriptStep, 0, len(call.Script.Steps))
+		for index, step := range call.Script.Steps {
+			stepName := strings.TrimSpace(step.Name)
+			if stepName == "" {
+				return schemagate.IntentRequest{}, fmt.Errorf("script.steps[%d].name is required", index)
+			}
+			stepTargets := make([]schemagate.IntentTarget, 0, len(step.Targets))
+			for _, target := range step.Targets {
+				stepTargets = append(stepTargets, schemagate.IntentTarget{
+					Kind:        strings.TrimSpace(target.Kind),
+					Value:       strings.TrimSpace(target.Value),
+					Operation:   strings.TrimSpace(target.Operation),
+					Sensitivity: strings.TrimSpace(target.Sensitivity),
+				})
+			}
+			stepProvenance := make([]schemagate.IntentArgProvenance, 0, len(step.ArgProvenance))
+			for _, entry := range step.ArgProvenance {
+				stepProvenance = append(stepProvenance, schemagate.IntentArgProvenance{
+					ArgPath:         strings.TrimSpace(entry.ArgPath),
+					Source:          strings.TrimSpace(entry.Source),
+					SourceRef:       strings.TrimSpace(entry.SourceRef),
+					IntegrityDigest: strings.TrimSpace(entry.IntegrityDigest),
+				})
+			}
+			stepArgs := step.Args
+			if stepArgs == nil {
+				stepArgs = map[string]any{}
+			}
+			steps = append(steps, schemagate.IntentScriptStep{
+				ToolName:      stepName,
+				Args:          stepArgs,
+				Targets:       stepTargets,
+				ArgProvenance: stepProvenance,
+			})
+		}
+		script = &schemagate.IntentScript{Steps: steps}
+		name = "script"
 		args = map[string]any{}
 	}
 
@@ -151,6 +193,7 @@ func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.I
 		ProducerVersion: "0.0.0-dev",
 		ToolName:        name,
 		Args:            args,
+		Script:          script,
 		Targets:         intentTargets,
 		ArgProvenance:   provenance,
 		Delegation:      delegation,

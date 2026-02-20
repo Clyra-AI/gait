@@ -92,6 +92,46 @@ Rollout gate:
   - runtime must block execution until approval token flow completes
   - CI should treat `require_approval` as a blocked promotion signal unless an approved path is part of release criteria
 
+## Stage 3D: Script Governance, Wrkr Context, and Approved Registry
+
+For multi-step scripts, evaluate script payloads directly and wire deterministic context enrichment:
+
+```bash
+gait gate eval \
+  --policy ./policy.yaml \
+  --intent ./script_intent.json \
+  --wrkr-inventory ./wrkr_inventory.json \
+  --json
+```
+
+For explicitly approved script patterns, mint signed entries and verify fast-path allow behavior:
+
+```bash
+gait approve-script \
+  --policy ./policy.yaml \
+  --intent ./script_intent.json \
+  --registry ./approved_scripts.json \
+  --approver secops \
+  --key-mode prod \
+  --private-key ./approval_private.key \
+  --json
+
+gait list-scripts --registry ./approved_scripts.json --json
+
+gait gate eval \
+  --policy ./policy.yaml \
+  --intent ./script_intent.json \
+  --approved-script-registry ./approved_scripts.json \
+  --approved-script-public-key ./approval_public.key \
+  --json
+```
+
+Rollout gate:
+
+- approved-script entries must be policy-digest bound and signature verified.
+- missing/invalid registry state must fail closed in high-risk/oss-prod paths.
+- monitor `pre_approved`, `pattern_id`, and `registry_reason` in gate JSON and trace artifacts.
+
 ## Stage 3B: Skill Trust Guardrails
 
 When skills initiate tool calls, add trust conditions:

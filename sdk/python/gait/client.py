@@ -15,6 +15,7 @@ from .models import (
     IntentArgProvenance,
     IntentContext,
     IntentRequest,
+    IntentScript,
     IntentTarget,
     RegressInitResult,
     RunRecordCapture,
@@ -56,6 +57,7 @@ def capture_intent(
     context: IntentContext,
     targets: Sequence[IntentTarget] | None = None,
     arg_provenance: Sequence[IntentArgProvenance] | None = None,
+    script: IntentScript | None = None,
     created_at: datetime | None = None,
     producer_version: str = "0.0.0-dev",
 ) -> IntentRequest:
@@ -65,6 +67,7 @@ def capture_intent(
         context=context,
         targets=list(targets or []),
         arg_provenance=list(arg_provenance or []),
+        script=script,
         created_at=created_at or datetime.now(UTC),
         producer_version=producer_version,
     )

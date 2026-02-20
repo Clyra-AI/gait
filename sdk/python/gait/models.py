@@ -131,6 +131,30 @@ class IntentDelegation:
         return output
 
 
+@dataclass(slots=True, frozen=True)
+class IntentScriptStep:
+    tool_name: str
+    args: dict[str, Any]
+    targets: list[IntentTarget] = field(default_factory=list)
+    arg_provenance: list[IntentArgProvenance] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        output: dict[str, Any] = {"tool_name": self.tool_name, "args": self.args}
+        if self.targets:
+            output["targets"] = [target.to_dict() for target in self.targets]
+        if self.arg_provenance:
+            output["arg_provenance"] = [entry.to_dict() for entry in self.arg_provenance]
+        return output
+
+
+@dataclass(slots=True, frozen=True)
+class IntentScript:
+    steps: list[IntentScriptStep]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"steps": [step.to_dict() for step in self.steps]}
+
+
 @dataclass(slots=True)
 class IntentRequest:
     tool_name: str
@@ -139,12 +163,14 @@ class IntentRequest:
     targets: list[IntentTarget] = field(default_factory=list)
     arg_provenance: list[IntentArgProvenance] = field(default_factory=list)
     delegation: IntentDelegation | None = None
+    script: IntentScript | None = None
     created_at: datetime = field(default_factory=_utc_now)
     producer_version: str = "0.0.0-dev"
     schema_id: str = "gait.gate.intent_request"
     schema_version: str = "1.0.0"
     args_digest: str | None = None
     intent_digest: str | None = None
+    script_hash: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         output: dict[str, Any] = {
@@ -161,10 +187,14 @@ class IntentRequest:
             output["arg_provenance"] = [entry.to_dict() for entry in self.arg_provenance]
         if self.delegation is not None:
             output["delegation"] = self.delegation.to_dict()
+        if self.script is not None:
+            output["script"] = self.script.to_dict()
         if self.args_digest:
             output["args_digest"] = self.args_digest
         if self.intent_digest:
             output["intent_digest"] = self.intent_digest
+        if self.script_hash:
+            output["script_hash"] = self.script_hash
         return output
 
     @classmethod
@@ -178,6 +208,7 @@ class IntentRequest:
             args=dict(payload.get("args", {})),
             args_digest=payload.get("args_digest"),
             intent_digest=payload.get("intent_digest"),
+            script_hash=payload.get("script_hash"),
             targets=[
                 IntentTarget(
                     kind=str(target["kind"]),
@@ -231,6 +262,37 @@ class IntentRequest:
                 if "delegation" in payload and isinstance(payload.get("delegation"), dict)
                 else None
             ),
+            script=(
+                IntentScript(
+                    steps=[
+                        IntentScriptStep(
+                            tool_name=str(step["tool_name"]),
+                            args=dict(step.get("args", {})),
+                            targets=[
+                                IntentTarget(
+                                    kind=str(target["kind"]),
+                                    value=str(target["value"]),
+                                    operation=target.get("operation"),
+                                    sensitivity=target.get("sensitivity"),
+                                )
+                                for target in step.get("targets", [])
+                            ],
+                            arg_provenance=[
+                                IntentArgProvenance(
+                                    arg_path=str(entry["arg_path"]),
+                                    source=str(entry["source"]),
+                                    source_ref=entry.get("source_ref"),
+                                    integrity_digest=entry.get("integrity_digest"),
+                                )
+                                for entry in step.get("arg_provenance", [])
+                            ],
+                        )
+                        for step in payload["script"].get("steps", [])
+                    ]
+                )
+                if "script" in payload and isinstance(payload.get("script"), dict)
+                else None
+            ),
         )
 
 
@@ -246,6 +308,14 @@ class GateEvalResult:
     trace_path: str | None = None
     policy_digest: str | None = None
     intent_digest: str | None = None
+    script: bool = False
+    step_count: int = 0
+    script_hash: str | None = None
+    composite_risk_class: str | None = None
+    pre_approved: bool = False
+    pattern_id: str | None = None
+    registry_reason: str | None = None
+    step_verdicts: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
 
@@ -262,6 +332,16 @@ class GateEvalResult:
             trace_path=payload.get("trace_path"),
             policy_digest=payload.get("policy_digest"),
             intent_digest=payload.get("intent_digest"),
+            script=bool(payload.get("script", False)),
+            step_count=int(payload.get("step_count", 0)),
+            script_hash=payload.get("script_hash"),
+            composite_risk_class=payload.get("composite_risk_class"),
+            pre_approved=bool(payload.get("pre_approved", False)),
+            pattern_id=payload.get("pattern_id"),
+            registry_reason=payload.get("registry_reason"),
+            step_verdicts=[
+                dict(value) for value in payload.get("step_verdicts", []) if isinstance(value, dict)
+            ],
             warnings=[str(value) for value in payload.get("warnings", [])],
             error=payload.get("error"),
         )

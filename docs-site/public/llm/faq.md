@@ -40,6 +40,10 @@ Yes. `gait run replay` uses recorded results as deterministic stubs so you can d
 
 Gait provides three integration modes: wrapper/sidecar pattern, Python SDK, and MCP server (`gait mcp serve`). The integration checklist covers the path from first demo to production enforcement.
 
+## Can Gait pre-approve known multi-step scripts?
+
+Yes. Use `gait approve-script` to mint signed registry entries bound to policy digest and script hash, then evaluate with `gait gate eval --approved-script-registry ...`. Invalid or tampered registry state fails closed in high-risk paths.
+
 ## How should teams start?
 
 Run `gait tour` for a guided walkthrough, then `gait demo` to create and verify a signed pack. Wire one integration path from the integration checklist to move toward production enforcement.

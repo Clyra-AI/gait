@@ -35,6 +35,7 @@ type GateDefaults struct {
 	CredentialCommandArgs  string `yaml:"credential_command_args"`
 	CredentialEvidencePath string `yaml:"credential_evidence_path"`
 	TracePath              string `yaml:"trace_path"`
+	WrkrInventoryPath      string `yaml:"wrkr_inventory_path"`
 }
 
 type MCPServeDefaults struct {
@@ -98,6 +99,7 @@ func (configuration *Config) normalize() {
 	configuration.Gate.CredentialCommandArgs = strings.TrimSpace(configuration.Gate.CredentialCommandArgs)
 	configuration.Gate.CredentialEvidencePath = strings.TrimSpace(configuration.Gate.CredentialEvidencePath)
 	configuration.Gate.TracePath = strings.TrimSpace(configuration.Gate.TracePath)
+	configuration.Gate.WrkrInventoryPath = strings.TrimSpace(configuration.Gate.WrkrInventoryPath)
 	configuration.MCPServe.Listen = strings.TrimSpace(configuration.MCPServe.Listen)
 	configuration.MCPServe.AuthMode = strings.ToLower(strings.TrimSpace(configuration.MCPServe.AuthMode))
 	configuration.MCPServe.AuthTokenEnv = strings.TrimSpace(configuration.MCPServe.AuthTokenEnv)

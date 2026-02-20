@@ -92,6 +92,60 @@ rules:
 	}
 }
 
+func TestEmitSignedTraceIncludesScriptMetadata(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	policy, err := ParsePolicyYAML([]byte(`default_verdict: allow`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.ToolName = "script"
+	intent.Script = &schemagate.IntentScript{
+		Steps: []schemagate.IntentScriptStep{
+			{ToolName: "tool.read", Args: map[string]any{"path": "/tmp/in.txt"}},
+			{ToolName: "tool.write", Args: map[string]any{"path": "/tmp/out.txt"}},
+		},
+	}
+	result := schemagate.GateResult{
+		SchemaID:        "gait.gate.result",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		Verdict:         "allow",
+		ReasonCodes:     []string{"approved_script_match"},
+		Violations:      []string{},
+	}
+	emitted, err := EmitSignedTrace(policy, intent, result, EmitTraceOptions{
+		ProducerVersion:    "test",
+		SigningPrivateKey:  keyPair.Private,
+		TracePath:          filepath.Join(t.TempDir(), "trace_script.json"),
+		ContextSource:      "wrkr_inventory",
+		CompositeRiskClass: "medium",
+		StepVerdicts: []schemagate.TraceStepVerdict{
+			{Index: 0, ToolName: "tool.read", Verdict: "allow"},
+			{Index: 1, ToolName: "tool.write", Verdict: "allow"},
+		},
+		PreApproved:    true,
+		PatternID:      "pattern_demo",
+		RegistryReason: "approved_script_match",
+	})
+	if err != nil {
+		t.Fatalf("emit script trace: %v", err)
+	}
+	if !emitted.Trace.Script || emitted.Trace.StepCount != 2 {
+		t.Fatalf("expected script metadata in trace: %#v", emitted.Trace)
+	}
+	if emitted.Trace.ContextSource != "wrkr_inventory" || emitted.Trace.PatternID != "pattern_demo" || !emitted.Trace.PreApproved {
+		t.Fatalf("unexpected trace metadata: %#v", emitted.Trace)
+	}
+	if emitted.Trace.ScriptHash == "" {
+		t.Fatalf("expected script hash in trace output")
+	}
+}
+
 func TestVerifyTraceRecordTamperDetection(t *testing.T) {
 	keyPair, err := sign.GenerateKeyPair()
 	if err != nil {
