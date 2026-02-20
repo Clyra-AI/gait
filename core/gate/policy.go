@@ -374,6 +374,8 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 
 	for index, step := range intent.Script.Steps {
 		stepIntent := intent
+		stepIntent.Context = intent.Context
+		stepIntent.Context.AuthContext = cloneAuthContext(intent.Context.AuthContext)
 		stepIntent.Script = nil
 		stepIntent.ScriptHash = ""
 		stepIntent.ToolName = step.ToolName
@@ -499,6 +501,17 @@ func mergeRateLimitPolicy(current RateLimitPolicy, candidate RateLimitPolicy) Ra
 		return candidate
 	}
 	return current
+}
+
+func cloneAuthContext(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	output := make(map[string]any, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+	return output
 }
 
 func normalizedWindowPriority(window string) int {

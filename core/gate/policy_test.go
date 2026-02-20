@@ -1361,6 +1361,63 @@ rules:
 	}
 }
 
+func TestEvaluateScriptIntentWrkrContextDoesNotLeakAcrossSteps(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: block-write-with-pii-context
+    effect: block
+    match:
+      tool_names: [tool.write]
+      context_data_classes: [pii]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.ToolName = "script"
+	intent.Script = &schemagate.IntentScript{
+		Steps: []schemagate.IntentScriptStep{
+			{
+				ToolName: "tool.read",
+				Targets: []schemagate.IntentTarget{
+					{Kind: "path", Value: "/tmp/in.txt", Operation: "read"},
+				},
+			},
+			{
+				ToolName: "tool.write",
+				Targets: []schemagate.IntentTarget{
+					{Kind: "path", Value: "/tmp/out.txt", Operation: "write"},
+				},
+			},
+		},
+	}
+
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{
+		ProducerVersion: "test",
+		WrkrInventory: map[string]WrkrToolMetadata{
+			"tool.read": {
+				ToolName:      "tool.read",
+				DataClass:     "pii",
+				EndpointClass: "fs.read",
+				AutonomyLevel: "assist",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("evaluate script policy: %v", err)
+	}
+	if outcome.Result.Verdict != "allow" {
+		t.Fatalf("expected allow verdict without context leakage, got %#v", outcome.Result)
+	}
+	if len(outcome.StepVerdicts) != 2 {
+		t.Fatalf("expected two step verdicts, got %#v", outcome.StepVerdicts)
+	}
+	if outcome.StepVerdicts[1].Verdict != "allow" {
+		t.Fatalf("expected write step to remain allow without wrkr match, got %#v", outcome.StepVerdicts[1])
+	}
+}
+
 func TestRuleMatchesWrkrContextFields(t *testing.T) {
 	policy, err := ParsePolicyYAML([]byte(`
 default_verdict: allow

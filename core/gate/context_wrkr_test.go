@@ -88,6 +88,20 @@ func TestLoadWrkrInventoryRejectsInvalidPayload(t *testing.T) {
 	}
 }
 
+func TestLoadWrkrInventoryAcceptsEmptyEnvelope(t *testing.T) {
+	workDir := t.TempDir()
+	path := filepath.Join(workDir, "wrkr_inventory.json")
+	mustWriteWrkrInventoryFile(t, path, `{"items":[]}`)
+
+	inventory, err := LoadWrkrInventory(path)
+	if err != nil {
+		t.Fatalf("LoadWrkrInventory returned error for empty envelope: %v", err)
+	}
+	if len(inventory.Tools) != 0 {
+		t.Fatalf("expected no tools from empty envelope, got %#v", inventory.Tools)
+	}
+}
+
 func TestApplyWrkrContextAddsMetadata(t *testing.T) {
 	intent := schemagate.IntentRequest{
 		Context: schemagate.IntentContext{},

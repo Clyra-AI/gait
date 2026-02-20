@@ -177,9 +177,15 @@ func ReadApprovedScriptRegistry(path string) ([]schemagate.ApprovedScriptEntry, 
 	type registryEnvelope struct {
 		Entries []schemagate.ApprovedScriptEntry `json:"entries"`
 	}
-	var envelope registryEnvelope
-	if err := json.Unmarshal(content, &envelope); err == nil && len(envelope.Entries) > 0 {
-		return normalizeApprovedScriptEntries(envelope.Entries)
+	var envelopeRaw map[string]json.RawMessage
+	if err := json.Unmarshal(content, &envelopeRaw); err == nil {
+		if rawEntries, ok := envelopeRaw["entries"]; ok {
+			var envelope registryEnvelope
+			if err := json.Unmarshal(rawEntries, &envelope.Entries); err != nil {
+				return nil, fmt.Errorf("parse approved script registry: %w", err)
+			}
+			return normalizeApprovedScriptEntries(envelope.Entries)
+		}
 	}
 
 	var entries []schemagate.ApprovedScriptEntry

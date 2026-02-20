@@ -141,6 +141,18 @@ func TestReadApprovedScriptRegistryVariants(t *testing.T) {
 		t.Fatalf("expected empty entries for blank registry file, got %#v", entries)
 	}
 
+	emptyEnvelopePath := filepath.Join(t.TempDir(), "empty_envelope.json")
+	if err := os.WriteFile(emptyEnvelopePath, []byte(`{"entries":[]}`), 0o600); err != nil {
+		t.Fatalf("write empty envelope registry fixture: %v", err)
+	}
+	entries, err = ReadApprovedScriptRegistry(emptyEnvelopePath)
+	if err != nil {
+		t.Fatalf("read empty envelope approved script registry: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected empty entries for empty envelope registry, got %#v", entries)
+	}
+
 	nowUTC := time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)
 	legacyPath := filepath.Join(t.TempDir(), "legacy.json")
 	legacyJSON := []byte(`[

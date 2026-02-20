@@ -94,9 +94,19 @@ func parseWrkrInventory(content []byte) (map[string]WrkrToolMetadata, error) {
 	}
 
 	entries := []item{}
-	var wrapped envelope
-	if err := json.Unmarshal(content, &wrapped); err == nil && len(wrapped.Items) > 0 {
-		entries = wrapped.Items
+	var wrappedRaw map[string]json.RawMessage
+	if err := json.Unmarshal(content, &wrappedRaw); err == nil {
+		if rawItems, ok := wrappedRaw["items"]; ok {
+			var wrapped envelope
+			if err := json.Unmarshal(rawItems, &wrapped.Items); err != nil {
+				return nil, fmt.Errorf("parse wrkr inventory: %w", err)
+			}
+			entries = wrapped.Items
+		} else {
+			if err := json.Unmarshal(content, &entries); err != nil {
+				return nil, fmt.Errorf("parse wrkr inventory: %w", err)
+			}
+		}
 	} else {
 		if err := json.Unmarshal(content, &entries); err != nil {
 			return nil, fmt.Errorf("parse wrkr inventory: %w", err)
