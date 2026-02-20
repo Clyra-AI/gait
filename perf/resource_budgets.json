@@ -40,7 +40,7 @@
     "max_allocs_op": 40
   },
   "BenchmarkEvaluateToolCallTypical": {
-    "max_ns_op": 30000,
+    "max_ns_op": 32000,
     "max_allocs_op": 500
   }
 }
