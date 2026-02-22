@@ -38,14 +38,16 @@ The job surface is for runtime control and evidence, not prompt orchestration.
 ## Minimal Lifecycle
 
 ```bash
-gait job submit --id job_1 --json
+gait job submit --id job_1 --identity worker_1 --policy ./policy.yaml --json
 gait job checkpoint add --id job_1 --type progress --summary "step 1 complete" --json
 gait job pause --id job_1 --json
 gait job approve --id job_1 --actor reviewer_1 --reason "validated input" --json
-gait job resume --id job_1 --actor worker_1 --reason "continue after approval" --json
+gait job resume --id job_1 --actor worker_1 --reason "continue after approval" --policy ./policy.yaml --identity-revocations ./revoked_identities.txt --identity-validation-source revocation_list --json
 gait job inspect --id job_1 --json
 gait job status --id job_1 --json
 ```
+
+`resume` is fail-closed for policy-bound jobs: if a paused job has a bound policy digest, you must provide current policy evaluation metadata (for example `--policy`) before continuation.
 
 ## Artifact And Verification Path
 
@@ -94,4 +96,3 @@ Not necessary:
 - runtime implementation: `core/jobruntime/`
 - pack conversion/verification: `core/pack/`
 - representative adapter path: `examples/integrations/openai_agents/quickstart.py`
-

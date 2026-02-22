@@ -62,6 +62,47 @@ fail_closed:
 	}
 }
 
+func TestParsePolicyYAMLAliasFields(t *testing.T) {
+	policyYAML := []byte(`
+default_action: block
+rules:
+  - name: block-dynamic-destructive
+    action: block
+    match:
+      tool_name: "Postgres_Query"
+      endpoint_class: [proc.exec, fs.delete]
+      discovery_method: [webmcp, dynamic_mcp]
+      tool_annotations:
+        destructiveHint: true
+`)
+	policy, err := ParsePolicyYAML(policyYAML)
+	if err != nil {
+		t.Fatalf("parse policy aliases: %v", err)
+	}
+	if policy.DefaultVerdict != "block" {
+		t.Fatalf("expected default verdict from default_action alias, got %q", policy.DefaultVerdict)
+	}
+	if len(policy.Rules) != 1 {
+		t.Fatalf("expected one rule, got %d", len(policy.Rules))
+	}
+	rule := policy.Rules[0]
+	if rule.Effect != "block" {
+		t.Fatalf("expected rule effect from action alias, got %q", rule.Effect)
+	}
+	if !reflect.DeepEqual(rule.Match.ToolNames, []string{"postgres_query"}) {
+		t.Fatalf("unexpected normalized tool_names alias expansion: %#v", rule.Match.ToolNames)
+	}
+	if !reflect.DeepEqual(rule.Match.EndpointClasses, []string{"fs.delete", "proc.exec"}) {
+		t.Fatalf("unexpected endpoint_class alias expansion: %#v", rule.Match.EndpointClasses)
+	}
+	if !reflect.DeepEqual(rule.Match.DiscoveryMethods, []string{"dynamic_mcp", "webmcp"}) {
+		t.Fatalf("unexpected discovery methods: %#v", rule.Match.DiscoveryMethods)
+	}
+	if rule.Match.ToolAnnotations.DestructiveHint == nil || !*rule.Match.ToolAnnotations.DestructiveHint {
+		t.Fatalf("expected destructive tool annotation hint match to be preserved")
+	}
+}
+
 func TestParsePolicyValidationErrors(t *testing.T) {
 	tests := []struct {
 		name string
@@ -70,6 +111,13 @@ func TestParsePolicyValidationErrors(t *testing.T) {
 		{
 			name: "invalid_default_verdict",
 			yaml: `default_verdict: nope`,
+		},
+		{
+			name: "default_action_conflicts_default_verdict",
+			yaml: `
+default_verdict: allow
+default_action: block
+`,
 		},
 		{
 			name: "unknown_top_level_field",
@@ -81,6 +129,15 @@ func TestParsePolicyValidationErrors(t *testing.T) {
 rules:
   - name: bad-rule
     effect: nope
+`,
+		},
+		{
+			name: "rule_action_conflicts_effect",
+			yaml: `
+rules:
+  - name: bad-rule
+    effect: allow
+    action: block
 `,
 		},
 		{
@@ -151,6 +208,16 @@ rules:
     effect: allow
     match:
       endpoint_classes: [net.invalid]
+`,
+		},
+		{
+			name: "invalid_discovery_method_match",
+			yaml: `
+rules:
+  - name: bad-discovery-method
+    effect: allow
+    match:
+      discovery_method: [unsupported]
 `,
 		},
 	}
@@ -432,7 +499,16 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		Publisher:    "acme",
 	}
 	intent.Targets = []schemagate.IntentTarget{
-		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential", EndpointClass: "net.http"},
+		{
+			Kind:            "host",
+			Value:           "api.external.com",
+			Operation:       "write",
+			Sensitivity:     "confidential",
+			EndpointClass:   "net.http",
+			DiscoveryMethod: "webmcp",
+			ReadOnlyHint:    true,
+			IdempotentHint:  true,
+		},
 	}
 	normalizedIntent, err := NormalizeIntent(intent)
 	if err != nil {
@@ -449,6 +525,11 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		DestinationValues: []string{"api.external.com"},
 		DestinationOps:    []string{"write"},
 		EndpointClasses:   []string{"net.http"},
+		DiscoveryMethods:  []string{"webmcp"},
+		ToolAnnotations: ToolAnnotationMatch{
+			ReadOnlyHint:   boolPtr(true),
+			IdempotentHint: boolPtr(true),
+		},
 		SkillPublishers:   []string{"acme"},
 		SkillSources:      []string{"registry"},
 		ProvenanceSources: []string{"external"},
@@ -469,6 +550,8 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		{DestinationValues: []string{"internal.local"}},
 		{DestinationOps: []string{"read"}},
 		{EndpointClasses: []string{"fs.delete"}},
+		{DiscoveryMethods: []string{"dynamic_mcp"}},
+		{ToolAnnotations: ToolAnnotationMatch{ReadOnlyHint: boolPtr(false)}},
 		{SkillPublishers: []string{"unknown"}},
 		{SkillSources: []string{"git"}},
 		{ProvenanceSources: []string{"user"}},
@@ -980,7 +1063,7 @@ rules:
 
 func TestPolicyDigestPayloadIncludesExtendedFields(t *testing.T) {
 	policy, err := ParsePolicyYAML([]byte(`
-default_verdict: allow
+	default_verdict: allow
 rules:
   - name: rich-rule
     effect: require_approval
@@ -1005,6 +1088,10 @@ rules:
     match:
       tool_names: [tool.write]
       endpoint_classes: [net.http]
+      discovery_method: [webmcp]
+      tool_annotations:
+        readOnlyHint: true
+        idempotentHint: true
       data_classes: [confidential]
       destination_kinds: [host]
       destination_values: [api.external.com]
@@ -1045,6 +1132,16 @@ rules:
 	}
 	if _, ok := ruleAny["MinApprovals"]; !ok {
 		t.Fatalf("expected min_approvals payload to be present: %#v", ruleAny)
+	}
+	matchAny, ok := ruleAny["Match"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected match payload map, got %#v", ruleAny["Match"])
+	}
+	if _, ok := matchAny["DiscoveryMethods"]; !ok {
+		t.Fatalf("expected discovery methods payload to be present: %#v", matchAny)
+	}
+	if _, ok := matchAny["ToolAnnotations"]; !ok {
+		t.Fatalf("expected tool annotations payload to be present: %#v", matchAny)
 	}
 }
 
@@ -1515,4 +1612,8 @@ func baseIntent() schemagate.IntentRequest {
 			RiskClass: "low",
 		},
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

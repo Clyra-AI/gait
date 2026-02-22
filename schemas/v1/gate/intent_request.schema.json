@@ -65,7 +65,15 @@
                       ]
                     },
                     "endpoint_domain": { "type": "string" },
-                    "destructive": { "type": "boolean" }
+                    "destructive": { "type": "boolean" },
+                    "discovery_method": {
+                      "type": "string",
+                      "enum": ["webmcp", "dynamic_mcp", "a2a", "mcp", "static_mcp", "manual", "unknown"]
+                    },
+                    "read_only_hint": { "type": "boolean" },
+                    "destructive_hint": { "type": "boolean" },
+                    "idempotent_hint": { "type": "boolean" },
+                    "open_world_hint": { "type": "boolean" }
                   },
                   "additionalProperties": false
                 }
@@ -120,7 +128,15 @@
             ]
           },
           "endpoint_domain": { "type": "string" },
-          "destructive": { "type": "boolean" }
+          "destructive": { "type": "boolean" },
+          "discovery_method": {
+            "type": "string",
+            "enum": ["webmcp", "dynamic_mcp", "a2a", "mcp", "static_mcp", "manual", "unknown"]
+          },
+          "read_only_hint": { "type": "boolean" },
+          "destructive_hint": { "type": "boolean" },
+          "idempotent_hint": { "type": "boolean" },
+          "open_world_hint": { "type": "boolean" }
         },
         "additionalProperties": false
       }

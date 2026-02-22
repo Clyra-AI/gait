@@ -134,6 +134,119 @@ func TestResumeEnvironmentMismatchFailClosed(t *testing.T) {
 	}
 }
 
+func TestResumePolicyTransitionAndIdentityValidation(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-policy-transition"
+	if _, err := Submit(root, SubmitOptions{
+		JobID:                  jobID,
+		EnvironmentFingerprint: "env:a",
+		PolicyDigest:           "policy-digest-a",
+		PolicyRef:              "policy-a.yaml",
+		Identity:               "agent.alice",
+	}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	if _, err := Pause(root, jobID, TransitionOptions{}); err != nil {
+		t.Fatalf("pause: %v", err)
+	}
+	state, err := Resume(root, jobID, ResumeOptions{
+		CurrentEnvironmentFingerprint: "env:a",
+		PolicyDigest:                  "policy-digest-b",
+		PolicyRef:                     "policy-b.yaml",
+		RequirePolicyEvaluation:       true,
+		RequireIdentityValidation:     true,
+		IdentityValidationSource:      "revocation_list",
+		Identity:                      "agent.alice",
+	})
+	if err != nil {
+		t.Fatalf("resume with policy transition: %v", err)
+	}
+	if state.StatusReasonCode != "resumed_with_policy_transition" {
+		t.Fatalf("expected policy transition reason code, got %s", state.StatusReasonCode)
+	}
+	if state.PolicyDigest != "policy-digest-b" || state.PolicyRef != "policy-b.yaml" {
+		t.Fatalf("expected updated policy metadata in state, got %#v", state)
+	}
+	_, events, err := Inspect(root, jobID)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatalf("expected events in journal")
+	}
+	last := events[len(events)-1]
+	if last.ReasonCode != "resumed_with_policy_transition" {
+		t.Fatalf("unexpected last event reason code: %#v", last)
+	}
+	if got, _ := last.Payload["previous_policy_digest"].(string); got != "policy-digest-a" {
+		t.Fatalf("unexpected previous policy digest in event payload: %#v", last.Payload)
+	}
+	if got, _ := last.Payload["current_policy_digest"].(string); got != "policy-digest-b" {
+		t.Fatalf("unexpected current policy digest in event payload: %#v", last.Payload)
+	}
+	if got, _ := last.Payload["identity_validation_source"].(string); got != "revocation_list" {
+		t.Fatalf("unexpected identity validation source in event payload: %#v", last.Payload)
+	}
+}
+
+func TestResumeRequiresPolicyEvaluationWhenBoundToPolicy(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-policy-required"
+	if _, err := Submit(root, SubmitOptions{
+		JobID:                  jobID,
+		EnvironmentFingerprint: "env:a",
+		PolicyDigest:           "policy-digest-a",
+		PolicyRef:              "policy-a.yaml",
+	}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	if _, err := Pause(root, jobID, TransitionOptions{}); err != nil {
+		t.Fatalf("pause: %v", err)
+	}
+	if _, err := Resume(root, jobID, ResumeOptions{
+		CurrentEnvironmentFingerprint: "env:a",
+	}); !errors.Is(err, ErrPolicyEvaluationRequired) {
+		t.Fatalf("expected policy evaluation required error, got %v", err)
+	}
+}
+
+func TestResumeIdentityValidationErrors(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+
+	if _, err := Submit(root, SubmitOptions{
+		JobID:                  "job-identity-required",
+		EnvironmentFingerprint: "env:a",
+	}); err != nil {
+		t.Fatalf("submit identity-required job: %v", err)
+	}
+	if _, err := Pause(root, "job-identity-required", TransitionOptions{}); err != nil {
+		t.Fatalf("pause identity-required job: %v", err)
+	}
+	if _, err := Resume(root, "job-identity-required", ResumeOptions{
+		CurrentEnvironmentFingerprint: "env:a",
+		RequireIdentityValidation:     true,
+	}); !errors.Is(err, ErrIdentityValidationMissing) {
+		t.Fatalf("expected missing identity validation error, got %v", err)
+	}
+
+	if _, err := Submit(root, SubmitOptions{
+		JobID:                  "job-identity-revoked",
+		EnvironmentFingerprint: "env:a",
+		Identity:               "agent.revoked",
+	}); err != nil {
+		t.Fatalf("submit identity-revoked job: %v", err)
+	}
+	if _, err := Pause(root, "job-identity-revoked", TransitionOptions{}); err != nil {
+		t.Fatalf("pause identity-revoked job: %v", err)
+	}
+	if _, err := Resume(root, "job-identity-revoked", ResumeOptions{
+		CurrentEnvironmentFingerprint: "env:a",
+		IdentityRevoked:               true,
+	}); !errors.Is(err, ErrIdentityRevoked) {
+		t.Fatalf("expected identity revoked error, got %v", err)
+	}
+}
+
 func TestInvalidPauseTransition(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "jobs")
 	if _, err := Submit(root, SubmitOptions{JobID: "job-5"}); err != nil {

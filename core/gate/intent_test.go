@@ -610,6 +610,35 @@ func TestNormalizeTargetsAndProvenanceErrors(t *testing.T) {
 	if _, err := normalizeTargets("tool.demo", []schemagate.IntentTarget{{Kind: "path", Value: "/tmp/out", EndpointClass: "invalid"}}); err == nil {
 		t.Fatalf("expected unsupported endpoint class to fail")
 	}
+	targets, err := normalizeTargets("tool.demo", []schemagate.IntentTarget{{
+		Kind:            "path",
+		Value:           "/tmp/out",
+		Operation:       "write",
+		DiscoveryMethod: " WebMCP ",
+		ReadOnlyHint:    true,
+		DestructiveHint: true,
+		IdempotentHint:  true,
+		OpenWorldHint:   true,
+	}})
+	if err != nil {
+		t.Fatalf("normalize targets with discovery method and annotations: %v", err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("expected one normalized target, got %#v", targets)
+	}
+	if targets[0].DiscoveryMethod != "webmcp" {
+		t.Fatalf("expected normalized discovery method webmcp, got %#v", targets[0])
+	}
+	if !targets[0].ReadOnlyHint || !targets[0].DestructiveHint || !targets[0].IdempotentHint || !targets[0].OpenWorldHint {
+		t.Fatalf("expected annotation hints to be preserved, got %#v", targets[0])
+	}
+	if _, err := normalizeTargets("tool.demo", []schemagate.IntentTarget{{
+		Kind:            "path",
+		Value:           "/tmp/out",
+		DiscoveryMethod: "unsupported",
+	}}); err == nil {
+		t.Fatalf("expected unsupported discovery method to fail")
+	}
 
 	if provenance, err := normalizeArgProvenance(nil); err != nil || len(provenance) != 0 {
 		t.Fatalf("expected empty provenance, got entries=%#v err=%v", provenance, err)

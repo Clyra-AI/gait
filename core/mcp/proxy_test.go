@@ -320,6 +320,49 @@ func TestToIntentRequestWrapper(t *testing.T) {
 	}
 }
 
+func TestToIntentRequestCarriesTargetDiscoveryAndAnnotations(t *testing.T) {
+	intent, err := ToIntentRequest(ToolCall{
+		Name: "tool.read",
+		Args: map[string]any{"path": "/tmp/input.txt"},
+		Targets: []Target{
+			{
+				Kind:                 "path",
+				Value:                "/tmp/input.txt",
+				Operation:            "read",
+				DiscoveryMethodAlias: "webmcp",
+				Annotations: map[string]any{
+					"readOnlyHint":    true,
+					"destructiveHint": false,
+					"idempotentHint":  "true",
+					"openWorldHint":   "false",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ToIntentRequest with annotation hints failed: %v", err)
+	}
+	if len(intent.Targets) != 1 {
+		t.Fatalf("expected one target, got %#v", intent.Targets)
+	}
+	target := intent.Targets[0]
+	if target.DiscoveryMethod != "webmcp" {
+		t.Fatalf("expected discovery method to be preserved, got %#v", target)
+	}
+	if !target.ReadOnlyHint {
+		t.Fatalf("expected read_only_hint to be true, got %#v", target)
+	}
+	if target.DestructiveHint {
+		t.Fatalf("expected destructive_hint to be false, got %#v", target)
+	}
+	if !target.IdempotentHint {
+		t.Fatalf("expected idempotent_hint to be true, got %#v", target)
+	}
+	if target.OpenWorldHint {
+		t.Fatalf("expected open_world_hint to be false, got %#v", target)
+	}
+}
+
 func TestToIntentRequestScriptPayload(t *testing.T) {
 	intent, err := ToIntentRequest(ToolCall{
 		Script: &ScriptCall{

@@ -68,11 +68,17 @@ func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.I
 
 	intentTargets := make([]schemagate.IntentTarget, 0, len(targets))
 	for _, target := range targets {
+		hints := normalizeTargetHints(target)
 		intentTargets = append(intentTargets, schemagate.IntentTarget{
-			Kind:        strings.TrimSpace(target.Kind),
-			Value:       strings.TrimSpace(target.Value),
-			Operation:   strings.TrimSpace(target.Operation),
-			Sensitivity: strings.TrimSpace(target.Sensitivity),
+			Kind:            strings.TrimSpace(target.Kind),
+			Value:           strings.TrimSpace(target.Value),
+			Operation:       strings.TrimSpace(target.Operation),
+			Sensitivity:     strings.TrimSpace(target.Sensitivity),
+			DiscoveryMethod: hints.DiscoveryMethod,
+			ReadOnlyHint:    hints.ReadOnlyHint,
+			DestructiveHint: hints.DestructiveHint,
+			IdempotentHint:  hints.IdempotentHint,
+			OpenWorldHint:   hints.OpenWorldHint,
 		})
 	}
 
@@ -100,11 +106,17 @@ func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.I
 			}
 			stepTargets := make([]schemagate.IntentTarget, 0, len(step.Targets))
 			for _, target := range step.Targets {
+				hints := normalizeTargetHints(target)
 				stepTargets = append(stepTargets, schemagate.IntentTarget{
-					Kind:        strings.TrimSpace(target.Kind),
-					Value:       strings.TrimSpace(target.Value),
-					Operation:   strings.TrimSpace(target.Operation),
-					Sensitivity: strings.TrimSpace(target.Sensitivity),
+					Kind:            strings.TrimSpace(target.Kind),
+					Value:           strings.TrimSpace(target.Value),
+					Operation:       strings.TrimSpace(target.Operation),
+					Sensitivity:     strings.TrimSpace(target.Sensitivity),
+					DiscoveryMethod: hints.DiscoveryMethod,
+					ReadOnlyHint:    hints.ReadOnlyHint,
+					DestructiveHint: hints.DestructiveHint,
+					IdempotentHint:  hints.IdempotentHint,
+					OpenWorldHint:   hints.OpenWorldHint,
 				})
 			}
 			stepProvenance := make([]schemagate.IntentArgProvenance, 0, len(step.ArgProvenance))
@@ -364,6 +376,87 @@ func normalizeClaudeCodeToolName(rawName string) string {
 	normalized := strings.ToLower(strings.TrimSpace(trimmed))
 	normalized = strings.NewReplacer(" ", "_", "-", "_").Replace(normalized)
 	return "tool." + normalized
+}
+
+type targetHints struct {
+	DiscoveryMethod string
+	ReadOnlyHint    bool
+	DestructiveHint bool
+	IdempotentHint  bool
+	OpenWorldHint   bool
+}
+
+func normalizeTargetHints(target Target) targetHints {
+	hints := targetHints{
+		DiscoveryMethod: strings.TrimSpace(target.DiscoveryMethod),
+		ReadOnlyHint:    target.ReadOnlyHint || target.ReadOnlyHintAlias,
+		DestructiveHint: target.DestructiveHint || target.DestructiveHintAlias,
+		IdempotentHint:  target.IdempotentHint || target.IdempotentHintAlias,
+		OpenWorldHint:   target.OpenWorldHint || target.OpenWorldHintAlias,
+	}
+	if hints.DiscoveryMethod == "" {
+		hints.DiscoveryMethod = strings.TrimSpace(target.DiscoveryMethodAlias)
+	}
+	if value, ok := annotationString(target.Annotations, "discovery_method", "discoveryMethod"); ok {
+		hints.DiscoveryMethod = strings.TrimSpace(value)
+	}
+	if value, ok := annotationBool(target.Annotations, "read_only_hint", "readOnlyHint"); ok {
+		hints.ReadOnlyHint = value
+	}
+	if value, ok := annotationBool(target.Annotations, "destructive_hint", "destructiveHint"); ok {
+		hints.DestructiveHint = value
+	}
+	if value, ok := annotationBool(target.Annotations, "idempotent_hint", "idempotentHint"); ok {
+		hints.IdempotentHint = value
+	}
+	if value, ok := annotationBool(target.Annotations, "open_world_hint", "openWorldHint"); ok {
+		hints.OpenWorldHint = value
+	}
+	return hints
+}
+
+func annotationBool(values map[string]any, keys ...string) (bool, bool) {
+	if values == nil {
+		return false, false
+	}
+	for _, key := range keys {
+		value, ok := values[key]
+		if !ok {
+			continue
+		}
+		switch typed := value.(type) {
+		case bool:
+			return typed, true
+		case string:
+			normalized := strings.ToLower(strings.TrimSpace(typed))
+			if normalized == "true" {
+				return true, true
+			}
+			if normalized == "false" {
+				return false, true
+			}
+		}
+	}
+	return false, false
+}
+
+func annotationString(values map[string]any, keys ...string) (string, bool) {
+	if values == nil {
+		return "", false
+	}
+	for _, key := range keys {
+		value, ok := values[key]
+		if !ok {
+			continue
+		}
+		switch typed := value.(type) {
+		case string:
+			return typed, true
+		case fmt.Stringer:
+			return typed.String(), true
+		}
+	}
+	return "", false
 }
 
 func inferClaudeCodeTargets(toolName string, args map[string]any) []Target {

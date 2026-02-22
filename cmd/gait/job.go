@@ -1,11 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/jobruntime"
 )
 
@@ -63,7 +67,11 @@ func runJobSubmit(arguments []string) int {
 		"id":              true,
 		"root":            true,
 		"actor":           true,
+		"identity":        true,
 		"env-fingerprint": true,
+		"policy":          true,
+		"policy-digest":   true,
+		"policy-ref":      true,
 	})
 	flagSet := flag.NewFlagSet("job-submit", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -71,14 +79,22 @@ func runJobSubmit(arguments []string) int {
 	var jobID string
 	var root string
 	var actor string
+	var identity string
 	var envFingerprint string
+	var policyPath string
+	var policyDigest string
+	var policyRef string
 	var jsonOutput bool
 	var helpFlag bool
 
 	flagSet.StringVar(&jobID, "id", "", "job identifier")
 	flagSet.StringVar(&root, "root", "./gait-out/jobs", "job state root directory")
 	flagSet.StringVar(&actor, "actor", "", "actor identity")
+	flagSet.StringVar(&identity, "identity", "", "agent identity bound to the job")
 	flagSet.StringVar(&envFingerprint, "env-fingerprint", "", "optional environment fingerprint override")
+	flagSet.StringVar(&policyPath, "policy", "", "path to policy yaml used for submit/resume enforcement")
+	flagSet.StringVar(&policyDigest, "policy-digest", "", "policy digest override (sha256:...)")
+	flagSet.StringVar(&policyRef, "policy-ref", "", "policy reference identifier")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -92,11 +108,18 @@ func runJobSubmit(arguments []string) int {
 	if len(flagSet.Args()) > 0 {
 		return writeJobOutput(jsonOutput, jobOutput{OK: false, Operation: "submit", Error: "unexpected positional arguments"}, exitInvalidInput)
 	}
+	resolvedPolicyDigest, resolvedPolicyRef, err := resolveJobPolicyMetadata(policyPath, policyDigest, policyRef)
+	if err != nil {
+		return writeJobOutput(jsonOutput, jobOutput{OK: false, Operation: "submit", Error: err.Error()}, exitInvalidInput)
+	}
 	state, err := jobruntime.Submit(root, jobruntime.SubmitOptions{
 		JobID:                  strings.TrimSpace(jobID),
 		Actor:                  strings.TrimSpace(actor),
+		Identity:               strings.TrimSpace(identity),
 		ProducerVersion:        version,
 		EnvironmentFingerprint: jobruntime.EnvironmentFingerprint(envFingerprint),
+		PolicyDigest:           resolvedPolicyDigest,
+		PolicyRef:              resolvedPolicyRef,
 	})
 	if err != nil {
 		return writeJobOutput(jsonOutput, jobOutput{OK: false, Operation: "submit", Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -362,11 +385,17 @@ func runJobApprove(arguments []string) int {
 
 func runJobResume(arguments []string) int {
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
-		"id":              true,
-		"root":            true,
-		"actor":           true,
-		"reason":          true,
-		"env-fingerprint": true,
+		"id":                         true,
+		"root":                       true,
+		"actor":                      true,
+		"identity":                   true,
+		"reason":                     true,
+		"env-fingerprint":            true,
+		"policy":                     true,
+		"policy-digest":              true,
+		"policy-ref":                 true,
+		"identity-validation-source": true,
+		"identity-revocations":       true,
 	})
 	flagSet := flag.NewFlagSet("job-resume", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -374,8 +403,15 @@ func runJobResume(arguments []string) int {
 	var jobID string
 	var root string
 	var actor string
+	var identity string
 	var reason string
 	var envFingerprint string
+	var policyPath string
+	var policyDigest string
+	var policyRef string
+	var identityValidationSource string
+	var identityRevocationsPath string
+	var identityRevoked bool
 	var allowEnvMismatch bool
 	var jsonOutput bool
 	var helpFlag bool
@@ -383,8 +419,15 @@ func runJobResume(arguments []string) int {
 	flagSet.StringVar(&jobID, "id", "", "job identifier")
 	flagSet.StringVar(&root, "root", "./gait-out/jobs", "job state root directory")
 	flagSet.StringVar(&actor, "actor", "", "actor identity")
+	flagSet.StringVar(&identity, "identity", "", "agent identity to validate on resume")
 	flagSet.StringVar(&reason, "reason", "", "resume reason")
 	flagSet.StringVar(&envFingerprint, "env-fingerprint", "", "override current environment fingerprint")
+	flagSet.StringVar(&policyPath, "policy", "", "path to policy yaml for resume re-evaluation")
+	flagSet.StringVar(&policyDigest, "policy-digest", "", "policy digest override (sha256:...)")
+	flagSet.StringVar(&policyRef, "policy-ref", "", "policy reference identifier")
+	flagSet.StringVar(&identityValidationSource, "identity-validation-source", "", "identity validation source label (for audit payload)")
+	flagSet.StringVar(&identityRevocationsPath, "identity-revocations", "", "path to revoked identities file (json array/object or newline list)")
+	flagSet.BoolVar(&identityRevoked, "identity-revoked", false, "mark identity as revoked and block resume")
 	flagSet.BoolVar(&allowEnvMismatch, "allow-env-mismatch", false, "allow resume when environment fingerprint differs")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
@@ -399,11 +442,45 @@ func runJobResume(arguments []string) int {
 	if len(flagSet.Args()) > 0 {
 		return writeJobOutput(jsonOutput, jobOutput{OK: false, Operation: "resume", Error: "unexpected positional arguments"}, exitInvalidInput)
 	}
+	resolvedPolicyDigest, resolvedPolicyRef, err := resolveJobPolicyMetadata(policyPath, policyDigest, policyRef)
+	if err != nil {
+		return writeJobOutput(jsonOutput, jobOutput{OK: false, Operation: "resume", Error: err.Error()}, exitInvalidInput)
+	}
+	normalizedJobID := strings.TrimSpace(jobID)
+	normalizedIdentity := strings.TrimSpace(identity)
+	if strings.TrimSpace(identityRevocationsPath) != "" {
+		revokedSet, err := loadRevokedIdentities(identityRevocationsPath)
+		if err != nil {
+			return writeJobOutput(jsonOutput, jobOutput{OK: false, Operation: "resume", Error: err.Error()}, exitInvalidInput)
+		}
+		if normalizedIdentity == "" {
+			state, statusErr := jobruntime.Status(root, normalizedJobID)
+			if statusErr != nil {
+				return writeJobOutput(jsonOutput, jobOutput{OK: false, Operation: "resume", Error: statusErr.Error()}, exitCodeForError(statusErr, exitInvalidInput))
+			}
+			normalizedIdentity = strings.TrimSpace(state.Identity)
+		}
+		if identityIsRevoked(revokedSet, normalizedIdentity) {
+			identityRevoked = true
+		}
+		if strings.TrimSpace(identityValidationSource) == "" {
+			identityValidationSource = "revocation_list"
+		}
+	}
+	requirePolicyEvaluation := strings.TrimSpace(policyPath) != "" || strings.TrimSpace(resolvedPolicyDigest) != "" || strings.TrimSpace(resolvedPolicyRef) != ""
+	requireIdentityValidation := normalizedIdentity != "" || strings.TrimSpace(identityRevocationsPath) != ""
 	state, err := jobruntime.Resume(root, strings.TrimSpace(jobID), jobruntime.ResumeOptions{
 		Actor:                         strings.TrimSpace(actor),
+		Identity:                      normalizedIdentity,
 		Reason:                        strings.TrimSpace(reason),
 		CurrentEnvironmentFingerprint: jobruntime.EnvironmentFingerprint(envFingerprint),
 		AllowEnvironmentMismatch:      allowEnvMismatch,
+		PolicyDigest:                  resolvedPolicyDigest,
+		PolicyRef:                     resolvedPolicyRef,
+		RequirePolicyEvaluation:       requirePolicyEvaluation,
+		RequireIdentityValidation:     requireIdentityValidation,
+		IdentityValidationSource:      strings.TrimSpace(identityValidationSource),
+		IdentityRevoked:               identityRevoked,
 	})
 	if err != nil {
 		return writeJobOutput(jsonOutput, jobOutput{OK: false, Operation: "resume", Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -470,21 +547,21 @@ func writeJobOutput(jsonOutput bool, output jobOutput, exitCode int) int {
 
 func printJobUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait job submit --id <job_id> [--root ./gait-out/jobs] [--actor <id>] [--env-fingerprint <value>] [--json] [--explain]")
+	fmt.Println("  gait job submit --id <job_id> [--root ./gait-out/jobs] [--actor <id>] [--identity <id>] [--policy <policy.yaml>|--policy-digest <sha256>] [--policy-ref <ref>] [--env-fingerprint <value>] [--json] [--explain]")
 	fmt.Println("  gait job status --id <job_id> [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job checkpoint add --id <job_id> --type <plan|progress|decision-needed|blocked|completed> --summary <text> [--required-action <text>] [--actor <id>] [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job checkpoint list --id <job_id> [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job checkpoint show --id <job_id> --checkpoint <checkpoint_id> [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job pause --id <job_id> [--actor <id>] [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job approve --id <job_id> --actor <id> [--reason <text>] [--root ./gait-out/jobs] [--json] [--explain]")
-	fmt.Println("  gait job resume --id <job_id> [--actor <id>] [--reason <text>] [--env-fingerprint <value>] [--allow-env-mismatch] [--root ./gait-out/jobs] [--json] [--explain]")
+	fmt.Println("  gait job resume --id <job_id> [--actor <id>] [--identity <id>] [--reason <text>] [--policy <policy.yaml>|--policy-digest <sha256>] [--policy-ref <ref>] [--identity-revocations <path>|--identity-revoked] [--identity-validation-source <source>] [--env-fingerprint <value>] [--allow-env-mismatch] [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job cancel --id <job_id> [--actor <id>] [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job inspect --id <job_id> [--root ./gait-out/jobs] [--json] [--explain]")
 }
 
 func printJobSubmitUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait job submit --id <job_id> [--root ./gait-out/jobs] [--actor <id>] [--env-fingerprint <value>] [--json] [--explain]")
+	fmt.Println("  gait job submit --id <job_id> [--root ./gait-out/jobs] [--actor <id>] [--identity <id>] [--policy <policy.yaml>|--policy-digest <sha256>] [--policy-ref <ref>] [--env-fingerprint <value>] [--json] [--explain]")
 }
 
 func printJobStatusUsage() {
@@ -526,7 +603,7 @@ func printJobApproveUsage() {
 
 func printJobResumeUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait job resume --id <job_id> [--actor <id>] [--reason <text>] [--env-fingerprint <value>] [--allow-env-mismatch] [--root ./gait-out/jobs] [--json] [--explain]")
+	fmt.Println("  gait job resume --id <job_id> [--actor <id>] [--identity <id>] [--reason <text>] [--policy <policy.yaml>|--policy-digest <sha256>] [--policy-ref <ref>] [--identity-revocations <path>|--identity-revoked] [--identity-validation-source <source>] [--env-fingerprint <value>] [--allow-env-mismatch] [--root ./gait-out/jobs] [--json] [--explain]")
 }
 
 func printJobCancelUsage() {
@@ -537,4 +614,87 @@ func printJobCancelUsage() {
 func printJobInspectUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait job inspect --id <job_id> [--root ./gait-out/jobs] [--json] [--explain]")
+}
+
+func resolveJobPolicyMetadata(policyPath string, policyDigest string, policyRef string) (string, string, error) {
+	trimmedPolicyPath := strings.TrimSpace(policyPath)
+	resolvedDigest := strings.TrimSpace(policyDigest)
+	resolvedRef := strings.TrimSpace(policyRef)
+	if trimmedPolicyPath != "" {
+		policy, err := gate.LoadPolicyFile(trimmedPolicyPath)
+		if err != nil {
+			return "", "", fmt.Errorf("load policy: %w", err)
+		}
+		computedDigest, err := gate.PolicyDigest(policy)
+		if err != nil {
+			return "", "", fmt.Errorf("digest policy: %w", err)
+		}
+		if resolvedDigest != "" && resolvedDigest != computedDigest {
+			return "", "", fmt.Errorf("policy digest mismatch: provided=%s computed=%s", resolvedDigest, computedDigest)
+		}
+		resolvedDigest = computedDigest
+		if resolvedRef == "" {
+			resolvedRef = filepath.Clean(trimmedPolicyPath)
+		}
+	}
+	return resolvedDigest, resolvedRef, nil
+}
+
+func loadRevokedIdentities(path string) (map[string]struct{}, error) {
+	cleanPath := filepath.Clean(strings.TrimSpace(path))
+	if cleanPath == "" || cleanPath == "." {
+		return nil, fmt.Errorf("identity revocations path is required")
+	}
+	// #nosec G304 -- explicit local CLI path.
+	payload, err := os.ReadFile(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("read identity revocations: %w", err)
+	}
+	trimmed := strings.TrimSpace(string(payload))
+	revoked := map[string]struct{}{}
+	if trimmed == "" {
+		return revoked, nil
+	}
+
+	var list []string
+	if err := json.Unmarshal([]byte(trimmed), &list); err == nil {
+		for _, identity := range list {
+			value := strings.TrimSpace(identity)
+			if value != "" {
+				revoked[value] = struct{}{}
+			}
+		}
+		return revoked, nil
+	}
+	var object struct {
+		RevokedIdentities []string `json:"revoked_identities"`
+		Identities        []string `json:"identities"`
+	}
+	if err := json.Unmarshal([]byte(trimmed), &object); err == nil {
+		for _, identity := range append(object.RevokedIdentities, object.Identities...) {
+			value := strings.TrimSpace(identity)
+			if value != "" {
+				revoked[value] = struct{}{}
+			}
+		}
+		return revoked, nil
+	}
+
+	for _, line := range strings.Split(trimmed, "\n") {
+		value := strings.TrimSpace(line)
+		if value == "" || strings.HasPrefix(value, "#") {
+			continue
+		}
+		revoked[value] = struct{}{}
+	}
+	return revoked, nil
+}
+
+func identityIsRevoked(revoked map[string]struct{}, identity string) bool {
+	value := strings.TrimSpace(identity)
+	if value == "" || len(revoked) == 0 {
+		return false
+	}
+	_, ok := revoked[value]
+	return ok
 }

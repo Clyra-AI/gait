@@ -23,13 +23,14 @@
 - gait gate eval --policy <policy.yaml> --intent <intent.json> --wrkr-inventory <inventory.json>
 - gait approve-script --policy <policy.yaml> --intent <script_intent.json> --registry <registry.json> --approver <id>
 - gait list-scripts --registry <registry.json>
-- gait job submit --id <job_id>
+- gait job submit --id <job_id> --policy <policy.yaml> --identity <id>
 - gait job status --id <job_id>
 - gait job checkpoint add --id <job_id> --type <type> --summary <text>
 - gait job checkpoint list --id <job_id>
 - gait job pause --id <job_id>
-- gait job resume --id <job_id>
+- gait job resume --id <job_id> --policy <policy.yaml> [--identity-revocations <path>]
 - gait job cancel --id <job_id>
+- gait gateway ingest --source <kong|docker|mintmcp> --log-path <path>
 - gait voice token mint --intent <intent.json> --policy <policy.yaml>
 - gait voice token verify --token <token.json>
 - gait voice pack build --from <call_record.json>

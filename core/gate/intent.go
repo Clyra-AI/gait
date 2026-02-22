@@ -50,6 +50,15 @@ var (
 		"ui.navigate": {},
 		"other":       {},
 	}
+	allowedDiscoveryMethods = map[string]struct{}{
+		"webmcp":      {},
+		"dynamic_mcp": {},
+		"a2a":         {},
+		"mcp":         {},
+		"static_mcp":  {},
+		"manual":      {},
+		"unknown":     {},
+	}
 	hexDigestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
 
@@ -292,6 +301,7 @@ func normalizeTargets(toolName string, targets []schemagate.IntentTarget) ([]sch
 		sensitivity := strings.ToLower(strings.TrimSpace(target.Sensitivity))
 		endpointClass := strings.ToLower(strings.TrimSpace(target.EndpointClass))
 		endpointDomain := strings.ToLower(strings.TrimSpace(target.EndpointDomain))
+		discoveryMethod := normalizeDiscoveryMethod(target.DiscoveryMethod)
 
 		if kind == "" || value == "" {
 			return nil, fmt.Errorf("targets require kind and value")
@@ -308,20 +318,46 @@ func normalizeTargets(toolName string, targets []schemagate.IntentTarget) ([]sch
 		if endpointDomain == "" {
 			endpointDomain = inferEndpointDomain(kind, value)
 		}
-		destructive := target.Destructive || inferDestructive(endpointClass, operation)
+		if discoveryMethod != "" {
+			if _, ok := allowedDiscoveryMethods[discoveryMethod]; !ok {
+				return nil, fmt.Errorf("unsupported discovery method: %s", discoveryMethod)
+			}
+		}
+		destructive := target.Destructive || target.DestructiveHint || inferDestructive(endpointClass, operation)
 
 		normalized := schemagate.IntentTarget{
-			Kind:           kind,
-			Value:          value,
-			Operation:      operation,
-			Sensitivity:    sensitivity,
-			EndpointClass:  endpointClass,
-			EndpointDomain: endpointDomain,
-			Destructive:    destructive,
+			Kind:            kind,
+			Value:           value,
+			Operation:       operation,
+			Sensitivity:     sensitivity,
+			EndpointClass:   endpointClass,
+			EndpointDomain:  endpointDomain,
+			Destructive:     destructive,
+			DiscoveryMethod: discoveryMethod,
+			ReadOnlyHint:    target.ReadOnlyHint,
+			DestructiveHint: target.DestructiveHint,
+			IdempotentHint:  target.IdempotentHint,
+			OpenWorldHint:   target.OpenWorldHint,
 		}
 		destructiveKey := "0"
 		if destructive {
 			destructiveKey = "1"
+		}
+		readOnlyKey := "0"
+		if normalized.ReadOnlyHint {
+			readOnlyKey = "1"
+		}
+		destructiveHintKey := "0"
+		if normalized.DestructiveHint {
+			destructiveHintKey = "1"
+		}
+		idempotentHintKey := "0"
+		if normalized.IdempotentHint {
+			idempotentHintKey = "1"
+		}
+		openWorldHintKey := "0"
+		if normalized.OpenWorldHint {
+			openWorldHintKey = "1"
 		}
 		key := strings.Join([]string{
 			normalized.Kind,
@@ -331,6 +367,11 @@ func normalizeTargets(toolName string, targets []schemagate.IntentTarget) ([]sch
 			normalized.EndpointClass,
 			normalized.EndpointDomain,
 			destructiveKey,
+			normalized.DiscoveryMethod,
+			readOnlyKey,
+			destructiveHintKey,
+			idempotentHintKey,
+			openWorldHintKey,
 		}, "\x00")
 		if _, ok := seen[key]; ok {
 			continue
@@ -360,9 +401,32 @@ func normalizeTargets(toolName string, targets []schemagate.IntentTarget) ([]sch
 		if out[i].Destructive != out[j].Destructive {
 			return !out[i].Destructive && out[j].Destructive
 		}
+		if out[i].DiscoveryMethod != out[j].DiscoveryMethod {
+			return out[i].DiscoveryMethod < out[j].DiscoveryMethod
+		}
+		if out[i].ReadOnlyHint != out[j].ReadOnlyHint {
+			return !out[i].ReadOnlyHint && out[j].ReadOnlyHint
+		}
+		if out[i].DestructiveHint != out[j].DestructiveHint {
+			return !out[i].DestructiveHint && out[j].DestructiveHint
+		}
+		if out[i].IdempotentHint != out[j].IdempotentHint {
+			return !out[i].IdempotentHint && out[j].IdempotentHint
+		}
+		if out[i].OpenWorldHint != out[j].OpenWorldHint {
+			return !out[i].OpenWorldHint && out[j].OpenWorldHint
+		}
 		return false
 	})
 	return out, nil
+}
+
+func normalizeDiscoveryMethod(value string) string {
+	method := strings.ToLower(strings.TrimSpace(value))
+	if method == "" {
+		return ""
+	}
+	return strings.NewReplacer("-", "_", " ", "_").Replace(method)
 }
 
 func inferEndpointClass(kind string, operation string, toolName string) string {

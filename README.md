@@ -213,6 +213,7 @@ gait run record|inspect|replay|diff|receipt        Run recording and replay
 gait run session start|append|status|checkpoint|compact  Session journaling
 gait run reduce                                    Reduce runpack by predicate
 gait mcp proxy|bridge|serve                        MCP transport adapters
+gait gateway ingest                                Ingest MCP gateway logs into signed policy-enforcement proof records
 gait policy init|validate|fmt|simulate|test        Policy authoring
 gait doctor [--production-readiness] [adoption]    Diagnostics + readiness
 gait keys init|rotate|verify                       Signing key lifecycle

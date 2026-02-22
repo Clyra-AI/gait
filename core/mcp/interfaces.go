@@ -29,10 +29,21 @@ type ScriptStep struct {
 }
 
 type Target struct {
-	Kind        string `json:"kind"`
-	Value       string `json:"value"`
-	Operation   string `json:"operation,omitempty"`
-	Sensitivity string `json:"sensitivity,omitempty"`
+	Kind                 string         `json:"kind"`
+	Value                string         `json:"value"`
+	Operation            string         `json:"operation,omitempty"`
+	Sensitivity          string         `json:"sensitivity,omitempty"`
+	DiscoveryMethod      string         `json:"discovery_method,omitempty"`
+	DiscoveryMethodAlias string         `json:"discoveryMethod,omitempty"`
+	ReadOnlyHint         bool           `json:"read_only_hint,omitempty"`
+	ReadOnlyHintAlias    bool           `json:"readOnlyHint,omitempty"`
+	DestructiveHint      bool           `json:"destructive_hint,omitempty"`
+	DestructiveHintAlias bool           `json:"destructiveHint,omitempty"`
+	IdempotentHint       bool           `json:"idempotent_hint,omitempty"`
+	IdempotentHintAlias  bool           `json:"idempotentHint,omitempty"`
+	OpenWorldHint        bool           `json:"open_world_hint,omitempty"`
+	OpenWorldHintAlias   bool           `json:"openWorldHint,omitempty"`
+	Annotations          map[string]any `json:"annotations,omitempty"`
 }
 
 type ArgProvenance struct {

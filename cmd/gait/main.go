@@ -101,6 +101,8 @@ func runDispatch(arguments []string) int {
 		return runIncident(arguments[2:])
 	case "registry":
 		return runRegistry(arguments[2:])
+	case "gateway":
+		return runGateway(arguments[2:])
 	case "migrate":
 		return runMigrate(arguments[2:])
 	case "mcp":
@@ -138,7 +140,7 @@ func normalizeAdoptionCommand(arguments []string) string {
 		return "version"
 	case "--explain":
 		return "explain"
-	case "approve-script", "list-scripts", "gate", "policy", "keys", "trace", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "mcp", "voice", "doctor", "delegate", "ui":
+	case "approve-script", "list-scripts", "gate", "policy", "keys", "trace", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "gateway", "mcp", "voice", "doctor", "delegate", "ui":
 		if len(arguments) > 2 {
 			subcommand := strings.TrimSpace(arguments[2])
 			if subcommand != "" && !strings.HasPrefix(subcommand, "-") {
