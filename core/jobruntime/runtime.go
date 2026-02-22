@@ -50,12 +50,15 @@ const (
 )
 
 var (
-	ErrJobNotFound         = errors.New("job not found")
-	ErrInvalidTransition   = errors.New("invalid transition")
-	ErrApprovalRequired    = errors.New("approval required")
-	ErrEnvironmentMismatch = errors.New("environment fingerprint mismatch")
-	ErrInvalidCheckpoint   = errors.New("invalid checkpoint")
-	ErrStateContention     = errors.New("state contention")
+	ErrJobNotFound               = errors.New("job not found")
+	ErrInvalidTransition         = errors.New("invalid transition")
+	ErrApprovalRequired          = errors.New("approval required")
+	ErrEnvironmentMismatch       = errors.New("environment fingerprint mismatch")
+	ErrInvalidCheckpoint         = errors.New("invalid checkpoint")
+	ErrStateContention           = errors.New("state contention")
+	ErrPolicyEvaluationRequired  = errors.New("policy evaluation required")
+	ErrIdentityValidationMissing = errors.New("identity validation required")
+	ErrIdentityRevoked           = errors.New("identity revoked")
 )
 
 type JobState struct {
@@ -69,6 +72,9 @@ type JobState struct {
 	StopReason             string       `json:"stop_reason"`
 	StatusReasonCode       string       `json:"status_reason_code"`
 	EnvironmentFingerprint string       `json:"environment_fingerprint"`
+	PolicyDigest           string       `json:"policy_digest,omitempty"`
+	PolicyRef              string       `json:"policy_ref,omitempty"`
+	Identity               string       `json:"identity,omitempty"`
 	Revision               int64        `json:"revision"`
 	Checkpoints            []Checkpoint `json:"checkpoints"`
 	Approvals              []Approval   `json:"approvals,omitempty"`
@@ -106,6 +112,9 @@ type SubmitOptions struct {
 	JobID                  string
 	ProducerVersion        string
 	EnvironmentFingerprint string
+	PolicyDigest           string
+	PolicyRef              string
+	Identity               string
 	Actor                  string
 	Now                    time.Time
 }
@@ -121,6 +130,13 @@ type CheckpointOptions struct {
 type ResumeOptions struct {
 	CurrentEnvironmentFingerprint string
 	AllowEnvironmentMismatch      bool
+	PolicyDigest                  string
+	PolicyRef                     string
+	RequirePolicyEvaluation       bool
+	Identity                      string
+	RequireIdentityValidation     bool
+	IdentityValidationSource      string
+	IdentityRevoked               bool
 	Reason                        string
 	Actor                         string
 	Now                           time.Time
@@ -151,6 +167,12 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 	if envfp == "" {
 		envfp = EnvironmentFingerprint("")
 	}
+	policyDigest := strings.TrimSpace(opts.PolicyDigest)
+	policyRef := strings.TrimSpace(opts.PolicyRef)
+	identity := strings.TrimSpace(opts.Identity)
+	if identity == "" {
+		identity = strings.TrimSpace(opts.Actor)
+	}
 	statePath, eventsPath := jobPaths(root, jobID)
 	if err := os.MkdirAll(filepath.Dir(statePath), 0o750); err != nil {
 		return JobState{}, fmt.Errorf("create job directory: %w", err)
@@ -171,11 +193,26 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 		StopReason:             StopReasonNone,
 		StatusReasonCode:       "submitted",
 		EnvironmentFingerprint: envfp,
+		PolicyDigest:           policyDigest,
+		PolicyRef:              policyRef,
+		Identity:               identity,
 		Revision:               1,
 		Checkpoints:            []Checkpoint{},
 	}
 	if err := writeJSON(statePath, state); err != nil {
 		return JobState{}, err
+	}
+	eventPayload := map[string]any{
+		"environment_fingerprint": envfp,
+	}
+	if policyDigest != "" {
+		eventPayload["policy_digest"] = policyDigest
+	}
+	if policyRef != "" {
+		eventPayload["policy_ref"] = policyRef
+	}
+	if identity != "" {
+		eventPayload["identity"] = identity
 	}
 	event := Event{
 		SchemaID:      eventSchemaID,
@@ -186,9 +223,7 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 		Type:          "submitted",
 		Actor:         strings.TrimSpace(opts.Actor),
 		ReasonCode:    "submitted",
-		Payload: map[string]any{
-			"environment_fingerprint": envfp,
-		},
+		Payload:       eventPayload,
 	}
 	if err := appendEvent(eventsPath, event); err != nil {
 		return JobState{}, err
@@ -350,37 +385,84 @@ func Resume(root string, jobID string, opts ResumeOptions) (JobState, error) {
 		if reason == "" {
 			reason = "resume"
 		}
+		previousPolicyDigest := strings.TrimSpace(state.PolicyDigest)
+		previousPolicyRef := strings.TrimSpace(state.PolicyRef)
+		policyDigest := strings.TrimSpace(opts.PolicyDigest)
+		policyRef := strings.TrimSpace(opts.PolicyRef)
+		policyEvaluationRequired := opts.RequirePolicyEvaluation || previousPolicyDigest != "" || previousPolicyRef != ""
+		if policyEvaluationRequired && policyDigest == "" {
+			return JobState{}, Event{}, fmt.Errorf("%w: policy digest is required when policy evaluation is enabled", ErrPolicyEvaluationRequired)
+		}
+		policyChanged := false
+		if policyDigest != "" {
+			policyChanged = previousPolicyDigest != "" && previousPolicyDigest != policyDigest
+			state.PolicyDigest = policyDigest
+		}
+		if policyRef != "" {
+			state.PolicyRef = policyRef
+		}
+		identity := strings.TrimSpace(opts.Identity)
+		if identity == "" {
+			identity = strings.TrimSpace(state.Identity)
+		}
+		identityValidationRequired := opts.RequireIdentityValidation || strings.TrimSpace(state.Identity) != ""
+		if identityValidationRequired && identity == "" {
+			return JobState{}, Event{}, fmt.Errorf("%w: identity is required for resume validation", ErrIdentityValidationMissing)
+		}
+		if identity != "" && opts.IdentityRevoked {
+			return JobState{}, Event{}, fmt.Errorf("%w: %s", ErrIdentityRevoked, identity)
+		}
+		if identity != "" {
+			state.Identity = identity
+		}
+		reasonCode := "resumed"
+		if policyChanged {
+			reasonCode = "resumed_with_policy_transition"
+		}
+		payload := buildResumePayload(resumePayloadOptions{
+			Reason:                     reason,
+			ExpectedFingerprint:        state.EnvironmentFingerprint,
+			ActualFingerprint:          current,
+			PolicyEvaluationRequired:   policyEvaluationRequired,
+			PreviousPolicyDigest:       previousPolicyDigest,
+			CurrentPolicyDigest:        strings.TrimSpace(state.PolicyDigest),
+			PreviousPolicyRef:          previousPolicyRef,
+			CurrentPolicyRef:           strings.TrimSpace(state.PolicyRef),
+			PolicyChanged:              policyChanged,
+			Identity:                   identity,
+			IdentityValidationRequired: identityValidationRequired,
+			IdentityValidationSource:   strings.TrimSpace(opts.IdentityValidationSource),
+		})
 		if state.EnvironmentFingerprint != "" && current != state.EnvironmentFingerprint {
 			if !opts.AllowEnvironmentMismatch {
 				return JobState{}, Event{}, fmt.Errorf("%w: expected=%s actual=%s", ErrEnvironmentMismatch, state.EnvironmentFingerprint, current)
 			}
-			state.StatusReasonCode = "resumed_with_env_override"
+			if policyChanged {
+				reasonCode = "resumed_with_env_override_policy_transition"
+			} else {
+				reasonCode = "resumed_with_env_override"
+			}
+			state.StatusReasonCode = reasonCode
 			state.StopReason = StopReasonNone
 			state.Status = StatusRunning
 			updated := *state
 			return updated, Event{
 				Type:       "resumed",
 				Actor:      strings.TrimSpace(opts.Actor),
-				ReasonCode: "resumed_with_env_override",
-				Payload: map[string]any{
-					"expected_fingerprint": state.EnvironmentFingerprint,
-					"actual_fingerprint":   current,
-					"reason":               reason,
-				},
+				ReasonCode: reasonCode,
+				Payload:    payload,
 			}, nil
 		}
 
 		state.Status = StatusRunning
 		state.StopReason = StopReasonNone
-		state.StatusReasonCode = "resumed"
+		state.StatusReasonCode = reasonCode
 		updated := *state
 		return updated, Event{
 			Type:       "resumed",
 			Actor:      strings.TrimSpace(opts.Actor),
-			ReasonCode: "resumed",
-			Payload: map[string]any{
-				"reason": reason,
-			},
+			ReasonCode: reasonCode,
+			Payload:    payload,
 		}, nil
 	})
 }
@@ -413,6 +495,55 @@ func simpleTransition(root string, jobID string, now time.Time, actor string, ev
 			ReasonCode: reasonCode,
 		}, nil
 	})
+}
+
+type resumePayloadOptions struct {
+	Reason                     string
+	ExpectedFingerprint        string
+	ActualFingerprint          string
+	PolicyEvaluationRequired   bool
+	PreviousPolicyDigest       string
+	CurrentPolicyDigest        string
+	PreviousPolicyRef          string
+	CurrentPolicyRef           string
+	PolicyChanged              bool
+	Identity                   string
+	IdentityValidationRequired bool
+	IdentityValidationSource   string
+}
+
+func buildResumePayload(options resumePayloadOptions) map[string]any {
+	payload := map[string]any{
+		"reason": options.Reason,
+	}
+	if options.ExpectedFingerprint != "" {
+		payload["expected_fingerprint"] = options.ExpectedFingerprint
+	}
+	if options.ActualFingerprint != "" {
+		payload["actual_fingerprint"] = options.ActualFingerprint
+	}
+	if options.PolicyEvaluationRequired {
+		payload["policy_evaluation_required"] = true
+	}
+	if options.PreviousPolicyDigest != "" || options.CurrentPolicyDigest != "" {
+		payload["previous_policy_digest"] = options.PreviousPolicyDigest
+		payload["current_policy_digest"] = options.CurrentPolicyDigest
+		payload["policy_changed"] = options.PolicyChanged
+	}
+	if options.PreviousPolicyRef != "" || options.CurrentPolicyRef != "" {
+		payload["previous_policy_ref"] = options.PreviousPolicyRef
+		payload["current_policy_ref"] = options.CurrentPolicyRef
+	}
+	if options.IdentityValidationRequired {
+		payload["identity_validation_required"] = true
+	}
+	if options.Identity != "" {
+		payload["identity"] = options.Identity
+	}
+	if options.IdentityValidationSource != "" {
+		payload["identity_validation_source"] = options.IdentityValidationSource
+	}
+	return payload
 }
 
 func mutate(root string, jobID string, mutator func(*JobState, time.Time) (Event, error), now time.Time) (JobState, error) {

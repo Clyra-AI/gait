@@ -82,13 +82,18 @@ type IntentScriptStep struct {
 }
 
 type IntentTarget struct {
-	Kind           string `json:"kind"`
-	Value          string `json:"value"`
-	Operation      string `json:"operation,omitempty"`
-	Sensitivity    string `json:"sensitivity,omitempty"`
-	EndpointClass  string `json:"endpoint_class,omitempty"`
-	EndpointDomain string `json:"endpoint_domain,omitempty"`
-	Destructive    bool   `json:"destructive,omitempty"`
+	Kind            string `json:"kind"`
+	Value           string `json:"value"`
+	Operation       string `json:"operation,omitempty"`
+	Sensitivity     string `json:"sensitivity,omitempty"`
+	EndpointClass   string `json:"endpoint_class,omitempty"`
+	EndpointDomain  string `json:"endpoint_domain,omitempty"`
+	Destructive     bool   `json:"destructive,omitempty"`
+	DiscoveryMethod string `json:"discovery_method,omitempty"`
+	ReadOnlyHint    bool   `json:"read_only_hint,omitempty"`
+	DestructiveHint bool   `json:"destructive_hint,omitempty"`
+	IdempotentHint  bool   `json:"idempotent_hint,omitempty"`
+	OpenWorldHint   bool   `json:"open_world_hint,omitempty"`
 }
 
 type IntentArgProvenance struct {

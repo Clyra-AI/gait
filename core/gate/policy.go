@@ -63,6 +63,7 @@ type Policy struct {
 	SchemaID       string           `yaml:"schema_id"`
 	SchemaVersion  string           `yaml:"schema_version"`
 	DefaultVerdict string           `yaml:"default_verdict"`
+	DefaultAction  string           `yaml:"default_action"`
 	Scripts        ScriptPolicy     `yaml:"scripts"`
 	FailClosed     FailClosedPolicy `yaml:"fail_closed"`
 	Rules          []PolicyRule     `yaml:"rules"`
@@ -84,6 +85,7 @@ type PolicyRule struct {
 	Name                        string          `yaml:"name"`
 	Priority                    int             `yaml:"priority"`
 	Effect                      string          `yaml:"effect"`
+	Action                      string          `yaml:"action"`
 	Match                       PolicyMatch     `yaml:"match"`
 	Endpoint                    EndpointPolicy  `yaml:"endpoint"`
 	ReasonCodes                 []string        `yaml:"reason_codes"`
@@ -131,29 +133,40 @@ type EndpointPolicy struct {
 }
 
 type PolicyMatch struct {
-	ToolNames                  []string `yaml:"tool_names"`
-	RiskClasses                []string `yaml:"risk_classes"`
-	TargetKinds                []string `yaml:"target_kinds"`
-	TargetValues               []string `yaml:"target_values"`
-	EndpointClasses            []string `yaml:"endpoint_classes"`
-	SkillPublishers            []string `yaml:"skill_publishers"`
-	SkillSources               []string `yaml:"skill_sources"`
-	DataClasses                []string `yaml:"data_classes"`
-	DestinationKinds           []string `yaml:"destination_kinds"`
-	DestinationValues          []string `yaml:"destination_values"`
-	DestinationOps             []string `yaml:"destination_operations"`
-	ProvenanceSources          []string `yaml:"provenance_sources"`
-	Identities                 []string `yaml:"identities"`
-	WorkspacePrefixes          []string `yaml:"workspace_prefixes"`
-	ContextToolNames           []string `yaml:"context_tool_names"`
-	ContextDataClasses         []string `yaml:"context_data_classes"`
-	ContextEndpointClasses     []string `yaml:"context_endpoint_classes"`
-	ContextAutonomyLevels      []string `yaml:"context_autonomy_levels"`
-	RequireDelegation          bool     `yaml:"require_delegation"`
-	AllowedDelegatorIdentities []string `yaml:"allowed_delegator_identities"`
-	AllowedDelegateIdentities  []string `yaml:"allowed_delegate_identities"`
-	DelegationScopes           []string `yaml:"delegation_scopes"`
-	MaxDelegationDepth         *int     `yaml:"max_delegation_depth"`
+	ToolName                   string              `yaml:"tool_name"`
+	ToolNames                  []string            `yaml:"tool_names"`
+	RiskClasses                []string            `yaml:"risk_classes"`
+	TargetKinds                []string            `yaml:"target_kinds"`
+	TargetValues               []string            `yaml:"target_values"`
+	EndpointClass              []string            `yaml:"endpoint_class"`
+	EndpointClasses            []string            `yaml:"endpoint_classes"`
+	DiscoveryMethods           []string            `yaml:"discovery_method"`
+	ToolAnnotations            ToolAnnotationMatch `yaml:"tool_annotations"`
+	SkillPublishers            []string            `yaml:"skill_publishers"`
+	SkillSources               []string            `yaml:"skill_sources"`
+	DataClasses                []string            `yaml:"data_classes"`
+	DestinationKinds           []string            `yaml:"destination_kinds"`
+	DestinationValues          []string            `yaml:"destination_values"`
+	DestinationOps             []string            `yaml:"destination_operations"`
+	ProvenanceSources          []string            `yaml:"provenance_sources"`
+	Identities                 []string            `yaml:"identities"`
+	WorkspacePrefixes          []string            `yaml:"workspace_prefixes"`
+	ContextToolNames           []string            `yaml:"context_tool_names"`
+	ContextDataClasses         []string            `yaml:"context_data_classes"`
+	ContextEndpointClasses     []string            `yaml:"context_endpoint_classes"`
+	ContextAutonomyLevels      []string            `yaml:"context_autonomy_levels"`
+	RequireDelegation          bool                `yaml:"require_delegation"`
+	AllowedDelegatorIdentities []string            `yaml:"allowed_delegator_identities"`
+	AllowedDelegateIdentities  []string            `yaml:"allowed_delegate_identities"`
+	DelegationScopes           []string            `yaml:"delegation_scopes"`
+	MaxDelegationDepth         *int                `yaml:"max_delegation_depth"`
+}
+
+type ToolAnnotationMatch struct {
+	ReadOnlyHint    *bool `yaml:"readOnlyHint"`
+	DestructiveHint *bool `yaml:"destructiveHint"`
+	IdempotentHint  *bool `yaml:"idempotentHint"`
+	OpenWorldHint   *bool `yaml:"openWorldHint"`
 }
 
 type EvalOptions struct {
@@ -584,6 +597,12 @@ func policyDigestPayload(policy Policy) map[string]any {
 		if len(rule.Match.EndpointClasses) > 0 {
 			matchPayload["EndpointClasses"] = rule.Match.EndpointClasses
 		}
+		if len(rule.Match.DiscoveryMethods) > 0 {
+			matchPayload["DiscoveryMethods"] = rule.Match.DiscoveryMethods
+		}
+		if toolAnnotationsPayload, ok := toolAnnotationDigestPayload(rule.Match.ToolAnnotations); ok {
+			matchPayload["ToolAnnotations"] = toolAnnotationsPayload
+		}
 		if len(rule.Match.SkillPublishers) > 0 {
 			matchPayload["SkillPublishers"] = rule.Match.SkillPublishers
 		}
@@ -727,6 +746,26 @@ func policyDigestPayload(policy Policy) map[string]any {
 	return payload
 }
 
+func toolAnnotationDigestPayload(annotations ToolAnnotationMatch) (map[string]any, bool) {
+	payload := map[string]any{}
+	if annotations.ReadOnlyHint != nil {
+		payload["ReadOnlyHint"] = *annotations.ReadOnlyHint
+	}
+	if annotations.DestructiveHint != nil {
+		payload["DestructiveHint"] = *annotations.DestructiveHint
+	}
+	if annotations.IdempotentHint != nil {
+		payload["IdempotentHint"] = *annotations.IdempotentHint
+	}
+	if annotations.OpenWorldHint != nil {
+		payload["OpenWorldHint"] = *annotations.OpenWorldHint
+	}
+	if len(payload) == 0 {
+		return nil, false
+	}
+	return payload, true
+}
+
 func isHighRiskActionRule(rule PolicyRule) bool {
 	if rule.Effect == "block" {
 		return false
@@ -755,6 +794,13 @@ func normalizePolicy(input Policy) (Policy, error) {
 	}
 
 	output.DefaultVerdict = strings.ToLower(strings.TrimSpace(output.DefaultVerdict))
+	defaultAction := strings.ToLower(strings.TrimSpace(output.DefaultAction))
+	if output.DefaultVerdict == "" {
+		output.DefaultVerdict = defaultAction
+	}
+	if defaultAction != "" && output.DefaultVerdict != defaultAction {
+		return Policy{}, fmt.Errorf("default_action must match default_verdict when both are set")
+	}
 	if output.DefaultVerdict == "" {
 		output.DefaultVerdict = defaultVerdict
 	}
@@ -788,6 +834,13 @@ func normalizePolicy(input Policy) (Policy, error) {
 		}
 
 		rule.Effect = strings.ToLower(strings.TrimSpace(rule.Effect))
+		action := strings.ToLower(strings.TrimSpace(rule.Action))
+		if rule.Effect == "" {
+			rule.Effect = action
+		}
+		if action != "" && rule.Effect != action {
+			return Policy{}, fmt.Errorf("rule action must match effect for %s", rule.Name)
+		}
 		if rule.Effect == "" {
 			return Policy{}, fmt.Errorf("rule effect is required for %s", rule.Name)
 		}
@@ -795,14 +848,24 @@ func normalizePolicy(input Policy) (Policy, error) {
 			return Policy{}, fmt.Errorf("invalid rule effect %q for %s", rule.Effect, rule.Name)
 		}
 
+		if aliasToolName := strings.TrimSpace(rule.Match.ToolName); aliasToolName != "" {
+			rule.Match.ToolNames = append(rule.Match.ToolNames, aliasToolName)
+		}
 		rule.Match.ToolNames = normalizeStringListLower(rule.Match.ToolNames)
 		rule.Match.RiskClasses = normalizeStringListLower(rule.Match.RiskClasses)
 		rule.Match.TargetKinds = normalizeStringListLower(rule.Match.TargetKinds)
 		rule.Match.TargetValues = normalizeStringList(rule.Match.TargetValues)
+		rule.Match.EndpointClasses = append(rule.Match.EndpointClasses, rule.Match.EndpointClass...)
 		rule.Match.EndpointClasses = normalizeStringListLower(rule.Match.EndpointClasses)
 		for _, endpointClass := range rule.Match.EndpointClasses {
 			if _, ok := allowedEndpointClasses[endpointClass]; !ok {
 				return Policy{}, fmt.Errorf("unsupported match endpoint_class %q for %s", endpointClass, rule.Name)
+			}
+		}
+		rule.Match.DiscoveryMethods = normalizeStringListLower(rule.Match.DiscoveryMethods)
+		for _, discoveryMethod := range rule.Match.DiscoveryMethods {
+			if _, ok := allowedDiscoveryMethods[discoveryMethod]; !ok {
+				return Policy{}, fmt.Errorf("unsupported match discovery_method %q for %s", discoveryMethod, rule.Name)
 			}
 		}
 		rule.Match.SkillPublishers = normalizeStringListLower(rule.Match.SkillPublishers)
@@ -1028,6 +1091,21 @@ func ruleMatches(match PolicyMatch, intent schemagate.IntentRequest) bool {
 			return false
 		}
 	}
+	if len(match.DiscoveryMethods) > 0 {
+		discoveryMethodMatched := false
+		for _, target := range intent.Targets {
+			if contains(match.DiscoveryMethods, target.DiscoveryMethod) {
+				discoveryMethodMatched = true
+				break
+			}
+		}
+		if !discoveryMethodMatched {
+			return false
+		}
+	}
+	if !toolAnnotationsMatch(match.ToolAnnotations, intent.Targets) {
+		return false
+	}
 	if len(match.SkillPublishers) > 0 {
 		if intent.SkillProvenance == nil || !contains(match.SkillPublishers, strings.ToLower(strings.TrimSpace(intent.SkillProvenance.Publisher))) {
 			return false
@@ -1100,6 +1178,58 @@ func ruleMatches(match PolicyMatch, intent schemagate.IntentRequest) bool {
 	}
 	if !delegationMatches(match, intent.Delegation) {
 		return false
+	}
+	return true
+}
+
+func toolAnnotationsMatch(match ToolAnnotationMatch, targets []schemagate.IntentTarget) bool {
+	if match.ReadOnlyHint != nil {
+		matched := false
+		for _, target := range targets {
+			if target.ReadOnlyHint == *match.ReadOnlyHint {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	if match.DestructiveHint != nil {
+		matched := false
+		for _, target := range targets {
+			if target.DestructiveHint == *match.DestructiveHint {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	if match.IdempotentHint != nil {
+		matched := false
+		for _, target := range targets {
+			if target.IdempotentHint == *match.IdempotentHint {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	if match.OpenWorldHint != nil {
+		matched := false
+		for _, target := range targets {
+			if target.OpenWorldHint == *match.OpenWorldHint {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
 	}
 	return true
 }

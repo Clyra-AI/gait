@@ -163,6 +163,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "registry", "verify", "--help"}); code != exitOK {
 		t.Fatalf("run registry verify help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "gateway", "ingest", "--help"}); code != exitOK {
+		t.Fatalf("run gateway ingest help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "migrate", "--help"}); code != exitOK {
 		t.Fatalf("run migrate help: expected %d got %d", exitOK, code)
 	}
@@ -203,6 +206,7 @@ func TestTopLevelUsageIncludesSessionAndMCPServe(t *testing.T) {
 		"gait run session start",
 		"gait run session append",
 		"gait run session checkpoint",
+		"gait gateway ingest",
 		"gait mcp serve --policy <policy.yaml>",
 	} {
 		if !strings.Contains(raw, snippet) {

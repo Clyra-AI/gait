@@ -10,6 +10,10 @@
       "type": "string",
       "enum": ["allow", "block", "dry_run", "require_approval"]
     },
+    "default_action": {
+      "type": "string",
+      "enum": ["allow", "block", "dry_run", "require_approval"]
+    },
     "scripts": {
       "type": "object",
       "properties": {
@@ -41,7 +45,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "effect"],
+        "required": ["name"],
+        "anyOf": [
+          { "required": ["effect"] },
+          { "required": ["action"] }
+        ],
         "properties": {
           "name": { "type": "string", "minLength": 1 },
           "priority": { "type": "integer", "minimum": 0 },
@@ -49,14 +57,31 @@
             "type": "string",
             "enum": ["allow", "block", "dry_run", "require_approval"]
           },
+          "action": {
+            "type": "string",
+            "enum": ["allow", "block", "dry_run", "require_approval"]
+          },
           "match": {
             "type": "object",
             "properties": {
+              "tool_name": { "type": "string" },
               "tool_names": { "type": "array", "items": { "type": "string" } },
               "risk_classes": { "type": "array", "items": { "type": "string" } },
               "target_kinds": { "type": "array", "items": { "type": "string" } },
               "target_values": { "type": "array", "items": { "type": "string" } },
+              "endpoint_class": { "type": "array", "items": { "type": "string" } },
               "endpoint_classes": { "type": "array", "items": { "type": "string" } },
+              "discovery_method": { "type": "array", "items": { "type": "string" } },
+              "tool_annotations": {
+                "type": "object",
+                "properties": {
+                  "readOnlyHint": { "type": "boolean" },
+                  "destructiveHint": { "type": "boolean" },
+                  "idempotentHint": { "type": "boolean" },
+                  "openWorldHint": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              },
               "skill_publishers": { "type": "array", "items": { "type": "string" } },
               "skill_sources": { "type": "array", "items": { "type": "string" } },
               "data_classes": { "type": "array", "items": { "type": "string" } },
