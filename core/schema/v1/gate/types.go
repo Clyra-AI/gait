@@ -107,6 +107,8 @@ type IntentContext struct {
 	Identity               string         `json:"identity"`
 	Workspace              string         `json:"workspace"`
 	RiskClass              string         `json:"risk_class"`
+	Phase                  string         `json:"phase,omitempty"`
+	JobID                  string         `json:"job_id,omitempty"`
 	SessionID              string         `json:"session_id,omitempty"`
 	RequestID              string         `json:"request_id,omitempty"`
 	AuthContext            map[string]any `json:"auth_context,omitempty"`
@@ -175,6 +177,8 @@ type ApprovalToken struct {
 	PolicyDigest            string     `json:"policy_digest"`
 	DelegationBindingDigest string     `json:"delegation_binding_digest,omitempty"`
 	Scope                   []string   `json:"scope"`
+	MaxTargets              int        `json:"max_targets,omitempty"`
+	MaxOps                  int        `json:"max_ops,omitempty"`
 	ExpiresAt               time.Time  `json:"expires_at"`
 	Signature               *Signature `json:"signature,omitempty"`
 }

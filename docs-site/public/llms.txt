@@ -28,6 +28,7 @@
 - gait job checkpoint add --id <job_id> --type <type> --summary <text>
 - gait job checkpoint list --id <job_id>
 - gait job pause --id <job_id>
+- gait job stop --id <job_id>
 - gait job resume --id <job_id> --policy <policy.yaml> [--identity-revocations <path>]
 - gait job cancel --id <job_id>
 - gait gateway ingest --source <kong|docker|mintmcp> --log-path <path>
@@ -56,7 +57,9 @@
 
 ## Safety Model
 - Fail-closed by default for ambiguous high-risk policy outcomes.
+- Out-of-band emergency stop preemption blocks post-stop dispatches (`emergency_stop_preempted`).
 - Offline verification for packs, runpacks, and traces.
+- Destructive operations support phase-aware plan/apply boundaries and fail-closed destructive budgets.
 - Structured intent model for policy decisions (not free-form prompt filtering).
 - SayToken capability tokens for voice agent commitment gating.
 - Context evidence envelopes with fail-closed enforcement when evidence is missing.

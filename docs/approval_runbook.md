@@ -86,6 +86,8 @@ gait approve \
   --policy-digest <policy_digest> \
   --ttl 1h \
   --scope tool.write \
+  --max-targets 25 \
+  --max-ops 25 \
   --approver approver@company \
   --reason-code change_ticket_123 \
   --json > token_a.json
@@ -123,6 +125,7 @@ Expected:
 - Default TTL: `1h`
 - High-risk operations: `15m` to `30m`
 - Scope must be minimal and tool-specific (for example `tool.write`, not wildcard scope).
+- For bulk/destructive operations, set `--max-targets` and `--max-ops` to bound blast radius.
 - Tokens are single-intent by digest; do not reuse across different intents.
 - Do not store tokens in source control or long-lived shared volumes.
 

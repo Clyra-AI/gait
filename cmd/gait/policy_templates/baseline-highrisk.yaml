@@ -55,6 +55,22 @@ rules:
       tool_names: [tool.write]
     reason_codes: [approval_required_for_write]
     violations: [approval_required]
+  - name: destructive-budget-guard
+    priority: 18
+    effect: require_approval
+    match:
+      risk_classes: [high, critical]
+    endpoint:
+      enabled: true
+      destructive_action: require_approval
+      reason_code: destructive_operation_requires_approval
+      violation: destructive_operation
+    destructive_budget:
+      requests: 3
+      window: hour
+      scope: identity
+    reason_codes: [destructive_budget_guard]
+    violations: [destructive_operation]
   - name: allow-safe-tool-read
     priority: 30
     effect: allow

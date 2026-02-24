@@ -127,6 +127,8 @@ type SessionEvent struct {
 	Verdict         string    `json:"verdict,omitempty"`
 	ReasonCodes     []string  `json:"reason_codes,omitempty"`
 	Violations      []string  `json:"violations,omitempty"`
+	SafetyInvariantVersion string `json:"safety_invariant_version,omitempty"`
+	SafetyInvariantHash    string `json:"safety_invariant_hash,omitempty"`
 }
 
 type SessionCheckpoint struct {
@@ -143,6 +145,8 @@ type SessionCheckpoint struct {
 	ManifestDigest       string    `json:"manifest_digest"`
 	PrevCheckpointDigest string    `json:"prev_checkpoint_digest,omitempty"`
 	CheckpointDigest     string    `json:"checkpoint_digest"`
+	SafetyInvariantVersion string  `json:"safety_invariant_version,omitempty"`
+	SafetyInvariantHash    string  `json:"safety_invariant_hash,omitempty"`
 }
 
 type SessionChain struct {

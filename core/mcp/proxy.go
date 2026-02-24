@@ -213,6 +213,8 @@ func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.I
 			Identity:               identity,
 			Workspace:              workspace,
 			RiskClass:              riskClass,
+			Phase:                  strings.TrimSpace(call.Context.Phase),
+			JobID:                  strings.TrimSpace(call.Context.JobID),
 			SessionID:              strings.TrimSpace(call.Context.SessionID),
 			RequestID:              strings.TrimSpace(call.Context.RequestID),
 			AuthContext:            authContext,

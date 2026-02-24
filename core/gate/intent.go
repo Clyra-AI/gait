@@ -621,12 +621,21 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 	if contextEvidenceMode != "" && contextEvidenceMode != "best_effort" && contextEvidenceMode != "required" {
 		return schemagate.IntentContext{}, fmt.Errorf("context.context_evidence_mode must be best_effort or required")
 	}
+	phase := strings.ToLower(strings.TrimSpace(context.Phase))
+	if phase == "" {
+		phase = "apply"
+	}
+	if phase != "plan" && phase != "apply" {
+		return schemagate.IntentContext{}, fmt.Errorf("context.phase must be plan or apply")
+	}
 	contextRefs := normalizeContextRefs(context.ContextRefs)
 
 	return schemagate.IntentContext{
 		Identity:               identity,
 		Workspace:              filepath.ToSlash(strings.ReplaceAll(workspace, `\`, "/")),
 		RiskClass:              riskClass,
+		Phase:                  phase,
+		JobID:                  strings.TrimSpace(context.JobID),
 		SessionID:              strings.TrimSpace(context.SessionID),
 		RequestID:              strings.TrimSpace(context.RequestID),
 		AuthContext:            authContext,

@@ -1,10 +1,13 @@
 # Gait Security and Safety
 
 - Fail-closed by default for ambiguous high-risk policy outcomes.
+- Out-of-band emergency stop preemption blocks post-stop dispatches and records signed proof events.
 - Structured intent model for policy decisions (not free-form prompt filtering).
+- Destructive paths support phase-aware plan/apply boundaries plus fail-closed destructive budgets.
 - Deterministic and offline verification for all artifact types (runpacks, jobpacks, callpacks).
 - Ed25519 signatures and SHA-256 manifest integrity in PackSpec v1.
 - Signed traces and explicit reason codes for blocked actions.
+- Approval tokens can carry bounded destructive scope (`max_targets`, `max_ops`); overruns fail closed.
 - Approved-script registry entries are signature-verified and policy-digest bound; tampered or missing state fails closed in high-risk enforcement.
 - SayToken capability tokens for voice agent commitment gating — gated speech cannot execute without a valid token.
 - Context evidence envelopes with fail-closed enforcement when evidence is missing for high-risk actions.

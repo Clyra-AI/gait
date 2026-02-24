@@ -106,7 +106,9 @@ See: [2,880 tool calls gate-checked in 24 hours](docs/blog/openclaw_24h_boundary
 
 **Incident → CI gate in one command** — `gait regress bootstrap` converts a bad run into a permanent regression fixture with JUnit output. Exit 0 = pass, exit 5 = drift. Never debug the same failure twice.
 
-**Durable jobs** — dispatch long-running agent work that survives failures. Checkpoints, pause/resume/cancel, approval gates, deterministic stop reasons. No more lost state at step 47.
+**Durable jobs** — dispatch long-running agent work that survives failures. Checkpoints, pause/resume/stop/cancel, approval gates, deterministic stop reasons, and emergency preemption for queued dispatches. No more lost state at step 47.
+
+**Destructive safety boundary** — enforce phase-aware plan/apply behavior (`plan` stays non-destructive, destructive `apply` requires approval), plus fail-closed destructive budgets and bounded approval token scopes (`max-targets`, `max-ops`).
 
 **Deterministic replay and diff** — replay an agent run using recorded results as stubs (no real API calls). Diff two packs to see what changed, including context drift classification.
 
@@ -198,7 +200,7 @@ gait tour                                         Interactive walkthrough
 gait verify <run_id|path>                          Verify integrity offline
 gait verify chain|session-chain                    Multi-artifact chain verification
 gait job submit|status|checkpoint|pause|resume     Durable job lifecycle
-gait job approve|cancel|inspect                    Job approval and inspection
+gait job stop|approve|cancel|inspect               Emergency stop, approval, and inspection
 gait pack build|verify|inspect|diff|export         Unified pack operations + OTEL/Postgres sinks
 gait regress init|bootstrap|run                    Incident → CI gate
 gait gate eval                                     Policy enforcement + signed trace

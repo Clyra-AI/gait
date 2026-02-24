@@ -150,6 +150,15 @@
             },
             "additionalProperties": false
           },
+          "destructive_budget": {
+            "type": "object",
+            "properties": {
+              "requests": { "type": "integer", "minimum": 1 },
+              "window": { "type": "string", "enum": ["minute", "hour"] },
+              "scope": { "type": "string", "enum": ["tool", "identity", "tool_identity"] }
+            },
+            "additionalProperties": false
+          },
           "dataflow": {
             "type": "object",
             "properties": {

@@ -1631,6 +1631,94 @@ func TestWindowPriorityAndWrkrSourceHelpers(t *testing.T) {
 	}
 }
 
+func TestEvaluatePolicyPlanApplySemanticsForDestructiveTargets(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: allow-delete
+    effect: allow
+    match:
+      tool_names: [tool.delete]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	planIntent := baseIntent()
+	planIntent.ToolName = "tool.delete"
+	planIntent.Context.Phase = "plan"
+	planIntent.Targets = []schemagate.IntentTarget{
+		{Kind: "path", Value: "/tmp/demo.txt", Operation: "delete"},
+	}
+	planOutcome, err := EvaluatePolicyDetailed(policy, planIntent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate plan-phase policy: %v", err)
+	}
+	if planOutcome.Result.Verdict != "dry_run" {
+		t.Fatalf("expected plan-phase destructive intent to dry_run, got %#v", planOutcome.Result)
+	}
+	if !contains(planOutcome.Result.ReasonCodes, "plan_phase_non_destructive") {
+		t.Fatalf("expected plan-phase reason code, got %#v", planOutcome.Result.ReasonCodes)
+	}
+
+	applyIntent := planIntent
+	applyIntent.Context.Phase = "apply"
+	applyOutcome, err := EvaluatePolicyDetailed(policy, applyIntent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate apply-phase policy: %v", err)
+	}
+	if applyOutcome.Result.Verdict != "require_approval" {
+		t.Fatalf("expected apply-phase destructive intent to require_approval, got %#v", applyOutcome.Result)
+	}
+	if !contains(applyOutcome.Result.ReasonCodes, "destructive_apply_requires_approval") {
+		t.Fatalf("expected apply-phase reason code, got %#v", applyOutcome.Result.ReasonCodes)
+	}
+}
+
+func TestParsePolicyYAMLDestructiveBudget(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: destructive-budget
+    effect: require_approval
+    match:
+      tool_names: [tool.delete]
+    destructive_budget:
+      requests: 2
+      window: minute
+      scope: identity
+`))
+	if err != nil {
+		t.Fatalf("parse policy with destructive_budget: %v", err)
+	}
+	intent := baseIntent()
+	intent.ToolName = "tool.delete"
+	intent.Context.Phase = "apply"
+	intent.Targets = []schemagate.IntentTarget{
+		{Kind: "path", Value: "/tmp/demo.txt", Operation: "delete"},
+	}
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate policy with destructive_budget: %v", err)
+	}
+	if outcome.DestructiveBudget.Requests != 2 || outcome.DestructiveBudget.Window != "minute" || outcome.DestructiveBudget.Scope != "identity" {
+		t.Fatalf("unexpected destructive budget outcome: %#v", outcome.DestructiveBudget)
+	}
+
+	if _, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: invalid-destructive-budget
+    effect: allow
+    match:
+      tool_names: [tool.delete]
+    destructive_budget:
+      window: minute
+`)); err == nil || !strings.Contains(err.Error(), "destructive_budget.requests must be >= 1") {
+		t.Fatalf("expected destructive_budget request validation error, got %v", err)
+	}
+}
+
 func baseIntent() schemagate.IntentRequest {
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",

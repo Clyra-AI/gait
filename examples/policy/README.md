@@ -5,6 +5,8 @@ These templates provide baseline policy packs by risk tier:
 - `base_low_risk.yaml`
 - `base_medium_risk.yaml`
 - `base_high_risk.yaml`
+- `baseline-highrisk.yaml` (hyphenated alias)
+- `knowledge_worker_safe.yaml` (reversible-first profile)
 
 Scaffold a baseline file directly from the CLI:
 
@@ -52,6 +54,8 @@ High-risk note:
 
 - `base_high_risk.yaml` marks write actions with `require_broker_credential: true` for least-privilege brokering.
 - `base_high_risk.yaml` requires explicit delegation metadata for high-risk egress writes and blocks tainted external payload flow to network destinations.
+- `base_high_risk.yaml` and `baseline-highrisk.yaml` include `destructive_budget` defaults to fail-closed once destructive threshold windows are exceeded.
+- `knowledge_worker_safe.yaml` defaults unknown tools to block, prefers archive/trash actions, and requires explicit break-glass approval for permanent delete paths.
 - For runtime checks in hardened mode, evaluate with `--profile oss-prod` and an explicit broker, for example:
 
 ```bash

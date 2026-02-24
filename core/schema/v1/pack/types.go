@@ -52,6 +52,8 @@ type JobPayload struct {
 	StopReason             string    `json:"stop_reason"`
 	StatusReasonCode       string    `json:"status_reason_code"`
 	EnvironmentFingerprint string    `json:"environment_fingerprint"`
+	SafetyInvariantVersion string    `json:"safety_invariant_version,omitempty"`
+	SafetyInvariantHash    string    `json:"safety_invariant_hash,omitempty"`
 	CheckpointCount        int       `json:"checkpoint_count"`
 	ApprovalCount          int       `json:"approval_count"`
 }

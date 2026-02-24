@@ -48,6 +48,8 @@ func runJob(arguments []string) int {
 		return runJobCheckpoint(arguments[1:])
 	case "pause":
 		return runJobPause(arguments[1:])
+	case "stop":
+		return runJobStop(arguments[1:])
 	case "approve":
 		return runJobApprove(arguments[1:])
 	case "resume":
@@ -308,6 +310,12 @@ func runJobCancel(arguments []string) int {
 	})
 }
 
+func runJobStop(arguments []string) int {
+	return runSimpleJobTransition(arguments, "stop", func(root, jobID, actor string) (jobruntime.JobState, error) {
+		return jobruntime.EmergencyStop(root, jobID, jobruntime.TransitionOptions{Actor: actor})
+	})
+}
+
 func runSimpleJobTransition(arguments []string, operation string, action func(root, jobID, actor string) (jobruntime.JobState, error)) int {
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{"id": true, "root": true, "actor": true})
 	flagSet := flag.NewFlagSet("job-"+operation, flag.ContinueOnError)
@@ -332,6 +340,8 @@ func runSimpleJobTransition(arguments []string, operation string, action func(ro
 		switch operation {
 		case "pause":
 			printJobPauseUsage()
+		case "stop":
+			printJobStopUsage()
 		case "cancel":
 			printJobCancelUsage()
 		}
@@ -553,6 +563,7 @@ func printJobUsage() {
 	fmt.Println("  gait job checkpoint list --id <job_id> [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job checkpoint show --id <job_id> --checkpoint <checkpoint_id> [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job pause --id <job_id> [--actor <id>] [--root ./gait-out/jobs] [--json] [--explain]")
+	fmt.Println("  gait job stop --id <job_id> [--actor <id>] [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job approve --id <job_id> --actor <id> [--reason <text>] [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job resume --id <job_id> [--actor <id>] [--identity <id>] [--reason <text>] [--policy <policy.yaml>|--policy-digest <sha256>] [--policy-ref <ref>] [--identity-revocations <path>|--identity-revoked] [--identity-validation-source <source>] [--env-fingerprint <value>] [--allow-env-mismatch] [--root ./gait-out/jobs] [--json] [--explain]")
 	fmt.Println("  gait job cancel --id <job_id> [--actor <id>] [--root ./gait-out/jobs] [--json] [--explain]")
@@ -594,6 +605,11 @@ func printJobCheckpointShowUsage() {
 func printJobPauseUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait job pause --id <job_id> [--actor <id>] [--root ./gait-out/jobs] [--json] [--explain]")
+}
+
+func printJobStopUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait job stop --id <job_id> [--actor <id>] [--root ./gait-out/jobs] [--json] [--explain]")
 }
 
 func printJobApproveUsage() {

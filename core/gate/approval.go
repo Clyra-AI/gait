@@ -32,6 +32,8 @@ const (
 	ApprovalCodePolicyMismatch      = "approval_token_policy_mismatch"
 	ApprovalCodeDelegationMismatch  = "approval_token_delegation_binding_mismatch"
 	ApprovalCodeScopeMismatch       = "approval_token_scope_mismatch"
+	ApprovalCodeTargetsExceeded     = "approval_token_max_targets_exceeded"
+	ApprovalCodeOpsExceeded         = "approval_token_max_ops_exceeded"
 )
 
 type MintApprovalTokenOptions struct {
@@ -42,6 +44,8 @@ type MintApprovalTokenOptions struct {
 	PolicyDigest            string
 	DelegationBindingDigest string
 	Scope                   []string
+	MaxTargets              int
+	MaxOps                  int
 	TTL                     time.Duration
 	Now                     time.Time
 	SigningPrivateKey       ed25519.PrivateKey
@@ -59,6 +63,8 @@ type ApprovalValidationOptions struct {
 	ExpectedPolicyDigest            string
 	ExpectedDelegationBindingDigest string
 	RequiredScope                   []string
+	TargetCount                     int
+	OperationCount                  int
 }
 
 type ApprovalTokenError struct {
@@ -114,6 +120,12 @@ func MintApprovalToken(opts MintApprovalTokenOptions) (MintApprovalTokenResult, 
 	if len(scope) == 0 {
 		return MintApprovalTokenResult{}, fmt.Errorf("scope must include at least one value")
 	}
+	if opts.MaxTargets < 0 {
+		return MintApprovalTokenResult{}, fmt.Errorf("max_targets must be >= 0")
+	}
+	if opts.MaxOps < 0 {
+		return MintApprovalTokenResult{}, fmt.Errorf("max_ops must be >= 0")
+	}
 
 	createdAt := opts.Now.UTC()
 	if createdAt.IsZero() {
@@ -129,13 +141,15 @@ func MintApprovalToken(opts MintApprovalTokenOptions) (MintApprovalTokenResult, 
 		SchemaVersion:           approvalTokenSchemaV1,
 		CreatedAt:               createdAt,
 		ProducerVersion:         producerVersion,
-		TokenID:                 computeApprovalTokenID(intentDigest, policyDigest, approver, reasonCode, scope, createdAt.Add(opts.TTL)),
+		TokenID:                 computeApprovalTokenID(intentDigest, policyDigest, approver, reasonCode, scope, opts.MaxTargets, opts.MaxOps, createdAt.Add(opts.TTL)),
 		ApproverIdentity:        approver,
 		ReasonCode:              reasonCode,
 		IntentDigest:            intentDigest,
 		PolicyDigest:            policyDigest,
 		DelegationBindingDigest: delegationBindingDigest,
 		Scope:                   scope,
+		MaxTargets:              opts.MaxTargets,
+		MaxOps:                  opts.MaxOps,
 		ExpiresAt:               createdAt.Add(opts.TTL),
 	}
 
@@ -254,6 +268,12 @@ func ValidateApprovalToken(token schemagate.ApprovalToken, publicKey ed25519.Pub
 	if len(requiredScope) > 0 && !matchesApprovalScope(requiredScope, normalized.Scope) {
 		return &ApprovalTokenError{Code: ApprovalCodeScopeMismatch, Err: fmt.Errorf("scope mismatch")}
 	}
+	if normalized.MaxTargets > 0 && opts.TargetCount > normalized.MaxTargets {
+		return &ApprovalTokenError{Code: ApprovalCodeTargetsExceeded, Err: fmt.Errorf("target count exceeds token max_targets")}
+	}
+	if normalized.MaxOps > 0 && opts.OperationCount > normalized.MaxOps {
+		return &ApprovalTokenError{Code: ApprovalCodeOpsExceeded, Err: fmt.Errorf("operation count exceeds token max_ops")}
+	}
 	return nil
 }
 
@@ -266,7 +286,15 @@ func ApprovalContext(policy Policy, intent schemagate.IntentRequest) (string, st
 	if err != nil {
 		return "", "", nil, fmt.Errorf("normalize intent: %w", err)
 	}
+	phase := strings.ToLower(strings.TrimSpace(normalizedIntent.Context.Phase))
+	if phase == "" {
+		phase = "apply"
+	}
 	scope := []string{fmt.Sprintf("tool:%s", normalizedIntent.ToolName)}
+	if phase == "apply" && IntentContainsDestructiveTarget(normalizedIntent.Targets) {
+		scope = append(scope, "phase:apply", "destructive:apply")
+	}
+	scope = normalizeStringListLower(scope)
 	return policyDigest, normalizedIntent.IntentDigest, scope, nil
 }
 
@@ -312,6 +340,12 @@ func normalizeApprovalToken(token schemagate.ApprovalToken) (schemagate.Approval
 	if len(normalized.Scope) == 0 {
 		return schemagate.ApprovalToken{}, fmt.Errorf("scope is required")
 	}
+	if normalized.MaxTargets < 0 {
+		return schemagate.ApprovalToken{}, fmt.Errorf("max_targets must be >= 0")
+	}
+	if normalized.MaxOps < 0 {
+		return schemagate.ApprovalToken{}, fmt.Errorf("max_ops must be >= 0")
+	}
 	if normalized.CreatedAt.IsZero() {
 		return schemagate.ApprovalToken{}, fmt.Errorf("created_at is required")
 	}
@@ -348,8 +382,9 @@ func isDigestHex(value string) bool {
 	return err == nil
 }
 
-func computeApprovalTokenID(intentDigest, policyDigest, approver, reasonCode string, scope []string, expiresAt time.Time) string {
-	raw := intentDigest + ":" + policyDigest + ":" + approver + ":" + reasonCode + ":" + strings.Join(scope, ",") + ":" + expiresAt.UTC().Format(time.RFC3339Nano)
+func computeApprovalTokenID(intentDigest, policyDigest, approver, reasonCode string, scope []string, maxTargets int, maxOps int, expiresAt time.Time) string {
+	raw := intentDigest + ":" + policyDigest + ":" + approver + ":" + reasonCode + ":" + strings.Join(scope, ",") +
+		fmt.Sprintf(":%d:%d:", maxTargets, maxOps) + expiresAt.UTC().Format(time.RFC3339Nano)
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:12])
 }

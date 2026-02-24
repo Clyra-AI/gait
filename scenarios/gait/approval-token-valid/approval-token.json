@@ -1,21 +1,21 @@
 {
   "schema_id": "gait.gate.approval_token",
   "schema_version": "1.0.0",
-  "created_at": "2026-02-22T17:42:20.324925Z",
+  "created_at": "2026-02-24T12:42:58.228785Z",
   "producer_version": "0.0.0-dev",
-  "token_id": "393bcea4466e16430690ad3f",
+  "token_id": "ec44f8948261811d131eb04a",
   "approver_identity": "human.reviewer",
   "reason_code": "MANUAL_APPROVAL",
-  "intent_digest": "51ad46c45717bbc5baec288fa2eec502ea41b701b5cd6ef32c9ceec7f2f9607b",
+  "intent_digest": "4b53bb79e35105ac9170963ac6f84ed0ed15530c68f06a46fc1233c5ec766913",
   "policy_digest": "07a528a879e4f0e0cd5a0e2ca801924746b47dac624862207ef21d4ec266f8f9",
   "scope": [
     "tool:tool.write"
   ],
-  "expires_at": "2036-02-20T17:42:20.324925Z",
+  "expires_at": "2036-02-22T12:42:58.228785Z",
   "signature": {
     "alg": "ed25519",
     "key_id": "8393424682c702d59a923d26924b2d4827711e6c585117077766645e22efeb52",
-    "sig": "owZR6DISeHWFK1i96XgM2likqw9yEBePCRetXg7wz8peGUh97bHcWWdKKy47t4Bi1HqpLlKB4goBMRkm2M9SDQ==",
-    "signed_digest": "5505a7e20b60c3da039c39c99c67f0ab4c486e1e48febb05e1b715d32124076c"
+    "sig": "FfgS+OlPSQOvVTCvc+0NZ+HKwlhJcHXxygZQiVyn1artAmKuqYnhlRBM3kC4FCW4/kkceUImKFLLjy+z9JN5BA==",
+    "signed_digest": "d470f2e63450ca56d772bebbe269db46318f309181444bb2522bb262061079c0"
   }
 }

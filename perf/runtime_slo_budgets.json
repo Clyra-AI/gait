@@ -99,6 +99,12 @@
       "p99_ms": 2400.0,
       "max_error_rate": 0.0
     },
+    "job_stop": {
+      "p50_ms": 900.0,
+      "p95_ms": 1800.0,
+      "p99_ms": 2400.0,
+      "max_error_rate": 0.0
+    },
     "job_resume": {
       "p50_ms": 900.0,
       "p95_ms": 1800.0,

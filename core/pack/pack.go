@@ -224,6 +224,8 @@ func BuildJobPack(options BuildJobOptions) (BuildResult, error) {
 		StopReason:             state.StopReason,
 		StatusReasonCode:       state.StatusReasonCode,
 		EnvironmentFingerprint: state.EnvironmentFingerprint,
+		SafetyInvariantVersion: strings.TrimSpace(state.SafetyInvariantVersion),
+		SafetyInvariantHash:    strings.TrimSpace(state.SafetyInvariantHash),
 		CheckpointCount:        len(state.Checkpoints),
 		ApprovalCount:          len(state.Approvals),
 	}
@@ -1234,6 +1236,9 @@ func validateJobPayload(payload schemapack.JobPayload) error {
 	if strings.TrimSpace(payload.EnvironmentFingerprint) == "" {
 		return fmt.Errorf("job payload environment_fingerprint is required")
 	}
+	if strings.TrimSpace(payload.SafetyInvariantVersion) != "" && !isSHA256Hex(strings.TrimSpace(payload.SafetyInvariantHash)) {
+		return fmt.Errorf("job payload safety_invariant_hash must be sha256 hex when safety_invariant_version is set")
+	}
 	if payload.CheckpointCount < 0 || payload.ApprovalCount < 0 {
 		return fmt.Errorf("job payload counts must be >= 0")
 	}
@@ -1256,6 +1261,9 @@ func validateJobState(state jobruntime.JobState) error {
 	if strings.TrimSpace(state.EnvironmentFingerprint) == "" {
 		return fmt.Errorf("job_state environment_fingerprint is required")
 	}
+	if strings.TrimSpace(state.SafetyInvariantVersion) != "" && !isSHA256Hex(strings.TrimSpace(state.SafetyInvariantHash)) {
+		return fmt.Errorf("job_state safety_invariant_hash must be sha256 hex when safety_invariant_version is set")
+	}
 	return nil
 }
 
@@ -1266,7 +1274,8 @@ func validJobStatus(status string) bool {
 		jobruntime.StatusDecisionNeeded,
 		jobruntime.StatusBlocked,
 		jobruntime.StatusCompleted,
-		jobruntime.StatusCancelled:
+		jobruntime.StatusCancelled,
+		jobruntime.StatusEmergencyStop:
 		return true
 	default:
 		return false

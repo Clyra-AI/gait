@@ -18,6 +18,8 @@ type approveOutput struct {
 	ExpiresAt   string   `json:"expires_at,omitempty"`
 	ReasonCode  string   `json:"reason_code,omitempty"`
 	Scope       []string `json:"scope,omitempty"`
+	MaxTargets  int      `json:"max_targets,omitempty"`
+	MaxOps      int      `json:"max_ops,omitempty"`
 	KeyID       string   `json:"key_id,omitempty"`
 	Warnings    []string `json:"warnings,omitempty"`
 	Error       string   `json:"error,omitempty"`
@@ -38,6 +40,8 @@ func runApprove(arguments []string) int {
 	var scope string
 	var approver string
 	var reasonCode string
+	var maxTargets int
+	var maxOps int
 	var outputPath string
 	var keyMode string
 	var privateKeyPath string
@@ -52,6 +56,8 @@ func runApprove(arguments []string) int {
 	flagSet.StringVar(&scope, "scope", "", "comma-separated approval scope values (for example tool:tool.write)")
 	flagSet.StringVar(&approver, "approver", "", "approver identity")
 	flagSet.StringVar(&reasonCode, "reason-code", "", "approval reason code")
+	flagSet.IntVar(&maxTargets, "max-targets", 0, "optional max target count bound for destructive approval scope (0 disables)")
+	flagSet.IntVar(&maxOps, "max-ops", 0, "optional max operation count bound for destructive approval scope (0 disables)")
 	flagSet.StringVar(&outputPath, "out", "", "path to emitted approval token (default approval_<token_id>.json)")
 	flagSet.StringVar(&keyMode, "key-mode", string(sign.ModeDev), "signing key mode: dev or prod")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private signing key")
@@ -96,6 +102,8 @@ func runApprove(arguments []string) int {
 		PolicyDigest:            policyDigest,
 		DelegationBindingDigest: delegationBindingDigest,
 		Scope:                   scopeValues,
+		MaxTargets:              maxTargets,
+		MaxOps:                  maxOps,
 		TTL:                     ttlDuration,
 		SigningPrivateKey:       keyPair.Private,
 		TokenPath:               outputPath,
@@ -115,6 +123,8 @@ func runApprove(arguments []string) int {
 		ExpiresAt:   result.Token.ExpiresAt.UTC().Format(time.RFC3339),
 		ReasonCode:  result.Token.ReasonCode,
 		Scope:       result.Token.Scope,
+		MaxTargets:  result.Token.MaxTargets,
+		MaxOps:      result.Token.MaxOps,
 		KeyID:       keyID,
 		Warnings:    warnings,
 		Description: "signed approval token created",
@@ -149,5 +159,5 @@ func writeApproveOutput(jsonOutput bool, output approveOutput, exitCode int) int
 
 func printApproveUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> [--delegation-binding-digest <sha256>] --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--out token.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> [--delegation-binding-digest <sha256>] --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--max-targets <n>] [--max-ops <n>] [--out token.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }

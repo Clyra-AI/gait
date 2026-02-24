@@ -50,10 +50,15 @@ type gateEvalOutput struct {
 	PatternID              string                        `json:"pattern_id,omitempty"`
 	RegistryReason         string                        `json:"registry_reason,omitempty"`
 	MatchedRule            string                        `json:"matched_rule,omitempty"`
+	Phase                  string                        `json:"phase,omitempty"`
 	RateLimitScope         string                        `json:"rate_limit_scope,omitempty"`
 	RateLimitKey           string                        `json:"rate_limit_key,omitempty"`
 	RateLimitUsed          int                           `json:"rate_limit_used,omitempty"`
 	RateLimitRemaining     int                           `json:"rate_limit_remaining,omitempty"`
+	DestructiveBudgetScope     string                    `json:"destructive_budget_scope,omitempty"`
+	DestructiveBudgetKey       string                    `json:"destructive_budget_key,omitempty"`
+	DestructiveBudgetUsed      int                       `json:"destructive_budget_used,omitempty"`
+	DestructiveBudgetRemaining int                       `json:"destructive_budget_remaining,omitempty"`
 	CredentialIssuer       string                        `json:"credential_issuer,omitempty"`
 	CredentialRef          string                        `json:"credential_ref,omitempty"`
 	CredentialEvidencePath string                        `json:"credential_evidence_path,omitempty"`
@@ -394,6 +399,7 @@ func runGateEval(arguments []string) int {
 	}
 
 	var rateDecision gate.RateLimitDecision
+	var destructiveBudgetDecision gate.RateLimitDecision
 	if outcome.RateLimit.Requests > 0 {
 		rateDecision, err = gate.EnforceRateLimit(rateLimitState, outcome.RateLimit, intent, time.Now().UTC())
 		if err != nil {
@@ -403,6 +409,19 @@ func runGateEval(arguments []string) int {
 			result.Verdict = "block"
 			result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"rate_limit_exceeded"})
 			result.Violations = mergeUniqueSorted(result.Violations, []string{"rate_limit_exceeded"})
+		}
+	}
+	if outcome.DestructiveBudget.Requests > 0 && gate.IntentContainsDestructiveTarget(intent.Targets) {
+		budgetIntent := intent
+		budgetIntent.ToolName = "destructive_budget|" + strings.TrimSpace(intent.ToolName)
+		destructiveBudgetDecision, err = gate.EnforceRateLimit(rateLimitState, outcome.DestructiveBudget, budgetIntent, time.Now().UTC())
+		if err != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+		}
+		if !destructiveBudgetDecision.Allowed {
+			result.Verdict = "block"
+			result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"destructive_budget_exceeded"})
+			result.Violations = mergeUniqueSorted(result.Violations, []string{"destructive_budget_exceeded"})
 		}
 	}
 
@@ -578,6 +597,8 @@ func runGateEval(arguments []string) int {
 					ExpectedPolicyDigest:            policyDigestForContext,
 					ExpectedDelegationBindingDigest: delegationBindingDigest,
 					RequiredScope:                   requiredApprovalScope,
+					TargetCount:                     gateIntentTargetCount(intent),
+					OperationCount:                  gateIntentOperationCount(intent),
 				})
 				if err != nil {
 					reasonCode := gate.ApprovalCodeSchemaInvalid
@@ -803,10 +824,15 @@ func runGateEval(arguments []string) int {
 		PatternID:              outcome.PatternID,
 		RegistryReason:         outcome.RegistryReason,
 		MatchedRule:            outcome.MatchedRule,
+		Phase:                  intent.Context.Phase,
 		RateLimitScope:         rateDecision.Scope,
 		RateLimitKey:           rateDecision.Key,
 		RateLimitUsed:          rateDecision.Used,
 		RateLimitRemaining:     rateDecision.Remaining,
+		DestructiveBudgetScope:     destructiveBudgetDecision.Scope,
+		DestructiveBudgetKey:       destructiveBudgetDecision.Key,
+		DestructiveBudgetUsed:      destructiveBudgetDecision.Used,
+		DestructiveBudgetRemaining: destructiveBudgetDecision.Remaining,
 		CredentialIssuer:       credentialIssuer,
 		CredentialRef:          credentialRefOut,
 		CredentialEvidencePath: resolvedCredentialEvidencePath,
@@ -834,6 +860,29 @@ func gatherDelegationTokenPaths(primaryPath, chainCSV string) []string {
 	}
 	paths = append(paths, parseCSV(chainCSV)...)
 	return mergeUniqueSorted(nil, paths)
+}
+
+func gateIntentTargetCount(intent schemagate.IntentRequest) int {
+	if intent.Script != nil && len(intent.Script.Steps) > 0 {
+		total := 0
+		for _, step := range intent.Script.Steps {
+			total += len(step.Targets)
+		}
+		if total > 0 {
+			return total
+		}
+	}
+	return len(intent.Targets)
+}
+
+func gateIntentOperationCount(intent schemagate.IntentRequest) int {
+	if intent.Script != nil && len(intent.Script.Steps) > 0 {
+		return len(intent.Script.Steps)
+	}
+	if len(intent.Targets) == 0 {
+		return 1
+	}
+	return len(intent.Targets)
 }
 
 func buildPreApprovedOutcome(intent schemagate.IntentRequest, producerVersion string, match gate.ApprovedScriptMatch) (gate.EvalOutcome, error) {

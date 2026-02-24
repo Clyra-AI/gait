@@ -38,5 +38,5 @@ echo "[hardening-acceptance] chaos trace uniqueness gate"
 bash scripts/test_chaos_trace_uniqueness.sh
 
 echo "[hardening-acceptance] hardening integration and e2e checks"
-go test ./internal/integration -run 'TestConcurrentGateRateLimitStateIsDeterministic|TestConcurrentSessionAppendStateIsDeterministic|TestSessionSwarmContentionBudget' -count=1
-go test ./internal/e2e -run 'TestCLIRegressExitCodes|TestCLIPolicyTestExitCodes|TestCLIDoctor|TestCLIDelegateAndGateRequireDelegationFlow' -count=1
+go test ./internal/integration -run 'TestConcurrentGateRateLimitStateIsDeterministic|TestConcurrentSessionAppendStateIsDeterministic|TestSessionSwarmContentionBudget|TestStopLatencySLOForEmergencyStopAcknowledgment|TestEmergencyStopBackpressureHasZeroPostStopSideEffects' -count=1
+go test ./internal/e2e -run 'TestCLIRegressExitCodes|TestCLIPolicyTestExitCodes|TestCLIDoctor|TestCLIDelegateAndGateRequireDelegationFlow|TestCLIStopLatencyAndEmergencyStopPreemption' -count=1

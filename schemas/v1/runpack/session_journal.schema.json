@@ -50,7 +50,9 @@
           "trace_path": { "type": "string" },
           "verdict": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] },
           "reason_codes": { "type": "array", "items": { "type": "string" } },
-          "violations": { "type": "array", "items": { "type": "string" } }
+          "violations": { "type": "array", "items": { "type": "string" } },
+          "safety_invariant_version": { "type": "string", "minLength": 1 },
+          "safety_invariant_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
         },
         "additionalProperties": false
       }
@@ -86,7 +88,9 @@
           "runpack_path": { "type": "string", "minLength": 1 },
           "manifest_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
           "prev_checkpoint_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
-          "checkpoint_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+          "checkpoint_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "safety_invariant_version": { "type": "string", "minLength": 1 },
+          "safety_invariant_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
         },
         "additionalProperties": false
       }

@@ -15,6 +15,7 @@ A durable job is a checkpointed execution record managed locally by Gait with ex
 - `status`
 - `checkpoint add|list|show`
 - `pause`
+- `stop`
 - `approve`
 - `resume`
 - `cancel`
@@ -41,6 +42,7 @@ The job surface is for runtime control and evidence, not prompt orchestration.
 gait job submit --id job_1 --identity worker_1 --policy ./policy.yaml --json
 gait job checkpoint add --id job_1 --type progress --summary "step 1 complete" --json
 gait job pause --id job_1 --json
+gait job stop --id job_1 --actor secops --json
 gait job approve --id job_1 --actor reviewer_1 --reason "validated input" --json
 gait job resume --id job_1 --actor worker_1 --reason "continue after approval" --policy ./policy.yaml --identity-revocations ./revoked_identities.txt --identity-validation-source revocation_list --json
 gait job inspect --id job_1 --json
@@ -64,6 +66,15 @@ Portable evidence outputs:
 - job lifecycle state/events under `./gait-out/jobs`
 - `pack_<id>.zip` (PackSpec v1 envelope)
 - deterministic verify/inspect JSON for CI, incident handoff, and audits
+
+## Emergency Stop Contract
+
+`gait job stop` is an out-of-band emergency control. Once acknowledged:
+
+- job status becomes `emergency_stopped`
+- stop reason becomes `emergency_stopped`
+- MCP proxy/serve paths block calls for that `job_id` with reason code `emergency_stop_preempted`
+- blocked post-stop dispatches are journaled as `dispatch_blocked` events for offline proof
 
 ## How This Differs From Checkpoint/Observability Tools
 

@@ -71,6 +71,21 @@ Use `dry_run` policy effects for selected high-risk tools and route calls throug
 Rollout gate:
 
 - Move forward only after dry-run telemetry shows expected decisions and zero unsafe bypasses.
+- For destructive classes, set `context.phase=plan` during this stage so intents stay non-destructive while policy coverage is tuned.
+
+## Stage 2A: Plan/Apply Destructive Boundary
+
+For destructive paths, enforce explicit phases:
+
+- `plan`: non-destructive decisioning path (`dry_run` semantics for destructive targets)
+- `apply`: destructive execution boundary, requires explicit approval flow
+
+Use bounded approval tokens for bulk operations:
+
+- `gait approve --max-targets <n> --max-ops <n> ...`
+- fail-closed reason codes include token-scope mismatches (`approval_token_max_targets_exceeded`, `approval_token_max_ops_exceeded`)
+
+If policy includes `destructive_budget`, exceedance blocks with stable reason code `destructive_budget_exceeded`.
 
 ## Stage 3: Enforce Approval For High-Risk Tools
 

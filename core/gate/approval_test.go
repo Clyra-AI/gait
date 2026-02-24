@@ -199,6 +199,73 @@ func TestValidateApprovalTokenFailureCodes(t *testing.T) {
 	}
 }
 
+func TestValidateApprovalTokenMaxTargetsAndOps(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	now := time.Date(2026, time.February, 5, 12, 0, 0, 0, time.UTC)
+	workDir := t.TempDir()
+	baseResult, err := MintApprovalToken(MintApprovalTokenOptions{
+		ProducerVersion:   "test",
+		ApproverIdentity:  "alice",
+		ReasonCode:        "incident_hotfix",
+		IntentDigest:      "1111111111111111111111111111111111111111111111111111111111111111",
+		PolicyDigest:      "2222222222222222222222222222222222222222222222222222222222222222",
+		Scope:             []string{"tool:tool.write"},
+		MaxTargets:        2,
+		MaxOps:            3,
+		TTL:               30 * time.Minute,
+		Now:               now,
+		SigningPrivateKey: keyPair.Private,
+		TokenPath:         filepath.Join(workDir, "approval.json"),
+	})
+	if err != nil {
+		t.Fatalf("mint approval token: %v", err)
+	}
+
+	if err := ValidateApprovalToken(baseResult.Token, keyPair.Public, ApprovalValidationOptions{
+		Now:                  now.Add(time.Minute),
+		ExpectedIntentDigest: baseResult.Token.IntentDigest,
+		ExpectedPolicyDigest: baseResult.Token.PolicyDigest,
+		RequiredScope:        []string{"tool:tool.write"},
+		TargetCount:          2,
+		OperationCount:       3,
+	}); err != nil {
+		t.Fatalf("expected bounded approval token validation to pass: %v", err)
+	}
+	if err := ValidateApprovalToken(baseResult.Token, keyPair.Public, ApprovalValidationOptions{
+		Now:                  now.Add(time.Minute),
+		ExpectedIntentDigest: baseResult.Token.IntentDigest,
+		ExpectedPolicyDigest: baseResult.Token.PolicyDigest,
+		RequiredScope:        []string{"tool:tool.write"},
+		TargetCount:          3,
+		OperationCount:       3,
+	}); err == nil {
+		t.Fatalf("expected max_targets validation failure")
+	} else {
+		var tokenErr *ApprovalTokenError
+		if !errors.As(err, &tokenErr) || tokenErr.Code != ApprovalCodeTargetsExceeded {
+			t.Fatalf("expected max_targets error code %q, got %v", ApprovalCodeTargetsExceeded, err)
+		}
+	}
+	if err := ValidateApprovalToken(baseResult.Token, keyPair.Public, ApprovalValidationOptions{
+		Now:                  now.Add(time.Minute),
+		ExpectedIntentDigest: baseResult.Token.IntentDigest,
+		ExpectedPolicyDigest: baseResult.Token.PolicyDigest,
+		RequiredScope:        []string{"tool:tool.write"},
+		TargetCount:          2,
+		OperationCount:       4,
+	}); err == nil {
+		t.Fatalf("expected max_ops validation failure")
+	} else {
+		var tokenErr *ApprovalTokenError
+		if !errors.As(err, &tokenErr) || tokenErr.Code != ApprovalCodeOpsExceeded {
+			t.Fatalf("expected max_ops error code %q, got %v", ApprovalCodeOpsExceeded, err)
+		}
+	}
+}
+
 func TestApprovalContext(t *testing.T) {
 	policy, err := ParsePolicyYAML([]byte(`default_verdict: require_approval`))
 	if err != nil {
@@ -233,6 +300,26 @@ func TestApprovalTokenErrorHelpers(t *testing.T) {
 	codeOnly := &ApprovalTokenError{Code: ApprovalCodeScopeMismatch}
 	if got := codeOnly.Error(); got != ApprovalCodeScopeMismatch {
 		t.Fatalf("unexpected code-only error text: %s", got)
+	}
+}
+
+func TestApprovalContextDestructiveApplyScope(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`default_verdict: require_approval`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.ToolName = "tool.delete"
+	intent.Context.Phase = "apply"
+	intent.Targets = []schemagate.IntentTarget{
+		{Kind: "path", Value: "/tmp/demo.txt", Operation: "delete"},
+	}
+	_, _, scope, err := ApprovalContext(policy, intent)
+	if err != nil {
+		t.Fatalf("approval context: %v", err)
+	}
+	if !reflect.DeepEqual(scope, []string{"destructive:apply", "phase:apply", "tool:tool.delete"}) {
+		t.Fatalf("unexpected destructive apply scope: %#v", scope)
 	}
 }
 

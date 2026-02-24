@@ -59,6 +59,8 @@ type SessionAppendOptions struct {
 	Verdict         string
 	ReasonCodes     []string
 	Violations      []string
+	SafetyInvariantVersion string
+	SafetyInvariantHash    string
 }
 
 type SessionStatus struct {
@@ -327,6 +329,8 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 			Verdict:         strings.TrimSpace(opts.Verdict),
 			ReasonCodes:     uniqueSortedStrings(opts.ReasonCodes),
 			Violations:      uniqueSortedStrings(opts.Violations),
+			SafetyInvariantVersion: strings.TrimSpace(opts.SafetyInvariantVersion),
+			SafetyInvariantHash:    strings.ToLower(strings.TrimSpace(opts.SafetyInvariantHash)),
 		}
 		record := sessionJournalRecord{
 			RecordType: "event",
@@ -509,6 +513,15 @@ func EmitSessionCheckpoint(journalPath string, outRunpackPath string, opts Sessi
 			return writeErr
 		}
 		checkpointDigest := computeCheckpointDigest(recordRes.Manifest.ManifestDigest, prevCheckpointDigest, nextCheckpointIdx, sequenceStart, sequenceEnd)
+		safetyInvariantVersion := ""
+		safetyInvariantHash := ""
+		for index := len(newEvents) - 1; index >= 0; index-- {
+			if strings.TrimSpace(newEvents[index].SafetyInvariantVersion) != "" && strings.TrimSpace(newEvents[index].SafetyInvariantHash) != "" {
+				safetyInvariantVersion = strings.TrimSpace(newEvents[index].SafetyInvariantVersion)
+				safetyInvariantHash = strings.ToLower(strings.TrimSpace(newEvents[index].SafetyInvariantHash))
+				break
+			}
+		}
 		checkpoint := schemarunpack.SessionCheckpoint{
 			SchemaID:             sessionCheckpointSchemaID,
 			SchemaVersion:        sessionCheckpointSchemaV1,
@@ -523,6 +536,8 @@ func EmitSessionCheckpoint(journalPath string, outRunpackPath string, opts Sessi
 			ManifestDigest:       recordRes.Manifest.ManifestDigest,
 			PrevCheckpointDigest: prevCheckpointDigest,
 			CheckpointDigest:     checkpointDigest,
+			SafetyInvariantVersion: safetyInvariantVersion,
+			SafetyInvariantHash:    safetyInvariantHash,
 		}
 		appendErr := appendJournalRecord(normalizedPath, sessionJournalRecord{
 			RecordType: "checkpoint",

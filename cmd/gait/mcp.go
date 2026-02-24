@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/mcp"
 	"github.com/Clyra-AI/gait/core/pack"
 	"github.com/Clyra-AI/gait/core/runpack"
@@ -25,6 +26,8 @@ type mcpProxyOutput struct {
 	Executed          bool     `json:"executed"`
 	Adapter           string   `json:"adapter,omitempty"`
 	RunID             string   `json:"run_id,omitempty"`
+	JobID             string   `json:"job_id,omitempty"`
+	Phase             string   `json:"phase,omitempty"`
 	SessionID         string   `json:"session_id,omitempty"`
 	ToolName          string   `json:"tool_name,omitempty"`
 	Verdict           string   `json:"verdict,omitempty"`
@@ -47,6 +50,7 @@ type mcpProxyOutput struct {
 type mcpProxyEvalOptions struct {
 	Adapter       string
 	Profile       string
+	JobRoot       string
 	RunID         string
 	TracePath     string
 	RunpackOut    string
@@ -89,6 +93,7 @@ func runMCPProxy(arguments []string) int {
 		"call":            true,
 		"adapter":         true,
 		"profile":         true,
+		"job-root":        true,
 		"trace-out":       true,
 		"run-id":          true,
 		"runpack-out":     true,
@@ -106,6 +111,7 @@ func runMCPProxy(arguments []string) int {
 	var callPath string
 	var adapter string
 	var profile string
+	var jobRoot string
 	var tracePath string
 	var runID string
 	var runpackOut string
@@ -122,6 +128,7 @@ func runMCPProxy(arguments []string) int {
 	flagSet.StringVar(&callPath, "call", "", "path to tool call JSON (use '-' for stdin)")
 	flagSet.StringVar(&adapter, "adapter", "mcp", "adapter payload format: mcp|openai|anthropic|langchain|claude_code")
 	flagSet.StringVar(&profile, "profile", string(gateProfileStandard), "runtime profile: standard|oss-prod")
+	flagSet.StringVar(&jobRoot, "job-root", "./gait-out/jobs", "job runtime root for emergency stop preemption checks when context.job_id is present")
 	flagSet.StringVar(&tracePath, "trace-out", "", "path to emitted trace JSON (default trace_<trace_id>.json)")
 	flagSet.StringVar(&runID, "run-id", "", "optional run_id override for proxy artifacts")
 	flagSet.StringVar(&runpackOut, "runpack-out", "", "optional path to emit a runpack zip for this proxy decision")
@@ -161,6 +168,7 @@ func runMCPProxy(arguments []string) int {
 	output, exitCode, err := evaluateMCPProxyPayload(policyPath, payload, mcpProxyEvalOptions{
 		Adapter:       adapter,
 		Profile:       profile,
+		JobRoot:       jobRoot,
 		RunID:         runID,
 		TracePath:     tracePath,
 		RunpackOut:    runpackOut,
@@ -222,6 +230,14 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
+	emergencyBlockedReason, emergencyWarnings := evaluateMCPEmergencyStop(call, strings.TrimSpace(options.JobRoot))
+	if emergencyBlockedReason != "" {
+		result := evalResult.Outcome.Result
+		result.Verdict = "block"
+		result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{emergencyBlockedReason})
+		result.Violations = mergeUniqueSorted(result.Violations, []string{"emergency_stop_active"})
+		evalResult.Outcome.Result = result
+	}
 
 	keyPair, warnings, err := sign.LoadSigningKey(sign.KeyConfig{
 		Mode:           sign.KeyMode(strings.ToLower(strings.TrimSpace(options.KeyMode))),
@@ -231,6 +247,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
+	warnings = mergeUniqueSorted(warnings, emergencyWarnings)
 	resolvedTracePath := strings.TrimSpace(options.TracePath)
 	if resolvedTracePath == "" {
 		resolvedTracePath = fmt.Sprintf("trace_%s_%s.json", normalizeRunID(options.RunID), time.Now().UTC().Format("20060102T150405.000000000"))
@@ -351,6 +368,8 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		Executed:          false,
 		Adapter:           strings.ToLower(strings.TrimSpace(options.Adapter)),
 		RunID:             resolvedRunID,
+		JobID:             evalResult.Intent.Context.JobID,
+		Phase:             evalResult.Intent.Context.Phase,
 		SessionID:         evalResult.Intent.Context.SessionID,
 		ToolName:          evalResult.Intent.ToolName,
 		Verdict:           evalResult.Outcome.Result.Verdict,
@@ -368,6 +387,28 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		OTelExport:        resolvedOTelExport,
 		Warnings:          warnings,
 	}, exitCode, nil
+}
+
+func evaluateMCPEmergencyStop(call mcp.ToolCall, jobRoot string) (string, []string) {
+	jobID := strings.TrimSpace(call.Context.JobID)
+	if jobID == "" {
+		return "", nil
+	}
+	state, err := jobruntime.Status(jobRoot, jobID)
+	if err != nil {
+		return "emergency_stop_state_unavailable", []string{fmt.Sprintf("job_status_unavailable=%v", err)}
+	}
+	if !jobruntime.IsEmergencyStopped(state) {
+		return "", nil
+	}
+	if _, recordErr := jobruntime.RecordBlockedDispatch(jobRoot, jobID, jobruntime.DispatchRecordOptions{
+		Actor:        "mcp-proxy",
+		DispatchPath: "mcp.proxy",
+		ReasonCode:   "emergency_stop_preempted",
+	}); recordErr != nil {
+		return "emergency_stop_preempted", []string{fmt.Sprintf("blocked_dispatch_record_failed=%v", recordErr)}
+	}
+	return "emergency_stop_preempted", nil
 }
 
 func validateMCPBoundaryOAuthEvidence(call mcp.ToolCall, profile gateEvalProfile) error {
@@ -753,13 +794,13 @@ func writeMCPProxyOutput(jsonOutput bool, output mcpProxyOutput, exitCode int) i
 
 func printMCPUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
 }
 
 func printMCPProxyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }

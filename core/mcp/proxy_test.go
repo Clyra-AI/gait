@@ -289,6 +289,9 @@ func TestToIntentRequestWithStrictContext(t *testing.T) {
 	if intent.Context.SessionID != "sess-1" {
 		t.Fatalf("expected session id in converted intent context")
 	}
+	if intent.Context.Phase != "" || intent.Context.JobID != "" {
+		t.Fatalf("expected unset phase/job_id when not provided: %#v", intent.Context)
+	}
 	if intent.Delegation == nil || intent.Delegation.RequesterIdentity != "agent.specialist" {
 		t.Fatalf("expected delegation passthrough in converted intent: %#v", intent.Delegation)
 	}
@@ -297,6 +300,30 @@ func TestToIntentRequestWithStrictContext(t *testing.T) {
 	}
 	if oauth, ok := intent.Context.AuthContext["oauth_evidence"]; !ok || oauth == nil {
 		t.Fatalf("expected oauth_evidence to be propagated into auth_context: %#v", intent.Context.AuthContext)
+	}
+}
+
+func TestToIntentRequestCarriesPhaseAndJobID(t *testing.T) {
+	intent, err := ToIntentRequest(ToolCall{
+		Name: "tool.delete",
+		Args: map[string]any{"path": "/tmp/out.txt"},
+		Targets: []Target{
+			{Kind: "path", Value: "/tmp/out.txt", Operation: "delete"},
+		},
+		Context: CallContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+			Phase:     "plan",
+			JobID:     "job-123",
+			SessionID: "sess-1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("to intent request: %v", err)
+	}
+	if intent.Context.Phase != "plan" || intent.Context.JobID != "job-123" {
+		t.Fatalf("expected phase/job_id passthrough, got %#v", intent.Context)
 	}
 }
 

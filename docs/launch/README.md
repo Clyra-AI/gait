@@ -4,6 +4,12 @@ This folder is the repeatable distribution package for OSS launch cycles.
 
 Use it when shipping a major release, announcing a wedge milestone, or running a re-launch.
 
+Current safe-default rollout note:
+
+- ship `examples/policy/knowledge_worker_safe.yaml` as reversible-first profile
+- ship `baseline-highrisk` destructive budget defaults for fail-closed bursts
+- stage rollout: monitor -> approval -> enforce
+
 ## Contents
 
 - `narrative_one_liner.md`: positioning statements by audience

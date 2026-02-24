@@ -117,6 +117,9 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 	if normalized.Context.Identity != "alice" || normalized.Context.Workspace != "C:/repo/gait" || normalized.Context.RiskClass != "high" {
 		t.Fatalf("unexpected normalized context: %#v", normalized.Context)
 	}
+	if normalized.Context.Phase != "apply" {
+		t.Fatalf("expected default phase=apply, got %#v", normalized.Context)
+	}
 	if normalized.Context.SessionID != "s1" || normalized.Context.RequestID != "req-1" {
 		t.Fatalf("unexpected normalized context ids: %#v", normalized.Context)
 	}
@@ -153,6 +156,35 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 	}
 	if normalized.ArgProvenance[0].IntegrityDigest != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("expected lowercased integrity digest, got %#v", normalized.ArgProvenance[0])
+	}
+}
+
+func TestNormalizeIntentContextPhaseValidation(t *testing.T) {
+	base := schemagate.IntentRequest{
+		ToolName: "tool.write",
+		Args:     map[string]any{"path": "/tmp/out.txt"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt", Operation: "delete"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+			Phase:     "plan",
+		},
+	}
+	normalized, err := NormalizeIntent(base)
+	if err != nil {
+		t.Fatalf("normalize plan-phase intent: %v", err)
+	}
+	if normalized.Context.Phase != "plan" {
+		t.Fatalf("expected explicit plan phase, got %#v", normalized.Context)
+	}
+
+	invalid := base
+	invalid.Context.Phase = "execute"
+	if _, err := NormalizeIntent(invalid); err == nil {
+		t.Fatalf("expected invalid context.phase to fail normalization")
 	}
 }
 

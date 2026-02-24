@@ -206,6 +206,8 @@
         "identity": { "type": "string", "minLength": 1 },
         "workspace": { "type": "string", "minLength": 1 },
         "risk_class": { "type": "string", "minLength": 1 },
+        "phase": { "type": "string", "enum": ["plan", "apply"] },
+        "job_id": { "type": "string", "minLength": 1 },
         "session_id": { "type": "string" },
         "request_id": { "type": "string" },
         "auth_context": {

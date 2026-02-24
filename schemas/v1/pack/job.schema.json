@@ -22,11 +22,13 @@
     "job_id": { "type": "string", "minLength": 1 },
     "status": {
       "type": "string",
-      "enum": ["running", "paused", "decision_needed", "blocked", "completed", "cancelled"]
+      "enum": ["running", "paused", "decision_needed", "blocked", "completed", "cancelled", "emergency_stopped"]
     },
     "stop_reason": { "type": "string", "minLength": 1 },
     "status_reason_code": { "type": "string", "minLength": 1 },
     "environment_fingerprint": { "type": "string", "minLength": 1 },
+    "safety_invariant_version": { "type": "string", "minLength": 1 },
+    "safety_invariant_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "checkpoint_count": { "type": "integer", "minimum": 0 },
     "approval_count": { "type": "integer", "minimum": 0 }
   },

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/runpack"
 )
 
@@ -24,6 +25,7 @@ type mcpServeConfig struct {
 	ListenAddr               string
 	DefaultAdapter           string
 	Profile                  string
+	JobRoot                  string
 	AuthMode                 string
 	AuthToken                string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
 	TraceDir                 string
@@ -85,6 +87,7 @@ func runMCPServe(arguments []string) int {
 		"listen":                      true,
 		"adapter":                     true,
 		"profile":                     true,
+		"job-root":                    true,
 		"auth-mode":                   true,
 		"auth-token-env":              true,
 		"trace-dir":                   true,
@@ -115,6 +118,7 @@ func runMCPServe(arguments []string) int {
 	var listenAddr string
 	var adapter string
 	var profile string
+	var jobRoot string
 	var authMode string
 	var authTokenEnv string
 	var traceDir string
@@ -144,6 +148,7 @@ func runMCPServe(arguments []string) int {
 	flagSet.StringVar(&listenAddr, "listen", "127.0.0.1:8787", "listen address")
 	flagSet.StringVar(&adapter, "adapter", "mcp", "default adapter: mcp|openai|anthropic|langchain|claude_code")
 	flagSet.StringVar(&profile, "profile", "standard", "runtime profile: standard|oss-prod")
+	flagSet.StringVar(&jobRoot, "job-root", "./gait-out/jobs", "job runtime root for emergency stop preemption checks when context.job_id is present")
 	flagSet.StringVar(&authMode, "auth-mode", "off", "serve auth mode: off|token")
 	flagSet.StringVar(&authTokenEnv, "auth-token-env", "", "env var containing bearer token for --auth-mode token")
 	flagSet.StringVar(&traceDir, "trace-dir", "./gait-out/mcp-serve/traces", "directory for emitted traces")
@@ -190,6 +195,7 @@ func runMCPServe(arguments []string) int {
 		ListenAddr:               strings.TrimSpace(listenAddr),
 		DefaultAdapter:           strings.ToLower(strings.TrimSpace(adapter)),
 		Profile:                  strings.ToLower(strings.TrimSpace(profile)),
+		JobRoot:                  strings.TrimSpace(jobRoot),
 		AuthMode:                 strings.ToLower(strings.TrimSpace(authMode)),
 		TraceDir:                 strings.TrimSpace(traceDir),
 		RunpackDir:               strings.TrimSpace(runpackDir),
@@ -299,6 +305,9 @@ func newMCPServeHandler(config mcpServeConfig) (http.Handler, error) {
 	}
 	if strings.TrimSpace(config.DefaultAdapter) == "" {
 		config.DefaultAdapter = "mcp"
+	}
+	if strings.TrimSpace(config.JobRoot) == "" {
+		config.JobRoot = "./gait-out/jobs"
 	}
 	if config.MaxRequestBytes <= 0 {
 		config.MaxRequestBytes = 1 << 20
@@ -437,6 +446,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 	output, exitCode, evalErr := evaluateMCPProxyPayload(config.PolicyPath, callPayload, mcpProxyEvalOptions{
 		Adapter:       adapter,
 		Profile:       config.Profile,
+		JobRoot:       config.JobRoot,
 		RunID:         input.RunID,
 		TracePath:     tracePath,
 		RunpackOut:    runpackPath,
@@ -470,7 +480,27 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 			RunID:           output.RunID,
 			ProducerVersion: version,
 		}); err != nil {
-			return mcpServeEvaluateResponse{}, err
+			if strings.TrimSpace(input.SessionJournal) == "" && strings.Contains(err.Error(), "different session/run") {
+				base := sanitizeSessionFileBase(sessionID)
+				journalPath = filepath.Join(config.SessionDir, fmt.Sprintf("%s_%s.journal.jsonl", base, normalizeRunID(output.RunID)))
+				if _, retryErr := runpack.StartSession(journalPath, runpack.SessionStartOptions{
+					SessionID:       sessionID,
+					RunID:           output.RunID,
+					ProducerVersion: version,
+				}); retryErr != nil {
+					return mcpServeEvaluateResponse{}, retryErr
+				}
+			} else {
+				return mcpServeEvaluateResponse{}, err
+			}
+		}
+		safetyInvariantVersion := ""
+		safetyInvariantHash := ""
+		if jobID := strings.TrimSpace(output.JobID); jobID != "" {
+			if state, statusErr := jobruntime.Status(config.JobRoot, jobID); statusErr == nil {
+				safetyInvariantVersion = strings.TrimSpace(state.SafetyInvariantVersion)
+				safetyInvariantHash = strings.TrimSpace(state.SafetyInvariantHash)
+			}
 		}
 		event, err := runpack.AppendSessionEvent(journalPath, runpack.SessionAppendOptions{
 			ProducerVersion: version,
@@ -482,6 +512,8 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 			Verdict:         output.Verdict,
 			ReasonCodes:     output.ReasonCodes,
 			Violations:      output.Violations,
+			SafetyInvariantVersion: safetyInvariantVersion,
+			SafetyInvariantHash:    safetyInvariantHash,
 		})
 		if err != nil {
 			return mcpServeEvaluateResponse{}, err
@@ -676,7 +708,7 @@ func mcpRetentionMatches(class string, fileName string) bool {
 
 func printMCPServeUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  endpoints: POST /v1/evaluate (json), POST /v1/evaluate/sse (text/event-stream), POST /v1/evaluate/stream (application/x-ndjson)")
 }
 

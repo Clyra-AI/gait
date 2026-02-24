@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/mcp"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
@@ -79,6 +80,103 @@ rules:
 	}
 	if code := runPack([]string{"verify", packPath, "--json"}); code != exitOK {
 		t.Fatalf("pack verify expected %d got %d", exitOK, code)
+	}
+}
+
+func TestRunMCPProxyEmergencyStopPreemption(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+	jobsRoot := filepath.Join(workDir, "jobs")
+	jobID := "job_mcp_stop"
+
+	if _, err := jobruntime.Submit(jobsRoot, jobruntime.SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	if _, err := jobruntime.EmergencyStop(jobsRoot, jobID, jobruntime.TransitionOptions{Actor: "alice"}); err != nil {
+		t.Fatalf("emergency stop: %v", err)
+	}
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	callPath := filepath.Join(workDir, "call.json")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.write",
+  "args":{"path":"/tmp/out.txt"},
+  "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+  "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1","job_id":"job_mcp_stop"}
+}`)
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runMCPProxy([]string{
+			"--policy", policyPath,
+			"--call", callPath,
+			"--job-root", jobsRoot,
+			"--json",
+		})
+	})
+	if code != exitPolicyBlocked {
+		t.Fatalf("expected emergency stop preemption to block with %d, got %d (%s)", exitPolicyBlocked, code, raw)
+	}
+	var out mcpProxyOutput
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		t.Fatalf("decode proxy output: %v (%s)", err, raw)
+	}
+	if out.Verdict != "block" || !strings.Contains(strings.Join(out.ReasonCodes, ","), "emergency_stop_preempted") {
+		t.Fatalf("expected emergency stop reason code, got %#v", out)
+	}
+}
+
+func TestEvaluateMCPEmergencyStopWithoutJobID(t *testing.T) {
+	reason, warnings := evaluateMCPEmergencyStop(mcp.ToolCall{
+		Name: "tool.write",
+		Context: mcp.CallContext{
+			SessionID: "sess-1",
+		},
+	}, "")
+	if reason != "" {
+		t.Fatalf("expected empty reason when job_id is not set, got %q", reason)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings without job_id, got %#v", warnings)
+	}
+}
+
+func TestEvaluateMCPEmergencyStopStateUnavailable(t *testing.T) {
+	workDir := t.TempDir()
+	reason, warnings := evaluateMCPEmergencyStop(mcp.ToolCall{
+		Name: "tool.write",
+		Context: mcp.CallContext{
+			JobID: "job_missing",
+		},
+	}, filepath.Join(workDir, "jobs"))
+	if reason != "emergency_stop_state_unavailable" {
+		t.Fatalf("expected emergency_stop_state_unavailable, got %q", reason)
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "job_status_unavailable=") {
+		t.Fatalf("expected job status warning, got %#v", warnings)
+	}
+}
+
+func TestEvaluateMCPEmergencyStopJobNotStopped(t *testing.T) {
+	workDir := t.TempDir()
+	jobsRoot := filepath.Join(workDir, "jobs")
+	if _, err := jobruntime.Submit(jobsRoot, jobruntime.SubmitOptions{
+		JobID: "job_running",
+	}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	reason, warnings := evaluateMCPEmergencyStop(mcp.ToolCall{
+		Name: "tool.write",
+		Context: mcp.CallContext{
+			JobID: "job_running",
+		},
+	}, jobsRoot)
+	if reason != "" {
+		t.Fatalf("expected empty reason for non-stopped job, got %q", reason)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings for non-stopped job, got %#v", warnings)
 	}
 }
 

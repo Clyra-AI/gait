@@ -67,6 +67,8 @@ Recommended indexed keys:
 - `trace_id`
 - `run_id`
 - `session_id`
+- `job_id`
+- `phase`
 - `tool_name`
 - `verdict`
 - `reason_codes`
@@ -75,5 +77,10 @@ Recommended indexed keys:
 - `decision_latency_ms`
 - `delegation_ref`
 - `delegation_depth`
+
+Operational alerts worth pinning:
+
+- emergency stop preemption (`reason_codes` includes `emergency_stop_preempted`)
+- destructive budget breach (`reason_codes` includes `destructive_budget_exceeded`)
 
 This keeps SIEM queries aligned with Gait artifacts and proofs.

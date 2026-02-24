@@ -25,6 +25,7 @@ gait regress bootstrap --from run_demo --junit ./gait-out/junit.xml
 # Try durable jobs and policy demos
 gait demo --durable
 gait demo --policy
+gait policy init baseline-highrisk --out ./gait.policy.yaml --json
 ```
 
 Then continue with:
@@ -34,6 +35,13 @@ Then continue with:
 - production integration checklist: `/docs/integration_checklist/`
 
 Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries.
+
+For emergency preemption drills:
+
+```bash
+gait job submit --id job_safe --json
+gait job stop --id job_safe --actor secops --json
+```
 
 For script automation boundaries, add:
 

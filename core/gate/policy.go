@@ -99,6 +99,7 @@ type PolicyRule struct {
 	BrokerReference             string          `yaml:"broker_reference"`
 	BrokerScopes                []string        `yaml:"broker_scopes"`
 	RateLimit                   RateLimitPolicy `yaml:"rate_limit"`
+	DestructiveBudget           RateLimitPolicy `yaml:"destructive_budget"`
 	Dataflow                    DataflowPolicy  `yaml:"dataflow"`
 }
 
@@ -185,6 +186,7 @@ type EvalOutcome struct {
 	BrokerReference          string
 	BrokerScopes             []string
 	RateLimit                RateLimitPolicy
+	DestructiveBudget        RateLimitPolicy
 	DataflowTriggered        bool
 	Script                   bool
 	StepCount                int
@@ -330,6 +332,19 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 			reasons = mergeUniqueSorted(reasons, contextReasons)
 			violations = mergeUniqueSorted(violations, contextViolations)
 		}
+		destructiveTarget := intentContainsDestructiveTarget(intent.Targets)
+		switch strings.ToLower(strings.TrimSpace(intent.Context.Phase)) {
+		case "plan":
+			if destructiveTarget {
+				effect = mostRestrictiveVerdict(effect, "dry_run")
+				reasons = mergeUniqueSorted(reasons, []string{"plan_phase_non_destructive"})
+			}
+		case "", "apply":
+			if destructiveTarget {
+				effect = mostRestrictiveVerdict(effect, "require_approval")
+				reasons = mergeUniqueSorted(reasons, []string{"destructive_apply_requires_approval"})
+			}
+		}
 		minApprovals := rule.MinApprovals
 		if effect == "require_approval" && minApprovals == 0 {
 			minApprovals = 1
@@ -344,6 +359,7 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 			BrokerReference:          rule.BrokerReference,
 			BrokerScopes:             uniqueSorted(rule.BrokerScopes),
 			RateLimit:                rule.RateLimit,
+			DestructiveBudget:        rule.DestructiveBudget,
 			DataflowTriggered:        dataflowTriggered,
 		}, nil
 	}
@@ -383,6 +399,7 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 	dataflowTriggered := false
 	riskClasses := []string{}
 	aggregatedRateLimit := RateLimitPolicy{}
+	aggregatedDestructiveBudget := RateLimitPolicy{}
 	contextSource := ""
 
 	for index, step := range intent.Script.Steps {
@@ -433,6 +450,7 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 		}
 		brokerScopes = mergeUniqueSorted(brokerScopes, stepOutcome.BrokerScopes)
 		aggregatedRateLimit = mergeRateLimitPolicy(aggregatedRateLimit, stepOutcome.RateLimit)
+		aggregatedDestructiveBudget = mergeRateLimitPolicy(aggregatedDestructiveBudget, stepOutcome.DestructiveBudget)
 		if stepOutcome.DataflowTriggered {
 			dataflowTriggered = true
 		}
@@ -481,6 +499,7 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 		BrokerReference:          brokerReference,
 		BrokerScopes:             uniqueSorted(brokerScopes),
 		RateLimit:                aggregatedRateLimit,
+		DestructiveBudget:        aggregatedDestructiveBudget,
 		DataflowTriggered:        dataflowTriggered,
 		Script:                   true,
 		StepCount:                len(intent.Script.Steps),
@@ -686,6 +705,13 @@ func policyDigestPayload(policy Policy) map[string]any {
 				"Requests": rule.RateLimit.Requests,
 				"Window":   rule.RateLimit.Window,
 				"Scope":    rule.RateLimit.Scope,
+			}
+		}
+		if rule.DestructiveBudget.Requests > 0 {
+			rulePayload["DestructiveBudget"] = map[string]any{
+				"Requests": rule.DestructiveBudget.Requests,
+				"Window":   rule.DestructiveBudget.Window,
+				"Scope":    rule.DestructiveBudget.Scope,
 			}
 		}
 		if rule.Dataflow.Enabled {
@@ -924,6 +950,31 @@ func normalizePolicy(input Policy) (Policy, error) {
 			}
 			if _, ok := allowedRateLimitScopes[rule.RateLimit.Scope]; !ok {
 				return Policy{}, fmt.Errorf("unsupported rate_limit.scope %q for %s", rule.RateLimit.Scope, rule.Name)
+			}
+		}
+		if rule.DestructiveBudget.Requests < 0 {
+			return Policy{}, fmt.Errorf("destructive_budget.requests must be >= 0 for %s", rule.Name)
+		}
+		rule.DestructiveBudget.Window = strings.ToLower(strings.TrimSpace(rule.DestructiveBudget.Window))
+		rule.DestructiveBudget.Scope = strings.ToLower(strings.TrimSpace(rule.DestructiveBudget.Scope))
+		destructiveBudgetConfigured := rule.DestructiveBudget.Requests > 0 ||
+			rule.DestructiveBudget.Window != "" ||
+			rule.DestructiveBudget.Scope != ""
+		if destructiveBudgetConfigured {
+			if rule.DestructiveBudget.Requests <= 0 {
+				return Policy{}, fmt.Errorf("destructive_budget.requests must be >= 1 for %s", rule.Name)
+			}
+			if rule.DestructiveBudget.Window == "" {
+				rule.DestructiveBudget.Window = "minute"
+			}
+			if _, ok := allowedRateLimitWindows[rule.DestructiveBudget.Window]; !ok {
+				return Policy{}, fmt.Errorf("unsupported destructive_budget.window %q for %s", rule.DestructiveBudget.Window, rule.Name)
+			}
+			if rule.DestructiveBudget.Scope == "" {
+				rule.DestructiveBudget.Scope = "tool_identity"
+			}
+			if _, ok := allowedRateLimitScopes[rule.DestructiveBudget.Scope]; !ok {
+				return Policy{}, fmt.Errorf("unsupported destructive_budget.scope %q for %s", rule.DestructiveBudget.Scope, rule.Name)
 			}
 		}
 		rule.Dataflow.TaintedSources = normalizeStringListLower(rule.Dataflow.TaintedSources)
@@ -1574,6 +1625,10 @@ func intentContainsDestructiveTarget(targets []schemagate.IntentTarget) bool {
 		}
 	}
 	return false
+}
+
+func IntentContainsDestructiveTarget(targets []schemagate.IntentTarget) bool {
+	return intentContainsDestructiveTarget(targets)
 }
 
 func matchesAnyPattern(value string, patterns []string) bool {

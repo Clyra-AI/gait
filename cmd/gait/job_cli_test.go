@@ -77,6 +77,14 @@ func TestRunJobLifecycleCommands(t *testing.T) {
 		t.Fatalf("unexpected pause output: %#v", pauseOut)
 	}
 
+	stopCode, stopOut := runJobJSON(t, []string{"stop", "--id", jobID, "--root", root, "--actor", "alice", "--json"})
+	if stopCode != exitOK {
+		t.Fatalf("stop expected %d got %d output=%#v", exitOK, stopCode, stopOut)
+	}
+	if stopOut.Job == nil || stopOut.Job.Status != "emergency_stopped" || stopOut.Job.StatusReasonCode != "emergency_stop_preempted" {
+		t.Fatalf("unexpected stop output: %#v", stopOut)
+	}
+
 	inspectCode, inspectOut := runJobJSON(t, []string{"inspect", "--id", jobID, "--root", root, "--json"})
 	if inspectCode != exitOK {
 		t.Fatalf("inspect expected %d got %d output=%#v", exitOK, inspectCode, inspectOut)
@@ -128,6 +136,7 @@ func TestRunJobHelpAndErrorPaths(t *testing.T) {
 		{"checkpoint", "list", "--help"},
 		{"checkpoint", "show", "--help"},
 		{"pause", "--help"},
+		{"stop", "--help"},
 		{"approve", "--help"},
 		{"resume", "--help"},
 		{"cancel", "--help"},

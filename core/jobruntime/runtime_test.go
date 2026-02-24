@@ -288,6 +288,47 @@ func TestInvalidPauseTransition(t *testing.T) {
 	}
 }
 
+func TestEmergencyStopPreemptsAndBlocksDispatch(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-emergency-stop"
+	if _, err := Submit(root, SubmitOptions{JobID: jobID, PolicyDigest: "policy-a", Identity: "agent.alice"}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+
+	stopped, err := EmergencyStop(root, jobID, TransitionOptions{Actor: "alice"})
+	if err != nil {
+		t.Fatalf("emergency stop: %v", err)
+	}
+	if stopped.Status != StatusEmergencyStop {
+		t.Fatalf("expected emergency stopped status, got %#v", stopped)
+	}
+	if stopped.StatusReasonCode != "emergency_stop_preempted" {
+		t.Fatalf("unexpected emergency stop reason code: %#v", stopped)
+	}
+	if !IsEmergencyStopped(stopped) {
+		t.Fatalf("expected emergency stopped helper to return true")
+	}
+
+	if _, err := RecordBlockedDispatch(root, jobID, DispatchRecordOptions{
+		Actor:        "mcp-proxy",
+		DispatchPath: "mcp.proxy",
+		ReasonCode:   "emergency_stop_preempted",
+	}); err != nil {
+		t.Fatalf("record blocked dispatch: %v", err)
+	}
+	_, events, err := Inspect(root, jobID)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	if len(events) < 2 {
+		t.Fatalf("expected emergency stop + blocked dispatch events, got %d", len(events))
+	}
+	last := events[len(events)-1]
+	if last.Type != "dispatch_blocked" || last.ReasonCode != "emergency_stop_preempted" {
+		t.Fatalf("unexpected blocked dispatch event: %#v", last)
+	}
+}
+
 func TestListGetAndInspect(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "jobs")
 	jobID := "job-list-inspect"
@@ -554,7 +595,10 @@ func TestAcquireLockTimeoutUsesWallClock(t *testing.T) {
 }
 
 func TestJobPathDecisionAndFingerprintHelpers(t *testing.T) {
-	statePath, eventsPath := jobPaths("", "job-helper")
+	statePath, eventsPath, err := jobPaths("", "job-helper")
+	if err != nil {
+		t.Fatalf("jobPaths: %v", err)
+	}
 	if filepath.Base(statePath) != "state.json" || filepath.Base(eventsPath) != "events.jsonl" {
 		t.Fatalf("unexpected helper job paths: state=%s events=%s", statePath, eventsPath)
 	}
@@ -609,5 +653,153 @@ func TestJobPathDecisionAndFingerprintHelpers(t *testing.T) {
 	}
 	if got := EnvironmentFingerprint(""); !strings.HasPrefix(got, "envfp:") {
 		t.Fatalf("expected generated fingerprint prefix, got %s", got)
+	}
+}
+
+func TestSafetyInvariantLedgerDefaultsAndResume(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-invariants"
+	submitted, err := Submit(root, SubmitOptions{
+		JobID:        jobID,
+		PolicyDigest: "policy-digest-a",
+		PolicyRef:    "policy-a.yaml",
+		Identity:     "agent.alice",
+	})
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	if submitted.SafetyInvariantVersion == "" || submitted.SafetyInvariantHash == "" || len(submitted.SafetyInvariants) == 0 {
+		t.Fatalf("expected safety invariant ledger on submit: %#v", submitted)
+	}
+	if _, err := Pause(root, jobID, TransitionOptions{}); err != nil {
+		t.Fatalf("pause: %v", err)
+	}
+	resumed, err := Resume(root, jobID, ResumeOptions{
+		CurrentEnvironmentFingerprint: submitted.EnvironmentFingerprint,
+		PolicyDigest:                  "policy-digest-a",
+		PolicyRef:                     "policy-a.yaml",
+		RequirePolicyEvaluation:       true,
+		Identity:                      "agent.alice",
+		RequireIdentityValidation:     true,
+	})
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if resumed.SafetyInvariantVersion != submitted.SafetyInvariantVersion || resumed.SafetyInvariantHash != submitted.SafetyInvariantHash {
+		t.Fatalf("expected invariant ledger to persist across resume: submitted=%#v resumed=%#v", submitted, resumed)
+	}
+}
+
+func TestRecordBlockedDispatchDefaultsAndValidation(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-blocked-dispatch-defaults"
+	if _, err := Submit(root, SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+
+	if _, err := RecordBlockedDispatch(root, jobID, DispatchRecordOptions{}); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("expected invalid transition before emergency stop, got %v", err)
+	}
+
+	if _, err := EmergencyStop(root, jobID, TransitionOptions{Actor: "operator"}); err != nil {
+		t.Fatalf("emergency stop: %v", err)
+	}
+	if _, err := RecordBlockedDispatch(root, jobID, DispatchRecordOptions{}); err != nil {
+		t.Fatalf("record blocked dispatch with defaults: %v", err)
+	}
+
+	_, events, err := Inspect(root, jobID)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	last := events[len(events)-1]
+	if last.ReasonCode != "emergency_stop_preempted" {
+		t.Fatalf("unexpected reason code: %#v", last)
+	}
+	if got, _ := last.Payload["dispatch_path"].(string); got != "runtime.dispatch" {
+		t.Fatalf("expected default dispatch path, got %#v", last.Payload)
+	}
+}
+
+func TestResumeValidationAndEnvOverridePolicyTransition(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+
+	if _, err := Submit(root, SubmitOptions{JobID: "job-resume-invalid"}); err != nil {
+		t.Fatalf("submit job-resume-invalid: %v", err)
+	}
+	if _, err := Resume(root, "job-resume-invalid", ResumeOptions{}); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("expected invalid transition for resume while running, got %v", err)
+	}
+
+	if _, err := Submit(root, SubmitOptions{
+		JobID:                  "job-bind-identity",
+		EnvironmentFingerprint: "env:a",
+	}); err != nil {
+		t.Fatalf("submit job-bind-identity: %v", err)
+	}
+	if _, err := Pause(root, "job-bind-identity", TransitionOptions{}); err != nil {
+		t.Fatalf("pause job-bind-identity: %v", err)
+	}
+	identityBound, err := Resume(root, "job-bind-identity", ResumeOptions{
+		CurrentEnvironmentFingerprint: "env:a",
+		Identity:                      "agent.bound",
+		RequireIdentityValidation:     true,
+	})
+	if err != nil {
+		t.Fatalf("resume job-bind-identity: %v", err)
+	}
+	if identityBound.Identity != "agent.bound" {
+		t.Fatalf("expected resume to bind identity, got %#v", identityBound)
+	}
+
+	if _, err := Submit(root, SubmitOptions{
+		JobID:                  "job-env-override-policy-transition",
+		EnvironmentFingerprint: "env:a",
+		PolicyDigest:           "policy-a",
+		PolicyRef:              "policy-a.yaml",
+	}); err != nil {
+		t.Fatalf("submit job-env-override-policy-transition: %v", err)
+	}
+	if _, err := Pause(root, "job-env-override-policy-transition", TransitionOptions{}); err != nil {
+		t.Fatalf("pause job-env-override-policy-transition: %v", err)
+	}
+	overridden, err := Resume(root, "job-env-override-policy-transition", ResumeOptions{
+		CurrentEnvironmentFingerprint: "env:b",
+		AllowEnvironmentMismatch:      true,
+		PolicyDigest:                  "policy-b",
+		PolicyRef:                     "policy-b.yaml",
+		RequirePolicyEvaluation:       true,
+	})
+	if err != nil {
+		t.Fatalf("resume job-env-override-policy-transition: %v", err)
+	}
+	if overridden.StatusReasonCode != "resumed_with_env_override_policy_transition" {
+		t.Fatalf("unexpected reason code after env override policy transition: %#v", overridden)
+	}
+}
+
+func TestJobPathAndInvariantHelperValidationBranches(t *testing.T) {
+	if _, _, err := jobPaths("", "bad/id"); err == nil {
+		t.Fatalf("expected invalid job_id error for path separator")
+	}
+
+	if requiresApprovalBeforeResume(nil) {
+		t.Fatalf("nil state should not require approval")
+	}
+	if got := countDecisionCheckpoints(nil); got != 0 {
+		t.Fatalf("expected zero checkpoints for nil state, got %d", got)
+	}
+
+	ensureSafetyInvariantLedger(nil)
+	state := JobState{}
+	ensureSafetyInvariantLedger(&state)
+	if state.SafetyInvariantVersion != "1" || state.SafetyInvariantHash == "" || len(state.SafetyInvariants) == 0 {
+		t.Fatalf("expected default invariant ledger fields to be populated: %#v", state)
+	}
+
+	withBlanks := hashSafetyInvariants([]string{"keep", "", " "})
+	withoutBlanks := hashSafetyInvariants([]string{"keep"})
+	if withBlanks != withoutBlanks {
+		t.Fatalf("expected blank invariants to be ignored, with=%s without=%s", withBlanks, withoutBlanks)
 	}
 }

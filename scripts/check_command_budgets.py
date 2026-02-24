@@ -114,6 +114,12 @@ DEFAULT_RUNTIME_SLO_BUDGETS: dict[str, Any] = {
             "p99_ms": 2400.0,
             "max_error_rate": 0.0,
         },
+        "job_stop": {
+            "p50_ms": 900.0,
+            "p95_ms": 1800.0,
+            "p99_ms": 2400.0,
+            "max_error_rate": 0.0,
+        },
         "job_resume": {
             "p50_ms": 900.0,
             "p95_ms": 1800.0,
@@ -383,6 +389,9 @@ def main() -> int:
                     "identity": "alice",
                     "workspace": str(work_dir),
                     "risk_class": "high",
+                    "phase": "plan"
+                    if bool(spec["target"].get("destructive"))
+                    else "apply",
                 },
             }
             intent_path = intents_dir / f"{command_name}.json"
@@ -635,6 +644,9 @@ def main() -> int:
                 work_dir,
             )
 
+        def prepare_job_stoppable() -> None:
+            prepare_job_submitted()
+
         def prepare_job_resumable() -> None:
             prepare_job_approved()
 
@@ -703,6 +715,18 @@ def main() -> int:
                 str(gait_path),
                 "job",
                 "approve",
+                "--id",
+                "job_budget",
+                "--root",
+                str(job_root),
+                "--actor",
+                "approver",
+                "--json",
+            ],
+            "job_stop": [
+                str(gait_path),
+                "job",
+                "stop",
                 "--id",
                 "job_budget",
                 "--root",
@@ -817,6 +841,7 @@ def main() -> int:
         pre_hooks["job_submit"] = lambda _: reset_job_state()
         pre_hooks["job_checkpoint_add"] = lambda _: prepare_job_submitted()
         pre_hooks["job_approve"] = lambda _: prepare_job_pending_approval()
+        pre_hooks["job_stop"] = lambda _: prepare_job_stoppable()
         pre_hooks["job_resume"] = lambda _: prepare_job_resumable()
         pre_hooks["pack_build_job"] = lambda _: prepare_job_resumable()
         pre_hooks["pack_verify_job"] = lambda _: prepare_job_pack_built()

@@ -6,7 +6,7 @@ Gait dispatches durable agent jobs, captures signed evidence at the tool boundar
 
 ## What problem does Gait solve for long-running agent work?
 
-Multi-step and multi-hour agent jobs fail mid-flight, losing state and provenance. Gait dispatches durable jobs with checkpointed state, pause/resume/cancel, and deterministic stop reasons so work survives failures and stays auditable.
+Multi-step and multi-hour agent jobs fail mid-flight, losing state and provenance. Gait dispatches durable jobs with checkpointed state, pause/resume/stop/cancel, and deterministic stop reasons so work survives failures and stays auditable.
 
 ## Is Gait a hosted SaaS dashboard?
 

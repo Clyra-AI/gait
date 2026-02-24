@@ -57,6 +57,8 @@ type CallContext struct {
 	Identity               string         `json:"identity,omitempty"`
 	Workspace              string         `json:"workspace,omitempty"`
 	RiskClass              string         `json:"risk_class,omitempty"`
+	Phase                  string         `json:"phase,omitempty"`
+	JobID                  string         `json:"job_id,omitempty"`
 	SessionID              string         `json:"session_id,omitempty"`
 	RequestID              string         `json:"request_id,omitempty"`
 	RunID                  string         `json:"run_id,omitempty"`

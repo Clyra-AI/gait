@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -29,6 +30,7 @@ const (
 	StatusBlocked        = "blocked"
 	StatusCompleted      = "completed"
 	StatusCancelled      = "cancelled"
+	StatusEmergencyStop  = "emergency_stopped"
 )
 
 const (
@@ -38,6 +40,7 @@ const (
 	StopReasonBlocked                = "blocked"
 	StopReasonCompleted              = "completed"
 	StopReasonCancelledByUser        = "cancelled_by_user"
+	StopReasonEmergencyStopped       = "emergency_stopped"
 	StopReasonEnvFingerprintMismatch = "env_fingerprint_mismatch"
 )
 
@@ -62,6 +65,8 @@ var (
 	ErrIdentityBindingMismatch   = errors.New("identity binding mismatch")
 )
 
+var safeJobIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+
 type JobState struct {
 	SchemaID               string       `json:"schema_id"`
 	SchemaVersion          string       `json:"schema_version"`
@@ -73,6 +78,9 @@ type JobState struct {
 	StopReason             string       `json:"stop_reason"`
 	StatusReasonCode       string       `json:"status_reason_code"`
 	EnvironmentFingerprint string       `json:"environment_fingerprint"`
+	SafetyInvariantVersion string       `json:"safety_invariant_version,omitempty"`
+	SafetyInvariantHash    string       `json:"safety_invariant_hash,omitempty"`
+	SafetyInvariants       []string     `json:"safety_invariants,omitempty"`
 	PolicyDigest           string       `json:"policy_digest,omitempty"`
 	PolicyRef              string       `json:"policy_ref,omitempty"`
 	Identity               string       `json:"identity,omitempty"`
@@ -154,6 +162,13 @@ type TransitionOptions struct {
 	Now   time.Time
 }
 
+type DispatchRecordOptions struct {
+	Actor        string
+	DispatchPath string
+	ReasonCode   string
+	Now          time.Time
+}
+
 func Submit(root string, opts SubmitOptions) (JobState, error) {
 	jobID := strings.TrimSpace(opts.JobID)
 	if jobID == "" {
@@ -174,7 +189,10 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 	if identity == "" {
 		identity = strings.TrimSpace(opts.Actor)
 	}
-	statePath, eventsPath := jobPaths(root, jobID)
+	statePath, eventsPath, err := jobPaths(root, jobID)
+	if err != nil {
+		return JobState{}, err
+	}
 	if err := os.MkdirAll(filepath.Dir(statePath), 0o750); err != nil {
 		return JobState{}, fmt.Errorf("create job directory: %w", err)
 	}
@@ -194,12 +212,15 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 		StopReason:             StopReasonNone,
 		StatusReasonCode:       "submitted",
 		EnvironmentFingerprint: envfp,
+		SafetyInvariantVersion: "1",
 		PolicyDigest:           policyDigest,
 		PolicyRef:              policyRef,
 		Identity:               identity,
 		Revision:               1,
 		Checkpoints:            []Checkpoint{},
 	}
+	state.SafetyInvariants = deriveSafetyInvariants(state)
+	state.SafetyInvariantHash = hashSafetyInvariants(state.SafetyInvariants)
 	if err := writeJSON(statePath, state); err != nil {
 		return JobState{}, err
 	}
@@ -233,7 +254,10 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 }
 
 func Status(root string, jobID string) (JobState, error) {
-	statePath, _ := jobPaths(root, jobID)
+	statePath, _, err := jobPaths(root, jobID)
+	if err != nil {
+		return JobState{}, err
+	}
 	state, err := readState(statePath)
 	if err != nil {
 		return JobState{}, err
@@ -338,7 +362,50 @@ func Pause(root string, jobID string, opts TransitionOptions) (JobState, error) 
 }
 
 func Cancel(root string, jobID string, opts TransitionOptions) (JobState, error) {
-	return simpleTransition(root, jobID, opts.Now, opts.Actor, "cancelled", []string{StatusRunning, StatusPaused, StatusDecisionNeeded, StatusBlocked}, StatusCancelled, StopReasonCancelledByUser, "cancelled")
+	return simpleTransition(root, jobID, opts.Now, opts.Actor, "cancelled", []string{StatusRunning, StatusPaused, StatusDecisionNeeded, StatusBlocked, StatusEmergencyStop}, StatusCancelled, StopReasonCancelledByUser, "cancelled")
+}
+
+func EmergencyStop(root string, jobID string, opts TransitionOptions) (JobState, error) {
+	return simpleTransition(
+		root,
+		jobID,
+		opts.Now,
+		opts.Actor,
+		"emergency_stop_acknowledged",
+		[]string{StatusRunning, StatusPaused, StatusDecisionNeeded, StatusBlocked},
+		StatusEmergencyStop,
+		StopReasonEmergencyStopped,
+		"emergency_stop_preempted",
+	)
+}
+
+func RecordBlockedDispatch(root string, jobID string, opts DispatchRecordOptions) (JobState, error) {
+	return mutateWithResult(root, jobID, opts.Now, func(state *JobState, now time.Time) (JobState, Event, error) {
+		reasonCode := strings.TrimSpace(opts.ReasonCode)
+		if reasonCode == "" {
+			reasonCode = "emergency_stop_preempted"
+		}
+		dispatchPath := strings.TrimSpace(opts.DispatchPath)
+		if dispatchPath == "" {
+			dispatchPath = "runtime.dispatch"
+		}
+		if !IsEmergencyStopped(*state) {
+			return JobState{}, Event{}, fmt.Errorf("%w: blocked dispatch requires emergency stopped state", ErrInvalidTransition)
+		}
+		updated := *state
+		return updated, Event{
+			Type:       "dispatch_blocked",
+			Actor:      strings.TrimSpace(opts.Actor),
+			ReasonCode: reasonCode,
+			Payload: map[string]any{
+				"dispatch_path": dispatchPath,
+			},
+		}, nil
+	})
+}
+
+func IsEmergencyStopped(state JobState) bool {
+	return strings.TrimSpace(state.Status) == StatusEmergencyStop && strings.TrimSpace(state.StopReason) == StopReasonEmergencyStopped
 }
 
 func Approve(root string, jobID string, opts ApprovalOptions) (JobState, error) {
@@ -388,6 +455,7 @@ func Resume(root string, jobID string, opts ResumeOptions) (JobState, error) {
 		}
 		previousPolicyDigest := strings.TrimSpace(state.PolicyDigest)
 		previousPolicyRef := strings.TrimSpace(state.PolicyRef)
+		ensureSafetyInvariantLedger(state)
 		policyDigest := strings.TrimSpace(opts.PolicyDigest)
 		policyRef := strings.TrimSpace(opts.PolicyRef)
 		policyEvaluationRequired := opts.RequirePolicyEvaluation || previousPolicyDigest != "" || previousPolicyRef != ""
@@ -474,7 +542,10 @@ func Resume(root string, jobID string, opts ResumeOptions) (JobState, error) {
 }
 
 func Inspect(root string, jobID string) (JobState, []Event, error) {
-	statePath, eventsPath := jobPaths(root, jobID)
+	statePath, eventsPath, err := jobPaths(root, jobID)
+	if err != nil {
+		return JobState{}, nil, err
+	}
 	state, err := readState(statePath)
 	if err != nil {
 		return JobState{}, nil, err
@@ -564,7 +635,10 @@ func mutate(root string, jobID string, mutator func(*JobState, time.Time) (Event
 }
 
 func mutateWithResult(root string, jobID string, now time.Time, mutator func(*JobState, time.Time) (JobState, Event, error)) (JobState, error) {
-	statePath, eventsPath := jobPaths(root, jobID)
+	statePath, eventsPath, err := jobPaths(root, jobID)
+	if err != nil {
+		return JobState{}, err
+	}
 	lockPath := statePath + ".lock"
 
 	release, err := acquireLock(lockPath, normalizeNow(now), 2*time.Second)
@@ -602,6 +676,7 @@ func mutateWithResult(root string, jobID string, now time.Time, mutator func(*Jo
 
 func readState(path string) (JobState, error) {
 	// #nosec G304 -- path is derived from local job root
+	// lgtm[go/path-injection] path is derived from explicit local runtime root/job id inputs.
 	payload, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -616,6 +691,7 @@ func readState(path string) (JobState, error) {
 	if strings.TrimSpace(state.JobID) == "" {
 		return JobState{}, fmt.Errorf("invalid job state: missing job_id")
 	}
+	ensureSafetyInvariantLedger(&state)
 	if state.Checkpoints == nil {
 		state.Checkpoints = []Checkpoint{}
 	}
@@ -670,20 +746,35 @@ func appendEvent(path string, event Event) error {
 	return nil
 }
 
-func jobPaths(root string, jobID string) (statePath string, eventsPath string) {
+func jobPaths(root string, jobID string) (statePath string, eventsPath string, err error) {
 	cleanRoot := strings.TrimSpace(root)
 	if cleanRoot == "" {
 		cleanRoot = filepath.Join(".", "gait-out", "jobs")
 	}
+	absRoot, err := filepath.Abs(cleanRoot)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve job root: %w", err)
+	}
 	cleanID := strings.TrimSpace(jobID)
-	jobDir := filepath.Join(cleanRoot, cleanID)
-	return filepath.Join(jobDir, "state.json"), filepath.Join(jobDir, "events.jsonl")
+	if !safeJobIDPattern.MatchString(cleanID) {
+		return "", "", fmt.Errorf("job_id must match %s", safeJobIDPattern.String())
+	}
+	jobDir := filepath.Join(absRoot, cleanID)
+	relPath, err := filepath.Rel(absRoot, jobDir)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve job path: %w", err)
+	}
+	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(os.PathSeparator)) {
+		return "", "", fmt.Errorf("job path escapes root")
+	}
+	return filepath.Join(jobDir, "state.json"), filepath.Join(jobDir, "events.jsonl"), nil
 }
 
 func acquireLock(path string, _ time.Time, timeout time.Duration) (func(), error) {
 	start := time.Now().UTC()
 	for {
 		// #nosec G304 -- lock path derived from local root
+		// lgtm[go/path-injection] lock path is derived from explicit local runtime root/job id inputs.
 		fd, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
 			_ = fd.Close()
@@ -697,6 +788,7 @@ func acquireLock(path string, _ time.Time, timeout time.Duration) (func(), error
 			return nil, fmt.Errorf("%w: lock timeout", ErrStateContention)
 		}
 		if staleLock(path, now, 30*time.Second) {
+			// lgtm[go/path-injection] lock path is derived from explicit local runtime root/job id inputs.
 			_ = os.Remove(path)
 			continue
 		}
@@ -706,6 +798,7 @@ func acquireLock(path string, _ time.Time, timeout time.Duration) (func(), error
 
 func staleLock(path string, now time.Time, staleAfter time.Duration) bool {
 	// #nosec G304 -- lock path derived from local root
+	// lgtm[go/path-injection] lock path is derived from explicit local runtime root/job id inputs.
 	info, err := os.Stat(path)
 	if err != nil {
 		return false
@@ -801,4 +894,52 @@ func EnvironmentFingerprint(override string) string {
 	sort.Strings(parts)
 	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
 	return "envfp:" + hex.EncodeToString(sum[:])
+}
+
+func ensureSafetyInvariantLedger(state *JobState) {
+	if state == nil {
+		return
+	}
+	if strings.TrimSpace(state.SafetyInvariantVersion) == "" {
+		state.SafetyInvariantVersion = "1"
+	}
+	if len(state.SafetyInvariants) == 0 {
+		state.SafetyInvariants = deriveSafetyInvariants(*state)
+	}
+	if strings.TrimSpace(state.SafetyInvariantHash) == "" {
+		state.SafetyInvariantHash = hashSafetyInvariants(state.SafetyInvariants)
+	}
+}
+
+func deriveSafetyInvariants(state JobState) []string {
+	values := []string{
+		"control_boundary=runtime_go",
+		"fail_closed=true",
+		"default_privacy=reference_receipts",
+	}
+	if strings.TrimSpace(state.PolicyDigest) != "" {
+		values = append(values, "policy_digest="+strings.TrimSpace(state.PolicyDigest))
+	}
+	if strings.TrimSpace(state.PolicyRef) != "" {
+		values = append(values, "policy_ref="+strings.TrimSpace(state.PolicyRef))
+	}
+	if strings.TrimSpace(state.Identity) != "" {
+		values = append(values, "identity="+strings.TrimSpace(state.Identity))
+	}
+	sort.Strings(values)
+	return values
+}
+
+func hashSafetyInvariants(values []string) string {
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		filtered = append(filtered, trimmed)
+	}
+	sort.Strings(filtered)
+	sum := sha256.Sum256([]byte(strings.Join(filtered, "|")))
+	return hex.EncodeToString(sum[:])
 }

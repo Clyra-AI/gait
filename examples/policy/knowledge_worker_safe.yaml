@@ -1,0 +1,39 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+fail_closed:
+  enabled: true
+  risk_classes: [high, critical]
+  required_fields: [targets, arg_provenance]
+rules:
+  - name: allow-read-only
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [tool.read, email.read, file.read, calendar.read]
+    reason_codes: [safe_read_allowed]
+
+  - name: allow-reversible-archive-trash
+    priority: 20
+    effect: allow
+    match:
+      tool_names: [email.archive, file.trash, calendar.cancel]
+    reason_codes: [reversible_action_allowed]
+
+  - name: require-approval-write
+    priority: 30
+    effect: require_approval
+    match:
+      tool_names: [tool.write, email.write, file.write, calendar.write]
+    reason_codes: [approval_required_for_write]
+    violations: [approval_required]
+
+  - name: break-glass-permanent-delete
+    priority: 40
+    effect: require_approval
+    min_approvals: 2
+    require_distinct_approvers: true
+    match:
+      tool_names: [tool.delete, email.delete_permanent, file.delete_permanent]
+    reason_codes: [break_glass_required_for_permanent_delete]
+    violations: [destructive_operation]

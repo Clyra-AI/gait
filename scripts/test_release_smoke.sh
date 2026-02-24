@@ -67,6 +67,96 @@ if payload.get("verdict") != "allow":
     raise SystemExit(f"expected allow verdict, got={payload.get('verdict')}")
 PY
 
+echo "==> emergency stop preemption"
+JOBS_ROOT="$WORK_DIR/jobs"
+"$BIN_PATH" job submit --id job_release_stop --root "$JOBS_ROOT" --json > job_submit.json
+STOP_START_NS="$(python3 - <<'PY'
+import time
+print(time.time_ns())
+PY
+)"
+"$BIN_PATH" job stop --id job_release_stop --root "$JOBS_ROOT" --actor release-gate --json > job_stop.json
+STOP_END_NS="$(python3 - <<'PY'
+import time
+print(time.time_ns())
+PY
+)"
+
+cat > "$WORK_DIR/mcp_stop_call.json" <<'JSON'
+{
+  "name": "tool.delete",
+  "args": {"path": "/tmp/release.txt"},
+  "targets": [{"kind": "path", "value": "/tmp/release.txt", "operation": "delete", "destructive": true}],
+  "arg_provenance": [{"arg_path": "$.path", "source": "user"}],
+  "context": {
+    "identity": "release",
+    "workspace": "/repo/gait",
+    "risk_class": "high",
+    "session_id": "release-stop",
+    "job_id": "job_release_stop",
+    "phase": "apply"
+  }
+}
+JSON
+
+set +e
+"$BIN_PATH" mcp proxy \
+  --policy "$REPO_ROOT/examples/policy/base_low_risk.yaml" \
+  --call "$WORK_DIR/mcp_stop_call.json" \
+  --job-root "$JOBS_ROOT" \
+  --json > mcp_stop.json
+MCP_STOP_EXIT="$?"
+set -e
+if [[ "$MCP_STOP_EXIT" -ne 3 ]]; then
+  echo "expected mcp proxy emergency stop preemption exit 3, got $MCP_STOP_EXIT" >&2
+  exit 1
+fi
+
+"$BIN_PATH" job inspect --id job_release_stop --root "$JOBS_ROOT" --json > job_inspect.json
+
+python3 - <<'PY' "$STOP_START_NS" "$STOP_END_NS"
+import json
+import sys
+from pathlib import Path
+
+stop_start_ns = int(sys.argv[1])
+stop_end_ns = int(sys.argv[2])
+stop_ack_ms = max(0, (stop_end_ns - stop_start_ns) // 1_000_000)
+
+stop_payload = json.loads(Path("job_stop.json").read_text(encoding="utf-8"))
+if not stop_payload.get("ok"):
+    raise SystemExit(f"job stop failed: {stop_payload}")
+job = stop_payload.get("job", {})
+if job.get("status") != "emergency_stopped" or job.get("stop_reason") != "emergency_stopped":
+    raise SystemExit(f"unexpected stop status payload: {stop_payload}")
+if stop_ack_ms > 15000:
+    raise SystemExit(f"stop_ack_ms over release threshold: {stop_ack_ms}")
+
+mcp_payload = json.loads(Path("mcp_stop.json").read_text(encoding="utf-8"))
+if not mcp_payload.get("ok"):
+    raise SystemExit(f"mcp stop payload not ok: {mcp_payload}")
+if mcp_payload.get("verdict") != "block":
+    raise SystemExit(f"expected block verdict, got {mcp_payload.get('verdict')}")
+if mcp_payload.get("executed"):
+    raise SystemExit("expected executed=false for emergency-stop preemption")
+reasons = mcp_payload.get("reason_codes", [])
+if "emergency_stop_preempted" not in reasons:
+    raise SystemExit(f"missing emergency_stop_preempted reason code: {reasons}")
+
+inspect_payload = json.loads(Path("job_inspect.json").read_text(encoding="utf-8"))
+events = inspect_payload.get("events", [])
+ack_index = next((idx for idx, event in enumerate(events) if event.get("type") == "emergency_stop_acknowledged"), -1)
+if ack_index < 0:
+    raise SystemExit("missing emergency_stop_acknowledged event")
+post_stop_events = events[ack_index + 1 :]
+blocked = sum(1 for event in post_stop_events if event.get("type") == "dispatch_blocked")
+post_stop_side_effects = sum(1 for event in post_stop_events if event.get("type") != "dispatch_blocked")
+if blocked < 1:
+    raise SystemExit("expected at least one dispatch_blocked event after stop")
+if post_stop_side_effects != 0:
+    raise SystemExit(f"post_stop_side_effects must be 0, got={post_stop_side_effects}")
+PY
+
 echo "==> regress init -> run"
 "$BIN_PATH" regress init --from run_demo --json > regress_init.json
 "$BIN_PATH" regress run --json > regress_run.json
