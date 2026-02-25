@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+### Fixed
+
+- Fixed Claude Code hook integration (`gait-gate.sh`) to wrap hook responses in
+  the `hookSpecificOutput` envelope required by Claude Code's PreToolUse
+  protocol. Without this wrapper, Claude Code silently ignores hook responses,
+  making all gait verdicts (allow, deny, ask) unenforceable.
+
 ### Changed
 
 - Gate intent normalization now treats omitted target `discovery_method` as `unknown` instead of empty so policies can deterministically match unknown/dynamic discovery paths.
