@@ -355,6 +355,79 @@ func TestEmitSignedTraceRuntimeEventIdentity(t *testing.T) {
 	}
 }
 
+func TestEmitSignedTraceRelationshipEnvelope(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	policy, err := ParsePolicyYAML([]byte(`default_verdict: allow`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	intent.Context.Identity = "agent.requester"
+	intent.Context.Workspace = "/repo/gait"
+	intent.Context.SessionID = "sess_demo"
+	intent.Delegation = &schemagate.IntentDelegation{
+		RequesterIdentity: "agent.requester",
+		Chain: []schemagate.DelegationLink{
+			{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.worker"},
+		},
+	}
+	result, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+
+	first, err := EmitSignedTrace(policy, intent, result, EmitTraceOptions{
+		ProducerVersion:   "test",
+		SigningPrivateKey: keyPair.Private,
+		TracePath:         filepath.Join(t.TempDir(), "trace_relationship_1.json"),
+		StepVerdicts: []schemagate.TraceStepVerdict{
+			{Index: 0, ToolName: "tool.write", Verdict: "allow", MatchedRule: "rule-z"},
+			{Index: 1, ToolName: "tool.write", Verdict: "allow", MatchedRule: "rule-a"},
+			{Index: 2, ToolName: "tool.write", Verdict: "allow", MatchedRule: "rule-a"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit first trace: %v", err)
+	}
+	if first.Trace.Relationship == nil {
+		t.Fatalf("expected relationship envelope in trace")
+	}
+	if first.Trace.Relationship.ParentRef == nil || first.Trace.Relationship.ParentRef.Kind != "session" || first.Trace.Relationship.ParentRef.ID != "sess_demo" {
+		t.Fatalf("unexpected parent_ref: %#v", first.Trace.Relationship.ParentRef)
+	}
+	if first.Trace.Relationship.PolicyRef == nil || len(first.Trace.Relationship.PolicyRef.MatchedRuleIDs) != 2 {
+		t.Fatalf("expected matched rule ids in relationship policy_ref: %#v", first.Trace.Relationship.PolicyRef)
+	}
+	if first.Trace.PolicyID != policy.SchemaID || first.Trace.PolicyVersion != policy.SchemaVersion {
+		t.Fatalf("expected policy lineage fields in trace: id=%q version=%q", first.Trace.PolicyID, first.Trace.PolicyVersion)
+	}
+	if len(first.Trace.MatchedRuleIDs) != 2 {
+		t.Fatalf("expected matched_rule_ids in trace: %#v", first.Trace.MatchedRuleIDs)
+	}
+	if first.Trace.Relationship.PolicyRef.MatchedRuleIDs[0] != "rule-a" || first.Trace.Relationship.PolicyRef.MatchedRuleIDs[1] != "rule-z" {
+		t.Fatalf("expected deterministic matched rule ordering, got %#v", first.Trace.Relationship.PolicyRef.MatchedRuleIDs)
+	}
+	if len(first.Trace.Relationship.EntityRefs) == 0 || len(first.Trace.Relationship.Edges) == 0 {
+		t.Fatalf("expected relationship entity refs and edges: %#v", first.Trace.Relationship)
+	}
+
+	second, err := EmitSignedTrace(policy, intent, result, EmitTraceOptions{
+		ProducerVersion:   "test",
+		SigningPrivateKey: keyPair.Private,
+		TracePath:         filepath.Join(t.TempDir(), "trace_relationship_2.json"),
+	})
+	if err != nil {
+		t.Fatalf("emit second trace: %v", err)
+	}
+	if first.Trace.TraceID != second.Trace.TraceID {
+		t.Fatalf("trace_id must remain stable with/without relationship detail; first=%s second=%s", first.Trace.TraceID, second.Trace.TraceID)
+	}
+}
+
 func TestWriteTraceRecordRejectsParentTraversal(t *testing.T) {
 	minimal := schemagate.TraceRecord{
 		SchemaID:        "gait.gate.trace",

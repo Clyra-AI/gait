@@ -1,0 +1,53 @@
+{
+  "schema_id": "gait.gate.approval_audit_record",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "trace_id": "trace_abc123",
+  "tool_name": "tool.write",
+  "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "policy_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "required_approvals": 1,
+  "valid_approvals": 1,
+  "approved": true,
+  "approvers": ["alice"],
+  "relationship": {
+    "parent_ref": {"kind": "trace", "id": "trace_abc123"},
+    "entity_refs": [
+      {"kind": "agent", "id": "alice"},
+      {"kind": "policy", "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+      {"kind": "tool", "id": "tool.write"},
+      {"kind": "trace", "id": "trace_abc123"}
+    ],
+    "policy_ref": {
+      "policy_id": "gait.gate.policy",
+      "policy_version": "1.0.0",
+      "policy_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "matched_rule_ids": ["allow-writer"]
+    },
+    "edges": [
+      {
+        "kind": "governed_by",
+        "from": {"kind": "tool", "id": "tool.write"},
+        "to": {"kind": "policy", "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+      }
+    ],
+    "parent_record_id": "trace_abc123",
+    "related_entity_ids": [
+      "alice",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "tool.write",
+      "trace_abc123"
+    ]
+  },
+  "entries": [
+    {
+      "token_id": "token_a",
+      "approver_identity": "alice",
+      "reason_code": "ticket-123",
+      "scope": ["tool:tool.write"],
+      "expires_at": "2026-02-05T01:00:00Z",
+      "valid": true
+    }
+  ]
+}

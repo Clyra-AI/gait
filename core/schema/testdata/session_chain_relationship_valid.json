@@ -1,0 +1,31 @@
+{
+  "schema_id": "gait.runpack.session_chain",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:10:00Z",
+  "producer_version": "0.0.0-dev",
+  "session_id": "sess_demo",
+  "run_id": "run_demo",
+  "checkpoints": [
+    {
+      "schema_id": "gait.runpack.session_checkpoint",
+      "schema_version": "1.0.0",
+      "created_at": "2026-02-05T00:10:00Z",
+      "producer_version": "0.0.0-dev",
+      "session_id": "sess_demo",
+      "run_id": "run_demo",
+      "checkpoint_index": 1,
+      "sequence_start": 1,
+      "sequence_end": 5,
+      "runpack_path": "gait-out/runpack_run_demo_cp_0001.zip",
+      "manifest_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "checkpoint_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "relationship": {
+        "parent_ref": { "kind": "session", "id": "sess_demo" },
+        "entity_refs": [
+          { "kind": "run", "id": "run_demo" },
+          { "kind": "evidence", "id": "4444444444444444444444444444444444444444444444444444444444444444" }
+        ]
+      }
+    }
+  ]
+}

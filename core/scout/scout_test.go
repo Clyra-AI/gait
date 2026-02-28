@@ -45,6 +45,14 @@ def list_orders():
 	if len(snapshot.Items) < 4 {
 		t.Fatalf("expected at least 4 inventory items, got %d", len(snapshot.Items))
 	}
+	for _, item := range snapshot.Items {
+		if item.Relationship == nil {
+			t.Fatalf("expected inventory relationship envelope on item: %#v", item)
+		}
+		if item.Relationship.ParentRef == nil || item.Relationship.ParentRef.Kind != "evidence" || item.Relationship.ParentRef.ID != snapshot.SnapshotID {
+			t.Fatalf("unexpected inventory relationship parent_ref: %#v", item.Relationship.ParentRef)
+		}
+	}
 
 	policyPath := filepath.Join(workDir, "policy.yaml")
 	policySource := `default_verdict: block

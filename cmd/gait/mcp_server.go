@@ -18,6 +18,7 @@ import (
 
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/runpack"
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
 )
 
 type mcpServeConfig struct {
@@ -502,16 +503,25 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 				safetyInvariantHash = strings.TrimSpace(state.SafetyInvariantHash)
 			}
 		}
+		var agentChain []schemacommon.AgentLink
+		if output.Relationship != nil {
+			agentChain = append(agentChain, output.Relationship.AgentChain...)
+		}
 		event, err := runpack.AppendSessionEvent(journalPath, runpack.SessionAppendOptions{
-			ProducerVersion: version,
-			ToolName:        output.ToolName,
-			IntentDigest:    output.IntentDigest,
-			PolicyDigest:    output.PolicyDigest,
-			TraceID:         output.TraceID,
-			TracePath:       output.TracePath,
-			Verdict:         output.Verdict,
-			ReasonCodes:     output.ReasonCodes,
-			Violations:      output.Violations,
+			ProducerVersion:        version,
+			ToolName:               output.ToolName,
+			IntentDigest:           output.IntentDigest,
+			PolicyDigest:           output.PolicyDigest,
+			PolicyID:               output.PolicyID,
+			PolicyVersion:          output.PolicyVersion,
+			MatchedRuleIDs:         output.MatchedRuleIDs,
+			TraceID:                output.TraceID,
+			TracePath:              output.TracePath,
+			AgentChain:             agentChain,
+			ActorIdentity:          mcpServeRelationshipCallActor(output.Relationship, output.ToolName),
+			Verdict:                output.Verdict,
+			ReasonCodes:            output.ReasonCodes,
+			Violations:             output.Violations,
 			SafetyInvariantVersion: safetyInvariantVersion,
 			SafetyInvariantHash:    safetyInvariantHash,
 		})
@@ -719,6 +729,28 @@ func sanitizeSessionFileBase(value string) string {
 	}
 	mapped := strings.NewReplacer("/", "_", "\\", "_", " ", "_", ":", "_").Replace(trimmed)
 	return strings.Trim(mapped, "._")
+}
+
+func mcpServeRelationshipCallActor(relationship *schemacommon.RelationshipEnvelope, toolName string) string {
+	if relationship == nil {
+		return ""
+	}
+	normalizedTool := strings.TrimSpace(toolName)
+	for _, edge := range relationship.Edges {
+		if strings.TrimSpace(edge.Kind) != "calls" {
+			continue
+		}
+		if strings.TrimSpace(edge.From.Kind) != "agent" || strings.TrimSpace(edge.To.Kind) != "tool" {
+			continue
+		}
+		if normalizedTool != "" && strings.TrimSpace(edge.To.ID) != normalizedTool {
+			continue
+		}
+		if actor := strings.TrimSpace(edge.From.ID); actor != "" {
+			return actor
+		}
+	}
+	return ""
 }
 
 func mcpServeErrorStatus(err error) int {

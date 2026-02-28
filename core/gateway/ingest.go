@@ -196,17 +196,18 @@ func parseGatewayEvent(source string, line string, lineNo int) (gatewayEvent, er
 	))
 	toolName := firstNonEmpty(extractString(payload, "tool_name", "tool", "route.name", "service.name", "request.path", "request.uri", "path"), "gateway.unknown")
 	reasonCodes := extractReasonCodes(payload)
+	rawDigest := sha256Hex([]byte(line))
 	return gatewayEvent{
 		Timestamp:    timestamp,
 		ToolName:     toolName,
 		Verdict:      verdict,
-		PolicyDigest: extractString(payload, "policy_digest", "policy.hash", "policy.id", "policy_version"),
+		PolicyDigest: resolvePolicyDigest(payload, rawDigest),
 		ReasonCodes:  reasonCodes,
 		RequestID:    extractString(payload, "request_id", "request.id", "correlation_id", "trace_id"),
 		Identity:     extractString(payload, "identity", "consumer.username", "user", "actor"),
 		Path:         extractString(payload, "path", "request.path", "request.uri"),
 		StatusCode:   statusCode,
-		RawDigest:    sha256Hex([]byte(line)),
+		RawDigest:    rawDigest,
 	}, nil
 }
 
@@ -493,4 +494,14 @@ func nonEmptyOrDefault(value string, fallback string) string {
 		return fallback
 	}
 	return trimmed
+}
+
+func resolvePolicyDigest(payload map[string]any, fallbackDigest string) string {
+	candidate := strings.TrimSpace(extractString(payload, "policy_digest", "policy.hash", "policy.id", "policy_version"))
+	if candidate != "" {
+		return candidate
+	}
+	// proof v0.4.5 requires non-empty policy_digest for policy_enforcement records.
+	// Use deterministic source-event digest when upstream policy metadata is absent.
+	return strings.TrimSpace(fallbackDigest)
 }

@@ -67,6 +67,7 @@ func BuildDelegationAuditRecord(opts BuildDelegationAuditOptions) schemagate.Del
 		ValidDelegations:   validDelegations,
 		Delegated:          validDelegations > 0,
 		DelegationRef:      strings.TrimSpace(opts.DelegationRef),
+		Relationship:       buildDelegationAuditRelationship(opts.TraceID, opts.ToolName, opts.PolicyDigest, entries),
 		Entries:            entries,
 	}
 }

@@ -1,39 +1,47 @@
 package gate
 
-import "time"
+import (
+	"time"
+
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
+)
 
 type TraceRecord struct {
-	SchemaID            string             `json:"schema_id"`
-	SchemaVersion       string             `json:"schema_version"`
-	CreatedAt           time.Time          `json:"created_at"`
-	ObservedAt          time.Time          `json:"observed_at,omitempty"`
-	ProducerVersion     string             `json:"producer_version"`
-	TraceID             string             `json:"trace_id"`
-	EventID             string             `json:"event_id,omitempty"`
-	CorrelationID       string             `json:"correlation_id,omitempty"`
-	ToolName            string             `json:"tool_name"`
-	ArgsDigest          string             `json:"args_digest"`
-	IntentDigest        string             `json:"intent_digest"`
-	PolicyDigest        string             `json:"policy_digest"`
-	Verdict             string             `json:"verdict"`
-	ContextSetDigest    string             `json:"context_set_digest,omitempty"`
-	ContextEvidenceMode string             `json:"context_evidence_mode,omitempty"`
-	ContextRefCount     int                `json:"context_ref_count,omitempty"`
-	ContextSource       string             `json:"context_source,omitempty"`
-	Script              bool               `json:"script,omitempty"`
-	StepCount           int                `json:"step_count,omitempty"`
-	ScriptHash          string             `json:"script_hash,omitempty"`
-	CompositeRiskClass  string             `json:"composite_risk_class,omitempty"`
-	StepVerdicts        []TraceStepVerdict `json:"step_verdicts,omitempty"`
-	PreApproved         bool               `json:"pre_approved,omitempty"`
-	PatternID           string             `json:"pattern_id,omitempty"`
-	RegistryReason      string             `json:"registry_reason,omitempty"`
-	Violations          []string           `json:"violations,omitempty"`
-	LatencyMS           float64            `json:"latency_ms,omitempty"`
-	ApprovalTokenRef    string             `json:"approval_token_ref,omitempty"`
-	DelegationRef       *DelegationRef     `json:"delegation_ref,omitempty"`
-	SkillProvenance     *SkillProvenance   `json:"skill_provenance,omitempty"`
-	Signature           *Signature         `json:"signature,omitempty"`
+	SchemaID            string                             `json:"schema_id"`
+	SchemaVersion       string                             `json:"schema_version"`
+	CreatedAt           time.Time                          `json:"created_at"`
+	ObservedAt          time.Time                          `json:"observed_at,omitempty"`
+	ProducerVersion     string                             `json:"producer_version"`
+	TraceID             string                             `json:"trace_id"`
+	EventID             string                             `json:"event_id,omitempty"`
+	CorrelationID       string                             `json:"correlation_id,omitempty"`
+	ToolName            string                             `json:"tool_name"`
+	ArgsDigest          string                             `json:"args_digest"`
+	IntentDigest        string                             `json:"intent_digest"`
+	PolicyDigest        string                             `json:"policy_digest"`
+	PolicyID            string                             `json:"policy_id,omitempty"`
+	PolicyVersion       string                             `json:"policy_version,omitempty"`
+	MatchedRuleIDs      []string                           `json:"matched_rule_ids,omitempty"`
+	Verdict             string                             `json:"verdict"`
+	ContextSetDigest    string                             `json:"context_set_digest,omitempty"`
+	ContextEvidenceMode string                             `json:"context_evidence_mode,omitempty"`
+	ContextRefCount     int                                `json:"context_ref_count,omitempty"`
+	ContextSource       string                             `json:"context_source,omitempty"`
+	Script              bool                               `json:"script,omitempty"`
+	StepCount           int                                `json:"step_count,omitempty"`
+	ScriptHash          string                             `json:"script_hash,omitempty"`
+	CompositeRiskClass  string                             `json:"composite_risk_class,omitempty"`
+	StepVerdicts        []TraceStepVerdict                 `json:"step_verdicts,omitempty"`
+	PreApproved         bool                               `json:"pre_approved,omitempty"`
+	PatternID           string                             `json:"pattern_id,omitempty"`
+	RegistryReason      string                             `json:"registry_reason,omitempty"`
+	Violations          []string                           `json:"violations,omitempty"`
+	LatencyMS           float64                            `json:"latency_ms,omitempty"`
+	ApprovalTokenRef    string                             `json:"approval_token_ref,omitempty"`
+	DelegationRef       *DelegationRef                     `json:"delegation_ref,omitempty"`
+	Relationship        *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
+	SkillProvenance     *SkillProvenance                   `json:"skill_provenance,omitempty"`
+	Signature           *Signature                         `json:"signature,omitempty"`
 }
 
 type TraceStepVerdict struct {
@@ -53,21 +61,22 @@ type Signature struct {
 }
 
 type IntentRequest struct {
-	SchemaID        string                `json:"schema_id"`
-	SchemaVersion   string                `json:"schema_version"`
-	CreatedAt       time.Time             `json:"created_at"`
-	ProducerVersion string                `json:"producer_version"`
-	ToolName        string                `json:"tool_name"`
-	Args            map[string]any        `json:"args"`
-	ArgsDigest      string                `json:"args_digest,omitempty"`
-	IntentDigest    string                `json:"intent_digest,omitempty"`
-	ScriptHash      string                `json:"script_hash,omitempty"`
-	Script          *IntentScript         `json:"script,omitempty"`
-	Targets         []IntentTarget        `json:"targets"`
-	ArgProvenance   []IntentArgProvenance `json:"arg_provenance,omitempty"`
-	SkillProvenance *SkillProvenance      `json:"skill_provenance,omitempty"`
-	Delegation      *IntentDelegation     `json:"delegation,omitempty"`
-	Context         IntentContext         `json:"context"`
+	SchemaID        string                             `json:"schema_id"`
+	SchemaVersion   string                             `json:"schema_version"`
+	CreatedAt       time.Time                          `json:"created_at"`
+	ProducerVersion string                             `json:"producer_version"`
+	ToolName        string                             `json:"tool_name"`
+	Args            map[string]any                     `json:"args"`
+	ArgsDigest      string                             `json:"args_digest,omitempty"`
+	IntentDigest    string                             `json:"intent_digest,omitempty"`
+	ScriptHash      string                             `json:"script_hash,omitempty"`
+	Script          *IntentScript                      `json:"script,omitempty"`
+	Targets         []IntentTarget                     `json:"targets"`
+	ArgProvenance   []IntentArgProvenance              `json:"arg_provenance,omitempty"`
+	SkillProvenance *SkillProvenance                   `json:"skill_provenance,omitempty"`
+	Delegation      *IntentDelegation                  `json:"delegation,omitempty"`
+	Relationship    *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
+	Context         IntentContext                      `json:"context"`
 }
 
 type IntentScript struct {
@@ -210,19 +219,20 @@ type DelegationAuditEntry struct {
 }
 
 type DelegationAuditRecord struct {
-	SchemaID           string                 `json:"schema_id"`
-	SchemaVersion      string                 `json:"schema_version"`
-	CreatedAt          time.Time              `json:"created_at"`
-	ProducerVersion    string                 `json:"producer_version"`
-	TraceID            string                 `json:"trace_id"`
-	ToolName           string                 `json:"tool_name"`
-	IntentDigest       string                 `json:"intent_digest"`
-	PolicyDigest       string                 `json:"policy_digest"`
-	DelegationRequired bool                   `json:"delegation_required"`
-	ValidDelegations   int                    `json:"valid_delegations"`
-	Delegated          bool                   `json:"delegated"`
-	DelegationRef      string                 `json:"delegation_ref,omitempty"`
-	Entries            []DelegationAuditEntry `json:"entries"`
+	SchemaID           string                             `json:"schema_id"`
+	SchemaVersion      string                             `json:"schema_version"`
+	CreatedAt          time.Time                          `json:"created_at"`
+	ProducerVersion    string                             `json:"producer_version"`
+	TraceID            string                             `json:"trace_id"`
+	ToolName           string                             `json:"tool_name"`
+	IntentDigest       string                             `json:"intent_digest"`
+	PolicyDigest       string                             `json:"policy_digest"`
+	DelegationRequired bool                               `json:"delegation_required"`
+	ValidDelegations   int                                `json:"valid_delegations"`
+	Delegated          bool                               `json:"delegated"`
+	DelegationRef      string                             `json:"delegation_ref,omitempty"`
+	Relationship       *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
+	Entries            []DelegationAuditEntry             `json:"entries"`
 }
 
 type ApprovalAuditEntry struct {
@@ -236,19 +246,20 @@ type ApprovalAuditEntry struct {
 }
 
 type ApprovalAuditRecord struct {
-	SchemaID          string               `json:"schema_id"`
-	SchemaVersion     string               `json:"schema_version"`
-	CreatedAt         time.Time            `json:"created_at"`
-	ProducerVersion   string               `json:"producer_version"`
-	TraceID           string               `json:"trace_id"`
-	ToolName          string               `json:"tool_name"`
-	IntentDigest      string               `json:"intent_digest"`
-	PolicyDigest      string               `json:"policy_digest"`
-	RequiredApprovals int                  `json:"required_approvals"`
-	ValidApprovals    int                  `json:"valid_approvals"`
-	Approved          bool                 `json:"approved"`
-	Approvers         []string             `json:"approvers,omitempty"`
-	Entries           []ApprovalAuditEntry `json:"entries"`
+	SchemaID          string                             `json:"schema_id"`
+	SchemaVersion     string                             `json:"schema_version"`
+	CreatedAt         time.Time                          `json:"created_at"`
+	ProducerVersion   string                             `json:"producer_version"`
+	TraceID           string                             `json:"trace_id"`
+	ToolName          string                             `json:"tool_name"`
+	IntentDigest      string                             `json:"intent_digest"`
+	PolicyDigest      string                             `json:"policy_digest"`
+	RequiredApprovals int                                `json:"required_approvals"`
+	ValidApprovals    int                                `json:"valid_approvals"`
+	Approved          bool                               `json:"approved"`
+	Approvers         []string                           `json:"approvers,omitempty"`
+	Relationship      *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
+	Entries           []ApprovalAuditEntry               `json:"entries"`
 }
 
 type BrokerCredentialRecord struct {

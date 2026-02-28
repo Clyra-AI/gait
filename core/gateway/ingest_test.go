@@ -66,6 +66,10 @@ func TestIngestLogsKongProducesSignedPolicyEnforcementRecords(t *testing.T) {
 		if strings.TrimSpace(recordItem.Integrity.Signature) == "" || strings.TrimSpace(recordItem.Integrity.SigningKeyID) == "" {
 			t.Fatalf("expected signed record integrity payload, got %#v", recordItem.Integrity)
 		}
+		policyDigest, _ := recordItem.Event["policy_digest"].(string)
+		if strings.TrimSpace(policyDigest) == "" {
+			t.Fatalf("expected non-empty policy_digest in event payload, got %#v", recordItem.Event)
+		}
 		ok, verifyErr := sign.VerifyBytes(keyPair.Public, sign.Signature{
 			Alg:   sign.AlgEd25519,
 			KeyID: recordItem.Integrity.SigningKeyID,

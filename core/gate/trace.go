@@ -53,6 +53,8 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 	if err != nil {
 		return EmitTraceResult{}, fmt.Errorf("digest policy for trace: %w", err)
 	}
+	policyID := strings.TrimSpace(policy.SchemaID)
+	policyVersion := strings.TrimSpace(policy.SchemaVersion)
 	if normalizedIntent.IntentDigest == "" {
 		return EmitTraceResult{}, fmt.Errorf("intent digest missing after normalization")
 	}
@@ -89,6 +91,8 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		ArgsDigest:          normalizedIntent.ArgsDigest,
 		IntentDigest:        normalizedIntent.IntentDigest,
 		PolicyDigest:        policyDigest,
+		PolicyID:            policyID,
+		PolicyVersion:       policyVersion,
 		Verdict:             verdict,
 		ContextSetDigest:    normalizedIntent.Context.ContextSetDigest,
 		ContextEvidenceMode: normalizedIntent.Context.ContextEvidenceMode,
@@ -106,6 +110,15 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		ApprovalTokenRef:    strings.TrimSpace(opts.ApprovalTokenRef),
 		SkillProvenance:     normalizedIntent.SkillProvenance,
 	}
+	trace.MatchedRuleIDs = matchedRuleIDsFromStepVerdicts(opts.StepVerdicts)
+	trace.Relationship = buildTraceRelationship(
+		normalizedIntent,
+		trace.TraceID,
+		policyID,
+		policyVersion,
+		policyDigest,
+		trace.MatchedRuleIDs,
+	)
 	if normalizedIntent.Script != nil {
 		trace.StepCount = len(normalizedIntent.Script.Steps)
 	}
@@ -255,6 +268,19 @@ func clampLatency(value float64) float64 {
 		return 0
 	}
 	return value
+}
+
+func matchedRuleIDsFromStepVerdicts(stepVerdicts []schemagate.TraceStepVerdict) []string {
+	if len(stepVerdicts) == 0 {
+		return nil
+	}
+	matched := make([]string, 0, len(stepVerdicts))
+	for _, step := range stepVerdicts {
+		if ruleID := strings.TrimSpace(step.MatchedRule); ruleID != "" {
+			matched = append(matched, ruleID)
+		}
+	}
+	return uniqueSorted(matched)
 }
 
 func normalizeTracePath(path string) (string, error) {

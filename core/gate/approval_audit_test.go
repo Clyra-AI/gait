@@ -49,6 +49,21 @@ func TestBuildApprovalAuditRecordDeterministic(t *testing.T) {
 	if len(record.Entries) != 2 || record.Entries[0].TokenID != "token_a" {
 		t.Fatalf("expected sorted entries, got %#v", record.Entries)
 	}
+	if record.Relationship == nil {
+		t.Fatalf("expected relationship envelope in approval audit record")
+	}
+	if record.Relationship.ParentRef == nil || record.Relationship.ParentRef.Kind != "trace" || record.Relationship.ParentRef.ID != "trace_1" {
+		t.Fatalf("unexpected relationship parent_ref: %#v", record.Relationship.ParentRef)
+	}
+	if record.Relationship.PolicyRef == nil || record.Relationship.PolicyRef.PolicyDigest != record.PolicyDigest {
+		t.Fatalf("expected policy_ref digest in relationship: %#v", record.Relationship.PolicyRef)
+	}
+	if len(record.Relationship.AgentChain) != 0 {
+		t.Fatalf("expected no approver agent chain role in relationship: %#v", record.Relationship.AgentChain)
+	}
+	if len(record.Relationship.Edges) != 1 || record.Relationship.Edges[0].Kind != "governed_by" {
+		t.Fatalf("expected governed_by relationship edge in approval audit record: %#v", record.Relationship.Edges)
+	}
 }
 
 func TestWriteApprovalAuditRecord(t *testing.T) {

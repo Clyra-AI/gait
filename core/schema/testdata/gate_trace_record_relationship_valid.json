@@ -1,0 +1,44 @@
+{
+  "schema_id": "gait.gate.trace",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "trace_id": "trace_1",
+  "tool_name": "tool.demo",
+  "args_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "intent_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "policy_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+  "policy_id": "gait.gate.policy",
+  "policy_version": "1.0.0",
+  "matched_rule_ids": ["allow-demo"],
+  "verdict": "allow",
+  "relationship": {
+    "parent_ref": {"kind": "session", "id": "sess_demo"},
+    "entity_refs": [
+      {"kind": "agent", "id": "agent.demo"},
+      {"kind": "tool", "id": "tool.demo"},
+      {"kind": "trace", "id": "trace_1"}
+    ],
+    "policy_ref": {
+      "policy_id": "gait.gate.policy",
+      "policy_version": "1.0.0",
+      "policy_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "matched_rule_ids": ["allow-demo"]
+    },
+    "agent_chain": [
+      {"identity": "agent.demo", "role": "requester"}
+    ],
+    "edges": [
+      {
+        "kind": "calls",
+        "from": {"kind": "agent", "id": "agent.demo"},
+        "to": {"kind": "tool", "id": "tool.demo"}
+      },
+      {
+        "kind": "governed_by",
+        "from": {"kind": "tool", "id": "tool.demo"},
+        "to": {"kind": "policy", "id": "3333333333333333333333333333333333333333333333333333333333333333"}
+      }
+    ]
+  }
+}

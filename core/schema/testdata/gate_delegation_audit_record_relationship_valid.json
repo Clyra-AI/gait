@@ -1,0 +1,46 @@
+{
+  "schema_id": "gait.gate.delegation_audit_record",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "trace_id": "trace_demo",
+  "tool_name": "tool.write",
+  "intent_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "policy_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "delegation_required": true,
+  "valid_delegations": 1,
+  "delegated": true,
+  "delegation_ref": "delegation_demo",
+  "relationship": {
+    "parent_ref": {"kind": "trace", "id": "trace_demo"},
+    "entity_refs": [
+      {"kind": "agent", "id": "agent.lead"},
+      {"kind": "agent", "id": "agent.specialist"},
+      {"kind": "policy", "id": "2222222222222222222222222222222222222222222222222222222222222222"},
+      {"kind": "tool", "id": "tool.write"},
+      {"kind": "trace", "id": "trace_demo"}
+    ],
+    "policy_ref": {"policy_digest": "2222222222222222222222222222222222222222222222222222222222222222"},
+    "agent_chain": [
+      {"identity": "agent.lead", "role": "delegator"},
+      {"identity": "agent.specialist", "role": "delegate"}
+    ],
+    "edges": [
+      {
+        "kind": "delegates_to",
+        "from": {"kind": "agent", "id": "agent.lead"},
+        "to": {"kind": "agent", "id": "agent.specialist"}
+      }
+    ]
+  },
+  "entries": [
+    {
+      "token_id": "delegation_demo",
+      "delegator_identity": "agent.lead",
+      "delegate_identity": "agent.specialist",
+      "scope": ["tool:tool.write"],
+      "expires_at": "2026-02-05T01:00:00Z",
+      "valid": true
+    }
+  ]
+}

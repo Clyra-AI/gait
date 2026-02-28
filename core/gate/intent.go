@@ -119,6 +119,7 @@ func NormalizeIntent(input schemagate.IntentRequest) (schemagate.IntentRequest, 
 	output.ArgProvenance = normalized.ArgProvenance
 	output.SkillProvenance = normalized.SkillProvenance
 	output.Delegation = normalized.Delegation
+	output.Relationship = normalizeRelationshipEnvelope(input.Relationship)
 	output.Context = normalized.Context
 	return output, nil
 }

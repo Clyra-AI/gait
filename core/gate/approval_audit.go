@@ -92,6 +92,7 @@ func BuildApprovalAuditRecord(opts BuildApprovalAuditOptions) schemagate.Approva
 		ValidApprovals:    validApprovals,
 		Approved:          validApprovals >= requiredApprovals,
 		Approvers:         uniqueSorted(approvers),
+		Relationship:      buildApprovalAuditRelationship(opts.TraceID, opts.ToolName, opts.PolicyDigest, approvers),
 		Entries:           entries,
 	}
 }

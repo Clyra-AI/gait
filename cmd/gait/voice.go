@@ -175,10 +175,16 @@ func runVoiceTokenMint(arguments []string) int {
 		return writeVoiceTokenOutput(jsonOutput, voiceTokenOutput{OK: false, Operation: "mint", Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	traceResult, traceErr := gate.EmitSignedTrace(policy, normalizedIntent, outcome.Result, gate.EmitTraceOptions{
-		ProducerVersion:   version,
-		CorrelationID:     currentCorrelationID(),
-		SigningPrivateKey: keyPair.Private,
-		TracePath:         strings.TrimSpace(tracePath),
+		ProducerVersion:    version,
+		CorrelationID:      currentCorrelationID(),
+		ContextSource:      outcome.ContextSource,
+		CompositeRiskClass: outcome.CompositeRiskClass,
+		StepVerdicts:       outcome.StepVerdicts,
+		PreApproved:        outcome.PreApproved,
+		PatternID:          outcome.PatternID,
+		RegistryReason:     outcome.RegistryReason,
+		SigningPrivateKey:  keyPair.Private,
+		TracePath:          strings.TrimSpace(tracePath),
 	})
 	if traceErr != nil {
 		return writeVoiceTokenOutput(jsonOutput, voiceTokenOutput{OK: false, Operation: "mint", Error: traceErr.Error()}, exitCodeForError(traceErr, exitInvalidInput))

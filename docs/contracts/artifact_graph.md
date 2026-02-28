@@ -23,6 +23,17 @@ Applies to:
 - Cross-artifact references SHOULD use immutable identifiers (digest, run_id, trace_id) and MUST NOT rely on mutable display names.
 - Producers MUST preserve deterministic serialization for stable verification and diff behavior.
 - Consumers MUST treat unknown additive fields as non-breaking within major `v1.x`.
+- Producers MAY include a standardized optional `relationship` envelope to emit graph-ready topology with:
+  - `parent_ref`
+  - `entity_refs[]`
+  - `policy_ref`
+  - `agent_chain[]`
+  - `edges[]`
+- Relationship envelope values MUST be deterministic when present:
+  - lowercase digest identifiers
+  - deduplicated arrays
+  - stable sort order for refs and edges
+  - UTC/RFC3339 for timestamps already carried in parent artifacts
 
 ## Graph Integrity Expectations
 
@@ -35,6 +46,10 @@ Applies to:
 - A `RegressResult` SHOULD reference fixture/run identity so failures can map back to captured artifacts.
 - Evidence bundles SHOULD include pointers back to the exact runpack/trace/regress artifacts they summarize.
 - Delegation audits SHOULD reference the trace and delegation token IDs used for allow/block outcomes.
+- Trace and audit producers SHOULD include `relationship` envelopes when enough local context exists to bind:
+  - actor -> tool (`calls`)
+  - tool -> policy (`governed_by`)
+  - delegator -> delegate (`delegates_to`)
 - Consumer projections SHOULD preserve intent/receipt digest continuity (`intent_digest`, `policy_digest`, `refs.context_set_digest`, `refs.receipts[*].{query_digest,content_digest}`) when deriving audit views.
 
 ## Compatibility Model

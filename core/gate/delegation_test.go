@@ -303,6 +303,18 @@ func TestDelegationAuditRecordBuildAndWrite(t *testing.T) {
 	if len(record.Entries) != 2 || record.Entries[0].DelegatorIdentity != "agent.a" {
 		t.Fatalf("expected sorted delegation audit entries, got %#v", record.Entries)
 	}
+	if record.Relationship == nil {
+		t.Fatalf("expected relationship envelope in delegation audit record")
+	}
+	if record.Relationship.ParentRef == nil || record.Relationship.ParentRef.Kind != "trace" || record.Relationship.ParentRef.ID != "trace_demo" {
+		t.Fatalf("unexpected relationship parent_ref: %#v", record.Relationship.ParentRef)
+	}
+	if record.Relationship.PolicyRef == nil || record.Relationship.PolicyRef.PolicyDigest != record.PolicyDigest {
+		t.Fatalf("expected policy_ref digest in relationship: %#v", record.Relationship.PolicyRef)
+	}
+	if len(record.Relationship.Edges) == 0 {
+		t.Fatalf("expected relationship edges in delegation audit record")
+	}
 
 	workDir := t.TempDir()
 	path := filepath.Join(workDir, "audit", "delegation_audit.json")

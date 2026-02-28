@@ -28,6 +28,31 @@ Intent + receipt continuity conformance profile:
 - Semantic changes to required fields MUST NOT occur without a version bump.
 - Optional fields MAY be added in minor/patch versions if consumers can ignore unknown fields safely.
 
+## Standard Relationship Envelope (`relationship`, optional)
+
+Purpose: emit graph-ready topology without changing required primitive contracts.
+
+Fields (all optional):
+
+- `parent_ref` (`kind`, `id`)
+- `entity_refs[]` (`kind`, `id`)
+- `policy_ref` (`policy_id`, `policy_version`, `policy_digest`, `matched_rule_ids[]`)
+- `agent_chain[]` (`identity`, `role`)
+- `edges[]` (`kind`, `from`, `to`)
+
+Producer obligations when present:
+
+- MUST keep `relationship` additive-only within `v1.x`.
+- MUST normalize digest identifiers to lowercase.
+- MUST deduplicate and deterministically sort `entity_refs` and `edges`.
+- MUST include relationship fields in canonical JSON hashing/signing naturally (no out-of-band exclusion).
+
+Consumer obligations:
+
+- MUST tolerate absence of `relationship`.
+- MUST ignore unknown additive fields within `relationship` in `v1.x` readers.
+- MUST NOT treat relationship presence as required for base primitive validity.
+
 ## IntentRequest (`gait.gate.intent_request`, `1.0.0`)
 
 Purpose: normalized tool-call intent at the execution boundary.
@@ -144,6 +169,7 @@ Producer obligations:
   - `context_set_digest`
   - `context_evidence_mode`
   - `context_ref_count`
+- MAY carry standardized graph links in `relationship` for topology queries.
 
 Consumer obligations:
 

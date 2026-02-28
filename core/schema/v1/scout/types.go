@@ -1,6 +1,10 @@
 package scout
 
-import "time"
+import (
+	"time"
+
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
+)
 
 type InventorySnapshot struct {
 	SchemaID        string          `json:"schema_id"`
@@ -13,13 +17,14 @@ type InventorySnapshot struct {
 }
 
 type InventoryItem struct {
-	ID          string   `json:"id"`
-	Kind        string   `json:"kind"`
-	Name        string   `json:"name"`
-	Locator     string   `json:"locator"`
-	RiskLevel   string   `json:"risk_level,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
-	LastSeenRun string   `json:"last_seen_run,omitempty"`
+	ID           string                             `json:"id"`
+	Kind         string                             `json:"kind"`
+	Name         string                             `json:"name"`
+	Locator      string                             `json:"locator"`
+	RiskLevel    string                             `json:"risk_level,omitempty"`
+	Tags         []string                           `json:"tags,omitempty"`
+	LastSeenRun  string                             `json:"last_seen_run,omitempty"`
+	Relationship *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
 }
 
 type AdoptionEvent struct {

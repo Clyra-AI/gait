@@ -1,0 +1,42 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "tool_name": "tool.demo",
+  "args": { "foo": "bar" },
+  "args_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "targets": [
+    { "kind": "path", "value": "/tmp/out.txt" }
+  ],
+  "arg_provenance": [
+    { "arg_path": "args.foo", "source": "user" }
+  ],
+  "relationship": {
+    "parent_ref": { "kind": "session", "id": "sess_demo" },
+    "entity_refs": [
+      { "kind": "agent", "id": "agent.demo" },
+      { "kind": "tool", "id": "tool.demo" }
+    ],
+    "policy_ref": {
+      "policy_id": "gait.gate.policy",
+      "policy_version": "1.0.0",
+      "policy_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "agent_chain": [
+      { "identity": "agent.demo", "role": "requester" }
+    ],
+    "edges": [
+      {
+        "kind": "calls",
+        "from": { "kind": "agent", "id": "agent.demo" },
+        "to": { "kind": "tool", "id": "tool.demo" }
+      }
+    ]
+  },
+  "context": {
+    "identity": "user",
+    "workspace": "/tmp/work",
+    "risk_class": "low"
+  }
+}

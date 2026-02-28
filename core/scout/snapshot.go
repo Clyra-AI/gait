@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
 	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
 	jcs "github.com/Clyra-AI/proof/canon"
 	"github.com/goccy/go-yaml"
@@ -63,6 +64,7 @@ func (provider DefaultProvider) Snapshot(_ context.Context, req SnapshotRequest)
 	if err != nil {
 		return schemascout.InventorySnapshot{}, fmt.Errorf("compute snapshot id: %w", err)
 	}
+	snapshotItems = attachInventoryRelationships(snapshotID, snapshotItems)
 
 	return schemascout.InventorySnapshot{
 		SchemaID:        "gait.scout.inventory_snapshot",
@@ -462,6 +464,135 @@ func sortInventoryItems(items []schemascout.InventoryItem) {
 		}
 		return items[i].Locator < items[j].Locator
 	})
+}
+
+func attachInventoryRelationships(snapshotID string, items []schemascout.InventoryItem) []schemascout.InventoryItem {
+	normalizedSnapshotID := strings.TrimSpace(snapshotID)
+	for index := range items {
+		item := items[index]
+		relationship := schemacommon.RelationshipEnvelope{
+			EntityRefs: normalizeInventoryRelationshipRefs([]schemacommon.RelationshipRef{
+				{Kind: "tool", ID: strings.TrimSpace(item.ID)},
+				{Kind: "resource", ID: strings.TrimSpace(item.Locator)},
+			}),
+			Edges: normalizeInventoryRelationshipEdges([]schemacommon.RelationshipEdge{
+				{
+					Kind: "derived_from",
+					From: schemacommon.RelationshipNodeRef{Kind: "tool", ID: strings.TrimSpace(item.ID)},
+					To:   schemacommon.RelationshipNodeRef{Kind: "resource", ID: strings.TrimSpace(item.Locator)},
+				},
+			}),
+			ParentRecordID: normalizedSnapshotID,
+		}
+		if normalizedSnapshotID != "" {
+			relationship.ParentRef = &schemacommon.RelationshipNodeRef{Kind: "evidence", ID: normalizedSnapshotID}
+		}
+		relationship.RelatedEntityIDs = inventoryRelationshipRefIDs(relationship.EntityRefs)
+		if relationship.ParentRef == nil && len(relationship.EntityRefs) == 0 && len(relationship.Edges) == 0 {
+			item.Relationship = nil
+		} else {
+			item.Relationship = &relationship
+		}
+		items[index] = item
+	}
+	return items
+}
+
+func normalizeInventoryRelationshipRefs(refs []schemacommon.RelationshipRef) []schemacommon.RelationshipRef {
+	if len(refs) == 0 {
+		return nil
+	}
+	normalized := make([]schemacommon.RelationshipRef, 0, len(refs))
+	seen := map[string]struct{}{}
+	for _, ref := range refs {
+		kind := strings.ToLower(strings.TrimSpace(ref.Kind))
+		id := strings.TrimSpace(ref.ID)
+		if kind == "" || id == "" {
+			continue
+		}
+		if kind != "agent" && kind != "tool" && kind != "resource" && kind != "policy" && kind != "run" && kind != "trace" && kind != "delegation" && kind != "evidence" {
+			continue
+		}
+		key := kind + "\x00" + id
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, schemacommon.RelationshipRef{Kind: kind, ID: id})
+	}
+	sort.Slice(normalized, func(i, j int) bool {
+		if normalized[i].Kind != normalized[j].Kind {
+			return normalized[i].Kind < normalized[j].Kind
+		}
+		return normalized[i].ID < normalized[j].ID
+	})
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func normalizeInventoryRelationshipEdges(edges []schemacommon.RelationshipEdge) []schemacommon.RelationshipEdge {
+	if len(edges) == 0 {
+		return nil
+	}
+	normalized := make([]schemacommon.RelationshipEdge, 0, len(edges))
+	seen := map[string]struct{}{}
+	for _, edge := range edges {
+		kind := strings.ToLower(strings.TrimSpace(edge.Kind))
+		fromKind := strings.ToLower(strings.TrimSpace(edge.From.Kind))
+		fromID := strings.TrimSpace(edge.From.ID)
+		toKind := strings.ToLower(strings.TrimSpace(edge.To.Kind))
+		toID := strings.TrimSpace(edge.To.ID)
+		if kind == "" || fromKind == "" || fromID == "" || toKind == "" || toID == "" {
+			continue
+		}
+		if kind != "delegates_to" && kind != "calls" && kind != "governed_by" && kind != "targets" && kind != "derived_from" && kind != "emits_evidence" {
+			continue
+		}
+		key := kind + "\x00" + fromKind + "\x00" + fromID + "\x00" + toKind + "\x00" + toID
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, schemacommon.RelationshipEdge{
+			Kind: kind,
+			From: schemacommon.RelationshipNodeRef{Kind: fromKind, ID: fromID},
+			To:   schemacommon.RelationshipNodeRef{Kind: toKind, ID: toID},
+		})
+	}
+	sort.Slice(normalized, func(i, j int) bool {
+		if normalized[i].Kind != normalized[j].Kind {
+			return normalized[i].Kind < normalized[j].Kind
+		}
+		if normalized[i].From.Kind != normalized[j].From.Kind {
+			return normalized[i].From.Kind < normalized[j].From.Kind
+		}
+		if normalized[i].From.ID != normalized[j].From.ID {
+			return normalized[i].From.ID < normalized[j].From.ID
+		}
+		if normalized[i].To.Kind != normalized[j].To.Kind {
+			return normalized[i].To.Kind < normalized[j].To.Kind
+		}
+		return normalized[i].To.ID < normalized[j].To.ID
+	})
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func inventoryRelationshipRefIDs(refs []schemacommon.RelationshipRef) []string {
+	if len(refs) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if id := strings.TrimSpace(ref.ID); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return uniqueSorted(ids)
 }
 
 func normalizeIdentifier(value string) string {

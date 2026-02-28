@@ -239,6 +239,21 @@ require("endpoint_destructive_operation" in (endpoint_approval.get("reason_codes
 # Enterprise consumers must tolerate additive unknown fields.
 trace_with_extension = dict(trace_record)
 trace_with_extension["enterprise_extension"] = {"opaque": True}
+trace_with_extension["relationship"] = {
+    "parent_ref": {"kind": "session", "id": "sess_demo"},
+    "entity_refs": [
+        {"kind": "agent", "id": "agent.demo"},
+        {"kind": "tool", "id": trace_record.get("tool_name", "")},
+    ],
+    "policy_ref": {"policy_digest": trace_record.get("policy_digest", "")},
+    "edges": [
+        {
+            "kind": "governed_by",
+            "from": {"kind": "tool", "id": trace_record.get("tool_name", "")},
+            "to": {"kind": "policy", "id": trace_record.get("policy_digest", "")},
+        }
+    ],
+}
 regress_with_extension = dict(regress_result)
 regress_with_extension["enterprise_extension"] = "v2"
 signal_with_extension = dict(signal_report)

@@ -16,35 +16,40 @@ import (
 	"github.com/Clyra-AI/gait/core/mcp"
 	"github.com/Clyra-AI/gait/core/pack"
 	"github.com/Clyra-AI/gait/core/runpack"
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type mcpProxyOutput struct {
-	OK                bool     `json:"ok"`
-	Executed          bool     `json:"executed"`
-	Adapter           string   `json:"adapter,omitempty"`
-	RunID             string   `json:"run_id,omitempty"`
-	JobID             string   `json:"job_id,omitempty"`
-	Phase             string   `json:"phase,omitempty"`
-	SessionID         string   `json:"session_id,omitempty"`
-	ToolName          string   `json:"tool_name,omitempty"`
-	Verdict           string   `json:"verdict,omitempty"`
-	ReasonCodes       []string `json:"reason_codes,omitempty"`
-	Violations        []string `json:"violations,omitempty"`
-	PolicyDigest      string   `json:"policy_digest,omitempty"`
-	IntentDigest      string   `json:"intent_digest,omitempty"`
-	DecisionLatencyMS int64    `json:"decision_latency_ms,omitempty"`
-	TraceID           string   `json:"trace_id,omitempty"`
-	TracePath         string   `json:"trace_path,omitempty"`
-	RunpackPath       string   `json:"runpack_path,omitempty"`
-	PackPath          string   `json:"pack_path,omitempty"`
-	PackID            string   `json:"pack_id,omitempty"`
-	LogExport         string   `json:"log_export,omitempty"`
-	OTelExport        string   `json:"otel_export,omitempty"`
-	Warnings          []string `json:"warnings,omitempty"`
-	Error             string   `json:"error,omitempty"`
+	OK                bool                               `json:"ok"`
+	Executed          bool                               `json:"executed"`
+	Adapter           string                             `json:"adapter,omitempty"`
+	RunID             string                             `json:"run_id,omitempty"`
+	JobID             string                             `json:"job_id,omitempty"`
+	Phase             string                             `json:"phase,omitempty"`
+	SessionID         string                             `json:"session_id,omitempty"`
+	ToolName          string                             `json:"tool_name,omitempty"`
+	Verdict           string                             `json:"verdict,omitempty"`
+	ReasonCodes       []string                           `json:"reason_codes,omitempty"`
+	Violations        []string                           `json:"violations,omitempty"`
+	PolicyDigest      string                             `json:"policy_digest,omitempty"`
+	PolicyID          string                             `json:"policy_id,omitempty"`
+	PolicyVersion     string                             `json:"policy_version,omitempty"`
+	MatchedRuleIDs    []string                           `json:"matched_rule_ids,omitempty"`
+	IntentDigest      string                             `json:"intent_digest,omitempty"`
+	DecisionLatencyMS int64                              `json:"decision_latency_ms,omitempty"`
+	TraceID           string                             `json:"trace_id,omitempty"`
+	TracePath         string                             `json:"trace_path,omitempty"`
+	RunpackPath       string                             `json:"runpack_path,omitempty"`
+	PackPath          string                             `json:"pack_path,omitempty"`
+	PackID            string                             `json:"pack_id,omitempty"`
+	LogExport         string                             `json:"log_export,omitempty"`
+	OTelExport        string                             `json:"otel_export,omitempty"`
+	Warnings          []string                           `json:"warnings,omitempty"`
+	Relationship      *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
+	Error             string                             `json:"error,omitempty"`
 }
 
 type mcpProxyEvalOptions struct {
@@ -253,9 +258,15 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		resolvedTracePath = fmt.Sprintf("trace_%s_%s.json", normalizeRunID(options.RunID), time.Now().UTC().Format("20060102T150405.000000000"))
 	}
 	traceResult, err := gate.EmitSignedTrace(policy, evalResult.Intent, evalResult.Outcome.Result, gate.EmitTraceOptions{
-		ProducerVersion:   version,
-		SigningPrivateKey: keyPair.Private,
-		TracePath:         resolvedTracePath,
+		ProducerVersion:    version,
+		ContextSource:      evalResult.Outcome.ContextSource,
+		CompositeRiskClass: evalResult.Outcome.CompositeRiskClass,
+		StepVerdicts:       evalResult.Outcome.StepVerdicts,
+		PreApproved:        evalResult.Outcome.PreApproved,
+		PatternID:          evalResult.Outcome.PatternID,
+		RegistryReason:     evalResult.Outcome.RegistryReason,
+		SigningPrivateKey:  keyPair.Private,
+		TracePath:          resolvedTracePath,
 	})
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
@@ -376,6 +387,9 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		ReasonCodes:       evalResult.Outcome.Result.ReasonCodes,
 		Violations:        evalResult.Outcome.Result.Violations,
 		PolicyDigest:      traceResult.PolicyDigest,
+		PolicyID:          traceResult.Trace.PolicyID,
+		PolicyVersion:     traceResult.Trace.PolicyVersion,
+		MatchedRuleIDs:    append([]string(nil), traceResult.Trace.MatchedRuleIDs...),
 		IntentDigest:      traceResult.IntentDigest,
 		DecisionLatencyMS: decisionLatencyMS,
 		TraceID:           traceResult.Trace.TraceID,
@@ -386,6 +400,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		LogExport:         resolvedLogExport,
 		OTelExport:        resolvedOTelExport,
 		Warnings:          warnings,
+		Relationship:      traceResult.Trace.Relationship,
 	}, exitCode, nil
 }
 

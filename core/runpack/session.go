@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/fsx"
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 	jcs "github.com/Clyra-AI/proof/canon"
 )
@@ -48,17 +49,22 @@ type SessionStartOptions struct {
 }
 
 type SessionAppendOptions struct {
-	CreatedAt       time.Time
-	ProducerVersion string
-	IntentID        string
-	ToolName        string
-	IntentDigest    string
-	PolicyDigest    string
-	TraceID         string
-	TracePath       string
-	Verdict         string
-	ReasonCodes     []string
-	Violations      []string
+	CreatedAt              time.Time
+	ProducerVersion        string
+	IntentID               string
+	ToolName               string
+	IntentDigest           string
+	PolicyDigest           string
+	PolicyID               string
+	PolicyVersion          string
+	MatchedRuleIDs         []string
+	TraceID                string
+	TracePath              string
+	AgentChain             []schemacommon.AgentLink
+	ActorIdentity          string
+	Verdict                string
+	ReasonCodes            []string
+	Violations             []string
 	SafetyInvariantVersion string
 	SafetyInvariantHash    string
 }
@@ -312,23 +318,34 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 			producerVersion = "0.0.0-dev"
 		}
 		sequence := state.LastSequence + 1
+		toolName := strings.TrimSpace(opts.ToolName)
+		intentDigest := strings.ToLower(strings.TrimSpace(opts.IntentDigest))
+		policyDigest := strings.ToLower(strings.TrimSpace(opts.PolicyDigest))
+		policyID := strings.TrimSpace(opts.PolicyID)
+		policyVersion := strings.TrimSpace(opts.PolicyVersion)
+		matchedRuleIDs := uniqueSortedStrings(opts.MatchedRuleIDs)
+		traceID := strings.TrimSpace(opts.TraceID)
 		appended = schemarunpack.SessionEvent{
-			SchemaID:        sessionEventSchemaID,
-			SchemaVersion:   sessionEventSchemaVersion,
-			CreatedAt:       now,
-			ProducerVersion: producerVersion,
-			SessionID:       state.SessionID,
-			RunID:           state.RunID,
-			Sequence:        sequence,
-			IntentID:        strings.TrimSpace(opts.IntentID),
-			ToolName:        strings.TrimSpace(opts.ToolName),
-			IntentDigest:    strings.ToLower(strings.TrimSpace(opts.IntentDigest)),
-			PolicyDigest:    strings.ToLower(strings.TrimSpace(opts.PolicyDigest)),
-			TraceID:         strings.TrimSpace(opts.TraceID),
-			TracePath:       strings.TrimSpace(opts.TracePath),
-			Verdict:         strings.TrimSpace(opts.Verdict),
-			ReasonCodes:     uniqueSortedStrings(opts.ReasonCodes),
-			Violations:      uniqueSortedStrings(opts.Violations),
+			SchemaID:               sessionEventSchemaID,
+			SchemaVersion:          sessionEventSchemaVersion,
+			CreatedAt:              now,
+			ProducerVersion:        producerVersion,
+			SessionID:              state.SessionID,
+			RunID:                  state.RunID,
+			Sequence:               sequence,
+			IntentID:               strings.TrimSpace(opts.IntentID),
+			ToolName:               toolName,
+			IntentDigest:           intentDigest,
+			PolicyDigest:           policyDigest,
+			PolicyID:               policyID,
+			PolicyVersion:          policyVersion,
+			MatchedRuleIDs:         matchedRuleIDs,
+			TraceID:                traceID,
+			TracePath:              strings.TrimSpace(opts.TracePath),
+			Verdict:                strings.TrimSpace(opts.Verdict),
+			ReasonCodes:            uniqueSortedStrings(opts.ReasonCodes),
+			Violations:             uniqueSortedStrings(opts.Violations),
+			Relationship:           buildSessionEventRelationship(state.SessionID, state.RunID, toolName, traceID, policyID, policyVersion, policyDigest, matchedRuleIDs, opts.ActorIdentity, opts.AgentChain),
 			SafetyInvariantVersion: strings.TrimSpace(opts.SafetyInvariantVersion),
 			SafetyInvariantHash:    strings.ToLower(strings.TrimSpace(opts.SafetyInvariantHash)),
 		}
@@ -486,12 +503,29 @@ func EmitSessionCheckpoint(journalPath string, outRunpackPath string, opts Sessi
 				Event: "session_event",
 				TS:    event.CreatedAt.UTC(),
 				Ref:   event.TraceID,
+				Relationship: buildRunTimelineRelationship(
+					"session_event",
+					checkpointRunID,
+					journal.SessionID,
+					event.TraceID,
+					event.ToolName,
+					event.PolicyDigest,
+				),
 			})
 		}
+		checkpointRef := fmt.Sprintf("checkpoint:%d", nextCheckpointIdx)
 		timeline = append(timeline, schemarunpack.TimelineEvt{
 			Event: "session_checkpoint_emitted",
 			TS:    createdAt,
-			Ref:   fmt.Sprintf("checkpoint:%d", nextCheckpointIdx),
+			Ref:   checkpointRef,
+			Relationship: buildRunTimelineRelationship(
+				"session_checkpoint_emitted",
+				checkpointRunID,
+				checkpointRef,
+				"",
+				"",
+				"",
+			),
 		})
 
 		recordRes, writeErr := WriteRunpack(runpackPath, RecordOptions{
@@ -523,19 +557,20 @@ func EmitSessionCheckpoint(journalPath string, outRunpackPath string, opts Sessi
 			}
 		}
 		checkpoint := schemarunpack.SessionCheckpoint{
-			SchemaID:             sessionCheckpointSchemaID,
-			SchemaVersion:        sessionCheckpointSchemaV1,
-			CreatedAt:            createdAt,
-			ProducerVersion:      producerVersion,
-			SessionID:            journal.SessionID,
-			RunID:                journal.RunID,
-			CheckpointIndex:      nextCheckpointIdx,
-			SequenceStart:        sequenceStart,
-			SequenceEnd:          sequenceEnd,
-			RunpackPath:          runpackPath,
-			ManifestDigest:       recordRes.Manifest.ManifestDigest,
-			PrevCheckpointDigest: prevCheckpointDigest,
-			CheckpointDigest:     checkpointDigest,
+			SchemaID:               sessionCheckpointSchemaID,
+			SchemaVersion:          sessionCheckpointSchemaV1,
+			CreatedAt:              createdAt,
+			ProducerVersion:        producerVersion,
+			SessionID:              journal.SessionID,
+			RunID:                  journal.RunID,
+			CheckpointIndex:        nextCheckpointIdx,
+			SequenceStart:          sequenceStart,
+			SequenceEnd:            sequenceEnd,
+			RunpackPath:            runpackPath,
+			ManifestDigest:         recordRes.Manifest.ManifestDigest,
+			PrevCheckpointDigest:   prevCheckpointDigest,
+			CheckpointDigest:       checkpointDigest,
+			Relationship:           buildSessionCheckpointRelationship(journal.SessionID, journal.RunID, checkpointRunID, checkpointDigest, recordRes.Manifest.ManifestDigest),
 			SafetyInvariantVersion: safetyInvariantVersion,
 			SafetyInvariantHash:    safetyInvariantHash,
 		}
@@ -1145,6 +1180,390 @@ func uniqueSortedStrings(values []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+var (
+	runpackRelationshipParentKinds = map[string]struct{}{
+		"trace":    {},
+		"run":      {},
+		"session":  {},
+		"intent":   {},
+		"policy":   {},
+		"agent":    {},
+		"evidence": {},
+	}
+	runpackRelationshipEntityKinds = map[string]struct{}{
+		"agent":      {},
+		"tool":       {},
+		"resource":   {},
+		"policy":     {},
+		"run":        {},
+		"trace":      {},
+		"delegation": {},
+		"evidence":   {},
+	}
+	runpackRelationshipRoles = map[string]struct{}{
+		"requester": {},
+		"delegator": {},
+		"delegate":  {},
+	}
+	runpackRelationshipEdgeKinds = map[string]struct{}{
+		"delegates_to":   {},
+		"calls":          {},
+		"governed_by":    {},
+		"targets":        {},
+		"derived_from":   {},
+		"emits_evidence": {},
+	}
+)
+
+func buildSessionEventRelationship(
+	sessionID string,
+	runID string,
+	toolName string,
+	traceID string,
+	policyID string,
+	policyVersion string,
+	policyDigest string,
+	matchedRuleIDs []string,
+	actorIdentity string,
+	agentChain []schemacommon.AgentLink,
+) *schemacommon.RelationshipEnvelope {
+	actorID := selectRunpackEventActor(actorIdentity, agentChain)
+	envelope := schemacommon.RelationshipEnvelope{
+		ParentRef: &schemacommon.RelationshipNodeRef{
+			Kind: "session",
+			ID:   strings.TrimSpace(sessionID),
+		},
+		ParentRecordID: strings.TrimSpace(sessionID),
+		EntityRefs: normalizeRunpackRelationshipRefs([]schemacommon.RelationshipRef{
+			{Kind: "run", ID: strings.TrimSpace(runID)},
+			{Kind: "tool", ID: strings.TrimSpace(toolName)},
+			{Kind: "trace", ID: strings.TrimSpace(traceID)},
+			{Kind: "policy", ID: strings.ToLower(strings.TrimSpace(policyDigest))},
+		}),
+		PolicyRef: &schemacommon.PolicyRef{
+			PolicyID:       strings.TrimSpace(policyID),
+			PolicyVersion:  strings.TrimSpace(policyVersion),
+			PolicyDigest:   strings.ToLower(strings.TrimSpace(policyDigest)),
+			MatchedRuleIDs: uniqueSortedStrings(matchedRuleIDs),
+		},
+		AgentChain: normalizeRunpackRelationshipAgentChain(agentChain),
+	}
+	if tool := strings.TrimSpace(toolName); tool != "" && strings.TrimSpace(policyDigest) != "" {
+		envelope.Edges = append(envelope.Edges, schemacommon.RelationshipEdge{
+			Kind: "governed_by",
+			From: schemacommon.RelationshipNodeRef{Kind: "tool", ID: tool},
+			To:   schemacommon.RelationshipNodeRef{Kind: "policy", ID: strings.ToLower(strings.TrimSpace(policyDigest))},
+		})
+	}
+	if actorID != "" && strings.TrimSpace(toolName) != "" {
+		envelope.Edges = append(envelope.Edges, schemacommon.RelationshipEdge{
+			Kind: "calls",
+			From: schemacommon.RelationshipNodeRef{Kind: "agent", ID: actorID},
+			To:   schemacommon.RelationshipNodeRef{Kind: "tool", ID: strings.TrimSpace(toolName)},
+		})
+	}
+	envelope.Edges = normalizeRunpackRelationshipEdges(envelope.Edges)
+	envelope.RelatedEntityIDs = runpackRelationshipRefIDs(envelope.EntityRefs)
+	return normalizeRunpackRelationshipEnvelope(&envelope)
+}
+
+func buildSessionCheckpointRelationship(
+	sessionID string,
+	runID string,
+	checkpointRunID string,
+	checkpointDigest string,
+	manifestDigest string,
+) *schemacommon.RelationshipEnvelope {
+	envelope := schemacommon.RelationshipEnvelope{
+		ParentRef: &schemacommon.RelationshipNodeRef{
+			Kind: "session",
+			ID:   strings.TrimSpace(sessionID),
+		},
+		ParentRecordID: strings.TrimSpace(sessionID),
+		EntityRefs: normalizeRunpackRelationshipRefs([]schemacommon.RelationshipRef{
+			{Kind: "run", ID: strings.TrimSpace(runID)},
+			{Kind: "run", ID: strings.TrimSpace(checkpointRunID)},
+			{Kind: "evidence", ID: strings.TrimSpace(checkpointDigest)},
+			{Kind: "evidence", ID: strings.TrimSpace(manifestDigest)},
+		}),
+		Edges: normalizeRunpackRelationshipEdges([]schemacommon.RelationshipEdge{
+			{
+				Kind: "derived_from",
+				From: schemacommon.RelationshipNodeRef{Kind: "evidence", ID: strings.TrimSpace(checkpointDigest)},
+				To:   schemacommon.RelationshipNodeRef{Kind: "run", ID: strings.TrimSpace(checkpointRunID)},
+			},
+		}),
+	}
+	envelope.RelatedEntityIDs = runpackRelationshipRefIDs(envelope.EntityRefs)
+	return normalizeRunpackRelationshipEnvelope(&envelope)
+}
+
+func buildRunTimelineRelationship(eventName, runID, evidenceID, traceID, toolName, policyDigest string) *schemacommon.RelationshipEnvelope {
+	envelope := schemacommon.RelationshipEnvelope{
+		ParentRef: &schemacommon.RelationshipNodeRef{
+			Kind: "run",
+			ID:   strings.TrimSpace(runID),
+		},
+		ParentRecordID: strings.TrimSpace(runID),
+		EntityRefs: normalizeRunpackRelationshipRefs([]schemacommon.RelationshipRef{
+			{Kind: "trace", ID: strings.TrimSpace(traceID)},
+			{Kind: "tool", ID: strings.TrimSpace(toolName)},
+			{Kind: "policy", ID: strings.ToLower(strings.TrimSpace(policyDigest))},
+			{Kind: "evidence", ID: strings.TrimSpace(evidenceID)},
+		}),
+	}
+	switch strings.TrimSpace(eventName) {
+	case "session_event":
+		if strings.TrimSpace(traceID) != "" {
+			envelope.Edges = append(envelope.Edges, schemacommon.RelationshipEdge{
+				Kind: "derived_from",
+				From: schemacommon.RelationshipNodeRef{Kind: "trace", ID: strings.TrimSpace(traceID)},
+				To:   schemacommon.RelationshipNodeRef{Kind: "run", ID: strings.TrimSpace(runID)},
+			})
+		}
+		if strings.TrimSpace(toolName) != "" && strings.TrimSpace(policyDigest) != "" {
+			envelope.Edges = append(envelope.Edges, schemacommon.RelationshipEdge{
+				Kind: "governed_by",
+				From: schemacommon.RelationshipNodeRef{Kind: "tool", ID: strings.TrimSpace(toolName)},
+				To:   schemacommon.RelationshipNodeRef{Kind: "policy", ID: strings.ToLower(strings.TrimSpace(policyDigest))},
+			})
+		}
+	case "session_checkpoint_emitted":
+		if strings.TrimSpace(evidenceID) != "" {
+			envelope.Edges = append(envelope.Edges, schemacommon.RelationshipEdge{
+				Kind: "emits_evidence",
+				From: schemacommon.RelationshipNodeRef{Kind: "run", ID: strings.TrimSpace(runID)},
+				To:   schemacommon.RelationshipNodeRef{Kind: "evidence", ID: strings.TrimSpace(evidenceID)},
+			})
+		}
+	}
+	envelope.Edges = normalizeRunpackRelationshipEdges(envelope.Edges)
+	envelope.RelatedEntityIDs = runpackRelationshipRefIDs(envelope.EntityRefs)
+	return normalizeRunpackRelationshipEnvelope(&envelope)
+}
+
+func normalizeRunpackRelationshipEnvelope(envelope *schemacommon.RelationshipEnvelope) *schemacommon.RelationshipEnvelope {
+	if envelope == nil {
+		return nil
+	}
+	normalized := *envelope
+	normalized.ParentRef = normalizeRunpackRelationshipParentRef(normalized.ParentRef)
+	normalized.ParentRecordID = strings.TrimSpace(normalized.ParentRecordID)
+	normalized.EntityRefs = normalizeRunpackRelationshipRefs(normalized.EntityRefs)
+	normalized.AgentChain = normalizeRunpackRelationshipAgentChain(normalized.AgentChain)
+	normalized.Edges = normalizeRunpackRelationshipEdges(normalized.Edges)
+	normalized.RelatedRecordIDs = uniqueSortedStrings(normalized.RelatedRecordIDs)
+	normalized.RelatedEntityIDs = uniqueSortedStrings(normalized.RelatedEntityIDs)
+	if normalized.PolicyRef != nil {
+		normalized.PolicyRef.PolicyID = strings.TrimSpace(normalized.PolicyRef.PolicyID)
+		normalized.PolicyRef.PolicyVersion = strings.TrimSpace(normalized.PolicyRef.PolicyVersion)
+		normalized.PolicyRef.PolicyDigest = strings.ToLower(strings.TrimSpace(normalized.PolicyRef.PolicyDigest))
+		normalized.PolicyRef.MatchedRuleIDs = uniqueSortedStrings(normalized.PolicyRef.MatchedRuleIDs)
+		if normalized.PolicyRef.PolicyID == "" &&
+			normalized.PolicyRef.PolicyVersion == "" &&
+			normalized.PolicyRef.PolicyDigest == "" &&
+			len(normalized.PolicyRef.MatchedRuleIDs) == 0 {
+			normalized.PolicyRef = nil
+		}
+	}
+	if len(normalized.RelatedEntityIDs) == 0 {
+		normalized.RelatedEntityIDs = runpackRelationshipRefIDs(normalized.EntityRefs)
+	}
+	if normalized.ParentRef == nil &&
+		len(normalized.EntityRefs) == 0 &&
+		normalized.PolicyRef == nil &&
+		len(normalized.AgentChain) == 0 &&
+		len(normalized.Edges) == 0 &&
+		normalized.ParentRecordID == "" &&
+		len(normalized.RelatedRecordIDs) == 0 &&
+		len(normalized.RelatedEntityIDs) == 0 &&
+		len(normalized.AgentLineage) == 0 {
+		return nil
+	}
+	return &normalized
+}
+
+func normalizeRunpackRelationshipParentRef(ref *schemacommon.RelationshipNodeRef) *schemacommon.RelationshipNodeRef {
+	if ref == nil {
+		return nil
+	}
+	kind := strings.ToLower(strings.TrimSpace(ref.Kind))
+	id := strings.TrimSpace(ref.ID)
+	if kind == "" || id == "" {
+		return nil
+	}
+	if _, ok := runpackRelationshipParentKinds[kind]; !ok {
+		return nil
+	}
+	return &schemacommon.RelationshipNodeRef{Kind: kind, ID: id}
+}
+
+func normalizeRunpackRelationshipRefs(refs []schemacommon.RelationshipRef) []schemacommon.RelationshipRef {
+	if len(refs) == 0 {
+		return nil
+	}
+	normalized := make([]schemacommon.RelationshipRef, 0, len(refs))
+	seen := map[string]struct{}{}
+	for _, ref := range refs {
+		kind := strings.ToLower(strings.TrimSpace(ref.Kind))
+		id := strings.TrimSpace(ref.ID)
+		if kind == "" || id == "" {
+			continue
+		}
+		if _, ok := runpackRelationshipEntityKinds[kind]; !ok {
+			continue
+		}
+		key := kind + "\x00" + id
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, schemacommon.RelationshipRef{Kind: kind, ID: id})
+	}
+	sort.Slice(normalized, func(i, j int) bool {
+		if normalized[i].Kind != normalized[j].Kind {
+			return normalized[i].Kind < normalized[j].Kind
+		}
+		return normalized[i].ID < normalized[j].ID
+	})
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func normalizeRunpackRelationshipAgentChain(chain []schemacommon.AgentLink) []schemacommon.AgentLink {
+	if len(chain) == 0 {
+		return nil
+	}
+	normalized := make([]schemacommon.AgentLink, 0, len(chain))
+	seen := map[string]struct{}{}
+	for _, link := range chain {
+		role := strings.ToLower(strings.TrimSpace(link.Role))
+		identity := strings.TrimSpace(link.Identity)
+		if role == "" || identity == "" {
+			continue
+		}
+		if _, ok := runpackRelationshipRoles[role]; !ok {
+			continue
+		}
+		key := role + "\x00" + identity
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, schemacommon.AgentLink{Role: role, Identity: identity})
+	}
+	sort.Slice(normalized, func(i, j int) bool {
+		if normalized[i].Role != normalized[j].Role {
+			return normalized[i].Role < normalized[j].Role
+		}
+		return normalized[i].Identity < normalized[j].Identity
+	})
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func selectRunpackEventActor(explicitActor string, agentChain []schemacommon.AgentLink) string {
+	if actor := strings.TrimSpace(explicitActor); actor != "" {
+		return actor
+	}
+
+	bestIdentity := ""
+	bestPriority := 999
+	for _, link := range agentChain {
+		role := strings.ToLower(strings.TrimSpace(link.Role))
+		identity := strings.TrimSpace(link.Identity)
+		if identity == "" {
+			continue
+		}
+		var priority int
+		switch role {
+		case "delegate":
+			priority = 0
+		case "requester":
+			priority = 1
+		case "delegator":
+			priority = 2
+		default:
+			continue
+		}
+		if priority < bestPriority {
+			bestPriority = priority
+			bestIdentity = identity
+			if priority == 0 {
+				return bestIdentity
+			}
+		}
+	}
+	return bestIdentity
+}
+
+func normalizeRunpackRelationshipEdges(edges []schemacommon.RelationshipEdge) []schemacommon.RelationshipEdge {
+	if len(edges) == 0 {
+		return nil
+	}
+	normalized := make([]schemacommon.RelationshipEdge, 0, len(edges))
+	seen := map[string]struct{}{}
+	for _, edge := range edges {
+		kind := strings.ToLower(strings.TrimSpace(edge.Kind))
+		fromKind := strings.ToLower(strings.TrimSpace(edge.From.Kind))
+		fromID := strings.TrimSpace(edge.From.ID)
+		toKind := strings.ToLower(strings.TrimSpace(edge.To.Kind))
+		toID := strings.TrimSpace(edge.To.ID)
+		if kind == "" || fromKind == "" || fromID == "" || toKind == "" || toID == "" {
+			continue
+		}
+		if _, ok := runpackRelationshipEdgeKinds[kind]; !ok {
+			continue
+		}
+		key := kind + "\x00" + fromKind + "\x00" + fromID + "\x00" + toKind + "\x00" + toID
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, schemacommon.RelationshipEdge{
+			Kind: kind,
+			From: schemacommon.RelationshipNodeRef{Kind: fromKind, ID: fromID},
+			To:   schemacommon.RelationshipNodeRef{Kind: toKind, ID: toID},
+		})
+	}
+	sort.Slice(normalized, func(i, j int) bool {
+		if normalized[i].Kind != normalized[j].Kind {
+			return normalized[i].Kind < normalized[j].Kind
+		}
+		if normalized[i].From.Kind != normalized[j].From.Kind {
+			return normalized[i].From.Kind < normalized[j].From.Kind
+		}
+		if normalized[i].From.ID != normalized[j].From.ID {
+			return normalized[i].From.ID < normalized[j].From.ID
+		}
+		if normalized[i].To.Kind != normalized[j].To.Kind {
+			return normalized[i].To.Kind < normalized[j].To.Kind
+		}
+		return normalized[i].To.ID < normalized[j].To.ID
+	})
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func runpackRelationshipRefIDs(refs []schemacommon.RelationshipRef) []string {
+	if len(refs) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if id := strings.TrimSpace(ref.ID); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return uniqueSortedStrings(ids)
 }
 
 func statLocalOrAbsolutePath(path string) (os.FileInfo, error) {

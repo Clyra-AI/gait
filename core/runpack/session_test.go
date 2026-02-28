@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
 
@@ -50,18 +51,39 @@ func TestSessionJournalLifecycleAndCheckpointChain(t *testing.T) {
 		t.Fatalf("append session event 1: %v", err)
 	}
 	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
-		CreatedAt:    startedAt.Add(2 * time.Second),
-		IntentID:     "intent_2",
-		ToolName:     "tool.write",
-		IntentDigest: strings.Repeat("c", 64),
-		PolicyDigest: strings.Repeat("d", 64),
-		TraceID:      "trace_2",
-		TracePath:    filepath.Join(workDir, "traces", "trace_2.json"),
-		Verdict:      "block",
-		ReasonCodes:  []string{"policy_block"},
-		Violations:   []string{"unauthorized_target"},
+		CreatedAt:      startedAt.Add(2 * time.Second),
+		IntentID:       "intent_2",
+		ToolName:       "tool.write",
+		IntentDigest:   strings.Repeat("c", 64),
+		PolicyDigest:   strings.Repeat("d", 64),
+		PolicyID:       "gait.gate.policy",
+		PolicyVersion:  "1.0.0",
+		MatchedRuleIDs: []string{"allow-write", "allow-write"},
+		TraceID:        "trace_2",
+		TracePath:      filepath.Join(workDir, "traces", "trace_2.json"),
+		Verdict:        "block",
+		ReasonCodes:    []string{"policy_block"},
+		Violations:     []string{"unauthorized_target"},
 	}); err != nil {
 		t.Fatalf("append session event 2: %v", err)
+	}
+
+	journalAfterAppend, err := ReadSessionJournal(journalPath)
+	if err != nil {
+		t.Fatalf("read session journal after append: %v", err)
+	}
+	if len(journalAfterAppend.Events) != 2 {
+		t.Fatalf("expected two session events after append, got %d", len(journalAfterAppend.Events))
+	}
+	secondEvent := journalAfterAppend.Events[1]
+	if secondEvent.PolicyID != "gait.gate.policy" || secondEvent.PolicyVersion != "1.0.0" {
+		t.Fatalf("expected policy lineage on session event, got id=%q version=%q", secondEvent.PolicyID, secondEvent.PolicyVersion)
+	}
+	if len(secondEvent.MatchedRuleIDs) != 1 || secondEvent.MatchedRuleIDs[0] != "allow-write" {
+		t.Fatalf("expected normalized matched_rule_ids on session event, got %#v", secondEvent.MatchedRuleIDs)
+	}
+	if secondEvent.Relationship == nil || secondEvent.Relationship.ParentRef == nil || secondEvent.Relationship.ParentRef.Kind != "session" {
+		t.Fatalf("expected relationship envelope with session parent on session event: %#v", secondEvent.Relationship)
 	}
 
 	status, err := GetSessionStatus(journalPath)
@@ -82,6 +104,9 @@ func TestSessionJournalLifecycleAndCheckpointChain(t *testing.T) {
 	}
 	if checkpoint1.Checkpoint.CheckpointIndex != 1 {
 		t.Fatalf("unexpected first checkpoint index: %d", checkpoint1.Checkpoint.CheckpointIndex)
+	}
+	if checkpoint1.Checkpoint.Relationship == nil || checkpoint1.Checkpoint.Relationship.ParentRef == nil || checkpoint1.Checkpoint.Relationship.ParentRef.Kind != "session" {
+		t.Fatalf("expected relationship envelope on checkpoint: %#v", checkpoint1.Checkpoint.Relationship)
 	}
 	if !ContainsSessionChainPath(chainPath) {
 		t.Fatalf("expected json session chain path, got %s", chainPath)
@@ -1001,5 +1026,131 @@ func TestWithSessionLockTimeoutIncludesDiagnosticsAndEnvOverrides(t *testing.T) 
 	}
 	if time.Since(start) < 180*time.Millisecond {
 		t.Fatalf("expected lock wait close to configured timeout")
+	}
+}
+
+func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
+	eventRelationship := buildSessionEventRelationship(
+		"sess_demo",
+		"run_demo",
+		"tool.write",
+		"trace_demo",
+		"gait.gate.policy",
+		"1.0.0",
+		strings.Repeat("b", 64),
+		[]string{"rule_b", "rule_a", "rule_a"},
+		"agent.exec",
+		[]schemacommon.AgentLink{
+			{Identity: "agent.b", Role: "requester"},
+			{Identity: "agent.a", Role: "requester"},
+			{Identity: "agent.ignore", Role: "approver"},
+		},
+	)
+	if eventRelationship == nil {
+		t.Fatalf("expected session event relationship")
+	}
+	if eventRelationship.ParentRef == nil || eventRelationship.ParentRef.Kind != "session" || eventRelationship.ParentRef.ID != "sess_demo" {
+		t.Fatalf("unexpected session parent_ref: %#v", eventRelationship.ParentRef)
+	}
+	if eventRelationship.PolicyRef == nil || eventRelationship.PolicyRef.PolicyID != "gait.gate.policy" || eventRelationship.PolicyRef.PolicyVersion != "1.0.0" {
+		t.Fatalf("expected policy lineage in relationship: %#v", eventRelationship.PolicyRef)
+	}
+	if got := eventRelationship.PolicyRef.MatchedRuleIDs; len(got) != 2 || got[0] != "rule_a" || got[1] != "rule_b" {
+		t.Fatalf("expected matched rules to be deduplicated/sorted, got %#v", got)
+	}
+	if len(eventRelationship.AgentChain) != 2 || eventRelationship.AgentChain[0].Identity != "agent.a" {
+		t.Fatalf("expected normalized agent chain ordering, got %#v", eventRelationship.AgentChain)
+	}
+	if len(eventRelationship.Edges) == 0 {
+		t.Fatalf("expected relationship edges for session event")
+	}
+	foundCallsEdge := false
+	for _, edge := range eventRelationship.Edges {
+		if edge.Kind == "calls" && edge.From.Kind == "agent" && edge.From.ID == "agent.exec" {
+			foundCallsEdge = true
+			break
+		}
+	}
+	if !foundCallsEdge {
+		t.Fatalf("expected calls edge to use explicit actor identity, got %#v", eventRelationship.Edges)
+	}
+
+	checkpointRelationship := buildSessionCheckpointRelationship(
+		"sess_demo",
+		"run_demo",
+		"run_demo_cp_0001",
+		strings.Repeat("c", 64),
+		strings.Repeat("d", 64),
+	)
+	if checkpointRelationship == nil {
+		t.Fatalf("expected checkpoint relationship")
+	}
+	if checkpointRelationship.ParentRef == nil || checkpointRelationship.ParentRef.Kind != "session" {
+		t.Fatalf("unexpected checkpoint parent_ref: %#v", checkpointRelationship.ParentRef)
+	}
+	if len(checkpointRelationship.EntityRefs) < 2 {
+		t.Fatalf("expected checkpoint entity refs, got %#v", checkpointRelationship.EntityRefs)
+	}
+
+	timelineRelationship := buildRunTimelineRelationship(
+		"session_event",
+		"run_demo_cp_0001",
+		"sess_demo",
+		"trace_demo",
+		"tool.write",
+		strings.Repeat("e", 64),
+	)
+	if timelineRelationship == nil {
+		t.Fatalf("expected timeline relationship")
+	}
+	if timelineRelationship.ParentRef == nil || timelineRelationship.ParentRef.Kind != "run" {
+		t.Fatalf("unexpected timeline parent_ref: %#v", timelineRelationship.ParentRef)
+	}
+	if len(timelineRelationship.Edges) == 0 {
+		t.Fatalf("expected timeline relationship edges")
+	}
+
+	checkpointTimelineRelationship := buildRunTimelineRelationship(
+		"session_checkpoint_emitted",
+		"run_demo_cp_0001",
+		"checkpoint:1",
+		"",
+		"",
+		"",
+	)
+	if checkpointTimelineRelationship == nil {
+		t.Fatalf("expected checkpoint timeline relationship")
+	}
+	foundEvidenceEmission := false
+	for _, edge := range checkpointTimelineRelationship.Edges {
+		if edge.Kind == "emits_evidence" && edge.To.Kind == "evidence" && edge.To.ID == "checkpoint:1" {
+			foundEvidenceEmission = true
+			break
+		}
+	}
+	if !foundEvidenceEmission {
+		t.Fatalf("expected checkpoint emits_evidence edge to target checkpoint ref, got %#v", checkpointTimelineRelationship.Edges)
+	}
+}
+
+func TestNormalizeRunpackRelationshipEnvelopeDropsInvalidEntries(t *testing.T) {
+	invalid := &schemacommon.RelationshipEnvelope{
+		ParentRef: &schemacommon.RelationshipNodeRef{Kind: "invalid", ID: "root"},
+		EntityRefs: []schemacommon.RelationshipRef{
+			{Kind: "invalid", ID: "x"},
+		},
+		AgentChain: []schemacommon.AgentLink{
+			{Identity: "agent.demo", Role: "approver"},
+		},
+		Edges: []schemacommon.RelationshipEdge{
+			{
+				Kind: "invalid",
+				From: schemacommon.RelationshipNodeRef{Kind: "tool", ID: "tool.write"},
+				To:   schemacommon.RelationshipNodeRef{Kind: "policy", ID: strings.Repeat("f", 64)},
+			},
+		},
+	}
+	if normalized := normalizeRunpackRelationshipEnvelope(invalid); normalized != nil {
+		t.Fatalf("expected invalid relationship envelope to collapse to nil, got %#v", normalized)
 	}
 }

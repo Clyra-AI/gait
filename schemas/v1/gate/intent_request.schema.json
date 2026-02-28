@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gait.dev/schemas/v1/gate/intent_request.schema.json",
   "title": "Gate Intent Request",
   "type": "object",
   "required": [
@@ -199,6 +198,7 @@
       },
       "additionalProperties": false
     },
+    "relationship": { "$ref": "#/$defs/relationship_envelope" },
     "context": {
       "type": "object",
       "required": ["identity", "workspace", "risk_class"],
@@ -227,6 +227,131 @@
         }
       },
       "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "relationship_parent_ref": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["trace", "run", "session", "intent", "policy", "agent", "evidence"]
+        },
+        "id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "relationship_entity_ref": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["agent", "tool", "resource", "policy", "run", "trace", "delegation", "evidence"]
+        },
+        "id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "policy_ref": {
+      "type": "object",
+      "properties": {
+        "policy_id": { "type": "string", "minLength": 1 },
+        "policy_version": { "type": "string", "minLength": 1 },
+        "policy_digest": { "type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$" },
+        "matched_rule_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "agent_link": {
+      "type": "object",
+      "required": ["identity", "role"],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "enum": ["requester", "delegator", "delegate"] }
+      },
+      "additionalProperties": false
+    },
+    "relationship_edge": {
+      "type": "object",
+      "required": ["kind", "from", "to"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["delegates_to", "calls", "governed_by", "targets", "derived_from", "emits_evidence"]
+        },
+        "from": {
+          "type": "object",
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": { "type": "string", "minLength": 1 },
+            "id": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "to": {
+          "type": "object",
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": { "type": "string", "minLength": 1 },
+            "id": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "agent_lineage": {
+      "type": "object",
+      "required": ["agent_id"],
+      "properties": {
+        "agent_id": { "type": "string", "minLength": 1 },
+        "delegated_by": { "type": "string", "minLength": 1 },
+        "delegation_record_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "relationship_envelope": {
+      "type": "object",
+      "properties": {
+        "parent_ref": { "$ref": "#/$defs/relationship_parent_ref" },
+        "entity_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relationship_entity_ref" },
+          "uniqueItems": true
+        },
+        "policy_ref": { "$ref": "#/$defs/policy_ref" },
+        "agent_chain": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/agent_link" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relationship_edge" },
+          "uniqueItems": true
+        },
+        "parent_record_id": { "type": "string", "minLength": 1 },
+        "related_record_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "related_entity_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "agent_lineage": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/agent_lineage" }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

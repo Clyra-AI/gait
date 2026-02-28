@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "parent_ref": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["trace", "run", "session", "intent", "policy", "agent", "evidence"]
+        },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "entity_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["kind", "id"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["agent", "tool", "resource", "policy", "run", "trace", "delegation", "evidence"]
+          },
+          "id": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "policy_ref": {
+      "type": "object",
+      "properties": {
+        "policy_id": { "type": "string", "minLength": 1 },
+        "policy_version": { "type": "string", "minLength": 1 },
+        "policy_digest": { "type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$" },
+        "matched_rule_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "agent_chain": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["identity", "role"],
+        "properties": {
+          "identity": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "enum": ["requester", "delegator", "delegate"] }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["kind", "from", "to"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["delegates_to", "calls", "governed_by", "targets", "derived_from", "emits_evidence"]
+          },
+          "from": {
+            "type": "object",
+            "required": ["kind", "id"],
+            "properties": {
+              "kind": { "type": "string", "minLength": 1 },
+              "id": { "type": "string", "minLength": 1 }
+            }
+          },
+          "to": {
+            "type": "object",
+            "required": ["kind", "id"],
+            "properties": {
+              "kind": { "type": "string", "minLength": 1 },
+              "id": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "parent_record_id": { "type": "string", "minLength": 1 },
+    "related_record_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "related_entity_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "agent_lineage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["agent_id"],
+        "properties": {
+          "agent_id": { "type": "string", "minLength": 1 },
+          "delegated_by": { "type": "string", "minLength": 1 },
+          "delegation_record_id": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
