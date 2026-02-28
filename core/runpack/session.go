@@ -1481,7 +1481,7 @@ func selectRunpackEventActor(explicitActor string, agentChain []schemacommon.Age
 		if identity == "" {
 			continue
 		}
-		priority := 100
+		var priority int
 		switch role {
 		case "delegate":
 			priority = 0
