@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
 )
 
 func TestMCPServeHandlerHealthz(t *testing.T) {
@@ -41,6 +43,46 @@ func TestMCPServeHandlerHealthz(t *testing.T) {
 	if payload["ok"] != true {
 		t.Fatalf("expected ok=true in healthz response")
 	}
+}
+
+func TestMCPServeRelationshipCallActor(t *testing.T) {
+	t.Run("matches calls edge for tool", func(t *testing.T) {
+		relationship := &schemacommon.RelationshipEnvelope{
+			Edges: []schemacommon.RelationshipEdge{
+				{
+					Kind: "calls",
+					From: schemacommon.RelationshipNodeRef{Kind: "agent", ID: "agent.alpha"},
+					To:   schemacommon.RelationshipNodeRef{Kind: "tool", ID: "tool.write"},
+				},
+			},
+		}
+		got := mcpServeRelationshipCallActor(relationship, "tool.write")
+		if got != "agent.alpha" {
+			t.Fatalf("expected actor identity from calls edge, got %q", got)
+		}
+	})
+
+	t.Run("returns empty when tool does not match", func(t *testing.T) {
+		relationship := &schemacommon.RelationshipEnvelope{
+			Edges: []schemacommon.RelationshipEdge{
+				{
+					Kind: "calls",
+					From: schemacommon.RelationshipNodeRef{Kind: "agent", ID: "agent.alpha"},
+					To:   schemacommon.RelationshipNodeRef{Kind: "tool", ID: "tool.read"},
+				},
+			},
+		}
+		got := mcpServeRelationshipCallActor(relationship, "tool.write")
+		if got != "" {
+			t.Fatalf("expected empty actor for non-matching tool, got %q", got)
+		}
+	})
+
+	t.Run("returns empty when relationship is nil", func(t *testing.T) {
+		if got := mcpServeRelationshipCallActor(nil, "tool.write"); got != "" {
+			t.Fatalf("expected empty actor with nil relationship, got %q", got)
+		}
+	})
 }
 
 func TestMCPServeHandlerEvaluateOpenAI(t *testing.T) {

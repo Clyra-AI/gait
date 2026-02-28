@@ -1133,6 +1133,39 @@ func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
 	}
 }
 
+func TestSelectRunpackEventActor(t *testing.T) {
+	t.Run("explicit actor wins", func(t *testing.T) {
+		got := selectRunpackEventActor("agent.explicit", []schemacommon.AgentLink{
+			{Identity: "agent.delegate", Role: "delegate"},
+			{Identity: "agent.requester", Role: "requester"},
+		})
+		if got != "agent.explicit" {
+			t.Fatalf("expected explicit actor, got %q", got)
+		}
+	})
+
+	t.Run("delegate role preferred", func(t *testing.T) {
+		got := selectRunpackEventActor("", []schemacommon.AgentLink{
+			{Identity: "agent.requester", Role: "requester"},
+			{Identity: "agent.delegator", Role: "delegator"},
+			{Identity: "agent.delegate", Role: "delegate"},
+		})
+		if got != "agent.delegate" {
+			t.Fatalf("expected delegate actor, got %q", got)
+		}
+	})
+
+	t.Run("returns empty for unusable chain", func(t *testing.T) {
+		got := selectRunpackEventActor("", []schemacommon.AgentLink{
+			{Identity: "", Role: "delegate"},
+			{Identity: "agent.invalid", Role: "approver"},
+		})
+		if got != "" {
+			t.Fatalf("expected empty actor, got %q", got)
+		}
+	})
+}
+
 func TestNormalizeRunpackRelationshipEnvelopeDropsInvalidEntries(t *testing.T) {
 	invalid := &schemacommon.RelationshipEnvelope{
 		ParentRef: &schemacommon.RelationshipNodeRef{Kind: "invalid", ID: "root"},
