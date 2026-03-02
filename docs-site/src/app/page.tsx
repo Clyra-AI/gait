@@ -23,6 +23,12 @@ gait verify run_demo
 # Turn it into a CI regression gate
 gait regress bootstrap --from run_demo --junit ./gait-out/junit.xml`;
 
+const INTEGRATION_SNIPPET = `def dispatch_tool(tool_call):
+    decision = gait_evaluate(tool_call)
+    if decision["verdict"] != "allow":
+        return {"executed": False, "verdict": decision["verdict"]}
+    return {"executed": True, "result": execute_real_tool(tool_call)}`;
+
 const features = [
   {
     title: 'Durable Jobs: Run Without Losing State',
@@ -156,9 +162,41 @@ export default function HomePage() {
       </div>
 
       <div className="max-w-3xl mx-auto mb-16">
+        <h2 className="text-2xl font-bold text-white mb-4 text-center">Integrate Into Existing Agent Flows</h2>
+        <p className="text-sm text-gray-300 text-center mb-4">
+          Put Gait at the tool boundary: normalize intent, evaluate verdict, execute side effects only on <code>allow</code>, keep signed trace artifacts.
+        </p>
+        <div className="grid md:grid-cols-3 gap-4 mb-5 text-sm">
+          <div className="rounded-lg border border-gray-700 bg-gray-900/40 p-4">
+            <h3 className="font-semibold text-white mb-2">Inline Wrapper</h3>
+            <p className="text-gray-300">
+              Call <code>gait gate eval</code> in your dispatcher before real tool execution.
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-700 bg-gray-900/40 p-4">
+            <h3 className="font-semibold text-white mb-2">MCP Sidecar</h3>
+            <p className="text-gray-300">
+              Use <code>gait mcp proxy</code> for one-shot calls or <code>gait mcp serve</code> for long-running boundaries.
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-700 bg-gray-900/40 p-4">
+            <h3 className="font-semibold text-white mb-2">Python SDK</h3>
+            <p className="text-gray-300">
+              Thin ergonomics layer over the local Go binary via subprocess. Prefer inline CLI or MCP path if you do not want subprocess boundaries.
+            </p>
+          </div>
+        </div>
+        <div className="bg-gray-900/60 rounded-lg border border-gray-700 p-4 overflow-x-auto mb-5">
+          <pre><code className="text-cyan-300 text-sm">{INTEGRATION_SNIPPET}</code></pre>
+        </div>
         <div className="bg-gray-800/50 rounded-lg border border-gray-700 p-4 overflow-x-auto">
           <pre><code className="text-cyan-300 text-sm">{QUICKSTART}</code></pre>
         </div>
+        <p className="text-xs text-gray-500 mt-3">
+          Start with <Link href="/docs/integration_checklist" className="text-cyan-300 hover:text-cyan-200">integration checklist</Link>,{' '}
+          <Link href="/docs/agent_integration_boundary" className="text-cyan-300 hover:text-cyan-200">boundary guide</Link>, and{' '}
+          <Link href="/docs/sdk/python" className="text-cyan-300 hover:text-cyan-200">Python SDK contract</Link>.
+        </p>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">

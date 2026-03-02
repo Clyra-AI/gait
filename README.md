@@ -12,6 +12,40 @@ Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`d
 
 Managed/preloaded agent note: managed agents can use Gait at the tool boundary, but Gait does not host the model or replace your agent runtime.
 
+## Integration First (New or Existing Agent Flows)
+
+The integration contract is simple:
+
+1. normalize a tool call into intent
+2. call Gait for a verdict
+3. execute real side effects only on `allow`
+4. keep the signed trace/artifact
+
+```python
+def dispatch_tool(tool_call):
+    decision = gait_evaluate(tool_call)
+    if decision["verdict"] != "allow":
+        return {"executed": False, "verdict": decision["verdict"]}
+    return {"executed": True, "result": execute_real_tool(tool_call)}
+```
+
+Pick the adoption lane that matches your stack:
+
+- Inline runtime wrapper (any language): call `gait gate eval` in your dispatcher before tool execution.
+- MCP sidecar/transport lane: `gait mcp proxy` (one-shot) or `gait mcp serve` (long-running) at the boundary.
+- Python SDK lane: use `sdk/python/gait` for ergonomics; it is intentionally a thin subprocess wrapper over the local Go `gait` binary.
+
+If you do not want Python subprocess boundaries, call `gait` directly from your runtime or use the MCP sidecar path.
+
+Start here:
+
+- Blessed lane: [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
+- Quickstart script: `examples/integrations/openai_agents/quickstart.py`
+- Integration boundary guide: [`docs/agent_integration_boundary.md`](docs/agent_integration_boundary.md)
+- Integration checklist: [`docs/integration_checklist.md`](docs/integration_checklist.md)
+- MCP capability matrix: [`docs/mcp_capability_matrix.md`](docs/mcp_capability_matrix.md)
+- Python SDK contract: [`docs/sdk/python.md`](docs/sdk/python.md)
+
 ## When To Use Gait
 
 - Tool-calling AI agents need enforceable allow/block/approval decisions.
@@ -116,27 +150,9 @@ See: [2,880 tool calls gate-checked in 24 hours](docs/blog/openclaw_24h_boundary
 
 **Risk ranking** — rank highest-risk actions across runs and traces by tool class and blast radius. Offline, no dashboard.
 
-## Integrations
+## Additional Adapters
 
-```python
-def dispatch_tool(tool_call):
-    decision = gait_evaluate(tool_call)
-    if decision["verdict"] != "allow":
-        return {"executed": False, "verdict": decision["verdict"]}
-    return {"executed": True, "result": execute_real_tool(tool_call)}
-```
-
-Gait enforces at the tool boundary, not the prompt boundary. Your dispatcher calls Gait; non-`allow` means non-execute.
-
-Blessed lane: [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
-
-Quickstart script: `examples/integrations/openai_agents/quickstart.py`
-
-Additional adapters: [LangChain](examples/integrations/langchain/) · [AutoGen](examples/integrations/autogen/) · [AutoGPT](examples/integrations/autogpt/) · [OpenClaw](examples/integrations/openclaw/) · [Gastown](examples/integrations/gastown/) · [Voice](examples/integrations/voice_reference/)
-
-MCP-native: `gait mcp proxy` (one-shot) | `gait mcp serve` (long-running). Details: [`docs/mcp_capability_matrix.md`](docs/mcp_capability_matrix.md)
-
-Integration boundary guide: [`docs/agent_integration_boundary.md`](docs/agent_integration_boundary.md) | Checklist: [`docs/integration_checklist.md`](docs/integration_checklist.md) | Python SDK: [`docs/sdk/python.md`](docs/sdk/python.md)
+[LangChain](examples/integrations/langchain/) · [AutoGen](examples/integrations/autogen/) · [AutoGPT](examples/integrations/autogpt/) · [OpenClaw](examples/integrations/openclaw/) · [Gastown](examples/integrations/gastown/) · [Voice](examples/integrations/voice_reference/)
 
 ## CI Adoption (One PR)
 
