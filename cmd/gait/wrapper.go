@@ -47,6 +47,9 @@ func runWrapperMode(mode string, arguments []string) int {
 		if mode == "test" {
 			return writeExplain("Run an explicit Gait-aware integration in observe mode, capture child stdout/stderr, and summarize emitted trace verdicts without changing existing policy contracts.")
 		}
+		if mode == "trace" {
+			return writeExplain("Run an explicit Gait-aware integration in observe-only mode, preserve child exit semantics, and summarize emitted Gait traces for local debugging.")
+		}
 		return writeExplain("Run an explicit Gait-aware integration in enforce mode and convert emitted non-allow trace verdicts into stable wrapper exit codes.")
 	}
 

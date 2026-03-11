@@ -32,8 +32,9 @@ def dispatch_tool(tool_call):
 Pick the adoption lane that matches your stack:
 
 - Inline runtime wrapper (any language): call `gait gate eval` in your dispatcher before tool execution.
-- MCP sidecar/transport lane: `gait mcp proxy` (one-shot) or `gait mcp serve` (long-running) at the boundary.
+- MCP sidecar/transport lane: `gait mcp verify` (trust preflight), `gait mcp proxy` (one-shot), or `gait mcp serve` (long-running) at the boundary.
 - Python SDK lane: use `sdk/python/gait` for ergonomics; it is intentionally a thin subprocess wrapper over the local Go `gait` binary.
+- Observe-only onboarding lane: `gait trace --json -- <child command...>` for integrations that already emit Gait trace references.
 
 If you do not want Python subprocess boundaries, call `gait` directly from your runtime or use the MCP sidecar path.
 
@@ -233,14 +234,14 @@ gait voice pack build|verify|inspect|diff          Voice callpack operations
 gait run record|inspect|replay|diff|receipt        Run recording and replay
 gait run session start|append|status|checkpoint|compact  Session journaling
 gait run reduce                                    Reduce runpack by predicate
-gait mcp proxy|bridge|serve                        MCP transport adapters
+gait mcp verify|proxy|bridge|serve                 MCP trust preflight and transport adapters
 gait gateway ingest                                Ingest MCP gateway logs into signed policy-enforcement proof records
 gait policy init|validate|fmt|simulate|test        Policy authoring and explicit scaffold workflows
 gait doctor [--production-readiness] [adoption]    Diagnostics + readiness
 gait keys init|rotate|verify                       Signing key lifecycle
 gait scout snapshot|diff|signal                    Drift and adoption signals
 gait guard pack|verify|retain|encrypt|decrypt      Evidence and encryption
-gait trace verify                                  Verify signed trace integrity
+gait trace|trace verify                            Observe-only trace wrapper and trace integrity verification
 gait incident pack                                 Build incident evidence pack
 gait registry install|list|verify                  Signed skill-pack registry
 gait migrate                                       Migrate legacy artifacts to v1

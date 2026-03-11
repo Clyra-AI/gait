@@ -2,6 +2,8 @@
 
 This page explains the key fields emitted by `gait demo` and `gait tour`.
 
+It also covers the observe-only `gait trace` wrapper output because that command is part of the same first-run onboarding surface.
+
 ## `gait demo` (Standard)
 
 Example fields:
@@ -40,6 +42,15 @@ Phase markers:
 - `a3_regress_init=ok`: regress fixture initialization complete.
 - `a4_regress_run=pass`: regress execution complete.
 - `branch_hints=...`: next branches to explore (`--durable`, `--policy`).
+
+## `gait trace`
+
+Example fields:
+
+- `mode=trace`: observe-only wrapper mode.
+- `child_exit_code=...`: child process exit code preserved by the wrapper.
+- `trace_paths=[...]`: emitted trace references discovered from child output.
+- `verdict_counts=[...]`: summary of emitted trace verdicts without changing child execution.
 
 ## How To Read Outcomes Safely
 

@@ -5,7 +5,7 @@ description: "Comparison of gait mcp proxy, bridge, and serve modes with capabil
 
 # MCP Capability Matrix
 
-This page clarifies what `gait mcp proxy`, `gait mcp bridge`, and `gait mcp serve` do and do not do.
+This page clarifies what `gait mcp verify`, `gait mcp proxy`, `gait mcp bridge`, and `gait mcp serve` do and do not do.
 
 ## Adapter Definition
 
@@ -15,6 +15,7 @@ In this context, an adapter is the payload translation layer from a framework sc
 
 | Mode | Primary Use | Input | Output | Persistence | Notable Non-Goals |
 | --- | --- | --- | --- | --- | --- |
+| `gait mcp verify` | One-shot server trust preflight | Server description JSON + policy | Deterministic trust decision JSON | Reads local trust snapshot only | Does not execute tools or host a service |
 | `gait mcp proxy` | One-shot local evaluation | Tool-call payload file/stdin + policy | JSON decision + optional trace/runpack/pack exports | Optional trace/runpack/pack/log/otel outputs + emergency stop preemption when `context.job_id` is present (`--job-root`) | Not a long-running service |
 | `gait mcp bridge` | Alias of proxy for bridge wording/UX | Same as proxy | Same as proxy | Same as proxy | Not a distinct evaluator |
 | `gait mcp serve` | Long-running local HTTP decision service | `POST /v1/evaluate*` JSON request | JSON/SSE/NDJSON decision payload with `exit_code` + verdict | Trace/runpack/pack/session retention controls + auto pack emission for state-changing calls (`emit_pack` + `--pack-dir`) + emergency stop preemption via job runtime state (`--job-root`) | Does not execute tools for caller |
@@ -39,6 +40,8 @@ if verdict != allow: do not execute side effects
 - Non-loopback bind should use token auth (`--auth-mode token --auth-token-env`).
 - Use strict verdict HTTP status when needed (`--http-verdict-status strict`).
 - Bound payload size (`--max-request-bytes`) and retention (`--trace-max-*`, `--runpack-max-*`, `--session-max-*`).
+- MCP trust remains offline-first: `mcp_trust.snapshot` points to a local trust snapshot file, and high-risk trust failures fail closed.
+- Trust inputs stay complementary to scanners and registries. Scanner finds; Gait enforces.
 
 ## What MCP Modes Do Not Replace
 
@@ -56,6 +59,10 @@ MCP modes do not replace operator/CI workflows such as:
 - `docs/integration_checklist.md`
 
 ## Frequently Asked Questions
+
+### What is gait mcp verify?
+
+One-shot trust preflight for a single MCP server description. Use it to validate a local trust snapshot before wiring the server into `proxy` or `serve`.
 
 ### What is gait mcp proxy?
 

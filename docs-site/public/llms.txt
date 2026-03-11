@@ -26,6 +26,8 @@
 - gait regress run --json --junit <path>
 - gait policy test <policy.yaml> <intent.json>
 - gait gate eval --policy <policy.yaml> --intent <intent.json>
+- gait mcp verify --policy <policy.yaml> --server <server.json>
+- gait trace -- <child command...>
 - gait gate eval --policy <policy.yaml> --intent <intent.json> --wrkr-inventory <inventory.json>
 - gait approve-script --policy <policy.yaml> --intent <script_intent.json> --registry <registry.json> --approver <id>
 - gait list-scripts --registry <registry.json>
@@ -70,6 +72,7 @@
 - SayToken capability tokens for voice agent commitment gating.
 - Context evidence envelopes with fail-closed enforcement when evidence is missing.
 - Signed traces and explicit reason codes for blocked actions.
+- MCP trust stays file-based and offline-first: external tool finds, Gait enforces.
 - No hosted service dependency required for core operation.
 
 ## Canonical Docs

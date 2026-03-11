@@ -66,6 +66,7 @@ type Policy struct {
 	DefaultAction  string           `yaml:"default_action"`
 	Scripts        ScriptPolicy     `yaml:"scripts"`
 	FailClosed     FailClosedPolicy `yaml:"fail_closed"`
+	MCPTrust       MCPTrustPolicy   `yaml:"mcp_trust"`
 	Rules          []PolicyRule     `yaml:"rules"`
 }
 
@@ -79,6 +80,17 @@ type FailClosedPolicy struct {
 	Enabled        bool     `yaml:"enabled"`
 	RiskClasses    []string `yaml:"risk_classes"`
 	RequiredFields []string `yaml:"required_fields"`
+}
+
+type MCPTrustPolicy struct {
+	Enabled             bool     `yaml:"enabled"`
+	SnapshotPath        string   `yaml:"snapshot"`
+	Action              string   `yaml:"action"`
+	RequiredRiskClasses []string `yaml:"required_risk_classes"`
+	MinScore            float64  `yaml:"min_score"`
+	MaxAge              string   `yaml:"max_age"`
+	PublisherAllowlist  []string `yaml:"publisher_allowlist"`
+	RequireRegistry     bool     `yaml:"require_registry"`
 }
 
 type PolicyRule struct {
@@ -197,6 +209,7 @@ type EvalOutcome struct {
 	PreApproved              bool
 	PatternID                string
 	RegistryReason           string
+	MCPTrust                 *schemagate.MCPTrustDecision
 }
 
 func LoadPolicyFile(path string) (Policy, error) {
@@ -769,6 +782,19 @@ func policyDigestPayload(policy Policy) map[string]any {
 			"BlockMixedRisk":       policy.Scripts.BlockMixedRisk,
 		}
 	}
+	if policy.MCPTrust.Enabled {
+		mcpTrustPayload := map[string]any{
+			"Enabled":             policy.MCPTrust.Enabled,
+			"SnapshotPath":        policy.MCPTrust.SnapshotPath,
+			"Action":              policy.MCPTrust.Action,
+			"RequiredRiskClasses": policy.MCPTrust.RequiredRiskClasses,
+			"MinScore":            policy.MCPTrust.MinScore,
+			"MaxAge":              policy.MCPTrust.MaxAge,
+			"PublisherAllowlist":  policy.MCPTrust.PublisherAllowlist,
+			"RequireRegistry":     policy.MCPTrust.RequireRegistry,
+		}
+		payload["MCPTrust"] = mcpTrustPayload
+	}
 	return payload
 }
 
@@ -842,6 +868,47 @@ func normalizePolicy(input Policy) (Policy, error) {
 	for _, field := range output.FailClosed.RequiredFields {
 		if _, ok := allowedRequiredFields[field]; !ok {
 			return Policy{}, fmt.Errorf("unsupported fail_closed required_field: %s", field)
+		}
+	}
+	output.MCPTrust.SnapshotPath = strings.TrimSpace(output.MCPTrust.SnapshotPath)
+	output.MCPTrust.Action = strings.ToLower(strings.TrimSpace(output.MCPTrust.Action))
+	output.MCPTrust.RequiredRiskClasses = normalizeStringListLower(output.MCPTrust.RequiredRiskClasses)
+	output.MCPTrust.PublisherAllowlist = normalizeStringListLower(output.MCPTrust.PublisherAllowlist)
+	output.MCPTrust.MaxAge = strings.TrimSpace(output.MCPTrust.MaxAge)
+	mcpTrustConfigured := output.MCPTrust.Enabled ||
+		output.MCPTrust.SnapshotPath != "" ||
+		output.MCPTrust.Action != "" ||
+		len(output.MCPTrust.RequiredRiskClasses) > 0 ||
+		output.MCPTrust.MinScore > 0 ||
+		output.MCPTrust.MaxAge != "" ||
+		len(output.MCPTrust.PublisherAllowlist) > 0 ||
+		output.MCPTrust.RequireRegistry
+	if mcpTrustConfigured {
+		output.MCPTrust.Enabled = true
+		if output.MCPTrust.SnapshotPath == "" {
+			return Policy{}, fmt.Errorf("mcp_trust.snapshot is required when mcp_trust is configured")
+		}
+		if output.MCPTrust.Action == "" {
+			output.MCPTrust.Action = "block"
+		}
+		if _, ok := allowedDataflowActions[output.MCPTrust.Action]; !ok {
+			return Policy{}, fmt.Errorf("unsupported mcp_trust.action %q", output.MCPTrust.Action)
+		}
+		if len(output.MCPTrust.RequiredRiskClasses) == 0 {
+			output.MCPTrust.RequiredRiskClasses = []string{"critical", "high"}
+		}
+		if output.MCPTrust.MinScore < 0 || output.MCPTrust.MinScore > 1 {
+			return Policy{}, fmt.Errorf("mcp_trust.min_score must be between 0 and 1")
+		}
+		if output.MCPTrust.MaxAge != "" {
+			duration, err := time.ParseDuration(output.MCPTrust.MaxAge)
+			if err != nil {
+				return Policy{}, fmt.Errorf("parse mcp_trust.max_age: %w", err)
+			}
+			if duration <= 0 {
+				return Policy{}, fmt.Errorf("mcp_trust.max_age must be > 0")
+			}
+			output.MCPTrust.MaxAge = duration.String()
 		}
 	}
 	if output.Scripts.MaxSteps < 0 {

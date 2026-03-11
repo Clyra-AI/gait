@@ -47,9 +47,21 @@ type mcpProxyOutput struct {
 	PackID            string                             `json:"pack_id,omitempty"`
 	LogExport         string                             `json:"log_export,omitempty"`
 	OTelExport        string                             `json:"otel_export,omitempty"`
+	MCPTrust          *schemagate.MCPTrustDecision       `json:"mcp_trust,omitempty"`
 	Warnings          []string                           `json:"warnings,omitempty"`
 	Relationship      *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
 	Error             string                             `json:"error,omitempty"`
+}
+
+type mcpVerifyOutput struct {
+	OK          bool                         `json:"ok"`
+	ServerID    string                       `json:"server_id,omitempty"`
+	ServerName  string                       `json:"server_name,omitempty"`
+	Verdict     string                       `json:"verdict,omitempty"`
+	ReasonCodes []string                     `json:"reason_codes,omitempty"`
+	Violations  []string                     `json:"violations,omitempty"`
+	MCPTrust    *schemagate.MCPTrustDecision `json:"mcp_trust,omitempty"`
+	Error       string                       `json:"error,omitempty"`
 }
 
 type mcpProxyEvalOptions struct {
@@ -81,6 +93,8 @@ func runMCP(arguments []string) int {
 		return runMCPProxy(arguments[1:])
 	case "bridge":
 		return runMCPProxy(arguments[1:])
+	case "verify":
+		return runMCPVerify(arguments[1:])
 	case "serve":
 		return runMCPServe(arguments[1:])
 	default:
@@ -190,6 +204,131 @@ func runMCPProxy(arguments []string) int {
 	return writeMCPProxyOutput(jsonOutput, output, exitCode)
 }
 
+func runMCPVerify(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Evaluate optional MCP server trust policy against a local server description without executing a tool call.")
+	}
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"policy":     true,
+		"server":     true,
+		"risk-class": true,
+	})
+	flagSet := flag.NewFlagSet("mcp-verify", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var policyPath string
+	var serverPath string
+	var riskClass string
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.StringVar(&policyPath, "policy", "", "path to policy YAML")
+	flagSet.StringVar(&serverPath, "server", "", "path to MCP server trust description JSON")
+	flagSet.StringVar(&riskClass, "risk-class", "", "risk class to evaluate for trust preflight")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printMCPVerifyUsage()
+		return exitOK
+	}
+	if strings.TrimSpace(policyPath) == "" || strings.TrimSpace(serverPath) == "" || len(flagSet.Args()) > 0 {
+		return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{OK: false, Error: "expected --policy <policy.yaml> and --server <server.json>"}, exitInvalidInput)
+	}
+
+	policy, err := gate.LoadPolicyFile(policyPath)
+	if err != nil {
+		return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	server, err := readMCPServerInfo(serverPath)
+	if err != nil {
+		return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	resolvedRiskClass := resolveMCPVerifyRiskClass(policy, riskClass)
+	trustDecision := mcp.EvaluateServerTrust(policy.MCPTrust, server, resolvedRiskClass, time.Now().UTC())
+	if trustDecision == nil {
+		return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{
+			OK:         true,
+			ServerID:   strings.TrimSpace(server.ServerID),
+			ServerName: strings.TrimSpace(server.ServerName),
+			Verdict:    "allow",
+		}, exitOK)
+	}
+
+	verdict := "allow"
+	violations := []string{}
+	exitCode := exitOK
+	if trustDecision.Enforced {
+		verdict = policy.MCPTrust.Action
+		violations = []string{"mcp_trust_policy"}
+		if verdict == "block" {
+			exitCode = exitPolicyBlocked
+		} else {
+			exitCode = exitApprovalRequired
+		}
+	}
+	ok := exitCode == exitOK
+	return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{
+		OK:          ok,
+		ServerID:    trustDecision.ServerID,
+		ServerName:  trustDecision.ServerName,
+		Verdict:     verdict,
+		ReasonCodes: append([]string(nil), trustDecision.ReasonCodes...),
+		Violations:  violations,
+		MCPTrust:    trustDecision,
+	}, exitCode)
+}
+
+func readMCPServerInfo(path string) (*mcp.ServerInfo, error) {
+	// #nosec G304 -- server config path is explicit local user input.
+	raw, err := os.ReadFile(strings.TrimSpace(path))
+	if err != nil {
+		return nil, fmt.Errorf("read server description: %w", err)
+	}
+	var server mcp.ServerInfo
+	if err := json.Unmarshal(raw, &server); err != nil {
+		return nil, fmt.Errorf("parse server description: %w", err)
+	}
+	if strings.TrimSpace(server.ServerID) == "" && strings.TrimSpace(server.ServerName) == "" {
+		return nil, fmt.Errorf("server description requires server_id or server_name")
+	}
+	return &server, nil
+}
+
+func resolveMCPVerifyRiskClass(policy gate.Policy, explicit string) string {
+	if trimmed := strings.ToLower(strings.TrimSpace(explicit)); trimmed != "" {
+		return trimmed
+	}
+	if len(policy.MCPTrust.RequiredRiskClasses) == 0 {
+		return "high"
+	}
+	priority := map[string]int{
+		"critical": 0,
+		"high":     1,
+		"medium":   2,
+		"low":      3,
+	}
+	best := policy.MCPTrust.RequiredRiskClasses[0]
+	bestRank, ok := priority[best]
+	if !ok {
+		bestRank = len(priority) + 1
+	}
+	for _, candidate := range policy.MCPTrust.RequiredRiskClasses[1:] {
+		rank, ok := priority[candidate]
+		if !ok {
+			rank = len(priority) + 1
+		}
+		if rank < bestRank {
+			best = candidate
+			bestRank = rank
+		}
+	}
+	return best
+}
+
 func readMCPPayload(path string) ([]byte, error) {
 	if strings.TrimSpace(path) == "-" {
 		raw, err := io.ReadAll(os.Stdin)
@@ -265,6 +404,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		PreApproved:        evalResult.Outcome.PreApproved,
 		PatternID:          evalResult.Outcome.PatternID,
 		RegistryReason:     evalResult.Outcome.RegistryReason,
+		MCPTrust:           evalResult.Trust,
 		SigningPrivateKey:  keyPair.Private,
 		TracePath:          resolvedTracePath,
 	})
@@ -399,6 +539,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		PackID:            resolvedPackID,
 		LogExport:         resolvedLogExport,
 		OTelExport:        resolvedOTelExport,
+		MCPTrust:          evalResult.Trust,
 		Warnings:          warnings,
 		Relationship:      traceResult.Trace.Relationship,
 	}, exitCode, nil
@@ -807,10 +948,27 @@ func writeMCPProxyOutput(jsonOutput bool, output mcpProxyOutput, exitCode int) i
 	return exitCode
 }
 
+func writeMCPVerifyOutput(jsonOutput bool, output mcpVerifyOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+	if output.OK {
+		fmt.Printf("mcp verify: verdict=%s\n", output.Verdict)
+		return exitCode
+	}
+	if output.Error != "" {
+		fmt.Printf("mcp verify error: %s\n", output.Error)
+		return exitCode
+	}
+	fmt.Printf("mcp verify: verdict=%s\n", output.Verdict)
+	return exitCode
+}
+
 func printMCPUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
 	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
 }
@@ -818,4 +976,9 @@ func printMCPUsage() {
 func printMCPProxyUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+}
+
+func printMCPVerifyUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
 }

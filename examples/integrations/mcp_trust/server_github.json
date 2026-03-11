@@ -1,0 +1,7 @@
+{
+  "server_id": "github",
+  "server_name": "GitHub MCP",
+  "publisher": "acme",
+  "source": "snyk",
+  "endpoint": "https://github.example/mcp"
+}

@@ -41,6 +41,26 @@
       },
       "additionalProperties": false
     },
+    "mcp_trust": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "snapshot": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "enum": ["block", "require_approval"] },
+        "required_risk_classes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "min_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "max_age": { "type": "string", "minLength": 1 },
+        "publisher_allowlist": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "require_registry": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
     "rules": {
       "type": "array",
       "items": {

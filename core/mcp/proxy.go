@@ -20,6 +20,7 @@ type EvalResult struct {
 	Call    ToolCall
 	Intent  schemagate.IntentRequest
 	Outcome gate.EvalOutcome
+	Trust   *schemagate.MCPTrustDecision
 }
 
 type IntentOptions struct {
@@ -43,10 +44,12 @@ func EvaluateToolCallWithIntentOptions(policy gate.Policy, call ToolCall, opts g
 	if err != nil {
 		return EvalResult{}, err
 	}
+	outcome = ApplyTrustPolicy(policy.MCPTrust, call, outcome, time.Now().UTC())
 	return EvalResult{
 		Call:    call,
 		Intent:  normalizedIntent,
 		Outcome: outcome,
+		Trust:   outcome.MCPTrust,
 	}, nil
 }
 

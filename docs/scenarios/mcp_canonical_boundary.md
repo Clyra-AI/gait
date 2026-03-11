@@ -25,6 +25,7 @@ From repo root:
 
 ```bash
 go build -o ./gait ./cmd/gait
+gait mcp verify --policy examples/integrations/mcp_trust/policy.yaml --server examples/integrations/mcp_trust/server_github.json --json
 bash scripts/demo_mcp_canonical.sh
 ```
 
@@ -60,5 +61,6 @@ Expected contract:
 ## Why this is canonical
 
 - Uses `gait mcp serve` as boundary service.
+- Can preflight MCP trust with `gait mcp verify` against a local trust snapshot before runtime traffic starts.
 - Uses deterministic policy fixtures under `examples/integrations/template/`.
 - Proves enforcement outcomes and evidence emission in the same flow.

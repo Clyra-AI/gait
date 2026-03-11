@@ -12,6 +12,11 @@ It provides seven OSS primitives:
 6. **Context Evidence**: Deterministic proof of what context the model was working from at decision time. Privacy-aware envelopes with fail-closed enforcement when evidence is missing.
 7. **Doctor**: Diagnose first-run environment issues with stable JSON output.
 
+Secondary boundary surfaces:
+
+- **MCP Trust**: evaluate local trust snapshots for MCP server admission with `gait mcp verify`, `gait mcp proxy`, and `gait mcp serve`.
+- **Trace**: observe-only wrapper mode with `gait trace` for integrations that already emit Gait trace references.
+
 Gait is vendor-neutral and offline-first for core workflows: capture, verify, diff, policy evaluation, regressions, and voice/context verification all run without network dependencies.
 
 Tool boundary (canonical):

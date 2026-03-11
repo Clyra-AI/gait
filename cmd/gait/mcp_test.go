@@ -205,6 +205,126 @@ func TestRunMCPProxyOpenAIAdapter(t *testing.T) {
 	}
 }
 
+func TestRunMCPVerifyTrustPolicy(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"mcp_trust:",
+		"  snapshot: ./trust_snapshot.json",
+		"  action: block",
+		"  required_risk_classes: [high]",
+		"  min_score: 0.8",
+	}, "\n")+"\n")
+	mustWriteFile(t, filepath.Join(workDir, "trust_snapshot.json"), strings.Join([]string{
+		`{"schema_id":"gait.mcp.trust_snapshot","schema_version":"1.0.0","created_at":"2026-03-01T00:00:00Z","producer_version":"test","entries":[{"server_id":"github","status":"trusted","updated_at":"2026-03-01T00:00:00Z","score":0.95}]}`,
+	}, "\n"))
+	serverPath := filepath.Join(workDir, "server.json")
+	mustWriteFile(t, serverPath, `{"server_id":"github","server_name":"GitHub"}`)
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runMCPVerify([]string{"--policy", policyPath, "--server", serverPath, "--json"})
+	})
+	if code != exitOK {
+		t.Fatalf("runMCPVerify expected %d got %d (%s)", exitOK, code, raw)
+	}
+	var output mcpVerifyOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode verify output: %v", err)
+	}
+	if !output.OK || output.MCPTrust == nil || output.MCPTrust.Status != "trusted" {
+		t.Fatalf("expected trusted verify output, got %#v", output)
+	}
+}
+
+func TestRunMCPVerifyInfersPolicyRiskClass(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"mcp_trust:",
+		"  snapshot: ./trust_snapshot.json",
+		"  action: block",
+		"  required_risk_classes: [critical]",
+	}, "\n")+"\n")
+	mustWriteFile(t, filepath.Join(workDir, "trust_snapshot.json"), `{"schema_id":"gait.mcp.trust_snapshot","schema_version":"1.0.0","created_at":"2026-03-01T00:00:00Z","producer_version":"test","entries":[]}`)
+	serverPath := filepath.Join(workDir, "server.json")
+	mustWriteFile(t, serverPath, `{"server_id":"unknown"}`)
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runMCPVerify([]string{"--policy", policyPath, "--server", serverPath, "--json"})
+	})
+	if code != exitPolicyBlocked {
+		t.Fatalf("runMCPVerify inferred risk class expected %d got %d (%s)", exitPolicyBlocked, code, raw)
+	}
+}
+
+func TestRunMCPVerifyBlockedAndReadServerErrors(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"mcp_trust:",
+		"  snapshot: ./trust_snapshot.json",
+		"  action: require_approval",
+		"  required_risk_classes: [high]",
+	}, "\n")+"\n")
+	mustWriteFile(t, filepath.Join(workDir, "trust_snapshot.json"), `{"schema_id":"gait.mcp.trust_snapshot","schema_version":"1.0.0","created_at":"2026-03-01T00:00:00Z","producer_version":"test","entries":[]}`)
+	serverPath := filepath.Join(workDir, "server.json")
+	mustWriteFile(t, serverPath, `{"server_id":"unknown"}`)
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runMCPVerify([]string{"--policy", policyPath, "--server", serverPath, "--json"})
+	})
+	if code != exitApprovalRequired {
+		t.Fatalf("runMCPVerify approval expected %d got %d (%s)", exitApprovalRequired, code, raw)
+	}
+	var output mcpVerifyOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode blocked verify output: %v", err)
+	}
+	if output.OK || output.MCPTrust == nil || output.MCPTrust.Status != "unknown" {
+		t.Fatalf("expected unknown blocked verify output, got %#v", output)
+	}
+
+	badServerPath := filepath.Join(workDir, "bad_server.json")
+	mustWriteFile(t, badServerPath, `{`)
+	if _, err := readMCPServerInfo(badServerPath); err == nil {
+		t.Fatalf("expected parse error from readMCPServerInfo")
+	}
+}
+
+func TestWriteMCPVerifyOutputTextModes(t *testing.T) {
+	if code := writeMCPVerifyOutput(false, mcpVerifyOutput{OK: true, Verdict: "allow"}, exitOK); code != exitOK {
+		t.Fatalf("writeMCPVerifyOutput ok expected %d got %d", exitOK, code)
+	}
+	if code := writeMCPVerifyOutput(false, mcpVerifyOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeMCPVerifyOutput error expected %d got %d", exitInvalidInput, code)
+	}
+}
+
+func TestResolveMCPVerifyRiskClass(t *testing.T) {
+	if got := resolveMCPVerifyRiskClass(gate.Policy{}, " critical "); got != "critical" {
+		t.Fatalf("explicit risk class mismatch: %s", got)
+	}
+	policy := gate.Policy{MCPTrust: gate.MCPTrustPolicy{RequiredRiskClasses: []string{"medium", "critical", "high"}}}
+	if got := resolveMCPVerifyRiskClass(policy, ""); got != "critical" {
+		t.Fatalf("expected most restrictive risk class, got %s", got)
+	}
+	if got := resolveMCPVerifyRiskClass(gate.Policy{}, ""); got != "high" {
+		t.Fatalf("expected default risk class high, got %s", got)
+	}
+}
+
 func TestShouldAutoEmitMCPPack(t *testing.T) {
 	tests := []struct {
 		name     string

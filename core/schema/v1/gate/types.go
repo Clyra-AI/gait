@@ -39,9 +39,28 @@ type TraceRecord struct {
 	LatencyMS           float64                            `json:"latency_ms,omitempty"`
 	ApprovalTokenRef    string                             `json:"approval_token_ref,omitempty"`
 	DelegationRef       *DelegationRef                     `json:"delegation_ref,omitempty"`
+	MCPTrust            *MCPTrustDecision                  `json:"mcp_trust,omitempty"`
 	Relationship        *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
 	SkillProvenance     *SkillProvenance                   `json:"skill_provenance,omitempty"`
 	Signature           *Signature                         `json:"signature,omitempty"`
+}
+
+type MCPTrustDecision struct {
+	ServerID         string    `json:"server_id,omitempty"`
+	ServerName       string    `json:"server_name,omitempty"`
+	Publisher        string    `json:"publisher,omitempty"`
+	Source           string    `json:"source,omitempty"`
+	Status           string    `json:"status,omitempty"`
+	DecisionSource   string    `json:"decision_source,omitempty"`
+	Score            float64   `json:"score,omitempty"`
+	Threshold        float64   `json:"threshold,omitempty"`
+	UpdatedAt        time.Time `json:"updated_at,omitempty"`
+	MaxAgeSeconds    int64     `json:"max_age_seconds,omitempty"`
+	Required         bool      `json:"required,omitempty"`
+	Enforced         bool      `json:"enforced,omitempty"`
+	RegistryVerified bool      `json:"registry_verified,omitempty"`
+	PublisherAllowed bool      `json:"publisher_allowed,omitempty"`
+	ReasonCodes      []string  `json:"reason_codes,omitempty"`
 }
 
 type TraceStepVerdict struct {

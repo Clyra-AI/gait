@@ -25,7 +25,8 @@ These file locations and command roles are part of the public OSS onboarding con
 - `gait.yaml`: regress fixture config written and consumed by `gait regress init|add|bootstrap|run`
 - `gait policy *`: explicit policy authoring commands that remain supported for custom file paths, including `gait.policy.yaml`
 - `gait regress *`: deterministic regress workflow commands; `regress add` is a convenience path over the same fixture semantics as `regress init`
-- `gait trace verify`: shipped trace verification command; no non-verify trace verb is implied by this contract
+- `gait trace`: observe-only wrapper for integrations that already emit Gait trace references
+- `gait trace verify`: shipped trace verification command
 
 Intent + receipt continuity conformance profile:
 
@@ -176,6 +177,7 @@ Producer obligations:
   - `step_verdicts[]`
   - `pre_approved`, `pattern_id`, `registry_reason`
   - `context_source` when Wrkr enrichment is applied
+- SHOULD include `mcp_trust` when MCP trust preflight or runtime trust enforcement is active so audits can see the local decision source and fail-closed reason codes.
 - SHOULD carry context-proof linkage when present in intent:
   - `context_set_digest`
   - `context_evidence_mode`

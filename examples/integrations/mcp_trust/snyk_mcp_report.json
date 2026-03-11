@@ -1,0 +1,10 @@
+{
+  "server_id": "github",
+  "server_name": "GitHub MCP",
+  "publisher": "acme",
+  "source": "snyk",
+  "updated_at": "2026-03-01T00:00:00Z",
+  "score": 0.95,
+  "status": "trusted",
+  "evidence_path": "examples/integrations/mcp_trust/snyk_mcp_report.json"
+}

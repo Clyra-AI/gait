@@ -2,11 +2,38 @@
 
 Use this workflow when your organization already maintains an approved tool registry and you want Gait policy to enforce it at execution time.
 
+For MCP server admission, use the same boundary principle with a local trust snapshot. External scanners or registries produce local files; `gait mcp verify`, `gait mcp proxy`, and `gait mcp serve` consume the local file and enforce policy. Gait does not become the scanner.
+
 ## Goal
 
 Convert external allowlist data into deterministic `gait.gate.policy` YAML and validate it before rollout.
 
 Gait does not own the tool registry. It consumes registry outputs as policy input.
+
+## MCP Trust Snapshot Workflow
+
+Use this when an external source such as Snyk or an internal registry produces trust data for MCP servers:
+
+1. Export a local trust file from the external system.
+2. Render a local `gait.mcp.trust_snapshot` JSON file.
+3. Preflight with `gait mcp verify`.
+4. Enforce the same trust policy through `gait mcp proxy` or `gait mcp serve`.
+
+```bash
+python3 scripts/render_mcp_trust_snapshot.py \
+  --input examples/integrations/mcp_trust/snyk_mcp_report.json \
+  --output examples/integrations/mcp_trust/trust_snapshot.json
+
+gait mcp verify \
+  --policy examples/integrations/mcp_trust/policy.yaml \
+  --server examples/integrations/mcp_trust/server_github.json \
+  --json
+```
+
+Positioning rule:
+
+- scanner or registry finds
+- Gait enforces
 
 ## Supported Allowlist Input Shapes
 

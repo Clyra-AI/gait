@@ -103,11 +103,55 @@ rules:
 	}
 }
 
+func TestParsePolicyYAMLMCPTrustDefaults(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+mcp_trust:
+  snapshot: ./trust_snapshot.json
+  min_score: 0.8
+  publisher_allowlist: [Acme]
+  require_registry: true
+`))
+	if err != nil {
+		t.Fatalf("parse policy mcp_trust: %v", err)
+	}
+	if !policy.MCPTrust.Enabled {
+		t.Fatalf("expected mcp_trust enabled")
+	}
+	if policy.MCPTrust.Action != "block" {
+		t.Fatalf("expected default mcp_trust action block, got %q", policy.MCPTrust.Action)
+	}
+	if !reflect.DeepEqual(policy.MCPTrust.RequiredRiskClasses, []string{"critical", "high"}) {
+		t.Fatalf("unexpected mcp_trust default risk classes: %#v", policy.MCPTrust.RequiredRiskClasses)
+	}
+	if !reflect.DeepEqual(policy.MCPTrust.PublisherAllowlist, []string{"acme"}) {
+		t.Fatalf("unexpected mcp_trust publisher allowlist: %#v", policy.MCPTrust.PublisherAllowlist)
+	}
+	if !policy.MCPTrust.RequireRegistry {
+		t.Fatalf("expected require_registry to be preserved")
+	}
+}
+
 func TestParsePolicyValidationErrors(t *testing.T) {
 	tests := []struct {
 		name string
 		yaml string
 	}{
+		{
+			name: "invalid_mcp_trust_min_score",
+			yaml: `
+mcp_trust:
+  snapshot: ./trust_snapshot.json
+  min_score: 1.2
+`,
+		},
+		{
+			name: "missing_mcp_trust_snapshot",
+			yaml: `
+mcp_trust:
+  enabled: true
+`,
+		},
 		{
 			name: "invalid_default_verdict",
 			yaml: `default_verdict: nope`,

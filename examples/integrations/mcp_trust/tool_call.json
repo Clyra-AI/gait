@@ -1,0 +1,24 @@
+{
+  "name": "tool.read",
+  "args": {
+    "resource": "issues"
+  },
+  "targets": [
+    {
+      "kind": "host",
+      "value": "api.github.com",
+      "operation": "read",
+      "discovery_method": "webmcp"
+    }
+  ],
+  "server": {
+    "server_id": "github",
+    "server_name": "GitHub MCP"
+  },
+  "context": {
+    "identity": "agent",
+    "workspace": "/repo",
+    "risk_class": "high",
+    "session_id": "sess-1"
+  }
+}

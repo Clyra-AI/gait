@@ -11,6 +11,8 @@ Contract:
   - `trace_path`
   - `exit_code`
 
+For MCP boundaries, pair this with `gait mcp verify` when you need a local trust preflight from a scanner or registry snapshot. Keep the boundary split explicit: external system finds, Gait enforces.
+
 ## Run from fixture file
 
 ```bash

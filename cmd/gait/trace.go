@@ -22,7 +22,7 @@ type traceVerifyOutput struct {
 
 func runTrace(arguments []string) int {
 	if hasExplainFlag(arguments) {
-		return writeExplain("Verify signed gate trace records for offline auditability.")
+		return writeExplain("Capture observe-only Gait trace summaries from an explicit child boundary, or verify signed gate trace records offline.")
 	}
 	if len(arguments) == 0 {
 		printTraceUsage()
@@ -32,9 +32,25 @@ func runTrace(arguments []string) int {
 	case "verify":
 		return runTraceVerify(arguments[1:])
 	default:
-		printTraceUsage()
-		return exitInvalidInput
+		if !traceObserveRequested(arguments) {
+			printTraceUsage()
+			return exitInvalidInput
+		}
+		return runTraceObserve(arguments)
 	}
+}
+
+func traceObserveRequested(arguments []string) bool {
+	for _, argument := range arguments {
+		if strings.TrimSpace(argument) == "--" {
+			return true
+		}
+	}
+	return false
+}
+
+func runTraceObserve(arguments []string) int {
+	return runWrapperMode("trace", arguments)
 }
 
 func runTraceVerify(arguments []string) int {
@@ -155,6 +171,7 @@ func writeTraceVerifyOutput(jsonOutput bool, output traceVerifyOutput, exitCode 
 
 func printTraceUsage() {
 	fmt.Println("Usage:")
+	fmt.Println("  gait trace [--cwd .] [--timeout 30s] [--json] -- <child command...>")
 	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
 }
 

@@ -64,6 +64,30 @@
     "violations": { "type": "array", "items": { "type": "string" }, "default": [] },
     "latency_ms": { "type": "number" },
     "approval_token_ref": { "type": "string" },
+    "mcp_trust": {
+      "type": "object",
+      "properties": {
+        "server_id": { "type": "string", "minLength": 1 },
+        "server_name": { "type": "string", "minLength": 1 },
+        "publisher": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["trusted", "missing", "unknown", "untrusted", "invalid", "stale", "below_threshold"]
+        },
+        "decision_source": { "type": "string", "minLength": 1 },
+        "score": { "type": "number" },
+        "threshold": { "type": "number" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "max_age_seconds": { "type": "integer", "minimum": 0 },
+        "required": { "type": "boolean" },
+        "enforced": { "type": "boolean" },
+        "registry_verified": { "type": "boolean" },
+        "publisher_allowed": { "type": "boolean" },
+        "reason_codes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
     "delegation_ref": {
       "type": "object",
       "properties": {

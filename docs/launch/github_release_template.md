@@ -15,6 +15,7 @@ Gait is the offline-first Agent Control Plane for production tool actions.
 - `<feature 1>` with path references
 - `<feature 2>` with path references
 - `<feature 3>` with path references
+- `gait mcp verify` or `gait trace` only if the corresponding local example/docs/tests landed
 
 ## First 5 Minutes
 

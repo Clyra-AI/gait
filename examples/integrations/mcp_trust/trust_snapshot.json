@@ -1,0 +1,18 @@
+{
+  "schema_id": "gait.mcp.trust_snapshot",
+  "schema_version": "1.0.0",
+  "created_at": "2026-03-01T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "entries": [
+    {
+      "server_id": "github",
+      "server_name": "GitHub MCP",
+      "publisher": "acme",
+      "source": "snyk",
+      "status": "trusted",
+      "updated_at": "2026-03-01T00:00:00Z",
+      "score": 0.95,
+      "evidence_path": "examples/integrations/mcp_trust/snyk_mcp_report.json"
+    }
+  ]
+}
