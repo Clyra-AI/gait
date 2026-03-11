@@ -1,4 +1,5 @@
 from __future__ import annotations
+# mypy: disable-error-code=import-not-found
 
 import os
 import re
