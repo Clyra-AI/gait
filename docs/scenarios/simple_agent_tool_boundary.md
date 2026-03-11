@@ -50,6 +50,12 @@ Expected:
 - block -> `executed=false`
 - require approval -> `executed=false`
 
+For observe-only onboarding with an integration that already emits Gait trace references:
+
+```bash
+gait trace --json -- python3 examples/integrations/openai_agents/quickstart.py --scenario allow
+```
+
 Artifacts:
 
 - `gait-out/integrations/openai_agents/trace_allow.json`

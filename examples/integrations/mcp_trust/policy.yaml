@@ -1,0 +1,6 @@
+default_verdict: allow
+mcp_trust:
+  snapshot: ./examples/integrations/mcp_trust/trust_snapshot.json
+  action: block
+  required_risk_classes: [high]
+  min_score: 0.8

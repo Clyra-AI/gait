@@ -9,6 +9,7 @@ Current safe-default rollout note:
 - ship `examples/policy/knowledge_worker_safe.yaml` as reversible-first profile
 - ship `baseline-highrisk` destructive budget defaults for fail-closed bursts
 - stage rollout: monitor -> approval -> enforce
+- when citing MCP trust, show local snapshot + `gait mcp verify`, not a hosted scanner replacement story
 
 ## Contents
 

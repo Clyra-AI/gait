@@ -10,6 +10,8 @@ Gait keeps one execution-boundary and artifact contract across all of them.
 No. Gait enforces policy at tool-call execution boundary.
 Prompt text can be hostile; execution decisions must be structured and deterministic.
 
+For MCP trust, the same rule applies: external scanners or registries produce local evidence, and Gait evaluates that local evidence at the boundary. Gait is not replacing the scanner.
+
 ## "Will this add too much latency?"
 
 Runtime budgets are measured and enforced (`make bench-budgets`).

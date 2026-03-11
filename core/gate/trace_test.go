@@ -146,6 +146,39 @@ func TestEmitSignedTraceIncludesScriptMetadata(t *testing.T) {
 	}
 }
 
+func TestEmitSignedTraceIncludesMCPTrustDecision(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	policy, err := ParsePolicyYAML([]byte(`default_verdict: allow`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	result, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+	emitted, err := EmitSignedTrace(policy, intent, result, EmitTraceOptions{
+		ProducerVersion:   "test",
+		SigningPrivateKey: keyPair.Private,
+		TracePath:         filepath.Join(t.TempDir(), "trace_trust.json"),
+		MCPTrust: &schemagate.MCPTrustDecision{
+			ServerID:       "github",
+			Status:         "trusted",
+			DecisionSource: "trust_snapshot.json",
+			ReasonCodes:    []string{"mcp_trust_verified"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("emit trace with trust: %v", err)
+	}
+	if emitted.Trace.MCPTrust == nil || emitted.Trace.MCPTrust.ServerID != "github" {
+		t.Fatalf("expected mcp trust decision in trace: %#v", emitted.Trace.MCPTrust)
+	}
+}
+
 func TestVerifyTraceRecordTamperDetection(t *testing.T) {
 	keyPair, err := sign.GenerateKeyPair()
 	if err != nil {

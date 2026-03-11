@@ -183,6 +183,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "mcp", "bridge", "--help"}); code != exitOK {
 		t.Fatalf("run mcp bridge help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "mcp", "verify", "--help"}); code != exitOK {
+		t.Fatalf("run mcp verify help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "verify", "--help"}); code != exitOK {
 		t.Fatalf("run verify help: expected %d got %d", exitOK, code)
 	}
@@ -937,6 +940,26 @@ func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
 	}
 	if len(testOutput.TracePaths) != 1 || testOutput.TracePaths[0] != tracePath {
 		t.Fatalf("unexpected test trace paths: %#v", testOutput.TracePaths)
+	}
+
+	var traceCode int
+	traceRaw := captureStdout(t, func() {
+		traceCode = runTrace([]string{
+			"--json",
+			"--",
+			os.Args[0],
+			"-test.run=TestWrapperChildProcess",
+		})
+	})
+	if traceCode != exitOK {
+		t.Fatalf("runTrace observe expected %d got %d (%s)", exitOK, traceCode, traceRaw)
+	}
+	var traceOutput wrapperOutput
+	if err := json.Unmarshal([]byte(traceRaw), &traceOutput); err != nil {
+		t.Fatalf("decode trace wrapper output: %v", err)
+	}
+	if traceOutput.Mode != "trace" || len(traceOutput.TracePaths) != 1 || traceOutput.TracePaths[0] != tracePath {
+		t.Fatalf("unexpected trace wrapper output: %#v", traceOutput)
 	}
 
 	var enforceCode int

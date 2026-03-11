@@ -30,6 +30,7 @@ type EmitTraceOptions struct {
 	PreApproved           bool
 	PatternID             string
 	RegistryReason        string
+	MCPTrust              *schemagate.MCPTrustDecision
 	SigningPrivateKey     ed25519.PrivateKey
 	TracePath             string
 }
@@ -108,6 +109,7 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		Violations:          uniqueSorted(gateResult.Violations),
 		LatencyMS:           clampLatency(opts.LatencyMS),
 		ApprovalTokenRef:    strings.TrimSpace(opts.ApprovalTokenRef),
+		MCPTrust:            opts.MCPTrust,
 		SkillProvenance:     normalizedIntent.SkillProvenance,
 	}
 	trace.MatchedRuleIDs = matchedRuleIDsFromStepVerdicts(opts.StepVerdicts)

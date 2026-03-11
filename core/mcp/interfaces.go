@@ -12,9 +12,18 @@ type ToolCall struct {
 	Target        string          `json:"target,omitempty"`
 	Targets       []Target        `json:"targets,omitempty"`
 	ArgProvenance []ArgProvenance `json:"arg_provenance,omitempty"`
+	Server        *ServerInfo     `json:"server,omitempty"`
 	Context       CallContext     `json:"context,omitempty"`
 	Delegation    *Delegation     `json:"delegation,omitempty"`
 	CreatedAt     time.Time       `json:"created_at,omitempty"`
+}
+
+type ServerInfo struct {
+	ServerID   string `json:"server_id"`
+	ServerName string `json:"server_name,omitempty"`
+	Publisher  string `json:"publisher,omitempty"`
+	Source     string `json:"source,omitempty"`
+	Endpoint   string `json:"endpoint,omitempty"`
 }
 
 type ScriptCall struct {

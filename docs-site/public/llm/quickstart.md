@@ -30,6 +30,7 @@ gait regress bootstrap --from run_demo --junit ./gait-out/junit.xml
 gait demo --durable
 gait demo --policy
 gait test --json -- python3 examples/integrations/openai_agents/quickstart.py --scenario allow
+gait trace --json -- python3 examples/integrations/openai_agents/quickstart.py --scenario allow
 gait capture --from run_demo --json
 gait regress add --from ./gait-out/capture.json --json
 ```
@@ -41,6 +42,12 @@ Then continue with:
 - production integration checklist: `/docs/integration_checklist/`
 
 Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries. `gait enforce` is a bounded wrapper for integrations that already emit Gait trace references.
+
+For MCP server admission, keep trust inputs local:
+
+```bash
+gait mcp verify --policy ./examples/integrations/mcp_trust/policy.yaml --server ./examples/integrations/mcp_trust/server_github.json --json
+```
 
 For emergency preemption drills:
 
