@@ -14,6 +14,7 @@ import (
 	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/projectconfig"
 	"github.com/Clyra-AI/gait/core/runpack"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
 	"github.com/Clyra-AI/gait/core/scout"
 )
@@ -333,7 +334,7 @@ func resolveCaptureOutput(from string, checkpointRef string) (captureOutput, int
 				RunID:            checkpoint.RunID,
 			}, exitOK
 		}
-		if _, err := gate.ReadTraceRecord(trimmedFrom); err == nil {
+		if _, err := readValidatedTraceRecord(trimmedFrom); err == nil {
 			return captureOutput{
 				SchemaID:      captureReceiptSchemaID,
 				SchemaVersion: captureReceiptSchemaVersion,
@@ -375,6 +376,75 @@ func resolveCaptureOutput(from string, checkpointRef string) (captureOutput, int
 		SessionChainPath: sessionChainPath,
 		RunID:            verifyResult.RunID,
 	}, exitOK
+}
+
+func readValidatedTraceRecord(path string) (schemagate.TraceRecord, error) {
+	record, err := gate.ReadTraceRecord(path)
+	if err != nil {
+		return schemagate.TraceRecord{}, err
+	}
+	if err := validateTraceRecord(record); err != nil {
+		return schemagate.TraceRecord{}, err
+	}
+	return record, nil
+}
+
+func validateTraceRecord(record schemagate.TraceRecord) error {
+	if strings.TrimSpace(record.SchemaID) != "gait.gate.trace" {
+		return fmt.Errorf("unexpected trace schema_id %q", record.SchemaID)
+	}
+	if strings.TrimSpace(record.SchemaVersion) == "" {
+		return fmt.Errorf("trace schema_version must not be empty")
+	}
+	if record.CreatedAt.IsZero() {
+		return fmt.Errorf("trace created_at must not be empty")
+	}
+	if strings.TrimSpace(record.ProducerVersion) == "" {
+		return fmt.Errorf("trace producer_version must not be empty")
+	}
+	if strings.TrimSpace(record.TraceID) == "" {
+		return fmt.Errorf("trace trace_id must not be empty")
+	}
+	if strings.TrimSpace(record.ToolName) == "" {
+		return fmt.Errorf("trace tool_name must not be empty")
+	}
+	if !isSHA256Hex(record.ArgsDigest) {
+		return fmt.Errorf("trace args_digest must be a 64-character lowercase hex sha256")
+	}
+	if !isSHA256Hex(record.IntentDigest) {
+		return fmt.Errorf("trace intent_digest must be a 64-character lowercase hex sha256")
+	}
+	if !isSHA256Hex(record.PolicyDigest) {
+		return fmt.Errorf("trace policy_digest must be a 64-character lowercase hex sha256")
+	}
+	if !isSupportedTraceVerdict(record.Verdict) {
+		return fmt.Errorf("unsupported trace verdict %q", record.Verdict)
+	}
+	return nil
+}
+
+func isSupportedTraceVerdict(verdict string) bool {
+	switch strings.TrimSpace(verdict) {
+	case "allow", "block", "dry_run", "require_approval":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSHA256Hex(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, ch := range value {
+		switch {
+		case ch >= '0' && ch <= '9':
+		case ch >= 'a' && ch <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func currentSurfaceContract() surfaceContract {

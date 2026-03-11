@@ -10,8 +10,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/Clyra-AI/gait/core/gate"
 )
 
 type wrapperVerdictCount struct {
@@ -182,7 +180,8 @@ func executeWrapperCommand(opts wrapperOptions) (wrapperOutput, int) {
 	runpackPaths := uniquePaths(extractKeyValuePaths(output.Stdout, output.Stderr, "runpack_path"))
 	output.TracePaths = tracePaths
 	output.RunpackPaths = runpackPaths
-	output.VerdictCounts, output.Warnings = summarizeWrapperArtifacts(tracePaths, output.Warnings)
+	invalidTraceCount := 0
+	output.VerdictCounts, output.Warnings, invalidTraceCount = summarizeWrapperArtifacts(tracePaths, output.Warnings)
 
 	if timedOut {
 		output.OK = false
@@ -199,6 +198,11 @@ func executeWrapperCommand(opts wrapperOptions) (wrapperOutput, int) {
 		output.Error = "child command did not emit a Gait trace reference; wrappers require an explicit Gait interception seam"
 		return output, exitInvalidInput
 	}
+	if opts.Mode == "enforce" && invalidTraceCount > 0 {
+		output.OK = false
+		output.Error = "child command emitted an invalid Gait trace artifact; enforce mode fails closed"
+		return output, exitPolicyBlocked
+	}
 
 	exitCode := output.ChildExitCode
 	if exitCode == 0 && opts.Mode == "enforce" {
@@ -208,12 +212,14 @@ func executeWrapperCommand(opts wrapperOptions) (wrapperOutput, int) {
 	return output, exitCode
 }
 
-func summarizeWrapperArtifacts(tracePaths []string, warnings []string) ([]wrapperVerdictCount, []string) {
+func summarizeWrapperArtifacts(tracePaths []string, warnings []string) ([]wrapperVerdictCount, []string, int) {
 	counts := map[string]int{}
+	invalidTraceCount := 0
 	for _, tracePath := range tracePaths {
-		record, err := gate.ReadTraceRecord(tracePath)
+		record, err := readValidatedTraceRecord(tracePath)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("trace ignored: %s", err.Error()))
+			invalidTraceCount++
 			continue
 		}
 		counts[record.Verdict]++
@@ -226,7 +232,7 @@ func summarizeWrapperArtifacts(tracePaths []string, warnings []string) ([]wrappe
 		}
 		verdictCounts = append(verdictCounts, wrapperVerdictCount{Verdict: verdict, Count: counts[verdict]})
 	}
-	return verdictCounts, warnings
+	return verdictCounts, warnings, invalidTraceCount
 }
 
 func wrapperEnforceExitCode(counts []wrapperVerdictCount) int {

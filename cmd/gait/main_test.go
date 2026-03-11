@@ -953,6 +953,24 @@ func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
 	if len(enforceOutput.VerdictCounts) != 1 || enforceOutput.VerdictCounts[0].Verdict != "block" {
 		t.Fatalf("unexpected enforce verdict counts: %#v", enforceOutput.VerdictCounts)
 	}
+
+	invalidTracePath := filepath.Join(workDir, "trace_invalid.json")
+	t.Setenv("GAIT_TEST_TRACE_PATH", invalidTracePath)
+	t.Setenv("GAIT_TEST_TRACE_VERDICT", "bogus")
+	var invalidEnforceCode int
+	invalidEnforceRaw := captureStdout(t, func() {
+		invalidEnforceCode = runEnforce(blockCommand)
+	})
+	if invalidEnforceCode != exitPolicyBlocked {
+		t.Fatalf("runEnforce invalid trace expected %d got %d (%s)", exitPolicyBlocked, invalidEnforceCode, invalidEnforceRaw)
+	}
+	var invalidEnforceOutput wrapperOutput
+	if err := json.Unmarshal([]byte(invalidEnforceRaw), &invalidEnforceOutput); err != nil {
+		t.Fatalf("decode invalid enforce output: %v", err)
+	}
+	if !strings.Contains(invalidEnforceOutput.Error, "fails closed") {
+		t.Fatalf("expected fail-closed error, got %#v", invalidEnforceOutput)
+	}
 }
 
 func TestWrapperTimeoutIsDeterministic(t *testing.T) {
@@ -1055,6 +1073,9 @@ func TestOnboardingAndWrapperHelperBranches(t *testing.T) {
 		"}",
 	}, "\n"))
 
+	if _, err := readValidatedTraceRecord(tracePath); err != nil {
+		t.Fatalf("readValidatedTraceRecord valid trace: %v", err)
+	}
 	output, exitCode := resolveCaptureOutput(tracePath, "latest")
 	if exitCode != exitOK {
 		t.Fatalf("resolveCaptureOutput trace expected %d got %d", exitOK, exitCode)
@@ -1064,6 +1085,55 @@ func TestOnboardingAndWrapperHelperBranches(t *testing.T) {
 	}
 	if _, badExit := resolveCaptureOutput("", "latest"); badExit != exitInvalidInput {
 		t.Fatalf("resolveCaptureOutput missing input expected %d got %d", exitInvalidInput, badExit)
+	}
+	notTracePath := filepath.Join(workDir, "not_trace.json")
+	mustWriteFile(t, notTracePath, strings.Join([]string{
+		"{",
+		`  "schema_id":"gait.capture.receipt",`,
+		`  "schema_version":"1.0.0",`,
+		`  "artifact_type":"trace",`,
+		`  "artifact_path":"trace.json"`,
+		"}",
+	}, "\n"))
+	if captureOutput, badExit := resolveCaptureOutput(notTracePath, "latest"); badExit != exitInvalidInput || captureOutput.OK {
+		t.Fatalf("resolveCaptureOutput non-trace json expected invalid input, got exit=%d output=%#v", badExit, captureOutput)
+	}
+	if _, err := readValidatedTraceRecord(notTracePath); err == nil {
+		t.Fatalf("readValidatedTraceRecord non-trace json should fail")
+	}
+	if err := validateTraceRecord(schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.March, 9, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "0.0.0-test",
+		TraceID:         "trace_validate",
+		ToolName:        "tool.write",
+		ArgsDigest:      strings.Repeat("a", 64),
+		IntentDigest:    strings.Repeat("b", 64),
+		PolicyDigest:    strings.Repeat("c", 64),
+		Verdict:         "allow",
+	}); err != nil {
+		t.Fatalf("validateTraceRecord valid trace: %v", err)
+	}
+	if err := validateTraceRecord(schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.March, 9, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "0.0.0-test",
+		TraceID:         "trace_invalid",
+		ToolName:        "tool.write",
+		ArgsDigest:      strings.Repeat("a", 64),
+		IntentDigest:    strings.Repeat("b", 64),
+		PolicyDigest:    strings.Repeat("c", 64),
+		Verdict:         "bogus",
+	}); err == nil {
+		t.Fatalf("validateTraceRecord invalid verdict should fail")
+	}
+	if !isSupportedTraceVerdict("allow") || isSupportedTraceVerdict("bogus") {
+		t.Fatalf("unexpected supported trace verdict classification")
+	}
+	if !isSHA256Hex(strings.Repeat("a", 64)) || isSHA256Hex(strings.Repeat("A", 64)) {
+		t.Fatalf("unexpected sha256 hex classification")
 	}
 
 	receiptPath := filepath.Join(workDir, "capture.json")
