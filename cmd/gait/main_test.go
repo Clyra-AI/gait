@@ -1646,6 +1646,9 @@ func TestCommandRoutersAndHelpers(t *testing.T) {
 	if code := runTrace([]string{"unknown"}); code != exitInvalidInput {
 		t.Fatalf("runTrace unknown: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := runTrace([]string{"--json", "verify", "trace.json"}); code != exitInvalidInput {
+		t.Fatalf("runTrace observe without explicit separator: expected %d got %d", exitInvalidInput, code)
+	}
 	if code := runRegress(nil); code != exitInvalidInput {
 		t.Fatalf("runRegress no args: expected %d got %d", exitInvalidInput, code)
 	}

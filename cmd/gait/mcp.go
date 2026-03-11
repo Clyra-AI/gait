@@ -209,19 +209,22 @@ func runMCPVerify(arguments []string) int {
 		return writeExplain("Evaluate optional MCP server trust policy against a local server description without executing a tool call.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
-		"policy": true,
-		"server": true,
+		"policy":     true,
+		"server":     true,
+		"risk-class": true,
 	})
 	flagSet := flag.NewFlagSet("mcp-verify", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
 	var policyPath string
 	var serverPath string
+	var riskClass string
 	var jsonOutput bool
 	var helpFlag bool
 
 	flagSet.StringVar(&policyPath, "policy", "", "path to policy YAML")
 	flagSet.StringVar(&serverPath, "server", "", "path to MCP server trust description JSON")
+	flagSet.StringVar(&riskClass, "risk-class", "", "risk class to evaluate for trust preflight")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -244,7 +247,8 @@ func runMCPVerify(arguments []string) int {
 	if err != nil {
 		return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
-	trustDecision := mcp.EvaluateServerTrust(policy.MCPTrust, server, "high", time.Now().UTC())
+	resolvedRiskClass := resolveMCPVerifyRiskClass(policy, riskClass)
+	trustDecision := mcp.EvaluateServerTrust(policy.MCPTrust, server, resolvedRiskClass, time.Now().UTC())
 	if trustDecision == nil {
 		return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{
 			OK:         true,
@@ -292,6 +296,37 @@ func readMCPServerInfo(path string) (*mcp.ServerInfo, error) {
 		return nil, fmt.Errorf("server description requires server_id or server_name")
 	}
 	return &server, nil
+}
+
+func resolveMCPVerifyRiskClass(policy gate.Policy, explicit string) string {
+	if trimmed := strings.ToLower(strings.TrimSpace(explicit)); trimmed != "" {
+		return trimmed
+	}
+	if len(policy.MCPTrust.RequiredRiskClasses) == 0 {
+		return "high"
+	}
+	priority := map[string]int{
+		"critical": 0,
+		"high":     1,
+		"medium":   2,
+		"low":      3,
+	}
+	best := policy.MCPTrust.RequiredRiskClasses[0]
+	bestRank, ok := priority[best]
+	if !ok {
+		bestRank = len(priority) + 1
+	}
+	for _, candidate := range policy.MCPTrust.RequiredRiskClasses[1:] {
+		rank, ok := priority[candidate]
+		if !ok {
+			rank = len(priority) + 1
+		}
+		if rank < bestRank {
+			best = candidate
+			bestRank = rank
+		}
+	}
+	return best
 }
 
 func readMCPPayload(path string) ([]byte, error) {
@@ -933,7 +968,7 @@ func printMCPUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--json] [--explain]")
+	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
 	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
 }
@@ -945,5 +980,5 @@ func printMCPProxyUsage() {
 
 func printMCPVerifyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--json] [--explain]")
+	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
 }

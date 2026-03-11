@@ -698,7 +698,7 @@ func printUsage() {
 	fmt.Println("  gait registry verify --path <registry_pack.json> [--cache-dir <path>] [--json] [--explain]")
 	fmt.Println("  gait gateway ingest --source <kong|docker|mintmcp> --log-path <path> [--proof-out <policy_enforcement.jsonl>] [--json] [--explain]")
 	fmt.Println("  gait migrate <artifact_path|run_id> [--out <path>] [--json] [--explain]")
-	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--json] [--explain]")
+	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--json] [--explain]")
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--json] [--explain]")
 	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")

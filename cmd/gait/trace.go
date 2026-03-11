@@ -32,12 +32,21 @@ func runTrace(arguments []string) int {
 	case "verify":
 		return runTraceVerify(arguments[1:])
 	default:
-		if !strings.HasPrefix(arguments[0], "-") {
+		if !traceObserveRequested(arguments) {
 			printTraceUsage()
 			return exitInvalidInput
 		}
 		return runTraceObserve(arguments)
 	}
+}
+
+func traceObserveRequested(arguments []string) bool {
+	for _, argument := range arguments {
+		if strings.TrimSpace(argument) == "--" {
+			return true
+		}
+	}
+	return false
 }
 
 func runTraceObserve(arguments []string) int {
