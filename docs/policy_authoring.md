@@ -19,11 +19,12 @@ Make policy changes deterministic, reviewable, and low-friction for developers:
 ## Recommended Authoring Loop
 
 ```bash
-gait policy init baseline-mediumrisk --out gait.policy.yaml --json
-gait policy validate gait.policy.yaml --json
-gait policy fmt gait.policy.yaml --write --json
-gait policy test gait.policy.yaml examples/policy/intents/intent_write.json --json
-gait policy simulate --baseline examples/policy/base_medium_risk.yaml --policy gait.policy.yaml --fixtures examples/policy/intents --json
+gait init --template baseline-mediumrisk --json
+gait check --json
+gait policy validate .gait.yaml --json
+gait policy fmt .gait.yaml --write --json
+gait policy test .gait.yaml examples/policy/intents/intent_write.json --json
+gait policy simulate --baseline examples/policy/base_medium_risk.yaml --policy .gait.yaml --fixtures examples/policy/intents --json
 ```
 
 Interpretation:
@@ -54,6 +55,7 @@ Example VS Code workspace settings:
 {
   "yaml.schemas": {
     "./schemas/v1/gate/policy.schema.json": [
+      ".gait.yaml",
       "gait.policy.yaml",
       "examples/policy/**/*.yaml"
     ]
@@ -99,7 +101,7 @@ Yes. Use `gait policy test` against fixture intents, or `gait policy simulate` t
 
 ### What policy formats are supported?
 
-Gait uses YAML policy files with structured rules. Use `gait policy init` to generate a baseline template and `gait policy validate` to check syntax.
+Gait uses YAML policy files with structured rules. Use `gait init` for the additive repo-root onboarding path (`.gait.yaml`), or `gait policy init --out ...` when you want an explicit custom scaffold path such as `gait.policy.yaml`.
 
 ### Can I set different rules per tool class?
 

@@ -9,6 +9,10 @@ curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.
 # Guided tour
 gait tour
 
+# Bootstrap repo policy-as-code
+gait init --json
+gait check --json
+
 # Create a signed pack from a synthetic agent run
 gait demo
 
@@ -22,10 +26,12 @@ gait pack export ./gait-out/pack_run_demo.zip --otel-out ./gait-out/pack_run_dem
 # Turn it into a CI regression gate
 gait regress bootstrap --from run_demo --junit ./gait-out/junit.xml
 
-# Try durable jobs and policy demos
+# Try durable jobs, wrappers, and policy demos
 gait demo --durable
 gait demo --policy
-gait policy init baseline-highrisk --out ./gait.policy.yaml --json
+gait test --json -- python3 examples/integrations/openai_agents/quickstart.py --scenario allow
+gait capture --from run_demo --json
+gait regress add --from ./gait-out/capture.json --json
 ```
 
 Then continue with:
@@ -34,7 +40,7 @@ Then continue with:
 - durable jobs lifecycle: `/docs/durable_jobs/`
 - production integration checklist: `/docs/integration_checklist/`
 
-Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries.
+Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries. `gait enforce` is a bounded wrapper for integrations that already emit Gait trace references.
 
 For emergency preemption drills:
 

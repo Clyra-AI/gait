@@ -1,12 +1,12 @@
-# Gait — Signed Proof and Fail-Closed Control for Production AI Agent Tool Calls
+# Gait — Policy-as-Code Control and Evidence for Production AI Agent Tool Calls
 
 ## Overview
 
-Use Gait when an AI agent can cause real side effects and you need deterministic control plus portable proof.
+Use Gait when an AI agent can cause real side effects and you need policy-as-code control plus portable proof.
 
 Gait is not an agent framework, not a model host, and not a dashboard. It is an offline-first Go CLI that sits at the tool boundary.
 
-Capture every prod agent tool call as a signed, offline-verifiable pack. Enforce fail-closed policy before high-risk actions execute. Turn incidents into CI regressions in one command.
+Bootstrap a repo with `gait init` and `gait check`. Enforce fail-closed policy before high-risk actions execute. Capture incidents into portable evidence and turn them into CI regressions without changing existing regress or project-default contracts.
 
 Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`docs/install.md`](docs/install.md) | Homebrew: [`docs/homebrew.md`](docs/homebrew.md)
 
@@ -89,11 +89,10 @@ Development quickstart:
 Production hardening baseline:
 
 ```bash
-mkdir -p .gait
-gait policy init baseline-highrisk --out .gait/policy.yaml
+gait init --json
 cat > .gait/config.yaml <<'YAML'
 gate:
-  policy: .gait/policy.yaml
+  policy: .gait.yaml
   profile: oss-prod
   key_mode: prod
   private_key_env: GAIT_PRIVATE_KEY
@@ -115,6 +114,7 @@ retention:
   session_ttl: 336h
   export_ttl: 168h
 YAML
+gait check --json
 gait doctor --production-readiness --json
 ```
 
@@ -138,7 +138,7 @@ See: [2,880 tool calls gate-checked in 24 hours](docs/blog/openclaw_24h_boundary
 
 **Fail-closed policy enforcement** — `gait gate eval` evaluates a structured tool-call intent against YAML policy before the side effect runs. Non-allow means non-execute. Signed trace proves the decision. Script mode supports deterministic step rollups, optional Wrkr context enrichment, and signed approved-script fast-path allow.
 
-**Incident → CI gate in one command** — `gait regress bootstrap` converts a bad run into a permanent regression fixture with JUnit output. Exit 0 = pass, exit 5 = drift. Never debug the same failure twice.
+**Incident → CI gate with explicit capture** — `gait capture` records the portable source you are acting on, `gait regress add` lands it on the same deterministic fixture contract as `gait regress init`, and `gait regress bootstrap` remains the one-command path. Exit 0 = pass, exit 5 = drift. Never debug the same failure twice.
 
 **Durable jobs** — dispatch long-running agent work that survives failures. Checkpoints, pause/resume/stop/cancel, approval gates, deterministic stop reasons, and emergency preemption for queued dispatches. No more lost state at step 47.
 
@@ -218,7 +218,10 @@ gait verify chain|session-chain                    Multi-artifact chain verifica
 gait job submit|status|checkpoint|pause|resume     Durable job lifecycle
 gait job stop|approve|cancel|inspect               Emergency stop, approval, and inspection
 gait pack build|verify|inspect|diff|export         Unified pack operations + OTEL/Postgres sinks
-gait regress init|bootstrap|run                    Incident → CI gate
+gait init|check                                    Repo policy bootstrap and validation
+gait test|enforce                                  Bounded wrappers for explicit Gait-aware integrations
+gait capture                                       Persist portable capture receipt from explicit source
+gait regress add|init|bootstrap|run                Incident → CI gate
 gait gate eval                                     Policy enforcement + signed trace
 gait approve-script                                Mint signed approved-script registry entries
 gait approve                                       Mint signed approval tokens
@@ -232,7 +235,7 @@ gait run session start|append|status|checkpoint|compact  Session journaling
 gait run reduce                                    Reduce runpack by predicate
 gait mcp proxy|bridge|serve                        MCP transport adapters
 gait gateway ingest                                Ingest MCP gateway logs into signed policy-enforcement proof records
-gait policy init|validate|fmt|simulate|test        Policy authoring
+gait policy init|validate|fmt|simulate|test        Policy authoring and explicit scaffold workflows
 gait doctor [--production-readiness] [adoption]    Diagnostics + readiness
 gait keys init|rotate|verify                       Signing key lifecycle
 gait scout snapshot|diff|signal                    Drift and adoption signals

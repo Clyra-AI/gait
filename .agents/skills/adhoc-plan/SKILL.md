@@ -34,8 +34,13 @@ Validation rules:
 - expected moat/benefit
 2. Remove duplicates and out-of-scope items.
 3. Cluster recommendations into coherent epics.
-4. Prioritize with `P0/P1/P2` using contract risk, moat gain, adoption leverage, and dependency order. Sequence work in waves: `Wave 1` contract/runtime correctness and architecture boundaries, `Wave 2` docs, OSS hygiene, and distribution UX.
-5. Create execution-ready stories with:
+4. Prioritize with `P0/P1/P2` using contract risk, moat gain, adoption leverage, and dependency order.
+5. Sequence work in dependency-driven waves:
+- Use `Wave 1 .. Wave N` and corresponding epic IDs `W1 .. WN`, where `N >= 1`.
+- Create only one wave when scope is small and a split adds no implementation value.
+- Create multiple waves when dependency order, risk reduction, or reviewability benefits from staging.
+- When both classes exist, contract/runtime correctness and architecture-boundary work must complete in earlier waves before docs, OSS hygiene, onboarding, or distribution UX waves.
+6. Create execution-ready stories with:
 - tasks
 - repo paths
 - run commands
@@ -43,11 +48,11 @@ Validation rules:
 - matrix wiring
 - acceptance criteria
 - If a story affects public surfaces, include stable/internal boundary notes, migration expectations, and where users integrate Gait into their code or pipeline.
-6. Add plan-level `Test Matrix Wiring`.
-7. Add `Recommendation Traceability` mapping recommendations to epic/story IDs.
-8. Add `Minimum-Now Sequence`, `Exit Criteria`, and `Definition of Done`.
-9. Verify quality gates.
-10. Overwrite `output_plan_path` with the final plan.
+7. Add plan-level `Test Matrix Wiring`.
+8. Add `Recommendation Traceability` mapping recommendations to epic/story IDs.
+9. Add `Minimum-Now Sequence`, `Exit Criteria`, and `Definition of Done`, with the explicit wave order and rationale.
+10. Verify quality gates.
+11. Overwrite `output_plan_path` with the final plan.
 
 ## Command Contract (JSON Required)
 
@@ -76,6 +81,9 @@ Use `gait` commands with `--json` whenever the plan needs machine-readable evide
 - No dashboard-first scope in core backlog.
 - No minor polish as primary backlog.
 - Every story must include tests and matrix wiring.
+- Use dependency-driven wave sequencing instead of a fixed two-wave template.
+- It may be 1 wave or many waves depending on complexity, dependencies, and implementation risk.
+- When both contract/runtime and docs/onboarding/distribution classes exist, all contract/runtime waves must precede later docs/onboarding/distribution waves.
 
 ## Test Requirements by Work Type (Mandatory)
 
@@ -150,6 +158,12 @@ Required sections:
 10. `Explicit Non-Goals`
 11. `Definition of Done`
 
+Epic and wave numbering contract:
+
+- Use `## Epic W1: ...`, `## Epic W2: ...`, through `## Epic WN: ...` as needed.
+- Story IDs under each epic must follow the same wave prefix, for example `W3-S2`.
+- Do not invent extra waves unless they improve dependency ordering, risk control, or reviewability.
+
 Story template:
 
 - `### Story <ID>: <title>`
@@ -173,7 +187,8 @@ Before finalizing:
 - Test requirements match story type.
 - Matrix wiring exists for every story.
 - Sequence is dependency-aware and implementation-ready.
-- Wave 1 contract/runtime work precedes Wave 2 docs/OSS/distribution work.
+- Wave numbering is explicit, sequential, and justified by dependency order.
+- Earlier waves cover contract/runtime and architecture-boundary work before later docs/OSS/onboarding/distribution waves when both classes are present.
 - Public/internal boundaries, integration hooks, and side effects are explicit where stories affect user-facing surfaces.
 - Launch-facing plans include OSS trust-baseline and docs source-of-truth work when relevant.
 

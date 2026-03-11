@@ -6,6 +6,24 @@ import (
 	"testing"
 )
 
+func TestContractPaths(t *testing.T) {
+	if RepoPolicyPath != ".gait.yaml" {
+		t.Fatalf("unexpected repo policy path %q", RepoPolicyPath)
+	}
+	if DefaultPath != ".gait/config.yaml" {
+		t.Fatalf("unexpected project defaults path %q", DefaultPath)
+	}
+	if RegressConfigPath != "gait.yaml" {
+		t.Fatalf("unexpected regress config path %q", RegressConfigPath)
+	}
+	if LegacyPolicyScaffoldPath != "gait.policy.yaml" {
+		t.Fatalf("unexpected legacy policy scaffold path %q", LegacyPolicyScaffoldPath)
+	}
+	if DefaultCapturePath != "gait-out/capture.json" {
+		t.Fatalf("unexpected default capture path %q", DefaultCapturePath)
+	}
+}
+
 func TestLoadAllowMissing(t *testing.T) {
 	workDir := t.TempDir()
 	path := filepath.Join(workDir, "missing.yaml")

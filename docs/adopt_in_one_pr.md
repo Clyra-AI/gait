@@ -47,7 +47,8 @@ jobs:
       - name: Initialize deterministic fixture
         shell: bash
         run: |
-          gait regress init --from run_demo --json > ./gait-out/adopt_one_pr/regress_init.json
+          gait capture --from run_demo --json > ./gait-out/adopt_one_pr/capture.json
+          gait regress add --from ./gait-out/adopt_one_pr/capture.json --json > ./gait-out/adopt_one_pr/regress_add.json
 
       - name: Force deterministic regression drift
         shell: bash

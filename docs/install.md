@@ -90,11 +90,10 @@ gait verify run_demo
 Before production use, apply hardened defaults and validate readiness:
 
 ```bash
-mkdir -p .gait
-gait policy init baseline-highrisk --out .gait/policy.yaml
+gait init --json
 cat > .gait/config.yaml <<'YAML'
 gate:
-  policy: .gait/policy.yaml
+  policy: .gait.yaml
   profile: oss-prod
   key_mode: prod
   private_key_env: GAIT_PRIVATE_KEY
@@ -116,6 +115,7 @@ retention:
   session_ttl: 336h
   export_ttl: 168h
 YAML
+gait check --json
 gait doctor --production-readiness --json
 ```
 

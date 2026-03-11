@@ -65,14 +65,21 @@ If preconditions fail, stop and report.
 
 8. Codex review settle gate (mandatory, passive, latest-head preferred):
 - After PR creation/update and green CI, inspect Codex review output before merge.
-- Poll PR reviews/comments/reactions every `15s` for up to `5 minutes`, preferring signals tied to the latest PR head SHA.
+- Poll PR reviews/comments/reactions every `15s`, preferring signals tied to the latest PR head SHA.
 - Never post `@codex review` or any other PR/issue comment solely to solicit review.
 - Default reviewer identity for this gate: `chatgpt-codex-connector` (GitHub UI may render as `chatgpt-codex-connector bot`).
 - Accepted settle signals on the latest PR head:
 - actionable Codex review comments/suggestions -> proceed to pre-merge fix loop
 - explicit approval/all-good signal -> review gate satisfied
 - Codex-authored `+1` / thumbs-up on PR body, issue comment, or review comment -> review gate satisfied when required PR CI is green and no unresolved `P0/P1` Codex items remain
-- If no latest-head signal appears within timeout, fall back to PR-wide Codex review inventory:
+- Codex-authored `eyes` reaction on the PR body, issue comment, or review comment means review is in progress:
+- treat `eyes` as a live in-progress signal, not a terminal settle signal
+- while `eyes` is present and no later terminal Codex signal exists for the current review cycle, keep polling and do not fail the gate because 5 minutes elapsed
+- once `eyes` is observed, wait for a terminal Codex signal (`actionable`, `approved`, `thumbs_up`, explicit service/quota failure, or a new actionable comment/review on the latest head) before deciding the gate result
+- Use a two-stage gate:
+- Stage A: for the first `5 minutes`, look for latest-head Codex terminal signals or an `eyes` in-progress signal
+- Stage B: if `eyes` was observed during Stage A or later, continue polling without the 5-minute stop until Codex finishes or reports an explicit failure condition
+- If no latest-head terminal signal appears and no `eyes` in-progress signal is seen during Stage A, fall back to PR-wide Codex review inventory:
 - collect prior Codex reviews, inline comments, issue comments, and Codex-authored `+1` / thumbs-up reactions on the PR
 - require at least one prior Codex review artifact before permitting `carry_forward`
 - if required PR CI is green and no unresolved `P0/P1` Codex items remain, treat gate as satisfied as `carry_forward`
@@ -134,7 +141,8 @@ If preconditions fail, stop and report.
 
 14. Stop conditions:
 - CI green on main: success.
-- Codex gate unresolved after passive latest-head poll plus PR-wide carry-forward triage: stop and report blocker.
+- Codex gate unresolved after passive latest-head poll plus PR-wide carry-forward triage, without any Codex `eyes` in-progress signal: stop and report blocker.
+- Codex gate remains pending with Codex `eyes` in-progress signal: continue waiting; do not stop solely because the initial 5-minute window elapsed.
 - Unresolved pre-merge `P0/P1` comments after 2 fix loops: stop and report blocker.
 - Non-actionable failure class: stop and report.
 - Loop count exceeded (`>2`): stop and report blocker.
@@ -145,7 +153,7 @@ If preconditions fail, stop and report.
 - `gait pack verify <artifact.zip> --json` when validating artifact integrity in a failing CI path.
 - `gait gate eval --policy <policy.yaml> --intent <intent.json> --json` when policy-path checks are implicated.
 - Use `gh pr view --json number,headRefOid` and `gh repo view --json nameWithOwner` to seed Codex review inspection.
-- Use `gh api` against PR reviews, review comments, issue comments, and their reactions to inspect latest-head Codex signals and carry-forward artifacts.
+- Use `gh api` against PR reviews, review comments, issue comments, and their reactions to inspect latest-head Codex signals, `eyes` in-progress reactions, and carry-forward artifacts.
 
 ## EOF Rule (Mandatory)
 
@@ -173,7 +181,8 @@ Never use inline `--body "..."` for multi-line PR text.
 - Required local gate before push: `make prepush-full` (includes CodeQL in this repo).
 - PR CI watch timeout: `25 minutes`.
 - Codex review settle polling interval: `15 seconds`.
-- Codex review settle timeout: `5 minutes` (mandatory pre-merge gate; passive only, no trigger comments).
+- Codex review settle initial window: `5 minutes` to find latest-head terminal signals or an `eyes` in-progress signal.
+- Codex review settle after `eyes`: no fixed timeout; keep polling until Codex emits a terminal review signal or explicit failure.
 - Pre-merge comment-fix loop cap: `2`.
 - Post-merge main CI watch timeout: `25 minutes`.
 - Retry/hotfix loop cap: `2`.

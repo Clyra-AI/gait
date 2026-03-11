@@ -1,6 +1,6 @@
 # Gait
 
-> Offline-first durable agent runtime: dispatch long-running jobs with checkpoints, capture signed packs, gate tool calls and voice commitments with fail-closed policy, and turn incidents into deterministic CI regressions.
+> Offline-first policy-as-code runtime: bootstrap repo policy with `gait init`/`gait check`, gate tool calls and voice commitments with fail-closed policy, capture signed evidence, and turn incidents into deterministic CI regressions.
 
 ## Canonical
 - https://github.com/Clyra-AI/gait
@@ -10,8 +10,14 @@
 - gait demo
 - gait demo --durable
 - gait demo --policy
+- gait init --json
+- gait check --json
 - gait tour
 - gait verify <run_id|path>
+- gait test -- <child command...>
+- gait enforce -- <child command...>
+- gait capture --from <run_id|path>
+- gait regress add --from <capture.json|run_id|path>
 - gait run replay <run_id>
 - gait pack verify <pack.zip>
 - gait pack diff <left.zip> <right.zip>

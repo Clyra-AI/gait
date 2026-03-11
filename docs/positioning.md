@@ -4,7 +4,7 @@ Use this file when writing website copy, docs, release notes, talks, or sales ma
 
 ## Core Message
 
-Gait is an artifact-first Agent Control Plane for production tool execution.
+Gait is an artifact-first policy-as-code runtime for production tool execution.
 
 Runtime governance is often observational; Gait is execution-time decision and proof.
 
@@ -21,6 +21,7 @@ It combines:
 - Default-safe evidence model (reference receipts by default).
 - Stable artifact schemas and exit codes as integration contracts.
 - Vendor-neutral adapter model across agent frameworks.
+- Truthful onboarding surface: `gait init`, `gait check`, `gait capture`, and `gait regress add` are thin wrappers over shipped Go authority, not alternate policy engines.
 
 ## What Not To Claim
 

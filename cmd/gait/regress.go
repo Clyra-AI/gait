@@ -54,6 +54,18 @@ type regressBootstrapOutput struct {
 	Error            string   `json:"error,omitempty"`
 }
 
+type regressAddOutput struct {
+	OK           bool     `json:"ok"`
+	Source       string   `json:"source,omitempty"`
+	RunID        string   `json:"run_id,omitempty"`
+	FixtureName  string   `json:"fixture_name,omitempty"`
+	FixtureDir   string   `json:"fixture_dir,omitempty"`
+	RunpackPath  string   `json:"runpack_path,omitempty"`
+	ConfigPath   string   `json:"config_path,omitempty"`
+	NextCommands []string `json:"next_commands,omitempty"`
+	Error        string   `json:"error,omitempty"`
+}
+
 func runRegress(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Turn runpacks into deterministic regression fixtures and execute graders for CI-safe drift detection.")
@@ -63,6 +75,8 @@ func runRegress(arguments []string) int {
 		return exitInvalidInput
 	}
 	switch arguments[0] {
+	case "add":
+		return runRegressAdd(arguments[1:])
 	case "init":
 		return runRegressInit(arguments[1:])
 	case "run":
@@ -73,6 +87,73 @@ func runRegress(arguments []string) int {
 		printRegressUsage()
 		return exitInvalidInput
 	}
+}
+
+func runRegressAdd(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Add a regression fixture from a capture receipt, runpack, or session-chain source without changing existing regress config semantics.")
+	}
+	flagSet := flag.NewFlagSet("regress-add", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var from string
+	var name string
+	var checkpointRef string
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.StringVar(&from, "from", "", "capture receipt path, run_id, or path")
+	flagSet.StringVar(&name, "name", "", "fixture name override")
+	flagSet.StringVar(&checkpointRef, "checkpoint", "latest", "checkpoint index or latest when --from is session_chain.json")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printRegressAddUsage()
+		return exitOK
+	}
+	if len(flagSet.Args()) > 0 {
+		return writeRegressAddOutput(jsonOutput, regressAddOutput{
+			OK:    false,
+			Error: "unexpected positional arguments",
+		}, exitInvalidInput)
+	}
+	if strings.TrimSpace(from) == "" {
+		return writeRegressAddOutput(jsonOutput, regressAddOutput{
+			OK:    false,
+			Error: "missing required --from <capture.json|run_id|path>",
+		}, exitInvalidInput)
+	}
+
+	runpackPath, sessionChainPath, sourceLabel, err := resolveRegressAddSource(from, checkpointRef)
+	if err != nil {
+		return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: sourceLabel, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	result, err := regress.InitFixture(regress.InitOptions{
+		SourceRunpackPath: runpackPath,
+		SessionChainPath:  sessionChainPath,
+		CheckpointRef:     checkpointRef,
+		FixtureName:       name,
+		WorkDir:           ".",
+	})
+	if err != nil {
+		return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: sourceLabel, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	return writeRegressAddOutput(jsonOutput, regressAddOutput{
+		OK:           true,
+		Source:       sourceLabel,
+		RunID:        result.RunID,
+		FixtureName:  result.FixtureName,
+		FixtureDir:   result.FixtureDir,
+		RunpackPath:  result.RunpackPath,
+		ConfigPath:   result.ConfigPath,
+		NextCommands: result.NextCommands,
+	}, exitOK)
 }
 
 func runRegressInit(arguments []string) int {
@@ -458,11 +539,35 @@ func resolveRegressSource(from string, checkpointRef string) (string, string, er
 	return trimmed, "", nil
 }
 
+func resolveRegressAddSource(from string, checkpointRef string) (string, string, string, error) {
+	trimmedFrom := strings.TrimSpace(from)
+	if strings.HasSuffix(strings.ToLower(trimmedFrom), ".json") && fileExists(trimmedFrom) {
+		if receipt, err := loadCaptureReceipt(trimmedFrom); err == nil {
+			if receipt.ArtifactType != "runpack" {
+				return "", "", trimmedFrom, fmt.Errorf("capture receipt artifact_type %q is not supported by regress add", receipt.ArtifactType)
+			}
+			sessionChainPath := strings.TrimSpace(receipt.SessionChainPath)
+			if sessionChainPath != "" {
+				return receipt.ArtifactPath, sessionChainPath, trimmedFrom, nil
+			}
+			return receipt.ArtifactPath, "", trimmedFrom, nil
+		}
+	}
+	runpackPath, sessionChainPath, err := resolveRegressSource(trimmedFrom, checkpointRef)
+	return runpackPath, sessionChainPath, trimmedFrom, err
+}
+
 func printRegressUsage() {
 	fmt.Println("Usage:")
+	fmt.Println("  gait regress add --from <capture.json|run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--json] [--explain]")
 	fmt.Println("  gait regress init --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--json] [--explain]")
 	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--context-conformance] [--allow-context-runtime-drift] [--explain]")
 	fmt.Println("  gait regress bootstrap --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--context-conformance] [--allow-context-runtime-drift] [--explain]")
+}
+
+func printRegressAddUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait regress add --from <capture.json|run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--json] [--explain]")
 }
 
 func printRegressInitUsage() {
@@ -478,4 +583,16 @@ func printRegressRunUsage() {
 func printRegressBootstrapUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait regress bootstrap --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--context-conformance] [--allow-context-runtime-drift] [--explain]")
+}
+
+func writeRegressAddOutput(jsonOutput bool, output regressAddOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+	if output.OK {
+		fmt.Printf("regress add ok: fixture=%s run_id=%s\n", output.FixtureName, output.RunID)
+		return exitCode
+	}
+	fmt.Printf("regress add error: %s\n", output.Error)
+	return exitCode
 }

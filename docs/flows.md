@@ -169,7 +169,8 @@ sequenceDiagram
     participant Repo as Repo Workspace
     participant CI as CI Pipeline
 
-    Eng->>CLI: gait regress init --from <run>
+    Eng->>CLI: gait capture --from <run>
+    Eng->>CLI: gait regress add --from ./gait-out/capture.json
     CLI->>Repo: write `gait.yaml` + `fixtures/<run>/runpack.zip`
     CLI->>Repo: write `regress_result.json` + optional `junit.xml`
     Eng->>CI: push fixture/config changes

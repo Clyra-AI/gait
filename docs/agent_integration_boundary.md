@@ -22,6 +22,7 @@ Examples:
 - wrapper/decorator in your app runtime
 - local sidecar calling `gait gate eval`
 - local `gait mcp serve` with caller-side enforcement
+- `gait test` / `gait enforce` wrapping an explicit Gait-aware quickstart or middleware seam
 
 What Gait can do:
 
@@ -51,6 +52,7 @@ Constraints:
 
 - normalization quality depends on payload completeness at boundary
 - enforcement reliability depends on strict middleware placement
+- `gait test` and `gait enforce` do not auto-instrument arbitrary runtimes; they require emitted Gait trace references from the child integration
 
 ## Tier C: Managed/Preloaded Agent Products (Limited Interception)
 

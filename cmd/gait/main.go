@@ -67,20 +67,30 @@ func runDispatch(arguments []string) int {
 		return runApprove(arguments[2:])
 	case "approve-script":
 		return runApproveScript(arguments[2:])
+	case "capture":
+		return runCapture(arguments[2:])
+	case "check":
+		return runCheck(arguments[2:])
 	case "delegate":
 		return runDelegate(arguments[2:])
 	case "demo":
 		return runDemo(arguments[2:])
 	case "doctor":
 		return runDoctor(arguments[2:])
+	case "enforce":
+		return runEnforce(arguments[2:])
 	case "list-scripts":
 		return runListScripts(arguments[2:])
 	case "gate":
 		return runGate(arguments[2:])
+	case "init":
+		return runInit(arguments[2:])
 	case "policy":
 		return runPolicy(arguments[2:])
 	case "keys":
 		return runKeys(arguments[2:])
+	case "test":
+		return runTest(arguments[2:])
 	case "trace":
 		return runTrace(arguments[2:])
 	case "regress":
@@ -140,7 +150,7 @@ func normalizeAdoptionCommand(arguments []string) string {
 		return "version"
 	case "--explain":
 		return "explain"
-	case "approve-script", "list-scripts", "gate", "policy", "keys", "trace", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "gateway", "mcp", "voice", "doctor", "delegate", "ui":
+	case "approve-script", "capture", "check", "enforce", "gate", "init", "keys", "list-scripts", "policy", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "gateway", "mcp", "voice", "doctor", "delegate", "test", "ui":
 		if len(arguments) > 2 {
 			subcommand := strings.TrimSpace(arguments[2])
 			if subcommand != "" && !strings.HasPrefix(subcommand, "-") {

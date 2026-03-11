@@ -1,6 +1,6 @@
 # Gait Product Summary
 
-Gait is an offline-first runtime for production AI agents that dispatches durable jobs, captures signed evidence, and enforces fail-closed policy at the tool boundary.
+Gait is an offline-first policy-as-code runtime for production AI agents that dispatches durable jobs, captures signed evidence, and enforces fail-closed policy at the tool boundary.
 
 It provides seven OSS primitives:
 

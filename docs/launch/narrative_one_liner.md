@@ -4,11 +4,11 @@ Use one primary line and one supporting line. Do not switch category language mi
 
 ## Core Category Line
 
-Gait is the offline-first Agent Control Plane for production tool actions.
+Gait is the offline-first policy-as-code runtime for production tool actions.
 
 ## Product Promise Line
 
-Turn any agent incident into a verifiable artifact, a policy decision, and a deterministic CI regression.
+Bootstrap with `gait init` and `gait check`, enforce at the tool boundary, and turn incidents into deterministic CI regressions.
 
 ## Audience Variants
 

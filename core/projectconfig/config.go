@@ -8,7 +8,13 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
-const DefaultPath = ".gait/config.yaml"
+const (
+	DefaultPath              = ".gait/config.yaml"
+	RepoPolicyPath           = ".gait.yaml"
+	LegacyPolicyScaffoldPath = "gait.policy.yaml"
+	RegressConfigPath        = "gait.yaml"
+	DefaultCapturePath       = "gait-out/capture.json"
+)
 
 type Config struct {
 	Gate      GateDefaults      `yaml:"gate"`

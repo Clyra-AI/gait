@@ -2,6 +2,13 @@
 
 Use a local project config to avoid repeating the same `gait gate eval` flags.
 
+Path contract:
+
+- `.gait.yaml`: additive repo-root policy-onboarding file written by `gait init`
+- `.gait/config.yaml`: project defaults for repeated `gait gate eval` flags
+- `gait.yaml`: regress fixture config written by `gait regress init|add|bootstrap`
+- `gait.policy.yaml`: legacy explicit scaffold path still supported by `gait policy init --out ...`
+
 Default lookup path:
 
 - `.gait/config.yaml`

@@ -159,7 +159,7 @@ Yes. The CI regress kit provides portable templates for GitLab, Jenkins, and Cir
 
 ### How do I create a regression fixture?
 
-Run `gait regress bootstrap --from <run_id> --junit <path>`. This creates a fixture directory and runs the first regression pass in one command.
+Run `gait regress bootstrap --from <run_id> --junit <path>` for the one-command path. If you want an explicit handoff artifact first, run `gait capture --from <run_id> --json` and then `gait regress add --from ./gait-out/capture.json --json`.
 
 ### Does regression testing require network access?
 

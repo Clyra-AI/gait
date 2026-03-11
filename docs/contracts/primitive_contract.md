@@ -16,6 +16,17 @@ This document defines the four execution primitives that integrations must use a
 
 Within a major version, these contracts are backward-compatible.
 
+## Onboarding Surface Contract
+
+These file locations and command roles are part of the public OSS onboarding contract:
+
+- `.gait.yaml`: additive repo-root policy file for `gait init` and `gait check`
+- `.gait/config.yaml`: project defaults loaded by `gait gate eval` unless `--no-config` is set
+- `gait.yaml`: regress fixture config written and consumed by `gait regress init|add|bootstrap|run`
+- `gait policy *`: explicit policy authoring commands that remain supported for custom file paths, including `gait.policy.yaml`
+- `gait regress *`: deterministic regress workflow commands; `regress add` is a convenience path over the same fixture semantics as `regress init`
+- `gait trace verify`: shipped trace verification command; no non-verify trace verb is implied by this contract
+
 Intent + receipt continuity conformance profile:
 
 - `docs/contracts/intent_receipt_conformance.md`

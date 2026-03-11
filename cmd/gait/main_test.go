@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,6 +40,12 @@ func TestRunDispatch(t *testing.T) {
 	}
 	if code := run([]string{"gait", "approve-script", "--help"}); code != exitOK {
 		t.Fatalf("run approve-script help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "capture", "--help"}); code != exitOK {
+		t.Fatalf("run capture help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "check", "--help"}); code != exitOK {
+		t.Fatalf("run check help: expected %d got %d", exitOK, code)
 	}
 	if code := run([]string{"gait", "list-scripts", "--help"}); code != exitOK {
 		t.Fatalf("run list-scripts help: expected %d got %d", exitOK, code)
@@ -187,14 +194,26 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "doctor", "--help"}); code != exitOK {
 		t.Fatalf("run doctor help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "enforce", "--help"}); code != exitOK {
+		t.Fatalf("run enforce help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "doctor", "adoption", "--help"}); code != exitOK {
 		t.Fatalf("run doctor adoption help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "init", "--help"}); code != exitOK {
+		t.Fatalf("run init help: expected %d got %d", exitOK, code)
 	}
 	if code := run([]string{"gait", "tour", "--help"}); code != exitOK {
 		t.Fatalf("run tour help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "test", "--help"}); code != exitOK {
+		t.Fatalf("run test help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "ui", "--help"}); code != exitOK {
 		t.Fatalf("run ui help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "regress", "add", "--help"}); code != exitOK {
+		t.Fatalf("run regress add help: expected %d got %d", exitOK, code)
 	}
 }
 
@@ -203,6 +222,12 @@ func TestTopLevelUsageIncludesSessionAndMCPServe(t *testing.T) {
 		printUsage()
 	})
 	for _, snippet := range []string{
+		"gait init [--template",
+		"gait check [--policy .gait.yaml]",
+		"gait test [--cwd .]",
+		"gait enforce [--cwd .]",
+		"gait capture --from <run_id|runpack.zip|trace.json|session_chain.json>",
+		"gait regress add --from <capture.json|run_id|path|session_chain.json>",
 		"gait run session start",
 		"gait run session append",
 		"gait run session checkpoint",
@@ -226,6 +251,50 @@ func TestMainEntrypoint(t *testing.T) {
 	cmd.Env = append(os.Environ(), "GAIT_TEST_MAIN=1")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("run child process: %v", err)
+	}
+}
+
+func TestWrapperChildProcess(t *testing.T) {
+	if os.Getenv("GAIT_TEST_WRAPPER_CHILD") != "1" {
+		return
+	}
+
+	mode := os.Getenv("GAIT_TEST_WRAPPER_CHILD_MODE")
+	switch mode {
+	case "emit-trace":
+		tracePath := os.Getenv("GAIT_TEST_TRACE_PATH")
+		verdict := os.Getenv("GAIT_TEST_TRACE_VERDICT")
+		if verdict == "" {
+			verdict = "allow"
+		}
+		payload := strings.Join([]string{
+			"{",
+			`  "schema_id":"gait.gate.trace",`,
+			`  "schema_version":"1.0.0",`,
+			`  "created_at":"2026-03-09T00:00:00Z",`,
+			`  "producer_version":"0.0.0-test",`,
+			`  "trace_id":"trace_wrapper_child",`,
+			`  "tool_name":"tool.write",`,
+			`  "args_digest":"` + strings.Repeat("a", 64) + `",`,
+			`  "intent_digest":"` + strings.Repeat("b", 64) + `",`,
+			`  "policy_digest":"` + strings.Repeat("c", 64) + `",`,
+			`  "verdict":"` + verdict + `"`,
+			"}",
+		}, "\n")
+		if err := os.WriteFile(tracePath, []byte(payload), 0o600); err != nil {
+			t.Fatalf("write child trace: %v", err)
+		}
+		fmt.Printf("trace_path=%s\n", tracePath)
+		fmt.Printf("verdict=%s\n", verdict)
+		return
+	case "no-trace":
+		fmt.Println("no_trace=true")
+		return
+	case "sleep":
+		time.Sleep(3 * time.Second)
+		return
+	default:
+		t.Fatalf("unknown wrapper child mode %q", mode)
 	}
 }
 
@@ -755,6 +824,305 @@ func TestRunRecordAndMigrateFlow(t *testing.T) {
 	}
 	if code := runVerify([]string{"--json", migratedPath}); code != exitOK {
 		t.Fatalf("verify migrated path: expected %d got %d", exitOK, code)
+	}
+}
+
+func TestInitAndCheckPolicyContract(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	pythonPath := filepath.Join(workDir, "agent.py")
+	mustWriteFile(t, pythonPath, strings.Join([]string{
+		"from langchain.tools import tool",
+		"",
+		"@tool",
+		"def delete_user():",
+		"    return \"ok\"",
+	}, "\n")+"\n")
+
+	var initCode int
+	initRaw := captureStdout(t, func() {
+		initCode = runInit([]string{"--json"})
+	})
+	if initCode != exitOK {
+		t.Fatalf("runInit: expected %d got %d (%s)", exitOK, initCode, initRaw)
+	}
+
+	var initResult initOutput
+	if err := json.Unmarshal([]byte(initRaw), &initResult); err != nil {
+		t.Fatalf("decode init output: %v", err)
+	}
+	if !initResult.OK {
+		t.Fatalf("expected init ok output: %#v", initResult)
+	}
+	if initResult.PolicyPath != ".gait.yaml" {
+		t.Fatalf("unexpected init policy path: %s", initResult.PolicyPath)
+	}
+	if len(initResult.Detection.Frameworks) != 1 || initResult.Detection.Frameworks[0] != "langchain" {
+		t.Fatalf("unexpected init detection: %#v", initResult.Detection)
+	}
+	if initResult.Contract.RepoPolicyPath != ".gait.yaml" || initResult.Contract.ProjectDefaultsPath != ".gait/config.yaml" || initResult.Contract.RegressConfigPath != "gait.yaml" {
+		t.Fatalf("unexpected contract paths: %#v", initResult.Contract)
+	}
+	rawPolicy, err := os.ReadFile(filepath.Join(workDir, ".gait.yaml"))
+	if err != nil {
+		t.Fatalf("read generated policy: %v", err)
+	}
+	if !strings.Contains(string(rawPolicy), "# detected_frameworks: langchain") {
+		t.Fatalf("generated policy missing detection hints: %s", string(rawPolicy))
+	}
+	if code := runPolicyValidate([]string{"./.gait.yaml", "--json"}); code != exitOK {
+		t.Fatalf("runPolicyValidate generated policy: expected %d got %d", exitOK, code)
+	}
+
+	var checkCode int
+	checkRaw := captureStdout(t, func() {
+		checkCode = runCheck([]string{"--json"})
+	})
+	if checkCode != exitOK {
+		t.Fatalf("runCheck: expected %d got %d (%s)", exitOK, checkCode, checkRaw)
+	}
+	var checkResult checkOutput
+	if err := json.Unmarshal([]byte(checkRaw), &checkResult); err != nil {
+		t.Fatalf("decode check output: %v", err)
+	}
+	if !checkResult.OK {
+		t.Fatalf("expected check ok output: %#v", checkResult)
+	}
+	if checkResult.DefaultVerdict != "block" {
+		t.Fatalf("unexpected default verdict: %s", checkResult.DefaultVerdict)
+	}
+	if len(checkResult.GapWarnings) == 0 {
+		t.Fatalf("expected gap warnings in check output")
+	}
+}
+
+func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	noTraceCode := runTest([]string{
+		"--json",
+		"--",
+		os.Args[0],
+		"-test.run=TestWrapperChildProcess",
+	})
+	if noTraceCode != exitInvalidInput {
+		t.Fatalf("runTest without child mode env: expected %d got %d", exitInvalidInput, noTraceCode)
+	}
+
+	tracePath := filepath.Join(workDir, "trace_block.json")
+	blockCommand := []string{
+		"--json",
+		"--",
+		os.Args[0],
+		"-test.run=TestWrapperChildProcess",
+	}
+	t.Setenv("GAIT_TEST_WRAPPER_CHILD", "1")
+	t.Setenv("GAIT_TEST_WRAPPER_CHILD_MODE", "emit-trace")
+	t.Setenv("GAIT_TEST_TRACE_PATH", tracePath)
+	t.Setenv("GAIT_TEST_TRACE_VERDICT", "block")
+
+	var testCode int
+	testRaw := captureStdout(t, func() {
+		testCode = runTest(blockCommand)
+	})
+	if testCode != exitOK {
+		t.Fatalf("runTest block observe expected %d got %d (%s)", exitOK, testCode, testRaw)
+	}
+	var testOutput wrapperOutput
+	if err := json.Unmarshal([]byte(testRaw), &testOutput); err != nil {
+		t.Fatalf("decode test wrapper output: %v", err)
+	}
+	if len(testOutput.TracePaths) != 1 || testOutput.TracePaths[0] != tracePath {
+		t.Fatalf("unexpected test trace paths: %#v", testOutput.TracePaths)
+	}
+
+	var enforceCode int
+	enforceRaw := captureStdout(t, func() {
+		enforceCode = runEnforce(blockCommand)
+	})
+	if enforceCode != exitPolicyBlocked {
+		t.Fatalf("runEnforce block expected %d got %d (%s)", exitPolicyBlocked, enforceCode, enforceRaw)
+	}
+	var enforceOutput wrapperOutput
+	if err := json.Unmarshal([]byte(enforceRaw), &enforceOutput); err != nil {
+		t.Fatalf("decode enforce wrapper output: %v", err)
+	}
+	if len(enforceOutput.VerdictCounts) != 1 || enforceOutput.VerdictCounts[0].Verdict != "block" {
+		t.Fatalf("unexpected enforce verdict counts: %#v", enforceOutput.VerdictCounts)
+	}
+}
+
+func TestWrapperTimeoutIsDeterministic(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	t.Setenv("GAIT_TEST_WRAPPER_CHILD", "1")
+	t.Setenv("GAIT_TEST_WRAPPER_CHILD_MODE", "sleep")
+
+	var exitCode int
+	raw := captureStdout(t, func() {
+		exitCode = runEnforce([]string{
+			"--json",
+			"--timeout", "100ms",
+			"--",
+			os.Args[0],
+			"-test.run=TestWrapperChildProcess",
+		})
+	})
+	if exitCode != exitInternalFailure {
+		t.Fatalf("runEnforce timeout expected %d got %d (%s)", exitInternalFailure, exitCode, raw)
+	}
+	var output wrapperOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode timeout wrapper output: %v", err)
+	}
+	if !output.TimedOut {
+		t.Fatalf("expected timed_out=true: %#v", output)
+	}
+}
+
+func TestCaptureAndRegressAddFlow(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	if code := runDemo(nil); code != exitOK {
+		t.Fatalf("runDemo setup: expected %d got %d", exitOK, code)
+	}
+
+	var captureCode int
+	captureRaw := captureStdout(t, func() {
+		captureCode = runCapture([]string{"--from", "run_demo", "--json"})
+	})
+	if captureCode != exitOK {
+		t.Fatalf("runCapture: expected %d got %d (%s)", exitOK, captureCode, captureRaw)
+	}
+	var captureResult captureOutput
+	if err := json.Unmarshal([]byte(captureRaw), &captureResult); err != nil {
+		t.Fatalf("decode capture output: %v", err)
+	}
+	if captureResult.ArtifactType != "runpack" {
+		t.Fatalf("unexpected capture artifact type: %#v", captureResult)
+	}
+	if captureResult.OutputPath != filepath.Join("gait-out", "capture.json") {
+		t.Fatalf("unexpected capture output path: %s", captureResult.OutputPath)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "gait-out", "capture.json")); err != nil {
+		t.Fatalf("capture receipt missing: %v", err)
+	}
+
+	var addCode int
+	addRaw := captureStdout(t, func() {
+		addCode = runRegress([]string{"add", "--from", filepath.Join("gait-out", "capture.json"), "--json"})
+	})
+	if addCode != exitOK {
+		t.Fatalf("runRegress add: expected %d got %d (%s)", exitOK, addCode, addRaw)
+	}
+	var addResult regressAddOutput
+	if err := json.Unmarshal([]byte(addRaw), &addResult); err != nil {
+		t.Fatalf("decode regress add output: %v", err)
+	}
+	if !addResult.OK || addResult.RunID != "run_demo" {
+		t.Fatalf("unexpected regress add output: %#v", addResult)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "fixtures", "run_demo", "runpack.zip")); err != nil {
+		t.Fatalf("fixture runpack missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "gait.yaml")); err != nil {
+		t.Fatalf("regress config missing: %v", err)
+	}
+}
+
+func TestOnboardingAndWrapperHelperBranches(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	tracePath := filepath.Join(workDir, "trace.json")
+	mustWriteFile(t, tracePath, strings.Join([]string{
+		"{",
+		`  "schema_id":"gait.gate.trace",`,
+		`  "schema_version":"1.0.0",`,
+		`  "created_at":"2026-03-09T00:00:00Z",`,
+		`  "producer_version":"0.0.0-test",`,
+		`  "trace_id":"trace_helper",`,
+		`  "tool_name":"tool.write",`,
+		`  "args_digest":"` + strings.Repeat("a", 64) + `",`,
+		`  "intent_digest":"` + strings.Repeat("b", 64) + `",`,
+		`  "policy_digest":"` + strings.Repeat("c", 64) + `",`,
+		`  "verdict":"require_approval"`,
+		"}",
+	}, "\n"))
+
+	output, exitCode := resolveCaptureOutput(tracePath, "latest")
+	if exitCode != exitOK {
+		t.Fatalf("resolveCaptureOutput trace expected %d got %d", exitOK, exitCode)
+	}
+	if output.ArtifactType != "trace" {
+		t.Fatalf("expected trace artifact type, got %#v", output)
+	}
+	if _, badExit := resolveCaptureOutput("", "latest"); badExit != exitInvalidInput {
+		t.Fatalf("resolveCaptureOutput missing input expected %d got %d", exitInvalidInput, badExit)
+	}
+
+	receiptPath := filepath.Join(workDir, "capture.json")
+	output.OutputPath = receiptPath
+	if err := writeCaptureReceipt(receiptPath, output); err != nil {
+		t.Fatalf("writeCaptureReceipt: %v", err)
+	}
+	receipt, err := loadCaptureReceipt(receiptPath)
+	if err != nil {
+		t.Fatalf("loadCaptureReceipt: %v", err)
+	}
+	if receipt.ArtifactPath != tracePath {
+		t.Fatalf("unexpected receipt artifact path: %#v", receipt)
+	}
+	mustWriteFile(t, filepath.Join(workDir, "bad_capture.json"), `{"schema_id":"bad","schema_version":"1.0.0"}`+"\n")
+	if _, err := loadCaptureReceipt(filepath.Join(workDir, "bad_capture.json")); err == nil {
+		t.Fatalf("expected invalid capture receipt schema error")
+	}
+
+	if code := writeInitOutput(false, initOutput{OK: true, PolicyPath: ".gait.yaml", Template: "baseline-highrisk", Detection: repoDetection{Frameworks: []string{"langchain"}}}, exitOK); code != exitOK {
+		t.Fatalf("writeInitOutput text success expected %d got %d", exitOK, code)
+	}
+	if code := writeInitOutput(false, initOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeInitOutput text error expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeCheckOutput(false, checkOutput{OK: true, PolicyPath: ".gait.yaml", RuleCount: 1}, exitOK); code != exitOK {
+		t.Fatalf("writeCheckOutput text success expected %d got %d", exitOK, code)
+	}
+	if code := writeCheckOutput(false, checkOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeCheckOutput text error expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeCaptureOutput(false, captureOutput{OK: true, ArtifactType: "runpack", ArtifactPath: "runpack.zip", OutputPath: "capture.json"}, exitOK); code != exitOK {
+		t.Fatalf("writeCaptureOutput text success expected %d got %d", exitOK, code)
+	}
+	if code := writeCaptureOutput(false, captureOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeCaptureOutput text error expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeRegressAddOutput(false, regressAddOutput{OK: true, FixtureName: "demo", RunID: "run_demo"}, exitOK); code != exitOK {
+		t.Fatalf("writeRegressAddOutput text success expected %d got %d", exitOK, code)
+	}
+	if code := writeRegressAddOutput(false, regressAddOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeRegressAddOutput text error expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeWrapperOutput(false, wrapperOutput{OK: true, Mode: "test", ChildExitCode: 0, TracePaths: []string{"trace.json"}}, exitOK); code != exitOK {
+		t.Fatalf("writeWrapperOutput text success expected %d got %d", exitOK, code)
+	}
+	if code := writeWrapperOutput(false, wrapperOutput{OK: false, Mode: "enforce", Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeWrapperOutput text error expected %d got %d", exitInvalidInput, code)
+	}
+	if got := wrapperEnforceExitCode([]wrapperVerdictCount{{Verdict: "require_approval", Count: 1}}); got != exitApprovalRequired {
+		t.Fatalf("wrapperEnforceExitCode require approval expected %d got %d", exitApprovalRequired, got)
+	}
+	if got := summarizeDetectedToolsForComment([]string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}); !strings.Contains(got, "(+1 more)") {
+		t.Fatalf("expected summarized tool overflow, got %q", got)
+	}
+	if warnings := buildPolicyGapWarnings(gatecore.Policy{DefaultVerdict: "allow"}, repoDetection{}); len(warnings) == 0 {
+		t.Fatalf("expected gap warnings for permissive empty policy")
+	}
+	if detection := summarizeRepoDetection(schemascout.InventorySnapshot{Items: []schemascout.InventoryItem{{Kind: "tool", Name: "delete_user", Tags: []string{"framework:langchain"}}}}); len(detection.Frameworks) != 1 || detection.Frameworks[0] != "langchain" {
+		t.Fatalf("unexpected summarized detection: %#v", detection)
 	}
 }
 
