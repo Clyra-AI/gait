@@ -1197,6 +1197,149 @@ func TestOnboardingAndWrapperHelperBranches(t *testing.T) {
 	}
 }
 
+func TestTraceValidationHelpers(t *testing.T) {
+	validRecord := schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.March, 9, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "0.0.0-test",
+		TraceID:         "trace_helper_validation",
+		ToolName:        "tool.write",
+		ArgsDigest:      strings.Repeat("a", 64),
+		IntentDigest:    strings.Repeat("b", 64),
+		PolicyDigest:    strings.Repeat("c", 64),
+		Verdict:         "allow",
+	}
+	cases := []struct {
+		name   string
+		mutate func(*schemagate.TraceRecord)
+	}{
+		{name: "schema_id", mutate: func(record *schemagate.TraceRecord) { record.SchemaID = "bad" }},
+		{name: "schema_version", mutate: func(record *schemagate.TraceRecord) { record.SchemaVersion = "" }},
+		{name: "created_at", mutate: func(record *schemagate.TraceRecord) { record.CreatedAt = time.Time{} }},
+		{name: "producer_version", mutate: func(record *schemagate.TraceRecord) { record.ProducerVersion = "" }},
+		{name: "trace_id", mutate: func(record *schemagate.TraceRecord) { record.TraceID = "" }},
+		{name: "tool_name", mutate: func(record *schemagate.TraceRecord) { record.ToolName = "" }},
+		{name: "args_digest", mutate: func(record *schemagate.TraceRecord) { record.ArgsDigest = "xyz" }},
+		{name: "intent_digest", mutate: func(record *schemagate.TraceRecord) { record.IntentDigest = "xyz" }},
+		{name: "policy_digest", mutate: func(record *schemagate.TraceRecord) { record.PolicyDigest = "xyz" }},
+		{name: "verdict", mutate: func(record *schemagate.TraceRecord) { record.Verdict = "bogus" }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			record := validRecord
+			tc.mutate(&record)
+			if err := validateTraceRecord(record); err == nil {
+				t.Fatalf("validateTraceRecord(%s): expected error", tc.name)
+			}
+		})
+	}
+
+	workDir := t.TempDir()
+	validTracePath := filepath.Join(workDir, "valid_trace.json")
+	validRaw, err := json.Marshal(validRecord)
+	if err != nil {
+		t.Fatalf("marshal valid trace: %v", err)
+	}
+	mustWriteFile(t, validTracePath, string(validRaw)+"\n")
+	counts, warnings, invalidCount := summarizeWrapperArtifacts([]string{validTracePath}, nil)
+	if invalidCount != 0 || len(warnings) != 0 {
+		t.Fatalf("summarizeWrapperArtifacts valid trace unexpected diagnostics: counts=%#v warnings=%#v invalid=%d", counts, warnings, invalidCount)
+	}
+	if len(counts) != 1 || counts[0].Verdict != "allow" || counts[0].Count != 1 {
+		t.Fatalf("summarizeWrapperArtifacts valid trace unexpected counts: %#v", counts)
+	}
+
+	invalidTracePath := filepath.Join(workDir, "invalid_trace.json")
+	invalidRecord := validRecord
+	invalidRecord.Verdict = "bogus"
+	invalidRaw, err := json.Marshal(invalidRecord)
+	if err != nil {
+		t.Fatalf("marshal invalid trace: %v", err)
+	}
+	mustWriteFile(t, invalidTracePath, string(invalidRaw)+"\n")
+	counts, warnings, invalidCount = summarizeWrapperArtifacts([]string{invalidTracePath}, nil)
+	if len(counts) != 0 || invalidCount != 1 {
+		t.Fatalf("summarizeWrapperArtifacts invalid trace unexpected result: counts=%#v invalid=%d", counts, invalidCount)
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "unsupported trace verdict") {
+		t.Fatalf("summarizeWrapperArtifacts invalid trace unexpected warnings: %#v", warnings)
+	}
+}
+
+func TestWrapperArtifactHelpers(t *testing.T) {
+	paths := extractKeyValuePaths(
+		"trace_path=trace_b.json\ntrace_path=trace_a.json\n",
+		"trace_path=trace_b.json\nrunpack_path=runpack.zip\n",
+		"trace_path",
+	)
+	if len(paths) != 3 {
+		t.Fatalf("extractKeyValuePaths expected 3 paths, got %#v", paths)
+	}
+	unique := uniquePaths([]string{"trace_b.json", "trace_a.json", "trace_b.json", ""})
+	if len(unique) != 2 || unique[0] != "trace_a.json" || unique[1] != "trace_b.json" {
+		t.Fatalf("uniquePaths unexpected ordering: %#v", unique)
+	}
+	if got := wrapperEnforceExitCode([]wrapperVerdictCount{{Verdict: "block", Count: 1}}); got != exitPolicyBlocked {
+		t.Fatalf("wrapperEnforceExitCode block expected %d got %d", exitPolicyBlocked, got)
+	}
+	if got := wrapperEnforceExitCode([]wrapperVerdictCount{{Verdict: "dry_run", Count: 1}}); got != exitPolicyBlocked {
+		t.Fatalf("wrapperEnforceExitCode dry_run expected %d got %d", exitPolicyBlocked, got)
+	}
+	if got := wrapperEnforceExitCode([]wrapperVerdictCount{{Verdict: "allow", Count: 1}}); got != exitOK {
+		t.Fatalf("wrapperEnforceExitCode allow expected %d got %d", exitOK, got)
+	}
+}
+
+func TestWrapperAndCaptureErrorBranches(t *testing.T) {
+	if code := runTest([]string{}); code != exitInvalidInput {
+		t.Fatalf("runTest missing child command expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runTest([]string{"--timeout", "bogus", "--", "echo"}); code != exitInvalidInput {
+		t.Fatalf("runTest invalid timeout expected %d got %d", exitInvalidInput, code)
+	}
+
+	output, exitCode := executeWrapperCommand(wrapperOptions{
+		Mode:    "test",
+		Command: []string{filepath.Join(t.TempDir(), "missing-binary")},
+		Cwd:     ".",
+		Timeout: time.Second,
+	})
+	if exitCode != exitInternalFailure || output.Error == "" {
+		t.Fatalf("executeWrapperCommand missing binary expected internal failure, got exit=%d output=%#v", exitCode, output)
+	}
+	if code := writeWrapperOutput(false, wrapperOutput{OK: false, Mode: "test", ChildExitCode: 1}, exitPolicyBlocked); code != exitPolicyBlocked {
+		t.Fatalf("writeWrapperOutput fallback branch expected %d got %d", exitPolicyBlocked, code)
+	}
+
+	validReceipt := captureOutput{
+		SchemaID:      captureReceiptSchemaID,
+		SchemaVersion: captureReceiptSchemaVersion,
+		OK:            true,
+		ArtifactType:  "trace",
+		ArtifactPath:  "trace.json",
+	}
+	if err := writeCaptureReceipt("", validReceipt); err == nil {
+		t.Fatalf("writeCaptureReceipt empty path should fail")
+	}
+
+	workDir := t.TempDir()
+	missingArtifactReceiptPath := filepath.Join(workDir, "missing_artifact.json")
+	raw, err := json.Marshal(captureOutput{
+		SchemaID:      captureReceiptSchemaID,
+		SchemaVersion: captureReceiptSchemaVersion,
+		OK:            true,
+		ArtifactType:  "trace",
+	})
+	if err != nil {
+		t.Fatalf("marshal missing artifact receipt: %v", err)
+	}
+	mustWriteFile(t, missingArtifactReceiptPath, string(raw)+"\n")
+	if _, err := loadCaptureReceipt(missingArtifactReceiptPath); err == nil {
+		t.Fatalf("loadCaptureReceipt missing artifact_path should fail")
+	}
+}
+
 func TestScoutGuardRegistryAndReduceFlow(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
