@@ -536,6 +536,82 @@ func TestMCPServeHandlerRejectsClientArtifactPathOverridesByDefault(t *testing.T
 	}
 }
 
+func TestMCPServeHandlerRejectsContextEnvelopePathOverridesByDefault(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:        policyPath,
+		DefaultAdapter:    "mcp",
+		TraceDir:          filepath.Join(workDir, "traces"),
+		SessionDir:        filepath.Join(workDir, "sessions"),
+		MaxRequestBytes:   1 << 20,
+		HTTPVerdictStatus: "compat",
+		KeyMode:           "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1","context_envelope_path":"/tmp/ctx.json"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected %d got %d body=%s", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestMCPServeHandlerRejectsContextEnvelopePathEvenWhenArtifactPathsEnabled(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, `default_verdict: block
+rules:
+  - name: allow-write-with-context
+    effect: allow
+    require_context_evidence: true
+    max_context_age_seconds: 30
+    match:
+      tool_names: [tool.write]
+`)
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:               policyPath,
+		DefaultAdapter:           "mcp",
+		TraceDir:                 filepath.Join(workDir, "traces"),
+		SessionDir:               filepath.Join(workDir, "sessions"),
+		AllowClientArtifactPaths: true,
+		MaxRequestBytes:          1 << 20,
+		HTTPVerdictStatus:        "compat",
+		KeyMode:                  "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "call":{
+	    "name":"tool.write",
+	    "args":{"path":"/tmp/out.txt"},
+	    "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+	    "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1","context_envelope_path":"/tmp/ctx.json"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected %d got %d body=%s", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestMCPServeHandlerAllowsClientArtifactPathOverridesWhenEnabled(t *testing.T) {
 	workDir := t.TempDir()
 	policyPath := filepath.Join(workDir, "policy.yaml")

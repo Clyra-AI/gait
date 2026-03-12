@@ -13,6 +13,7 @@ import (
 	gaitjcs "github.com/Clyra-AI/proof/canon"
 	"github.com/goccy/go-yaml"
 
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
@@ -183,13 +184,16 @@ type ToolAnnotationMatch struct {
 }
 
 type EvalOptions struct {
-	ProducerVersion string
-	WrkrInventory   map[string]WrkrToolMetadata
-	WrkrSource      string
+	ProducerVersion         string
+	WrkrInventory           map[string]WrkrToolMetadata
+	WrkrSource              string
+	VerifiedContextEnvelope *schemacontext.Envelope
+	ContextEvidenceNow      time.Time
 }
 
 type EvalOutcome struct {
 	Result                   schemagate.GateResult
+	PreparedIntent           schemagate.IntentRequest
 	MatchedRule              string
 	MinApprovals             int
 	RequireDistinctApprovers bool
@@ -279,7 +283,7 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 		return EvalOutcome{}, err
 	}
 
-	normalizedIntent, err := NormalizeIntent(intent)
+	normalizedIntent, verifiedContextSource, err := prepareIntentForEvaluation(intent, opts)
 	if err != nil {
 		if shouldFailClosed(normalizedPolicy.FailClosed, strings.ToLower(strings.TrimSpace(intent.Context.RiskClass))) {
 			return EvalOutcome{
@@ -296,7 +300,8 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 		violations = mergeUniqueSorted(violations, endpointViolations)
 		if len(reasons) > 0 {
 			return EvalOutcome{
-				Result: buildGateResult(normalizedPolicy, normalizedIntent, opts, "block", reasons, violations),
+				Result:         buildGateResult(normalizedPolicy, normalizedIntent, opts, "block", reasons, violations),
+				PreparedIntent: normalizedIntent,
 			}, nil
 		}
 	}
@@ -310,8 +315,12 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 	if err != nil {
 		return EvalOutcome{}, err
 	}
+	outcome.PreparedIntent = enrichedIntent
+	if verifiedContextSource != "" {
+		outcome.ContextSource = mergeContextSource(outcome.ContextSource, verifiedContextSource)
+	}
 	if contextApplied {
-		outcome.ContextSource = resolveWrkrSource(opts.WrkrSource)
+		outcome.ContextSource = mergeContextSource(outcome.ContextSource, resolveWrkrSource(opts.WrkrSource))
 	}
 	return outcome, nil
 }
@@ -364,6 +373,7 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 		}
 		return EvalOutcome{
 			Result:                   buildGateResult(policy, intent, opts, effect, reasons, violations),
+			PreparedIntent:           intent,
 			MatchedRule:              rule.Name,
 			MinApprovals:             minApprovals,
 			RequireDistinctApprovers: rule.RequireDistinctApprovers,
@@ -390,7 +400,8 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 			[]string{"default_" + policy.DefaultVerdict},
 			[]string{},
 		),
-		MinApprovals: minApprovals,
+		PreparedIntent: intent,
+		MinApprovals:   minApprovals,
 	}, nil
 }
 
@@ -414,6 +425,9 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 	aggregatedRateLimit := RateLimitPolicy{}
 	aggregatedDestructiveBudget := RateLimitPolicy{}
 	contextSource := ""
+	if opts.VerifiedContextEnvelope != nil {
+		contextSource = mergeContextSource(contextSource, verifiedContextSource)
+	}
 
 	for index, step := range intent.Script.Steps {
 		stepIntent := intent
@@ -469,7 +483,7 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 		}
 		riskClasses = mergeUniqueSorted(riskClasses, []string{classifyScriptStepRisk(step.Targets)})
 		if contextApplied {
-			contextSource = resolveWrkrSource(opts.WrkrSource)
+			contextSource = mergeContextSource(contextSource, resolveWrkrSource(opts.WrkrSource))
 		}
 	}
 
@@ -514,6 +528,7 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 		RateLimit:                aggregatedRateLimit,
 		DestructiveBudget:        aggregatedDestructiveBudget,
 		DataflowTriggered:        dataflowTriggered,
+		PreparedIntent:           intent,
 		Script:                   true,
 		StepCount:                len(intent.Script.Steps),
 		ScriptHash:               intent.ScriptHash,

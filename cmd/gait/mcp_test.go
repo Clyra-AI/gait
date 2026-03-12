@@ -8,9 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/contextproof"
 	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/mcp"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
@@ -564,6 +566,100 @@ func TestRunMCPProxyOSSProdOAuthEvidenceValidation(t *testing.T) {
 		"--json",
 	}); code != exitOK {
 		t.Fatalf("runMCPProxy oauth valid evidence expected %d got %d", exitOK, code)
+	}
+}
+
+func TestRunMCPProxyRequiresVerifiedContextEnvelopeForContextPolicies(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	privateKeyPath := filepath.Join(workDir, "trace_private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	policyPath := filepath.Join(workDir, "policy_context.yaml")
+	mustWriteFile(t, policyPath, `default_verdict: block
+rules:
+  - name: allow-write-with-context
+    effect: allow
+    require_context_evidence: true
+    max_context_age_seconds: 30
+    match:
+      tool_names: [tool.write]
+`)
+
+	callPath := filepath.Join(workDir, "call.json")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.write",
+  "args":{"path":"/tmp/out.txt"},
+  "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+  "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1"}
+}`)
+	if code := runMCPProxy([]string{
+		"--policy", policyPath,
+		"--call", callPath,
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitPolicyBlocked {
+		t.Fatalf("runMCPProxy without context envelope expected %d got %d", exitPolicyBlocked, code)
+	}
+
+	envelope, err := contextproof.BuildEnvelope([]schemacontext.ReferenceRecord{
+		{
+			RefID:         "ctx-1",
+			SourceType:    "doc",
+			SourceLocator: "file:///repo/context.md",
+			QueryDigest:   strings.Repeat("1", 64),
+			ContentDigest: strings.Repeat("2", 64),
+			RetrievedAt:   time.Now().UTC().Add(-5 * time.Second),
+			RedactionMode: contextproof.PrivacyModeHashes,
+			Immutability:  "immutable",
+		},
+	}, contextproof.BuildEnvelopeOptions{
+		ContextSetID:    "ctx-set-1",
+		EvidenceMode:    contextproof.EvidenceModeRequired,
+		ProducerVersion: "test",
+		CreatedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("build envelope: %v", err)
+	}
+	envelopePath := filepath.Join(workDir, "context_envelope.json")
+	envelopeBytes, err := json.MarshalIndent(envelope, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+	mustWriteFile(t, envelopePath, string(envelopeBytes)+"\n")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.write",
+  "args":{"path":"/tmp/out.txt"},
+  "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+  "context":{
+    "identity":"alice",
+    "workspace":"/repo/gait",
+    "risk_class":"high",
+    "session_id":"sess-1"
+  }
+}`)
+
+	raw := captureStdout(t, func() {
+		if code := runMCPProxy([]string{
+			"--policy", policyPath,
+			"--call", callPath,
+			"--context-envelope", envelopePath,
+			"--key-mode", "prod",
+			"--private-key", privateKeyPath,
+			"--json",
+		}); code != exitOK {
+			t.Fatalf("runMCPProxy with context envelope expected %d got %d", exitOK, code)
+		}
+	})
+	var out mcpProxyOutput
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		t.Fatalf("decode mcp output: %v raw=%q", err, raw)
+	}
+	if out.Verdict != "allow" {
+		t.Fatalf("expected allow with verified context envelope, got %#v", out)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -49,6 +48,9 @@ func NormalizeEvidenceMode(mode string) (string, error) {
 }
 
 func ParseEnvelope(payload []byte) (schemacontext.Envelope, error) {
+	if int64(len(payload)) > MaxEnvelopeBytes {
+		return schemacontext.Envelope{}, fmt.Errorf("context envelope exceeds size limit (%d bytes)", MaxEnvelopeBytes)
+	}
 	var envelope schemacontext.Envelope
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
@@ -56,25 +58,6 @@ func ParseEnvelope(payload []byte) (schemacontext.Envelope, error) {
 		return schemacontext.Envelope{}, fmt.Errorf("parse context envelope: %w", err)
 	}
 	return NormalizeEnvelope(envelope)
-}
-
-func LoadEnvelope(path string) (schemacontext.Envelope, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return schemacontext.Envelope{}, fmt.Errorf("stat context envelope: %w", err)
-	}
-	if info.Size() > MaxEnvelopeBytes {
-		return schemacontext.Envelope{}, fmt.Errorf("context envelope exceeds size limit (%d bytes)", MaxEnvelopeBytes)
-	}
-	// #nosec G304 -- path is explicit local user input.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return schemacontext.Envelope{}, fmt.Errorf("read context envelope: %w", err)
-	}
-	if int64(len(payload)) > MaxEnvelopeBytes {
-		return schemacontext.Envelope{}, fmt.Errorf("context envelope exceeds size limit (%d bytes)", MaxEnvelopeBytes)
-	}
-	return ParseEnvelope(payload)
 }
 
 type BuildEnvelopeOptions struct {

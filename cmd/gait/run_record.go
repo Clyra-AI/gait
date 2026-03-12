@@ -167,21 +167,37 @@ func runRecord(arguments []string) int {
 	signingKey := sign.KeyPair{}
 	signingWarnings := []string{}
 	if strings.TrimSpace(contextEnvelopePath) != "" {
-		envelope, loadErr := contextproof.LoadEnvelope(strings.TrimSpace(contextEnvelopePath))
+		trimmedEnvelopePath := filepath.Clean(strings.TrimSpace(contextEnvelopePath))
+		if trimmedEnvelopePath == "" {
+			return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: "context envelope path is required"}, exitInvalidInput)
+		}
+		if !filepath.IsAbs(trimmedEnvelopePath) && !filepath.IsLocal(trimmedEnvelopePath) {
+			return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: "context envelope path must be a local filesystem path"}, exitInvalidInput)
+		}
+		// #nosec G304 -- context envelope path is explicit local user input.
+		rawEnvelope, loadErr := os.ReadFile(trimmedEnvelopePath)
 		if loadErr != nil {
 			if normalizedContextEvidenceMode == contextproof.EvidenceModeRequired {
-				return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: loadErr.Error()}, exitInvalidInput)
+				return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: fmt.Errorf("read context envelope: %w", loadErr).Error()}, exitInvalidInput)
 			}
-			signingWarnings = append(signingWarnings, "context envelope ignored: "+loadErr.Error())
+			signingWarnings = append(signingWarnings, "context envelope ignored: "+fmt.Errorf("read context envelope: %w", loadErr).Error())
 		} else {
-			envelope.EvidenceMode = normalizedContextEvidenceMode
-			if !unsafeContextRaw && hasRawContextRecord(envelope.Records) {
-				return writeRunRecordOutput(jsonOutput, runRecordOutput{
-					OK:    false,
-					Error: "context envelope includes redaction_mode=raw; re-run with --unsafe-context-raw to allow unsafe context capture",
-				}, exitInvalidInput)
+			envelope, parseErr := contextproof.ParseEnvelope(rawEnvelope)
+			if parseErr != nil {
+				if normalizedContextEvidenceMode == contextproof.EvidenceModeRequired {
+					return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: parseErr.Error()}, exitInvalidInput)
+				}
+				signingWarnings = append(signingWarnings, "context envelope ignored: "+parseErr.Error())
+			} else {
+				envelope.EvidenceMode = normalizedContextEvidenceMode
+				if !unsafeContextRaw && hasRawContextRecord(envelope.Records) {
+					return writeRunRecordOutput(jsonOutput, runRecordOutput{
+						OK:    false,
+						Error: "context envelope includes redaction_mode=raw; re-run with --unsafe-context-raw to allow unsafe context capture",
+					}, exitInvalidInput)
+				}
+				contextproof.ApplyEnvelopeToRefs(&recordInput.Refs, envelope)
 			}
-			contextproof.ApplyEnvelopeToRefs(&recordInput.Refs, envelope)
 		}
 	}
 	if !unsafeContextRaw && hasRawContextReceipts(recordInput.Refs.Receipts) {

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/contextproof"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
 
@@ -121,6 +123,108 @@ rules:
 	}
 	if evalOut.Verdict != "allow" || !evalOut.PreApproved || evalOut.PatternID == "" {
 		t.Fatalf("expected pre-approved allow output, got %#v", evalOut)
+	}
+}
+
+func TestGateEvalApprovedScriptFastPathDisabledForContextPolicies(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy_context.yaml")
+	intentPath := filepath.Join(workDir, "script_intent.json")
+	registryPath := filepath.Join(workDir, "approved_scripts.json")
+	privateKeyPath := filepath.Join(workDir, "approved_script_private.key")
+	envelopePath := filepath.Join(workDir, "context_envelope.json")
+
+	mustWriteFile(t, policyPath, `
+default_verdict: block
+rules:
+  - name: allow-write-with-context
+    effect: allow
+    require_context_evidence: true
+    max_context_age_seconds: 30
+    match:
+      tool_names: [tool.write]
+`)
+	mustWriteScriptIntentFixture(t, intentPath)
+	writePrivateKey(t, privateKeyPath)
+
+	envelope, err := contextproof.BuildEnvelope([]schemacontext.ReferenceRecord{
+		{
+			RefID:         "ctx-1",
+			SourceType:    "doc",
+			SourceLocator: "file:///repo/context.md",
+			QueryDigest:   strings.Repeat("1", 64),
+			ContentDigest: strings.Repeat("2", 64),
+			RetrievedAt:   time.Now().UTC().Add(-5 * time.Second),
+			RedactionMode: contextproof.PrivacyModeHashes,
+			Immutability:  "immutable",
+		},
+	}, contextproof.BuildEnvelopeOptions{
+		ContextSetID:    "ctx-set-1",
+		EvidenceMode:    contextproof.EvidenceModeRequired,
+		ProducerVersion: "test",
+		CreatedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("build envelope: %v", err)
+	}
+	rawEnvelope, err := json.MarshalIndent(envelope, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+	mustWriteFile(t, envelopePath, string(rawEnvelope)+"\n")
+
+	if code := runApproveScript([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--registry", registryPath,
+		"--approver", "secops",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runApproveScript expected %d got %d", exitOK, code)
+	}
+
+	rawBlocked := captureStdout(t, func() {
+		if code := runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--approved-script-registry", registryPath,
+			"--json",
+		}); code != exitPolicyBlocked {
+			t.Fatalf("runGateEval without context envelope expected %d got %d", exitPolicyBlocked, code)
+		}
+	})
+	var blockedOut gateEvalOutput
+	if err := json.Unmarshal([]byte(rawBlocked), &blockedOut); err != nil {
+		t.Fatalf("decode blocked output: %v raw=%q", err, rawBlocked)
+	}
+	if blockedOut.PreApproved {
+		t.Fatalf("expected approved-script fast-path to be disabled, got %#v", blockedOut)
+	}
+
+	rawAllowed := captureStdout(t, func() {
+		if code := runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--approved-script-registry", registryPath,
+			"--context-envelope", envelopePath,
+			"--json",
+		}); code != exitOK {
+			t.Fatalf("runGateEval with verified context envelope expected %d got %d", exitOK, code)
+		}
+	})
+	var allowedOut gateEvalOutput
+	if err := json.Unmarshal([]byte(rawAllowed), &allowedOut); err != nil {
+		t.Fatalf("decode allowed output: %v raw=%q", err, rawAllowed)
+	}
+	if allowedOut.PreApproved {
+		t.Fatalf("expected normal policy evaluation instead of fast-path, got %#v", allowedOut)
+	}
+	if allowedOut.Verdict != "allow" {
+		t.Fatalf("expected allow with verified context envelope, got %#v", allowedOut)
 	}
 }
 

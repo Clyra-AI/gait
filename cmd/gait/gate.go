@@ -12,62 +12,64 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/contextproof"
 	"github.com/Clyra-AI/gait/core/credential"
 	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/projectconfig"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type gateEvalOutput struct {
-	OK                     bool                          `json:"ok"`
-	Profile                string                        `json:"profile,omitempty"`
-	Verdict                string                        `json:"verdict,omitempty"`
-	ReasonCodes            []string                      `json:"reason_codes,omitempty"`
-	Violations             []string                      `json:"violations,omitempty"`
-	ApprovalRef            string                        `json:"approval_ref,omitempty"`
-	RequiredApprovals      int                           `json:"required_approvals,omitempty"`
-	ValidApprovals         int                           `json:"valid_approvals,omitempty"`
-	ApprovalAuditPath      string                        `json:"approval_audit_path,omitempty"`
-	DelegationRef          string                        `json:"delegation_ref,omitempty"`
-	DelegationRequired     bool                          `json:"delegation_required,omitempty"`
-	ValidDelegations       int                           `json:"valid_delegations,omitempty"`
-	DelegationAuditPath    string                        `json:"delegation_audit_path,omitempty"`
-	TraceID                string                        `json:"trace_id,omitempty"`
-	TracePath              string                        `json:"trace_path,omitempty"`
-	PolicyDigest           string                        `json:"policy_digest,omitempty"`
-	IntentDigest           string                        `json:"intent_digest,omitempty"`
-	ContextSetDigest       string                        `json:"context_set_digest,omitempty"`
-	ContextEvidenceMode    string                        `json:"context_evidence_mode,omitempty"`
-	ContextRefCount        int                           `json:"context_ref_count,omitempty"`
-	ContextSource          string                        `json:"context_source,omitempty"`
-	Script                 bool                          `json:"script,omitempty"`
-	StepCount              int                           `json:"step_count,omitempty"`
-	ScriptHash             string                        `json:"script_hash,omitempty"`
-	CompositeRiskClass     string                        `json:"composite_risk_class,omitempty"`
-	StepVerdicts           []schemagate.TraceStepVerdict `json:"step_verdicts,omitempty"`
-	PreApproved            bool                          `json:"pre_approved,omitempty"`
-	PatternID              string                        `json:"pattern_id,omitempty"`
-	RegistryReason         string                        `json:"registry_reason,omitempty"`
-	MatchedRule            string                        `json:"matched_rule,omitempty"`
-	Phase                  string                        `json:"phase,omitempty"`
-	RateLimitScope         string                        `json:"rate_limit_scope,omitempty"`
-	RateLimitKey           string                        `json:"rate_limit_key,omitempty"`
-	RateLimitUsed          int                           `json:"rate_limit_used,omitempty"`
-	RateLimitRemaining     int                           `json:"rate_limit_remaining,omitempty"`
-	DestructiveBudgetScope     string                    `json:"destructive_budget_scope,omitempty"`
-	DestructiveBudgetKey       string                    `json:"destructive_budget_key,omitempty"`
-	DestructiveBudgetUsed      int                       `json:"destructive_budget_used,omitempty"`
-	DestructiveBudgetRemaining int                       `json:"destructive_budget_remaining,omitempty"`
-	CredentialIssuer       string                        `json:"credential_issuer,omitempty"`
-	CredentialRef          string                        `json:"credential_ref,omitempty"`
-	CredentialEvidencePath string                        `json:"credential_evidence_path,omitempty"`
-	SimulateMode           bool                          `json:"simulate_mode,omitempty"`
-	WouldHaveBlocked       bool                          `json:"would_have_blocked,omitempty"`
-	SimulatedVerdict       string                        `json:"simulated_verdict,omitempty"`
-	SimulatedReasonCodes   []string                      `json:"simulated_reason_codes,omitempty"`
-	Warnings               []string                      `json:"warnings,omitempty"`
-	Error                  string                        `json:"error,omitempty"`
+	OK                         bool                          `json:"ok"`
+	Profile                    string                        `json:"profile,omitempty"`
+	Verdict                    string                        `json:"verdict,omitempty"`
+	ReasonCodes                []string                      `json:"reason_codes,omitempty"`
+	Violations                 []string                      `json:"violations,omitempty"`
+	ApprovalRef                string                        `json:"approval_ref,omitempty"`
+	RequiredApprovals          int                           `json:"required_approvals,omitempty"`
+	ValidApprovals             int                           `json:"valid_approvals,omitempty"`
+	ApprovalAuditPath          string                        `json:"approval_audit_path,omitempty"`
+	DelegationRef              string                        `json:"delegation_ref,omitempty"`
+	DelegationRequired         bool                          `json:"delegation_required,omitempty"`
+	ValidDelegations           int                           `json:"valid_delegations,omitempty"`
+	DelegationAuditPath        string                        `json:"delegation_audit_path,omitempty"`
+	TraceID                    string                        `json:"trace_id,omitempty"`
+	TracePath                  string                        `json:"trace_path,omitempty"`
+	PolicyDigest               string                        `json:"policy_digest,omitempty"`
+	IntentDigest               string                        `json:"intent_digest,omitempty"`
+	ContextSetDigest           string                        `json:"context_set_digest,omitempty"`
+	ContextEvidenceMode        string                        `json:"context_evidence_mode,omitempty"`
+	ContextRefCount            int                           `json:"context_ref_count,omitempty"`
+	ContextSource              string                        `json:"context_source,omitempty"`
+	Script                     bool                          `json:"script,omitempty"`
+	StepCount                  int                           `json:"step_count,omitempty"`
+	ScriptHash                 string                        `json:"script_hash,omitempty"`
+	CompositeRiskClass         string                        `json:"composite_risk_class,omitempty"`
+	StepVerdicts               []schemagate.TraceStepVerdict `json:"step_verdicts,omitempty"`
+	PreApproved                bool                          `json:"pre_approved,omitempty"`
+	PatternID                  string                        `json:"pattern_id,omitempty"`
+	RegistryReason             string                        `json:"registry_reason,omitempty"`
+	MatchedRule                string                        `json:"matched_rule,omitempty"`
+	Phase                      string                        `json:"phase,omitempty"`
+	RateLimitScope             string                        `json:"rate_limit_scope,omitempty"`
+	RateLimitKey               string                        `json:"rate_limit_key,omitempty"`
+	RateLimitUsed              int                           `json:"rate_limit_used,omitempty"`
+	RateLimitRemaining         int                           `json:"rate_limit_remaining,omitempty"`
+	DestructiveBudgetScope     string                        `json:"destructive_budget_scope,omitempty"`
+	DestructiveBudgetKey       string                        `json:"destructive_budget_key,omitempty"`
+	DestructiveBudgetUsed      int                           `json:"destructive_budget_used,omitempty"`
+	DestructiveBudgetRemaining int                           `json:"destructive_budget_remaining,omitempty"`
+	CredentialIssuer           string                        `json:"credential_issuer,omitempty"`
+	CredentialRef              string                        `json:"credential_ref,omitempty"`
+	CredentialEvidencePath     string                        `json:"credential_evidence_path,omitempty"`
+	SimulateMode               bool                          `json:"simulate_mode,omitempty"`
+	WouldHaveBlocked           bool                          `json:"would_have_blocked,omitempty"`
+	SimulatedVerdict           string                        `json:"simulated_verdict,omitempty"`
+	SimulatedReasonCodes       []string                      `json:"simulated_reason_codes,omitempty"`
+	Warnings                   []string                      `json:"warnings,omitempty"`
+	Error                      string                        `json:"error,omitempty"`
 }
 
 type gateEvalProfile string
@@ -104,6 +106,7 @@ func runGateEval(arguments []string) int {
 
 	var policyPath string
 	var intentPath string
+	var contextEnvelopePath string
 	var tracePath string
 	var approvalTokenRef string
 	var approvalTokenPath string
@@ -144,6 +147,7 @@ func runGateEval(arguments []string) int {
 
 	flagSet.StringVar(&policyPath, "policy", "", "path to policy yaml")
 	flagSet.StringVar(&intentPath, "intent", "", "path to intent request json")
+	flagSet.StringVar(&contextEnvelopePath, "context-envelope", "", "path to verified context evidence envelope JSON")
 	flagSet.StringVar(&tracePath, "trace-out", "", "path to emitted trace JSON (default trace_<trace_id>.json)")
 	flagSet.StringVar(&approvalTokenRef, "approval-token-ref", "", "optional approval token reference")
 	flagSet.StringVar(&approvalTokenPath, "approval-token", "", "path to signed approval token")
@@ -244,9 +248,29 @@ func runGateEval(arguments []string) int {
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
+	var verifiedContextEnvelope *schemacontext.Envelope
 	startupWarnings := []string{}
 	wrkrInventory := map[string]gate.WrkrToolMetadata{}
 	wrkrSource := ""
+	if strings.TrimSpace(contextEnvelopePath) != "" {
+		trimmedEnvelopePath := filepath.Clean(strings.TrimSpace(contextEnvelopePath))
+		if trimmedEnvelopePath == "" {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "context envelope path is required"}, exitInvalidInput)
+		}
+		if !filepath.IsAbs(trimmedEnvelopePath) && !filepath.IsLocal(trimmedEnvelopePath) {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "context envelope path must be a local filesystem path"}, exitInvalidInput)
+		}
+		// #nosec G304 -- context envelope path is explicit local user input.
+		rawEnvelope, loadErr := os.ReadFile(trimmedEnvelopePath)
+		if loadErr != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: fmt.Errorf("read context envelope: %w", loadErr).Error()}, exitCodeForError(loadErr, exitInvalidInput))
+		}
+		envelope, parseErr := contextproof.ParseEnvelope(rawEnvelope)
+		if parseErr != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: parseErr.Error()}, exitCodeForError(parseErr, exitInvalidInput))
+		}
+		verifiedContextEnvelope = &envelope
+	}
 	if strings.TrimSpace(wrkrInventoryPath) != "" {
 		inventory, loadErr := gate.LoadWrkrInventory(wrkrInventoryPath)
 		if loadErr != nil {
@@ -349,36 +373,42 @@ func runGateEval(arguments []string) int {
 	registryReason := ""
 	preApprovedFastPath := false
 	if approvedRegistryConfigured && len(approvedRegistryEntries) > 0 {
-		policyDigestForRegistry, digestErr := gate.PolicyDigest(policy)
-		if digestErr != nil {
-			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: digestErr.Error()}, exitCodeForError(digestErr, exitInvalidInput))
-		}
-		match, matchErr := gate.MatchApprovedScript(intent, policyDigestForRegistry, approvedRegistryEntries, time.Now().UTC())
-		if matchErr != nil {
-			riskClass := strings.ToLower(strings.TrimSpace(intent.Context.RiskClass))
-			if resolvedProfile == gateProfileOSSProd || riskClass == "high" || riskClass == "critical" {
-				return writeGateEvalOutput(jsonOutput, gateEvalOutput{
-					OK:    false,
-					Error: "approved script fast-path evaluation failed in fail-closed mode: " + matchErr.Error(),
-				}, exitPolicyBlocked)
-			}
-			startupWarnings = append(startupWarnings, "approved script fast-path evaluation failed; continuing with policy evaluation")
-		} else if match.Matched {
-			preApprovedOutcome, preApproveErr := buildPreApprovedOutcome(intent, version, match)
-			if preApproveErr != nil {
-				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: preApproveErr.Error()}, exitCodeForError(preApproveErr, exitInvalidInput))
-			}
-			outcome = preApprovedOutcome
-			preApprovedFastPath = true
+		if gate.PolicyRequiresContextEvidence(policy) {
+			startupWarnings = append(startupWarnings, "approved script fast-path disabled because policy requires authenticated context evidence")
 		} else {
-			registryReason = match.Reason
+			policyDigestForRegistry, digestErr := gate.PolicyDigest(policy)
+			if digestErr != nil {
+				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: digestErr.Error()}, exitCodeForError(digestErr, exitInvalidInput))
+			}
+			match, matchErr := gate.MatchApprovedScript(intent, policyDigestForRegistry, approvedRegistryEntries, time.Now().UTC())
+			if matchErr != nil {
+				riskClass := strings.ToLower(strings.TrimSpace(intent.Context.RiskClass))
+				if resolvedProfile == gateProfileOSSProd || riskClass == "high" || riskClass == "critical" {
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{
+						OK:    false,
+						Error: "approved script fast-path evaluation failed in fail-closed mode: " + matchErr.Error(),
+					}, exitPolicyBlocked)
+				}
+				startupWarnings = append(startupWarnings, "approved script fast-path evaluation failed; continuing with policy evaluation")
+			} else if match.Matched {
+				preApprovedOutcome, preApproveErr := buildPreApprovedOutcome(intent, version, match)
+				if preApproveErr != nil {
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: preApproveErr.Error()}, exitCodeForError(preApproveErr, exitInvalidInput))
+				}
+				outcome = preApprovedOutcome
+				preApprovedFastPath = true
+			} else {
+				registryReason = match.Reason
+			}
 		}
 	}
 	if !preApprovedFastPath {
 		outcome, err = gate.EvaluatePolicyDetailed(policy, intent, gate.EvalOptions{
-			ProducerVersion: version,
-			WrkrInventory:   wrkrInventory,
-			WrkrSource:      wrkrSource,
+			ProducerVersion:         version,
+			WrkrInventory:           wrkrInventory,
+			WrkrSource:              wrkrSource,
+			VerifiedContextEnvelope: verifiedContextEnvelope,
+			ContextEvidenceNow:      time.Now().UTC(),
 		})
 		if err != nil {
 			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -387,13 +417,17 @@ func runGateEval(arguments []string) int {
 			outcome.RegistryReason = registryReason
 		}
 	}
+	preparedIntent := outcome.PreparedIntent
+	if preparedIntent.SchemaID == "" {
+		preparedIntent = intent
+	}
 	result := outcome.Result
 	evalLatencyMS := time.Since(evalStart).Seconds() * 1000
-	policyDigestForContext, intentDigestForContext, requiredApprovalScope, err := gate.ApprovalContext(policy, intent)
+	policyDigestForContext, intentDigestForContext, requiredApprovalScope, err := gate.ApprovalContext(policy, preparedIntent)
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
-	delegationBindingDigest, err := gate.DelegationBindingDigest(intent)
+	delegationBindingDigest, err := gate.DelegationBindingDigest(preparedIntent)
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
@@ -401,7 +435,7 @@ func runGateEval(arguments []string) int {
 	var rateDecision gate.RateLimitDecision
 	var destructiveBudgetDecision gate.RateLimitDecision
 	if outcome.RateLimit.Requests > 0 {
-		rateDecision, err = gate.EnforceRateLimit(rateLimitState, outcome.RateLimit, intent, time.Now().UTC())
+		rateDecision, err = gate.EnforceRateLimit(rateLimitState, outcome.RateLimit, preparedIntent, time.Now().UTC())
 		if err != nil {
 			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
@@ -411,9 +445,9 @@ func runGateEval(arguments []string) int {
 			result.Violations = mergeUniqueSorted(result.Violations, []string{"rate_limit_exceeded"})
 		}
 	}
-	if outcome.DestructiveBudget.Requests > 0 && gateIntentContainsDestructiveTarget(intent) {
-		budgetIntent := intent
-		budgetIntent.ToolName = "destructive_budget|" + strings.TrimSpace(intent.ToolName)
+	if outcome.DestructiveBudget.Requests > 0 && gateIntentContainsDestructiveTarget(preparedIntent) {
+		budgetIntent := preparedIntent
+		budgetIntent.ToolName = "destructive_budget|" + strings.TrimSpace(preparedIntent.ToolName)
 		destructiveBudgetDecision, err = gate.EnforceRateLimit(rateLimitState, outcome.DestructiveBudget, budgetIntent, time.Now().UTC())
 		if err != nil {
 			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -482,10 +516,10 @@ func runGateEval(arguments []string) int {
 		} else {
 			expectedDelegator := ""
 			expectedDelegate := ""
-			if intent.Delegation != nil {
-				expectedDelegate = intent.Delegation.RequesterIdentity
-				if len(intent.Delegation.Chain) > 0 {
-					last := intent.Delegation.Chain[len(intent.Delegation.Chain)-1]
+			if preparedIntent.Delegation != nil {
+				expectedDelegate = preparedIntent.Delegation.RequesterIdentity
+				if len(preparedIntent.Delegation.Chain) > 0 {
+					last := preparedIntent.Delegation.Chain[len(preparedIntent.Delegation.Chain)-1]
 					expectedDelegator = last.DelegatorIdentity
 					if expectedDelegate == "" {
 						expectedDelegate = last.DelegateIdentity
@@ -597,8 +631,8 @@ func runGateEval(arguments []string) int {
 					ExpectedPolicyDigest:            policyDigestForContext,
 					ExpectedDelegationBindingDigest: delegationBindingDigest,
 					RequiredScope:                   requiredApprovalScope,
-					TargetCount:                     gateIntentTargetCount(intent),
-					OperationCount:                  gateIntentOperationCount(intent),
+					TargetCount:                     gateIntentTargetCount(preparedIntent),
+					OperationCount:                  gateIntentOperationCount(preparedIntent),
 				})
 				if err != nil {
 					reasonCode := gate.ApprovalCodeSchemaInvalid
@@ -665,11 +699,11 @@ func runGateEval(arguments []string) int {
 			credentialReferenceUsed = reference
 			credentialScopesUsed = scope
 			issued, issueErr := credential.Issue(resolvedBroker, credential.Request{
-				ToolName:  intent.ToolName,
-				Identity:  intent.Context.Identity,
-				Workspace: intent.Context.Workspace,
-				SessionID: intent.Context.SessionID,
-				RequestID: intent.Context.RequestID,
+				ToolName:  preparedIntent.ToolName,
+				Identity:  preparedIntent.Context.Identity,
+				Workspace: preparedIntent.Context.Workspace,
+				SessionID: preparedIntent.Context.SessionID,
+				RequestID: preparedIntent.Context.RequestID,
 				Reference: reference,
 				Scope:     scope,
 			})
@@ -705,7 +739,7 @@ func runGateEval(arguments []string) int {
 	}
 	exitCode = gateEvalExitCodeForVerdict(result.Verdict, exitCode)
 
-	traceResult, err := gate.EmitSignedTrace(policy, intent, result, gate.EmitTraceOptions{
+	traceResult, err := gate.EmitSignedTrace(policy, preparedIntent, result, gate.EmitTraceOptions{
 		ProducerVersion:       version,
 		CorrelationID:         currentCorrelationID(),
 		ApprovalTokenRef:      resolvedApprovalRef,
@@ -758,7 +792,7 @@ func runGateEval(arguments []string) int {
 			ProducerVersion: version,
 			TraceID:         traceResult.Trace.TraceID,
 			ToolName:        traceResult.Trace.ToolName,
-			Identity:        intent.Context.Identity,
+			Identity:        preparedIntent.Context.Identity,
 			Broker:          credentialIssuer,
 			Reference:       credentialReferenceUsed,
 			Scope:           credentialScopesUsed,
@@ -794,53 +828,53 @@ func runGateEval(arguments []string) int {
 	}
 
 	return writeGateEvalOutput(jsonOutput, gateEvalOutput{
-		OK:                     true,
-		Profile:                string(resolvedProfile),
-		Verdict:                result.Verdict,
-		ReasonCodes:            result.ReasonCodes,
-		Violations:             result.Violations,
-		ApprovalRef:            resolvedApprovalRef,
-		RequiredApprovals:      requiredApprovals,
-		ValidApprovals:         validApprovals,
-		ApprovalAuditPath:      resolvedApprovalAuditPath,
-		DelegationRef:          resolvedDelegationRef,
-		DelegationRequired:     delegationRequired,
-		ValidDelegations:       validDelegations,
-		DelegationAuditPath:    resolvedDelegationAuditPath,
-		TraceID:                traceResult.Trace.TraceID,
-		TracePath:              traceResult.TracePath,
-		PolicyDigest:           traceResult.PolicyDigest,
-		IntentDigest:           traceResult.IntentDigest,
-		ContextSetDigest:       intent.Context.ContextSetDigest,
-		ContextEvidenceMode:    intent.Context.ContextEvidenceMode,
-		ContextRefCount:        len(intent.Context.ContextRefs),
-		ContextSource:          outcome.ContextSource,
-		Script:                 outcome.Script,
-		StepCount:              outcome.StepCount,
-		ScriptHash:             outcome.ScriptHash,
-		CompositeRiskClass:     outcome.CompositeRiskClass,
-		StepVerdicts:           outcome.StepVerdicts,
-		PreApproved:            outcome.PreApproved,
-		PatternID:              outcome.PatternID,
-		RegistryReason:         outcome.RegistryReason,
-		MatchedRule:            outcome.MatchedRule,
-		Phase:                  intent.Context.Phase,
-		RateLimitScope:         rateDecision.Scope,
-		RateLimitKey:           rateDecision.Key,
-		RateLimitUsed:          rateDecision.Used,
-		RateLimitRemaining:     rateDecision.Remaining,
+		OK:                         true,
+		Profile:                    string(resolvedProfile),
+		Verdict:                    result.Verdict,
+		ReasonCodes:                result.ReasonCodes,
+		Violations:                 result.Violations,
+		ApprovalRef:                resolvedApprovalRef,
+		RequiredApprovals:          requiredApprovals,
+		ValidApprovals:             validApprovals,
+		ApprovalAuditPath:          resolvedApprovalAuditPath,
+		DelegationRef:              resolvedDelegationRef,
+		DelegationRequired:         delegationRequired,
+		ValidDelegations:           validDelegations,
+		DelegationAuditPath:        resolvedDelegationAuditPath,
+		TraceID:                    traceResult.Trace.TraceID,
+		TracePath:                  traceResult.TracePath,
+		PolicyDigest:               traceResult.PolicyDigest,
+		IntentDigest:               traceResult.IntentDigest,
+		ContextSetDigest:           traceResult.Trace.ContextSetDigest,
+		ContextEvidenceMode:        traceResult.Trace.ContextEvidenceMode,
+		ContextRefCount:            traceResult.Trace.ContextRefCount,
+		ContextSource:              outcome.ContextSource,
+		Script:                     outcome.Script,
+		StepCount:                  outcome.StepCount,
+		ScriptHash:                 outcome.ScriptHash,
+		CompositeRiskClass:         outcome.CompositeRiskClass,
+		StepVerdicts:               outcome.StepVerdicts,
+		PreApproved:                outcome.PreApproved,
+		PatternID:                  outcome.PatternID,
+		RegistryReason:             outcome.RegistryReason,
+		MatchedRule:                outcome.MatchedRule,
+		Phase:                      preparedIntent.Context.Phase,
+		RateLimitScope:             rateDecision.Scope,
+		RateLimitKey:               rateDecision.Key,
+		RateLimitUsed:              rateDecision.Used,
+		RateLimitRemaining:         rateDecision.Remaining,
 		DestructiveBudgetScope:     destructiveBudgetDecision.Scope,
 		DestructiveBudgetKey:       destructiveBudgetDecision.Key,
 		DestructiveBudgetUsed:      destructiveBudgetDecision.Used,
 		DestructiveBudgetRemaining: destructiveBudgetDecision.Remaining,
-		CredentialIssuer:       credentialIssuer,
-		CredentialRef:          credentialRefOut,
-		CredentialEvidencePath: resolvedCredentialEvidencePath,
-		SimulateMode:           simulate,
-		WouldHaveBlocked:       wouldHaveBlocked,
-		SimulatedVerdict:       simulatedVerdict,
-		SimulatedReasonCodes:   simulatedReasonCodes,
-		Warnings:               mergeUniqueSorted(startupWarnings, signingWarnings),
+		CredentialIssuer:           credentialIssuer,
+		CredentialRef:              credentialRefOut,
+		CredentialEvidencePath:     resolvedCredentialEvidencePath,
+		SimulateMode:               simulate,
+		WouldHaveBlocked:           wouldHaveBlocked,
+		SimulatedVerdict:           simulatedVerdict,
+		SimulatedReasonCodes:       simulatedReasonCodes,
+		Warnings:                   mergeUniqueSorted(startupWarnings, signingWarnings),
 	}, exitCode)
 }
 
@@ -920,6 +954,7 @@ func buildPreApprovedOutcome(intent schemagate.IntentRequest, producerVersion st
 			ReasonCodes:     []string{match.Reason},
 			Violations:      []string{},
 		},
+		PreparedIntent: normalizedIntent,
 		PreApproved:    true,
 		PatternID:      match.PatternID,
 		RegistryReason: match.Reason,
@@ -1137,7 +1172,7 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 func printGateUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--wrkr-inventory <inventory.json>] [--approved-script-registry <registry.json>] [--approved-script-public-key <path>|--approved-script-public-key-env <VAR>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--context-envelope <context_envelope.json>] [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--wrkr-inventory <inventory.json>] [--approved-script-registry <registry.json>] [--approved-script-public-key <path>|--approved-script-public-key-env <VAR>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("Rollout path:")
 	fmt.Println("  observe: gait gate eval ... --simulate --json")
 	fmt.Println("  enforce: gait gate eval ... --json")
@@ -1145,7 +1180,7 @@ func printGateUsage() {
 
 func printGateEvalUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--delegation-public-key <path>|--delegation-public-key-env <VAR>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--wrkr-inventory <inventory.json>] [--approved-script-registry <registry.json>] [--approved-script-public-key <path>|--approved-script-public-key-env <VAR>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--context-envelope <context_envelope.json>] [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--delegation-public-key <path>|--delegation-public-key-env <VAR>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--wrkr-inventory <inventory.json>] [--approved-script-registry <registry.json>] [--approved-script-public-key <path>|--approved-script-public-key-env <VAR>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  observe first: add --simulate while tuning")
 	fmt.Println("  enforce later: remove --simulate once fixtures are stable")
 }

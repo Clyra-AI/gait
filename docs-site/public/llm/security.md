@@ -10,7 +10,7 @@
 - Approval tokens can carry bounded destructive scope (`max_targets`, `max_ops`); overruns fail closed.
 - Approved-script registry entries are signature-verified and policy-digest bound; tampered or missing state fails closed in high-risk enforcement.
 - SayToken capability tokens for voice agent commitment gating — gated speech cannot execute without a valid token.
-- Context evidence envelopes with fail-closed enforcement when evidence is missing for high-risk actions.
+- Context evidence envelopes with fail-closed enforcement when evidence is missing for high-risk actions; `gait gate eval` requires a verified `--context-envelope` input for context-required policies.
 - Durable jobs with deterministic stop reasons and checkpoint integrity.
 - No hosted service dependency required for core operation.
 - MCP trust inputs remain local-file based and complementary to external scanners or registries; Gait enforces, it does not become the scanner.

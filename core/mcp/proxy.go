@@ -36,13 +36,16 @@ func EvaluateToolCallWithIntentOptions(policy gate.Policy, call ToolCall, opts g
 	if err != nil {
 		return EvalResult{}, err
 	}
-	normalizedIntent, err := gate.NormalizeIntent(intent)
+	outcome, err := gate.EvaluatePolicyDetailed(policy, intent, opts)
 	if err != nil {
 		return EvalResult{}, err
 	}
-	outcome, err := gate.EvaluatePolicyDetailed(policy, normalizedIntent, opts)
-	if err != nil {
-		return EvalResult{}, err
+	normalizedIntent := outcome.PreparedIntent
+	if normalizedIntent.SchemaID == "" {
+		normalizedIntent, err = gate.NormalizeIntent(intent)
+		if err != nil {
+			return EvalResult{}, err
+		}
 	}
 	outcome = ApplyTrustPolicy(policy.MCPTrust, call, outcome, time.Now().UTC())
 	return EvalResult{

@@ -12,10 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/contextproof"
 	"github.com/Clyra-AI/gait/core/doctor"
 	gatecore "github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/projectconfig"
 	"github.com/Clyra-AI/gait/core/runpack"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
@@ -565,6 +567,129 @@ func TestGatePolicyTraceApproveAndDoctor(t *testing.T) {
 	}); code != exitVerifyFailed {
 		t.Fatalf("doctor production readiness failure: expected %d got %d", exitVerifyFailed, code)
 	}
+}
+
+func TestRunGateEvalRequiresVerifiedContextEnvelopeForContextPolicies(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: block",
+		"rules:",
+		"  - name: allow-with-context-proof",
+		"    priority: 10",
+		"    effect: allow",
+		"    require_context_evidence: true",
+		"    max_context_age_seconds: 30",
+		"    match:",
+		"      tool_names: [tool.write]",
+	}, "\n")+"\n")
+
+	now := time.Now().UTC()
+	envelope, err := contextproof.BuildEnvelope([]schemacontext.ReferenceRecord{
+		{
+			RefID:         "ctx-1",
+			SourceType:    "doc",
+			SourceLocator: "file:///repo/context.md",
+			QueryDigest:   strings.Repeat("1", 64),
+			ContentDigest: strings.Repeat("2", 64),
+			RetrievedAt:   now.Add(-5 * time.Second),
+			RedactionMode: contextproof.PrivacyModeHashes,
+			Immutability:  "immutable",
+		},
+	}, contextproof.BuildEnvelopeOptions{
+		ContextSetID:    "ctx-set-1",
+		EvidenceMode:    contextproof.EvidenceModeRequired,
+		ProducerVersion: "test",
+		CreatedAt:       now.Add(-5 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("build context envelope: %v", err)
+	}
+	envelopePath := filepath.Join(workDir, "context_envelope.json")
+	envelopeBytes, err := json.MarshalIndent(envelope, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal context envelope: %v", err)
+	}
+	mustWriteFile(t, envelopePath, string(envelopeBytes)+"\n")
+
+	intent := schemagate.IntentRequest{
+		SchemaID:        "gait.gate.intent_request",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.March, 12, 12, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		ToolName:        "tool.write",
+		Args:            map[string]any{"path": "/tmp/context-proof.txt"},
+		Targets:         []schemagate.IntentTarget{{Kind: "path", Value: "/tmp/context-proof.txt", Operation: "write", EndpointClass: "fs.write"}},
+		Context: schemagate.IntentContext{
+			Identity:            "alice",
+			Workspace:           "/repo/gait",
+			RiskClass:           "high",
+			ContextSetDigest:    envelope.ContextSetDigest,
+			ContextEvidenceMode: envelope.EvidenceMode,
+			AuthContext:         map[string]any{"context_age_seconds": int64(1)},
+		},
+	}
+	intentPath := filepath.Join(workDir, "intent.json")
+	rawIntent, err := json.MarshalIndent(intent, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal intent: %v", err)
+	}
+	mustWriteFile(t, intentPath, string(rawIntent)+"\n")
+
+	rawBlocked := captureStdout(t, func() {
+		if code := runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--json",
+		}); code != exitPolicyBlocked {
+			t.Fatalf("runGateEval without context envelope expected %d got %d", exitPolicyBlocked, code)
+		}
+	})
+	var blockedOut gateEvalOutput
+	if err := json.Unmarshal([]byte(rawBlocked), &blockedOut); err != nil {
+		t.Fatalf("decode blocked output: %v raw=%q", err, rawBlocked)
+	}
+	if blockedOut.ContextSetDigest != "" || blockedOut.ContextEvidenceMode != "" || blockedOut.ContextRefCount != 0 {
+		t.Fatalf("expected unverified context claims to be stripped from output, got %#v", blockedOut)
+	}
+	if !containsString(blockedOut.ReasonCodes, "context_evidence_missing") {
+		t.Fatalf("expected context_evidence_missing, got %#v", blockedOut.ReasonCodes)
+	}
+
+	rawAllowed := captureStdout(t, func() {
+		if code := runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--context-envelope", envelopePath,
+			"--json",
+		}); code != exitOK {
+			t.Fatalf("runGateEval with context envelope expected %d got %d", exitOK, code)
+		}
+	})
+	var allowedOut gateEvalOutput
+	if err := json.Unmarshal([]byte(rawAllowed), &allowedOut); err != nil {
+		t.Fatalf("decode allowed output: %v raw=%q", err, rawAllowed)
+	}
+	if allowedOut.ContextSetDigest != envelope.ContextSetDigest {
+		t.Fatalf("expected output digest %q, got %q", envelope.ContextSetDigest, allowedOut.ContextSetDigest)
+	}
+	if allowedOut.ContextEvidenceMode != envelope.EvidenceMode {
+		t.Fatalf("expected output mode %q, got %q", envelope.EvidenceMode, allowedOut.ContextEvidenceMode)
+	}
+	if allowedOut.ContextRefCount != 1 {
+		t.Fatalf("expected context ref count 1, got %#v", allowedOut)
+	}
+}
+
+func containsString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func TestGateEvalBlockVerdictReturnsPolicyBlockedExit(t *testing.T) {

@@ -128,6 +128,8 @@ gait run record \
 - include `require_context_evidence: true`
 - include `required_context_evidence_mode: required`
 - optional `max_context_age_seconds`
+- pass `--context-envelope <context_envelope.json>` on `gait gate eval` whenever those constraints are expected to hold at enforcement time
+- do not rely on raw `intent.context_set_digest` or `context.auth_context.context_age_seconds` claims to satisfy fail-closed gate checks
 - verify deterministic reason codes:
 - `context_evidence_missing`
 - `context_set_digest_missing`

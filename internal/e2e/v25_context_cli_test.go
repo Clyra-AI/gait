@@ -165,7 +165,8 @@ rules:
 	}
 
 	intentPresentPath := filepath.Join(workDir, "intent_present.json")
-	// Fill context digest from inspected pack output for deterministic allow result.
+	// Preserve the recorded digest in the intent payload, but require the verified
+	// context envelope at the gate boundary for the allow path.
 	var intentPresent map[string]any
 	if err := json.Unmarshal([]byte(`{
   "schema_id": "gait.gate.intent_request",
@@ -196,7 +197,7 @@ rules:
 		t.Fatalf("write intent present payload: %v", err)
 	}
 
-	presentGateOut := runJSONCommand(t, workDir, binPath, "gate", "eval", "--policy", policyPath, "--intent", intentPresentPath, "--json")
+	presentGateOut := runJSONCommand(t, workDir, binPath, "gate", "eval", "--policy", policyPath, "--intent", intentPresentPath, "--context-envelope", contextEnvelopePath, "--json")
 	var presentGate struct {
 		OK      bool   `json:"ok"`
 		Verdict string `json:"verdict"`
