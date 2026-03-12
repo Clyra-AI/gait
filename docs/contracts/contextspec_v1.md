@@ -60,6 +60,8 @@ Optional record fields:
 ## Safety and Enforcement Rules
 
 - `evidence_mode=required` means missing/invalid context evidence blocks high-risk execution paths.
+- For `gait gate eval`, raw `intent.context_set_digest`, `intent.context_evidence_mode`, and `context.auth_context.context_age_seconds` claims are non-authoritative on their own.
+- Required context-proof enforcement at the gate boundary must be satisfied with `--context-envelope <context_envelope.json>` so Gait can verify the envelope and derive digest, mode, and freshness from it.
 - Raw context evidence requires explicit unsafe operator intent:
   - `gait run record --unsafe-context-raw`
 - Gate policies may enforce:
@@ -125,7 +127,11 @@ gait run record \
 Fail-closed context policy evaluation:
 
 ```bash
-gait gate eval --policy ./policy.yaml --intent ./intent.json --json
+gait gate eval \
+  --policy ./policy.yaml \
+  --intent ./intent.json \
+  --context-envelope ./context_envelope.json \
+  --json
 ```
 
 Pack inspect context summary:
@@ -160,7 +166,7 @@ A context envelope is a deterministic JSON artifact that captures what context m
 
 ### When does context evidence fail-closed?
 
-When policy requires context evidence for a high-risk action class and the evidence is missing or stale, the gate blocks execution with an explicit reason code.
+When policy requires context evidence for a high-risk action class and the evidence is missing, stale, or not supplied through a verified context envelope, the gate blocks execution with an explicit reason code.
 
 ### What privacy modes are available?
 

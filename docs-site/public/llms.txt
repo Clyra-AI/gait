@@ -9,7 +9,7 @@
 ## Core Commands
 - gait init --json
 - gait check --json
-- gait gate eval --policy <policy.yaml> --intent <intent.json>
+- gait gate eval --policy <policy.yaml> --intent <intent.json> [--context-envelope <context_envelope.json>]
 - gait demo
 - gait verify <run_id|path>
 - gait test -- <child command...>
@@ -52,7 +52,7 @@
 - Offline verification for packs, runpacks, and traces.
 - Structured intent model for policy decisions, not free-form prompt filtering.
 - SayToken capability tokens for voice agent commitment gating.
-- Context evidence envelopes with fail-closed enforcement when evidence is missing.
+- Context evidence envelopes with fail-closed enforcement when evidence is missing, stale, or not supplied through a verified `--context-envelope` gate input.
 - MCP trust stays file-based and offline-first: external tool finds, Gait enforces.
 
 ## Canonical Docs

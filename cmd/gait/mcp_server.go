@@ -445,19 +445,20 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 	}
 
 	output, exitCode, evalErr := evaluateMCPProxyPayload(config.PolicyPath, callPayload, mcpProxyEvalOptions{
-		Adapter:       adapter,
-		Profile:       config.Profile,
-		JobRoot:       config.JobRoot,
-		RunID:         input.RunID,
-		TracePath:     tracePath,
-		RunpackOut:    runpackPath,
-		PackOut:       packPath,
-		AutoPackDir:   config.PackDir,
-		LogExportPath: config.LogExportPath,
-		OTelExport:    config.OTelExport,
-		KeyMode:       config.KeyMode,
-		PrivateKey:    config.PrivateKey,
-		PrivateKeyEnv: config.PrivateKeyEnv,
+		Adapter:                    adapter,
+		Profile:                    config.Profile,
+		JobRoot:                    config.JobRoot,
+		RunID:                      input.RunID,
+		TracePath:                  tracePath,
+		RunpackOut:                 runpackPath,
+		PackOut:                    packPath,
+		AutoPackDir:                config.PackDir,
+		LogExportPath:              config.LogExportPath,
+		OTelExport:                 config.OTelExport,
+		KeyMode:                    config.KeyMode,
+		PrivateKey:                 config.PrivateKey,
+		PrivateKeyEnv:              config.PrivateKeyEnv,
+		AllowLocalContextArtifacts: config.AllowClientArtifactPaths,
 	})
 	if evalErr != nil {
 		return mcpServeEvaluateResponse{}, evalErr

@@ -76,6 +76,7 @@ type CallContext struct {
 	AuthContext            map[string]any `json:"auth_context,omitempty"`
 	CredentialScopes       []string       `json:"credential_scopes,omitempty"`
 	EnvironmentFingerprint string         `json:"environment_fingerprint,omitempty"`
+	ContextEnvelopePath    string         `json:"context_envelope_path,omitempty"`
 }
 
 type OAuthEvidence struct {

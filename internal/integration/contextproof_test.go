@@ -180,12 +180,16 @@ rules:
 		},
 	}
 
-	allowResult, err := gate.EvaluatePolicy(policy, intent, gate.EvalOptions{ProducerVersion: "0.0.0-test"})
+	allowOutcome, err := gate.EvaluatePolicyDetailed(policy, intent, gate.EvalOptions{
+		ProducerVersion:         "0.0.0-test",
+		VerifiedContextEnvelope: &envelopeA,
+		ContextEvidenceNow:      createdAt.Add(60 * time.Second),
+	})
 	if err != nil {
 		t.Fatalf("evaluate context-ready intent: %v", err)
 	}
-	if allowResult.Verdict != "allow" {
-		t.Fatalf("expected allow verdict, got %s (%v)", allowResult.Verdict, allowResult.ReasonCodes)
+	if allowOutcome.Result.Verdict != "allow" {
+		t.Fatalf("expected allow verdict, got %s (%v)", allowOutcome.Result.Verdict, allowOutcome.Result.ReasonCodes)
 	}
 
 	intentMissing := intent
@@ -206,7 +210,7 @@ rules:
 		t.Fatalf("generate keypair: %v", err)
 	}
 	tracePath := filepath.Join(workDir, "trace_context.json")
-	traceResult, err := gate.EmitSignedTrace(policy, intent, allowResult, gate.EmitTraceOptions{
+	traceResult, err := gate.EmitSignedTrace(policy, allowOutcome.PreparedIntent, allowOutcome.Result, gate.EmitTraceOptions{
 		ProducerVersion:   "0.0.0-test",
 		SigningPrivateKey: keyPair.Private,
 		TracePath:         tracePath,

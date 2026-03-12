@@ -141,7 +141,11 @@ func TestLoadEnvelopeRejectsOversizedPayload(t *testing.T) {
 	if err := os.WriteFile(path, []byte(oversized), 0o600); err != nil {
 		t.Fatalf("write oversized payload: %v", err)
 	}
-	if _, err := LoadEnvelope(path); err == nil || !strings.Contains(err.Error(), "size limit") {
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read oversized payload: %v", err)
+	}
+	if _, err := ParseEnvelope(payload); err == nil || !strings.Contains(err.Error(), "size limit") {
 		t.Fatalf("expected size limit error, got %v", err)
 	}
 }
@@ -317,8 +321,8 @@ func TestApplyEnvelopeToRefsAndVerify(t *testing.T) {
 }
 
 func TestLoadEnvelopePathCases(t *testing.T) {
-	if _, err := LoadEnvelope(filepath.Join(t.TempDir(), "missing.json")); err == nil {
-		t.Fatalf("expected missing envelope to fail")
+	if _, err := os.ReadFile(filepath.Join(t.TempDir(), "missing.json")); err == nil {
+		t.Fatalf("expected missing envelope read to fail")
 	}
 
 	envelope, err := BuildEnvelope([]schemacontext.ReferenceRecord{
@@ -346,9 +350,13 @@ func TestLoadEnvelopePathCases(t *testing.T) {
 	if err := os.WriteFile(path, raw, 0o600); err != nil {
 		t.Fatalf("write envelope file: %v", err)
 	}
-	loaded, err := LoadEnvelope(path)
+	payload, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("load envelope: %v", err)
+		t.Fatalf("read envelope file: %v", err)
+	}
+	loaded, err := ParseEnvelope(payload)
+	if err != nil {
+		t.Fatalf("parse envelope: %v", err)
 	}
 	if loaded.ContextSetDigest != envelope.ContextSetDigest {
 		t.Fatalf("loaded digest mismatch")

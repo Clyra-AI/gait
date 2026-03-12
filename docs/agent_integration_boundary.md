@@ -28,6 +28,7 @@ What Gait can do:
 
 - full policy enforcement (`allow` only executes)
 - approval/delegation token checks
+- verified context-evidence enforcement when the wrapper or sidecar passes `--context-envelope` for context-required policies
 - signed trace emission
 - runpack/pack capture and regress loop
 
@@ -47,6 +48,7 @@ What Gait can do:
 - enforce decisions at middleware boundary
 - emit signed traces and artifacts
 - provide deterministic CI regression loop
+- enforce authenticated context-proof checks when middleware can supply the local context envelope artifact alongside the gate call
 
 Constraints:
 

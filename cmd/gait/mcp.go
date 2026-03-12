@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/contextproof"
 	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/mcp"
@@ -65,19 +66,21 @@ type mcpVerifyOutput struct {
 }
 
 type mcpProxyEvalOptions struct {
-	Adapter       string
-	Profile       string
-	JobRoot       string
-	RunID         string
-	TracePath     string
-	RunpackOut    string
-	PackOut       string
-	AutoPackDir   string
-	LogExportPath string
-	OTelExport    string
-	KeyMode       string
-	PrivateKey    string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
-	PrivateKeyEnv string
+	Adapter                    string
+	Profile                    string
+	JobRoot                    string
+	RunID                      string
+	ContextEnvelopePath        string
+	TracePath                  string
+	RunpackOut                 string
+	PackOut                    string
+	AutoPackDir                string
+	LogExportPath              string
+	OTelExport                 string
+	KeyMode                    string
+	PrivateKey                 string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
+	PrivateKeyEnv              string
+	AllowLocalContextArtifacts bool
 }
 
 func runMCP(arguments []string) int {
@@ -108,26 +111,28 @@ func runMCPProxy(arguments []string) int {
 		return writeExplain("Decode an MCP or adapter-formatted tool call, evaluate policy deterministically, and emit a signed gate-compatible trace.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
-		"policy":          true,
-		"call":            true,
-		"adapter":         true,
-		"profile":         true,
-		"job-root":        true,
-		"trace-out":       true,
-		"run-id":          true,
-		"runpack-out":     true,
-		"pack-out":        true,
-		"export-log-out":  true,
-		"export-otel-out": true,
-		"key-mode":        true,
-		"private-key":     true,
-		"private-key-env": true,
+		"policy":           true,
+		"call":             true,
+		"context-envelope": true,
+		"adapter":          true,
+		"profile":          true,
+		"job-root":         true,
+		"trace-out":        true,
+		"run-id":           true,
+		"runpack-out":      true,
+		"pack-out":         true,
+		"export-log-out":   true,
+		"export-otel-out":  true,
+		"key-mode":         true,
+		"private-key":      true,
+		"private-key-env":  true,
 	})
 	flagSet := flag.NewFlagSet("mcp-proxy", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
 	var policyPath string
 	var callPath string
+	var contextEnvelopePath string
 	var adapter string
 	var profile string
 	var jobRoot string
@@ -145,6 +150,7 @@ func runMCPProxy(arguments []string) int {
 
 	flagSet.StringVar(&policyPath, "policy", "", "path to policy YAML")
 	flagSet.StringVar(&callPath, "call", "", "path to tool call JSON (use '-' for stdin)")
+	flagSet.StringVar(&contextEnvelopePath, "context-envelope", "", "path to verified context evidence envelope JSON")
 	flagSet.StringVar(&adapter, "adapter", "mcp", "adapter payload format: mcp|openai|anthropic|langchain|claude_code")
 	flagSet.StringVar(&profile, "profile", string(gateProfileStandard), "runtime profile: standard|oss-prod")
 	flagSet.StringVar(&jobRoot, "job-root", "./gait-out/jobs", "job runtime root for emergency stop preemption checks when context.job_id is present")
@@ -185,18 +191,20 @@ func runMCPProxy(arguments []string) int {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	output, exitCode, err := evaluateMCPProxyPayload(policyPath, payload, mcpProxyEvalOptions{
-		Adapter:       adapter,
-		Profile:       profile,
-		JobRoot:       jobRoot,
-		RunID:         runID,
-		TracePath:     tracePath,
-		RunpackOut:    runpackOut,
-		PackOut:       packOut,
-		LogExportPath: logExportPath,
-		OTelExport:    otelExportPath,
-		KeyMode:       keyMode,
-		PrivateKey:    privateKeyPath,
-		PrivateKeyEnv: privateKeyEnv,
+		Adapter:                    adapter,
+		Profile:                    profile,
+		JobRoot:                    jobRoot,
+		RunID:                      runID,
+		ContextEnvelopePath:        contextEnvelopePath,
+		TracePath:                  tracePath,
+		RunpackOut:                 runpackOut,
+		PackOut:                    packOut,
+		LogExportPath:              logExportPath,
+		OTelExport:                 otelExportPath,
+		KeyMode:                    keyMode,
+		PrivateKey:                 privateKeyPath,
+		PrivateKeyEnv:              privateKeyEnv,
+		AllowLocalContextArtifacts: true,
 	})
 	if err != nil {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -351,6 +359,30 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
+	if strings.TrimSpace(call.Context.ContextEnvelopePath) != "" {
+		return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("call.context.context_envelope_path is not supported; use --context-envelope at the boundary")
+	}
+	evalOptions := gate.EvalOptions{ProducerVersion: version}
+	if envelopePath := strings.TrimSpace(options.ContextEnvelopePath); envelopePath != "" {
+		trimmedEnvelopePath := filepath.Clean(strings.TrimSpace(envelopePath))
+		if trimmedEnvelopePath == "" {
+			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("context envelope path is required")
+		}
+		if !filepath.IsAbs(trimmedEnvelopePath) && !filepath.IsLocal(trimmedEnvelopePath) {
+			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("context envelope path must be a local filesystem path")
+		}
+		// #nosec G304 -- context envelope path is explicit local user input.
+		rawEnvelope, loadErr := os.ReadFile(trimmedEnvelopePath)
+		if loadErr != nil {
+			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("read context envelope: %w", loadErr)
+		}
+		envelope, parseErr := contextproof.ParseEnvelope(rawEnvelope)
+		if parseErr != nil {
+			return mcpProxyOutput{}, exitInvalidInput, parseErr
+		}
+		evalOptions.VerifiedContextEnvelope = &envelope
+		evalOptions.ContextEvidenceNow = time.Now().UTC()
+	}
 
 	resolvedProfile, err := parseGateEvalProfile(options.Profile)
 	if err != nil {
@@ -368,7 +400,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
 
-	evalResult, err := mcp.EvaluateToolCallWithIntentOptions(policy, call, gate.EvalOptions{ProducerVersion: version}, mcp.IntentOptions{
+	evalResult, err := mcp.EvaluateToolCallWithIntentOptions(policy, call, evalOptions, mcp.IntentOptions{
 		RequireExplicitContext: resolvedProfile == gateProfileOSSProd,
 	})
 	if err != nil {
@@ -966,8 +998,8 @@ func writeMCPVerifyOutput(jsonOutput bool, output mcpVerifyOutput, exitCode int)
 
 func printMCPUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
 	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
@@ -975,7 +1007,7 @@ func printMCPUsage() {
 
 func printMCPProxyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func printMCPVerifyUsage() {
