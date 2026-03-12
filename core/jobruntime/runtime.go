@@ -929,6 +929,13 @@ func commitMutation(files jobFiles, mutation pendingMutation) error {
 		return err
 	}
 	if err := persistJobEvent(files.eventsPath, mutation.Event); err != nil {
+		events, readErr := readEvents(files.eventsPath)
+		if readErr != nil {
+			return fmt.Errorf("append event: %w (pending mutation preserved: %v)", err, readErr)
+		}
+		if pendingEventExists(events, mutation.Event.Revision) {
+			return err
+		}
 		if rollbackErr := restorePendingBaseline(files.statePath, mutation.PreviousState); rollbackErr != nil {
 			return fmt.Errorf("append event: %w (rollback failed: %v)", err, rollbackErr)
 		}
@@ -940,7 +947,7 @@ func commitMutation(files jobFiles, mutation pendingMutation) error {
 }
 
 func recoverPendingMutation(files jobFiles) error {
-	mutation, err := readPendingMutation(files.pendingPath)
+	mutation, err := readPendingMutation(files.pendingPath, filepath.Base(filepath.Dir(files.statePath)))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -962,7 +969,7 @@ func recoverPendingMutation(files jobFiles) error {
 	return nil
 }
 
-func readPendingMutation(path string) (pendingMutation, error) {
+func readPendingMutation(path string, expectedJobID string) (pendingMutation, error) {
 	// #nosec G304 -- path is derived from local job root
 	// lgtm[go/path-injection] path is derived from explicit local runtime root/job id inputs.
 	payload, err := os.ReadFile(path)
@@ -975,6 +982,18 @@ func readPendingMutation(path string) (pendingMutation, error) {
 	}
 	if strings.TrimSpace(mutation.JobID) == "" {
 		return pendingMutation{}, fmt.Errorf("invalid pending mutation: missing job_id")
+	}
+	if expected := strings.TrimSpace(expectedJobID); expected != "" && mutation.JobID != expected {
+		return pendingMutation{}, fmt.Errorf("invalid pending mutation: expected job_id %s got %s", expected, mutation.JobID)
+	}
+	if strings.TrimSpace(mutation.UpdatedState.JobID) != mutation.JobID {
+		return pendingMutation{}, fmt.Errorf("invalid pending mutation: updated_state job_id mismatch")
+	}
+	if mutation.PreviousState != nil && strings.TrimSpace(mutation.PreviousState.JobID) != mutation.JobID {
+		return pendingMutation{}, fmt.Errorf("invalid pending mutation: previous_state job_id mismatch")
+	}
+	if strings.TrimSpace(mutation.Event.JobID) != mutation.JobID {
+		return pendingMutation{}, fmt.Errorf("invalid pending mutation: event job_id mismatch")
 	}
 	return mutation, nil
 }

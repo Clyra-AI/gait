@@ -603,6 +603,43 @@ func TestMutationAppendFailureRollsBackStateAndRetrySucceeds(t *testing.T) {
 	}
 }
 
+func TestMutationAppendFailureWithDurableEventPreservesPendingMarker(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-pause-durable-event-error"
+	if _, err := Submit(root, SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	files, err := resolveJobFiles(root, jobID)
+	if err != nil {
+		t.Fatalf("resolve job files: %v", err)
+	}
+
+	restoreJobPersistenceHooks(t)
+	persistJobEvent = func(path string, event Event) error {
+		if err := appendEvent(path, event); err != nil {
+			return err
+		}
+		return errors.New("sync failure after durable append")
+	}
+	if _, err := Pause(root, jobID, TransitionOptions{}); err == nil {
+		t.Fatalf("expected pause append failure after durable event write")
+	}
+	if _, err := os.Stat(files.pendingPath); err != nil {
+		t.Fatalf("expected pending marker to remain for recovery, stat=%v", err)
+	}
+
+	state, err := Status(root, jobID)
+	if err != nil {
+		t.Fatalf("status after durable event append failure: %v", err)
+	}
+	if state.Status != StatusPaused || state.Revision != 2 {
+		t.Fatalf("expected status recovery to preserve committed mutation, got %#v", state)
+	}
+	if _, err := os.Stat(files.pendingPath); !os.IsNotExist(err) {
+		t.Fatalf("expected recovery to clear pending marker, stat=%v", err)
+	}
+}
+
 func TestStatusRecoversPendingMutationWithoutEventByRollingBackState(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "jobs")
 	jobID := "job-pending-rollback"
@@ -912,6 +949,43 @@ func TestStatusFailsForMalformedPendingMutation(t *testing.T) {
 	}
 	if _, err := Status(root, jobID); err == nil {
 		t.Fatalf("expected status to fail for malformed pending marker")
+	}
+}
+
+func TestStatusFailsForPendingMutationJobIDMismatch(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-pending-mismatch"
+	state, err := Submit(root, SubmitOptions{JobID: jobID})
+	if err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	files, err := resolveJobFiles(root, jobID)
+	if err != nil {
+		t.Fatalf("resolve job files: %v", err)
+	}
+	mutation := pendingMutation{
+		SchemaID:      pendingSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     state.UpdatedAt.Add(time.Second),
+		JobID:         "other-job",
+		UpdatedState:  state,
+		Event: Event{
+			SchemaID:      eventSchemaID,
+			SchemaVersion: jobSchemaVersion,
+			CreatedAt:     state.UpdatedAt.Add(time.Second),
+			JobID:         "other-job",
+			Revision:      state.Revision + 1,
+			Type:          "paused",
+			ReasonCode:    "paused",
+		},
+	}
+	mutation.UpdatedState.JobID = "other-job"
+	if err := writeJSON(files.pendingPath, mutation); err != nil {
+		t.Fatalf("write mismatched pending marker: %v", err)
+	}
+
+	if _, err := Status(root, jobID); err == nil {
+		t.Fatalf("expected status to fail for mismatched pending marker")
 	}
 }
 
