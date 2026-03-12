@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/projectconfig"
 	sign "github.com/Clyra-AI/proof/signing"
 )
@@ -117,8 +119,11 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	if result.NonFixable {
 		t.Fatalf("expected non-fixable to be false")
 	}
-	if len(result.Checks) != 12 {
+	if len(result.Checks) != 13 {
 		t.Fatalf("unexpected checks count: %d", len(result.Checks))
+	}
+	if !checkStatus(result.Checks, "job_runtime_durability", statusPass) {
+		t.Fatalf("expected job_runtime_durability pass check")
 	}
 	if !checkStatus(result.Checks, "key_permissions", statusPass) {
 		t.Fatalf("expected key_permissions pass check")
@@ -131,6 +136,56 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	}
 	if !checkStatus(result.Checks, "key_source_ambiguity", statusPass) {
 		t.Fatalf("expected key_source_ambiguity pass check")
+	}
+}
+
+func TestRunDetectsDurableStateDivergence(t *testing.T) {
+	installFakeGaitBinaryInPath(t)
+
+	root := repoRoot(t)
+	outputDir := filepath.Join(t.TempDir(), "gait-out")
+	jobRoot := filepath.Join(outputDir, "jobs")
+	if err := ensureDir(jobRoot); err != nil {
+		t.Fatalf("create output dir: %v", err)
+	}
+
+	if _, err := jobruntime.Submit(jobRoot, jobruntime.SubmitOptions{JobID: "job-diverged"}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	statePath := filepath.Join(jobRoot, "job-diverged", "state.json")
+	payload, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read state: %v", err)
+	}
+	var state jobruntime.JobState
+	if err := json.Unmarshal(payload, &state); err != nil {
+		t.Fatalf("decode state: %v", err)
+	}
+	state.Status = jobruntime.StatusPaused
+	state.StopReason = jobruntime.StopReasonPausedByUser
+	state.StatusReasonCode = "paused"
+	state.Revision++
+	state.UpdatedAt = state.UpdatedAt.Add(time.Second)
+	encoded, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		t.Fatalf("encode diverged state: %v", err)
+	}
+	if err := os.WriteFile(statePath, append(encoded, '\n'), 0o600); err != nil {
+		t.Fatalf("write diverged state: %v", err)
+	}
+
+	result := Run(Options{
+		WorkDir:         root,
+		OutputDir:       outputDir,
+		ProducerVersion: "test",
+		KeyMode:         sign.ModeDev,
+	})
+
+	if result.Status != statusFail {
+		t.Fatalf("expected fail status for durable-state divergence, got: %s (%s)", result.Status, result.Summary)
+	}
+	if !checkStatus(result.Checks, "job_runtime_durability", statusFail) {
+		t.Fatalf("expected job_runtime_durability fail check")
 	}
 }
 

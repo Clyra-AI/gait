@@ -5,7 +5,7 @@ This register tracks the highest-risk runtime and operational failure modes for 
 | ID | Failure Mode | Severity | Likelihood | Mitigation Epic | Owner | Target Milestone |
 | --- | --- | --- | --- | --- | --- | --- |
 | HR-01 | Operational failures reported as `invalid_input` | High | High | `H1` | CLI maintainer | v1.6 |
-| HR-02 | Partial write corruption on critical state files | High | Medium | `H2` | Core runtime maintainer | v1.6 |
+| HR-02 | Partial write corruption or silent divergence on critical job state files | High | Medium | `H2`, `W2` | Core runtime maintainer | v1.6 |
 | HR-03 | Lock contention causes nondeterministic behavior | High | Medium | `H3` | Gate maintainer | v1.6 |
 | HR-04 | Remote transient failures fail immediately without retry | Medium | Medium | `H4` | Registry maintainer | v1.7 |
 | HR-05 | Stale lock files degrade operator confidence | Medium | Medium | `H3`, `H5` | Gate maintainer | v1.7 |

@@ -38,6 +38,7 @@ Mapped hardening epics: `H1`, `H6`, `H12`.
 
 - Critical writes use atomic write semantics (temp write + sync + rename).
 - Partial writes must not produce corrupted state accepted as valid.
+- Durable job lifecycle mutations must either roll back to the prior state or leave a deterministic local recovery marker until reconciliation completes.
 - Security-sensitive outputs must preserve least-privilege permissions.
 
 Mapped hardening epics: `H2`, `H6`, `H12`.
@@ -60,6 +61,7 @@ Mapped hardening epics: `H4`, `H12`.
 ### NFR-07 Operational Diagnostics
 
 - `gait doctor --json` emits actionable fix guidance for common operational faults.
+- `gait doctor --json` detects durable job state divergence or pending recovery markers under `gait-out/jobs`.
 - Diagnostics remain deterministic and safe for offline usage.
 - Optional operational logs (`GAIT_OPERATIONAL_LOG`) emit stable start/end events with correlation IDs.
 - Correlation IDs are present in JSON command outputs and gate traces for deterministic cross-artifact debugging.

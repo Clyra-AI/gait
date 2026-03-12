@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/projectconfig"
 	sign "github.com/Clyra-AI/proof/signing"
 )
@@ -106,6 +107,7 @@ func Run(opts Options) Result {
 		checks = []Check{
 			checkWorkDirWritable(workDir),
 			checkOutputDir(outputDir),
+			checkJobRuntimeDurability(outputDir),
 			checkTempDirWritable(),
 			checkKeySourceAmbiguity(opts.KeyConfig),
 			checkKeyFilePermissions(opts.KeyConfig),
@@ -116,6 +118,7 @@ func Run(opts Options) Result {
 		checks = []Check{
 			checkWorkDirWritable(workDir),
 			checkOutputDir(outputDir),
+			checkJobRuntimeDurability(outputDir),
 			checkTempDirWritable(),
 			checkSchemaFiles(workDir),
 			checkHooksPath(workDir),
@@ -271,6 +274,34 @@ func checkSchemaFiles(workDir string) Check {
 		Name:    "schema_files",
 		Status:  statusPass,
 		Message: "required schema files are present",
+	}
+}
+
+func checkJobRuntimeDurability(outputDir string) Check {
+	issues, err := jobruntime.DiagnoseDurableState(filepath.Join(outputDir, "jobs"))
+	if err != nil {
+		return Check{
+			Name:    "job_runtime_durability",
+			Status:  statusFail,
+			Message: fmt.Sprintf("job durable-state scan failed: %v", err),
+		}
+	}
+	if len(issues) == 0 {
+		return Check{
+			Name:    "job_runtime_durability",
+			Status:  statusPass,
+			Message: "job durable state is consistent",
+		}
+	}
+	parts := make([]string, 0, len(issues))
+	for _, issue := range issues {
+		parts = append(parts, fmt.Sprintf("%s:%s", issue.JobID, issue.Kind))
+	}
+	sort.Strings(parts)
+	return Check{
+		Name:    "job_runtime_durability",
+		Status:  statusFail,
+		Message: fmt.Sprintf("durable job state divergence detected: %s", strings.Join(parts, ",")),
 	}
 }
 

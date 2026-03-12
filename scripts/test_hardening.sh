@@ -4,6 +4,9 @@ set -euo pipefail
 echo "[hardening] atomic write integrity tests"
 go test ./core/fsx -count=1
 
+echo "[hardening] durable job rollback and divergence diagnostics"
+go test ./core/jobruntime ./core/doctor -run 'TestMutationAppendFailureRollsBackStateAndRetrySucceeds|TestStatusRecoversPendingMutationWithoutEventByRollingBackState|TestStatusRecoversPendingMutationWithDurableEvent|TestDiagnoseDurableStateDetectsPendingAndRevisionDivergence|TestRunDetectsDurableStateDivergence' -count=1
+
 echo "[hardening] lock contention and stale lock tests"
 go test ./core/gate -run 'TestEnforceRateLimitConcurrentLocking|TestEnforceRateLimitRecoversStaleLock|TestWithRateLimitLockTimeoutCategory' -count=1
 

@@ -27,6 +27,7 @@ Must return:
 
 - `ok=true`
 - `status=pass`
+- `checks[].name=job_runtime_durability` with `status=pass`
 
 ## 3) Start Hardened MCP Service
 
@@ -71,8 +72,11 @@ make bench-budgets
 1. Capture and verify artifacts:
    - `gait verify <run|path> --json`
    - `gait trace verify <trace.json> --json`
-2. Package evidence:
+2. Check durable job health before manual cleanup:
+   - `gait doctor --json`
+   - `gait job inspect --id <job_id> --root ./gait-out/jobs --json`
+3. Package evidence:
    - `gait guard pack --run <run_id> --json`
    - `gait incident pack --from <run_id> --window 24h --json`
-3. Convert to regression:
+4. Convert to regression:
    - `gait regress bootstrap --from <run_id> --json`

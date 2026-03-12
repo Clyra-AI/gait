@@ -17,6 +17,19 @@ Use a shared atomic write utility for critical files:
 3. apply explicit file mode
 4. atomically rename into final path
 
+Durable job lifecycle mutations add a local pending-mutation marker beside `state.json` and `events.jsonl`:
+
+1. write `pending_mutation.json` with the previous state, intended next state, and event payload
+2. atomically write `state.json`
+3. append the event to `events.jsonl`
+4. remove the marker on success
+
+Recovery semantics are deterministic:
+
+- if the marker exists and the event is missing, restore the previous state
+- if the marker exists and the event is already durable, materialize the intended next state
+- least-privilege file modes remain `0600` for job state, event logs, and recovery markers
+
 ## Alternatives Considered
 
 1. Keep direct `os.WriteFile` usage in all call sites.

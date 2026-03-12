@@ -7,6 +7,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/Clyra-AI/gait/core/jobruntime"
 )
 
 func TestRunJobLifecycleCommands(t *testing.T) {
@@ -168,6 +171,126 @@ func TestRunJobHelpAndErrorPaths(t *testing.T) {
 	}
 	if code := runJob([]string{"inspect", "--id", "missing", "--root", root, "--json"}); code != exitInvalidInput {
 		t.Fatalf("inspect missing job expected %d got %d", exitInvalidInput, code)
+	}
+}
+
+func TestRunJobStatusRecoversPendingMutation(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+	root := filepath.Join(workDir, "jobs")
+	jobID := "job_cli_recover_status"
+
+	submitCode, submitOut := runJobJSON(t, []string{"submit", "--id", jobID, "--root", root, "--json"})
+	if submitCode != exitOK || submitOut.Job == nil {
+		t.Fatalf("submit expected %d got %d output=%#v", exitOK, submitCode, submitOut)
+	}
+
+	statePath := filepath.Join(root, jobID, "state.json")
+	pendingPath := filepath.Join(root, jobID, "pending_mutation.json")
+	var previous jobruntime.JobState
+	payload, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read state: %v", err)
+	}
+	if err := json.Unmarshal(payload, &previous); err != nil {
+		t.Fatalf("decode state: %v", err)
+	}
+	updated := previous
+	updated.Status = jobruntime.StatusPaused
+	updated.StopReason = jobruntime.StopReasonPausedByUser
+	updated.StatusReasonCode = "paused"
+	updated.Revision = previous.Revision + 1
+	updated.UpdatedAt = previous.UpdatedAt.Add(time.Second)
+	encodedUpdated, err := json.MarshalIndent(updated, "", "  ")
+	if err != nil {
+		t.Fatalf("encode updated state: %v", err)
+	}
+	if err := os.WriteFile(statePath, append(encodedUpdated, '\n'), 0o600); err != nil {
+		t.Fatalf("write updated state: %v", err)
+	}
+
+	pendingPayload, err := json.MarshalIndent(struct {
+		SchemaID      string               `json:"schema_id"`
+		SchemaVersion string               `json:"schema_version"`
+		CreatedAt     time.Time            `json:"created_at"`
+		JobID         string               `json:"job_id"`
+		PreviousState *jobruntime.JobState `json:"previous_state,omitempty"`
+		UpdatedState  jobruntime.JobState  `json:"updated_state"`
+		Event         jobruntime.Event     `json:"event"`
+	}{
+		SchemaID:      "gait.job.pending_mutation",
+		SchemaVersion: "1.0.0",
+		CreatedAt:     updated.UpdatedAt,
+		JobID:         jobID,
+		PreviousState: &previous,
+		UpdatedState:  updated,
+		Event: jobruntime.Event{
+			SchemaID:      "gait.job.event",
+			SchemaVersion: "1.0.0",
+			CreatedAt:     updated.UpdatedAt,
+			JobID:         jobID,
+			Revision:      updated.Revision,
+			Type:          "paused",
+			ReasonCode:    "paused",
+		},
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("encode pending mutation: %v", err)
+	}
+	if err := os.WriteFile(pendingPath, append(pendingPayload, '\n'), 0o600); err != nil {
+		t.Fatalf("write pending mutation: %v", err)
+	}
+
+	statusCode, statusOut := runJobJSON(t, []string{"status", "--id", jobID, "--root", root, "--json"})
+	if statusCode != exitOK {
+		t.Fatalf("status expected %d got %d output=%#v", exitOK, statusCode, statusOut)
+	}
+	if statusOut.Job == nil || statusOut.Job.Status != jobruntime.StatusRunning || statusOut.Job.Revision != previous.Revision {
+		t.Fatalf("expected status to recover baseline state, got %#v", statusOut)
+	}
+}
+
+func TestRunJobCheckpointUnknownSubcommandAndExplain(t *testing.T) {
+	if code := runJob([]string{"checkpoint", "unknown"}); code != exitInvalidInput {
+		t.Fatalf("unknown checkpoint subcommand expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runJob([]string{"--explain"}); code != exitOK {
+		t.Fatalf("job explain expected %d got %d", exitOK, code)
+	}
+}
+
+func TestWriteJobOutputTextIncludesCheckpointAndEvents(t *testing.T) {
+	var code int
+	output := captureStdout(t, func() {
+		code = writeJobOutput(false, jobOutput{
+			OK:        true,
+			Operation: "inspect",
+			Job: &jobruntime.JobState{
+				JobID:            "job-text-output",
+				Status:           jobruntime.StatusPaused,
+				StopReason:       jobruntime.StopReasonPausedByUser,
+				StatusReasonCode: "paused",
+			},
+			Checkpoint: &jobruntime.Checkpoint{
+				CheckpointID: "cp_0001",
+				Type:         jobruntime.CheckpointTypeProgress,
+			},
+			Checkpoints: []jobruntime.Checkpoint{{CheckpointID: "cp_0001"}},
+			Events:      []jobruntime.Event{{Type: "paused"}},
+		}, exitOK)
+	})
+	if code != exitOK {
+		t.Fatalf("writeJobOutput expected %d got %d", exitOK, code)
+	}
+	for _, expected := range []string{
+		"job inspect: id=job-text-output status=paused stop_reason=paused_by_user reason_code=paused",
+		"checkpoint: cp_0001 (progress)",
+		"checkpoints=1",
+		"events=1",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("expected %q in output %q", expected, output)
+		}
 	}
 }
 

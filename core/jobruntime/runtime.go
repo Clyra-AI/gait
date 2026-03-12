@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"sort"
@@ -21,6 +22,7 @@ const (
 	jobSchemaID      = "gait.job.runtime"
 	jobSchemaVersion = "1.0.0"
 	eventSchemaID    = "gait.job.event"
+	pendingSchemaID  = "gait.job.pending_mutation"
 )
 
 const (
@@ -63,6 +65,12 @@ var (
 	ErrIdentityValidationMissing = errors.New("identity validation required")
 	ErrIdentityRevoked           = errors.New("identity revoked")
 	ErrIdentityBindingMismatch   = errors.New("identity binding mismatch")
+)
+
+var (
+	persistJobJSON  = writeJSON
+	persistJobEvent = appendEvent
+	removeJobPath   = os.Remove
 )
 
 var safeJobIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
@@ -115,6 +123,29 @@ type Event struct {
 	Actor         string         `json:"actor,omitempty"`
 	ReasonCode    string         `json:"reason_code,omitempty"`
 	Payload       map[string]any `json:"payload,omitempty"`
+}
+
+type pendingMutation struct {
+	SchemaID      string    `json:"schema_id"`
+	SchemaVersion string    `json:"schema_version"`
+	CreatedAt     time.Time `json:"created_at"`
+	JobID         string    `json:"job_id"`
+	PreviousState *JobState `json:"previous_state,omitempty"`
+	UpdatedState  JobState  `json:"updated_state"`
+	Event         Event     `json:"event"`
+}
+
+type DurableStateIssue struct {
+	JobID   string `json:"job_id"`
+	Kind    string `json:"kind"`
+	Message string `json:"message"`
+}
+
+type jobFiles struct {
+	statePath   string
+	eventsPath  string
+	pendingPath string
+	lockPath    string
 }
 
 type SubmitOptions struct {
@@ -189,16 +220,28 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 	if identity == "" {
 		identity = strings.TrimSpace(opts.Actor)
 	}
-	statePath, eventsPath, err := jobPaths(root, jobID)
+	files, err := resolveJobFiles(root, jobID)
 	if err != nil {
 		return JobState{}, err
 	}
-	if err := os.MkdirAll(filepath.Dir(statePath), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(files.statePath), 0o750); err != nil {
 		return JobState{}, fmt.Errorf("create job directory: %w", err)
 	}
 
-	if _, err := os.Stat(statePath); err == nil {
+	release, err := acquireLock(files.lockPath, now, 2*time.Second)
+	if err != nil {
+		return JobState{}, err
+	}
+	defer release()
+
+	if err := recoverPendingMutation(files); err != nil {
+		return JobState{}, err
+	}
+
+	if _, err := os.Stat(files.statePath); err == nil {
 		return JobState{}, fmt.Errorf("job already exists: %s", jobID)
+	} else if err != nil && !os.IsNotExist(err) {
+		return JobState{}, fmt.Errorf("stat job state: %w", err)
 	}
 
 	state := JobState{
@@ -221,9 +264,6 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 	}
 	state.SafetyInvariants = deriveSafetyInvariants(state)
 	state.SafetyInvariantHash = hashSafetyInvariants(state.SafetyInvariants)
-	if err := writeJSON(statePath, state); err != nil {
-		return JobState{}, err
-	}
 	eventPayload := map[string]any{
 		"environment_fingerprint": envfp,
 	}
@@ -247,18 +287,28 @@ func Submit(root string, opts SubmitOptions) (JobState, error) {
 		ReasonCode:    "submitted",
 		Payload:       eventPayload,
 	}
-	if err := appendEvent(eventsPath, event); err != nil {
+	if err := commitMutation(files, pendingMutation{
+		SchemaID:      pendingSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     now,
+		JobID:         jobID,
+		UpdatedState:  state,
+		Event:         event,
+	}); err != nil {
 		return JobState{}, err
 	}
 	return state, nil
 }
 
 func Status(root string, jobID string) (JobState, error) {
-	statePath, _, err := jobPaths(root, jobID)
+	files, err := resolveJobFiles(root, jobID)
 	if err != nil {
 		return JobState{}, err
 	}
-	state, err := readState(statePath)
+	if err := recoverJobIfNeeded(files); err != nil {
+		return JobState{}, err
+	}
+	state, err := readState(files.statePath)
 	if err != nil {
 		return JobState{}, err
 	}
@@ -542,15 +592,18 @@ func Resume(root string, jobID string, opts ResumeOptions) (JobState, error) {
 }
 
 func Inspect(root string, jobID string) (JobState, []Event, error) {
-	statePath, eventsPath, err := jobPaths(root, jobID)
+	files, err := resolveJobFiles(root, jobID)
 	if err != nil {
 		return JobState{}, nil, err
 	}
-	state, err := readState(statePath)
+	if err := recoverJobIfNeeded(files); err != nil {
+		return JobState{}, nil, err
+	}
+	state, err := readState(files.statePath)
 	if err != nil {
 		return JobState{}, nil, err
 	}
-	events, err := readEvents(eventsPath)
+	events, err := readEvents(files.eventsPath)
 	if err != nil {
 		return JobState{}, nil, err
 	}
@@ -635,22 +688,26 @@ func mutate(root string, jobID string, mutator func(*JobState, time.Time) (Event
 }
 
 func mutateWithResult(root string, jobID string, now time.Time, mutator func(*JobState, time.Time) (JobState, Event, error)) (JobState, error) {
-	statePath, eventsPath, err := jobPaths(root, jobID)
+	files, err := resolveJobFiles(root, jobID)
 	if err != nil {
 		return JobState{}, err
 	}
-	lockPath := statePath + ".lock"
 
-	release, err := acquireLock(lockPath, normalizeNow(now), 2*time.Second)
+	release, err := acquireLock(files.lockPath, normalizeNow(now), 2*time.Second)
 	if err != nil {
 		return JobState{}, err
 	}
 	defer release()
 
-	state, err := readState(statePath)
+	if err := recoverPendingMutation(files); err != nil {
+		return JobState{}, err
+	}
+
+	state, err := readState(files.statePath)
 	if err != nil {
 		return JobState{}, err
 	}
+	previous := state
 
 	ts := normalizeNow(now)
 	updated, event, err := mutator(&state, ts)
@@ -658,20 +715,109 @@ func mutateWithResult(root string, jobID string, now time.Time, mutator func(*Jo
 		return JobState{}, err
 	}
 	updated.UpdatedAt = ts
-	updated.Revision = state.Revision + 1
+	updated.Revision = previous.Revision + 1
 	event.SchemaID = eventSchemaID
 	event.SchemaVersion = jobSchemaVersion
 	event.CreatedAt = ts
-	event.JobID = state.JobID
+	event.JobID = previous.JobID
 	event.Revision = updated.Revision
 
-	if err := writeJSON(statePath, updated); err != nil {
-		return JobState{}, err
-	}
-	if err := appendEvent(eventsPath, event); err != nil {
+	if err := commitMutation(files, pendingMutation{
+		SchemaID:      pendingSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     ts,
+		JobID:         previous.JobID,
+		PreviousState: &previous,
+		UpdatedState:  updated,
+		Event:         event,
+	}); err != nil {
 		return JobState{}, err
 	}
 	return updated, nil
+}
+
+func DiagnoseDurableState(root string) ([]DurableStateIssue, error) {
+	cleanRoot := strings.TrimSpace(root)
+	if cleanRoot == "" {
+		cleanRoot = filepath.Join(".", "gait-out", "jobs")
+	}
+	absRoot, err := filepath.Abs(cleanRoot)
+	if err != nil {
+		return nil, fmt.Errorf("resolve job root: %w", err)
+	}
+	entries, err := os.ReadDir(absRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []DurableStateIssue{}, nil
+		}
+		return nil, fmt.Errorf("read job root: %w", err)
+	}
+
+	issues := make([]DurableStateIssue, 0)
+	for _, entry := range entries {
+		if !entry.IsDir() || !safeJobIDPattern.MatchString(entry.Name()) {
+			continue
+		}
+		files, err := resolveJobFiles(absRoot, entry.Name())
+		if err != nil {
+			return nil, err
+		}
+		if _, err := os.Stat(files.pendingPath); err == nil {
+			issues = append(issues, DurableStateIssue{
+				JobID:   entry.Name(),
+				Kind:    "pending_mutation",
+				Message: "pending durable mutation marker requires reconciliation",
+			})
+		} else if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("stat pending mutation for %s: %w", entry.Name(), err)
+		}
+
+		state, stateErr := readState(files.statePath)
+		if stateErr != nil && !errors.Is(stateErr, ErrJobNotFound) {
+			return nil, fmt.Errorf("read durable state for %s: %w", entry.Name(), stateErr)
+		}
+		events, err := readEvents(files.eventsPath)
+		if err != nil {
+			return nil, fmt.Errorf("read durable events for %s: %w", entry.Name(), err)
+		}
+
+		lastRevision := int64(0)
+		if len(events) > 0 {
+			lastRevision = events[len(events)-1].Revision
+		}
+		if errors.Is(stateErr, ErrJobNotFound) {
+			if len(events) > 0 {
+				issues = append(issues, DurableStateIssue{
+					JobID:   entry.Name(),
+					Kind:    "missing_state_with_events",
+					Message: fmt.Sprintf("event log revision %d exists without a durable state snapshot", lastRevision),
+				})
+			}
+			continue
+		}
+		if state.Revision > lastRevision {
+			issues = append(issues, DurableStateIssue{
+				JobID:   entry.Name(),
+				Kind:    "state_ahead_of_event_log",
+				Message: fmt.Sprintf("state revision %d is ahead of event log revision %d", state.Revision, lastRevision),
+			})
+		}
+		if lastRevision > state.Revision {
+			issues = append(issues, DurableStateIssue{
+				JobID:   entry.Name(),
+				Kind:    "event_log_ahead_of_state",
+				Message: fmt.Sprintf("event log revision %d is ahead of state revision %d", lastRevision, state.Revision),
+			})
+		}
+	}
+
+	sort.Slice(issues, func(i, j int) bool {
+		if issues[i].JobID == issues[j].JobID {
+			return issues[i].Kind < issues[j].Kind
+		}
+		return issues[i].JobID < issues[j].JobID
+	})
+	return issues, nil
 }
 
 func readState(path string) (JobState, error) {
@@ -742,6 +888,130 @@ func appendEvent(path string, event Event) error {
 	}
 	if err := fsx.AppendLineLocked(path, payload, 0o600); err != nil {
 		return fmt.Errorf("append event: %w", err)
+	}
+	return nil
+}
+
+func resolveJobFiles(root string, jobID string) (jobFiles, error) {
+	statePath, eventsPath, err := jobPaths(root, jobID)
+	if err != nil {
+		return jobFiles{}, err
+	}
+	return jobFiles{
+		statePath:   statePath,
+		eventsPath:  eventsPath,
+		pendingPath: filepath.Join(filepath.Dir(statePath), "pending_mutation.json"),
+		lockPath:    statePath + ".lock",
+	}, nil
+}
+
+func recoverJobIfNeeded(files jobFiles) error {
+	if _, err := os.Stat(files.pendingPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat pending mutation: %w", err)
+	}
+	release, err := acquireLock(files.lockPath, time.Time{}, 2*time.Second)
+	if err != nil {
+		return err
+	}
+	defer release()
+	return recoverPendingMutation(files)
+}
+
+func commitMutation(files jobFiles, mutation pendingMutation) error {
+	if err := persistJobJSON(files.pendingPath, mutation); err != nil {
+		return err
+	}
+	if err := materializePendingState(files.statePath, mutation.UpdatedState); err != nil {
+		_ = removePendingMarker(files.pendingPath)
+		return err
+	}
+	if err := persistJobEvent(files.eventsPath, mutation.Event); err != nil {
+		if rollbackErr := restorePendingBaseline(files.statePath, mutation.PreviousState); rollbackErr != nil {
+			return fmt.Errorf("append event: %w (rollback failed: %v)", err, rollbackErr)
+		}
+		_ = removePendingMarker(files.pendingPath)
+		return err
+	}
+	_ = removePendingMarker(files.pendingPath)
+	return nil
+}
+
+func recoverPendingMutation(files jobFiles) error {
+	mutation, err := readPendingMutation(files.pendingPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	events, err := readEvents(files.eventsPath)
+	if err != nil {
+		return err
+	}
+	if pendingEventExists(events, mutation.Event.Revision) {
+		if err := materializePendingState(files.statePath, mutation.UpdatedState); err != nil {
+			return err
+		}
+	} else if err := restorePendingBaseline(files.statePath, mutation.PreviousState); err != nil {
+		return err
+	}
+	_ = removePendingMarker(files.pendingPath)
+	return nil
+}
+
+func readPendingMutation(path string) (pendingMutation, error) {
+	// #nosec G304 -- path is derived from local job root
+	// lgtm[go/path-injection] path is derived from explicit local runtime root/job id inputs.
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return pendingMutation{}, err
+	}
+	var mutation pendingMutation
+	if err := json.Unmarshal(payload, &mutation); err != nil {
+		return pendingMutation{}, fmt.Errorf("parse pending mutation: %w", err)
+	}
+	if strings.TrimSpace(mutation.JobID) == "" {
+		return pendingMutation{}, fmt.Errorf("invalid pending mutation: missing job_id")
+	}
+	return mutation, nil
+}
+
+func pendingEventExists(events []Event, revision int64) bool {
+	for _, event := range events {
+		if event.Revision == revision {
+			return true
+		}
+	}
+	return false
+}
+
+func materializePendingState(path string, desired JobState) error {
+	current, err := readState(path)
+	if err == nil && reflect.DeepEqual(current, desired) {
+		return nil
+	}
+	if err != nil && !errors.Is(err, ErrJobNotFound) {
+		return err
+	}
+	return persistJobJSON(path, desired)
+}
+
+func restorePendingBaseline(path string, previous *JobState) error {
+	if previous == nil {
+		if err := removeJobPath(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove job state: %w", err)
+		}
+		return nil
+	}
+	return materializePendingState(path, *previous)
+}
+
+func removePendingMarker(path string) error {
+	if err := removeJobPath(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove pending mutation: %w", err)
 	}
 	return nil
 }

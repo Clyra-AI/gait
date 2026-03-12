@@ -555,6 +555,366 @@ func TestReadWriteHelperErrors(t *testing.T) {
 	}
 }
 
+func TestSubmitAppendFailureRollsBackNewJob(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	restoreJobPersistenceHooks(t)
+	persistJobEvent = func(path string, event Event) error {
+		return errors.New("append failure")
+	}
+
+	if _, err := Submit(root, SubmitOptions{JobID: "job-submit-rollback"}); err == nil {
+		t.Fatalf("expected submit append failure")
+	}
+	if _, err := Status(root, "job-submit-rollback"); !errors.Is(err, ErrJobNotFound) {
+		t.Fatalf("expected rolled back submit to leave no job, got %v", err)
+	}
+}
+
+func TestMutationAppendFailureRollsBackStateAndRetrySucceeds(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-pause-rollback"
+	if _, err := Submit(root, SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+
+	restoreJobPersistenceHooks(t)
+	persistJobEvent = func(path string, event Event) error {
+		return errors.New("append failure")
+	}
+	if _, err := Pause(root, jobID, TransitionOptions{}); err == nil {
+		t.Fatalf("expected pause append failure")
+	}
+
+	state, err := Status(root, jobID)
+	if err != nil {
+		t.Fatalf("status after failed pause: %v", err)
+	}
+	if state.Status != StatusRunning || state.Revision != 1 {
+		t.Fatalf("expected state rollback after failed pause, got %#v", state)
+	}
+
+	restoreJobPersistenceHooks(t)
+	paused, err := Pause(root, jobID, TransitionOptions{})
+	if err != nil {
+		t.Fatalf("pause retry after rollback: %v", err)
+	}
+	if paused.Status != StatusPaused || paused.Revision != 2 {
+		t.Fatalf("expected retried pause to succeed, got %#v", paused)
+	}
+}
+
+func TestStatusRecoversPendingMutationWithoutEventByRollingBackState(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-pending-rollback"
+	submitted, err := Submit(root, SubmitOptions{JobID: jobID})
+	if err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+
+	files, err := resolveJobFiles(root, jobID)
+	if err != nil {
+		t.Fatalf("resolve job files: %v", err)
+	}
+	updated := submitted
+	updated.Status = StatusPaused
+	updated.StopReason = StopReasonPausedByUser
+	updated.StatusReasonCode = "paused"
+	updated.Revision = submitted.Revision + 1
+	updated.UpdatedAt = submitted.UpdatedAt.Add(time.Second)
+	if err := writeJSON(files.statePath, updated); err != nil {
+		t.Fatalf("write updated state: %v", err)
+	}
+	if err := writeJSON(files.pendingPath, pendingMutation{
+		SchemaID:      pendingSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     updated.UpdatedAt,
+		JobID:         jobID,
+		PreviousState: &submitted,
+		UpdatedState:  updated,
+		Event: Event{
+			SchemaID:      eventSchemaID,
+			SchemaVersion: jobSchemaVersion,
+			CreatedAt:     updated.UpdatedAt,
+			JobID:         jobID,
+			Revision:      updated.Revision,
+			Type:          "paused",
+			ReasonCode:    "paused",
+		},
+	}); err != nil {
+		t.Fatalf("write pending mutation: %v", err)
+	}
+
+	state, err := Status(root, jobID)
+	if err != nil {
+		t.Fatalf("status with pending rollback recovery: %v", err)
+	}
+	if state.Status != StatusRunning || state.Revision != submitted.Revision {
+		t.Fatalf("expected rollback to submitted state, got %#v", state)
+	}
+	if _, err := os.Stat(files.pendingPath); !os.IsNotExist(err) {
+		t.Fatalf("expected pending mutation marker to be removed, stat=%v", err)
+	}
+}
+
+func TestStatusRecoversPendingMutationWithDurableEvent(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-pending-commit"
+	submitted, err := Submit(root, SubmitOptions{JobID: jobID})
+	if err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+
+	files, err := resolveJobFiles(root, jobID)
+	if err != nil {
+		t.Fatalf("resolve job files: %v", err)
+	}
+	updated := submitted
+	updated.Status = StatusPaused
+	updated.StopReason = StopReasonPausedByUser
+	updated.StatusReasonCode = "paused"
+	updated.Revision = submitted.Revision + 1
+	updated.UpdatedAt = submitted.UpdatedAt.Add(2 * time.Second)
+	event := Event{
+		SchemaID:      eventSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     updated.UpdatedAt,
+		JobID:         jobID,
+		Revision:      updated.Revision,
+		Type:          "paused",
+		ReasonCode:    "paused",
+	}
+	if err := appendEvent(files.eventsPath, event); err != nil {
+		t.Fatalf("append durable event: %v", err)
+	}
+	if err := writeJSON(files.pendingPath, pendingMutation{
+		SchemaID:      pendingSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     updated.UpdatedAt,
+		JobID:         jobID,
+		PreviousState: &submitted,
+		UpdatedState:  updated,
+		Event:         event,
+	}); err != nil {
+		t.Fatalf("write pending mutation: %v", err)
+	}
+
+	state, err := Status(root, jobID)
+	if err != nil {
+		t.Fatalf("status with durable event recovery: %v", err)
+	}
+	if state.Status != StatusPaused || state.Revision != updated.Revision {
+		t.Fatalf("expected durable event recovery to materialize updated state, got %#v", state)
+	}
+}
+
+func TestInspectRecoversPendingMutationWithDurableEvent(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-inspect-recovery"
+	submitted, err := Submit(root, SubmitOptions{JobID: jobID})
+	if err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+
+	files, err := resolveJobFiles(root, jobID)
+	if err != nil {
+		t.Fatalf("resolve job files: %v", err)
+	}
+	updated := submitted
+	updated.Status = StatusPaused
+	updated.StopReason = StopReasonPausedByUser
+	updated.StatusReasonCode = "paused"
+	updated.Revision = submitted.Revision + 1
+	updated.UpdatedAt = submitted.UpdatedAt.Add(3 * time.Second)
+	event := Event{
+		SchemaID:      eventSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     updated.UpdatedAt,
+		JobID:         jobID,
+		Revision:      updated.Revision,
+		Type:          "paused",
+		ReasonCode:    "paused",
+	}
+	if err := appendEvent(files.eventsPath, event); err != nil {
+		t.Fatalf("append durable event: %v", err)
+	}
+	if err := writeJSON(files.pendingPath, pendingMutation{
+		SchemaID:      pendingSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     updated.UpdatedAt,
+		JobID:         jobID,
+		PreviousState: &submitted,
+		UpdatedState:  updated,
+		Event:         event,
+	}); err != nil {
+		t.Fatalf("write pending mutation: %v", err)
+	}
+
+	state, events, err := Inspect(root, jobID)
+	if err != nil {
+		t.Fatalf("inspect with durable event recovery: %v", err)
+	}
+	if state.Status != StatusPaused || state.Revision != updated.Revision {
+		t.Fatalf("expected inspect recovery to materialize updated state, got %#v", state)
+	}
+	if len(events) != 2 || events[len(events)-1].Revision != updated.Revision {
+		t.Fatalf("expected recovered inspect to include durable event log, got %#v", events)
+	}
+}
+
+func TestDiagnoseDurableStateDetectsPendingAndRevisionDivergence(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+
+	submitted, err := Submit(root, SubmitOptions{JobID: "job-state-ahead"})
+	if err != nil {
+		t.Fatalf("submit state-ahead job: %v", err)
+	}
+	filesAhead, err := resolveJobFiles(root, "job-state-ahead")
+	if err != nil {
+		t.Fatalf("resolve job-state-ahead files: %v", err)
+	}
+	ahead := submitted
+	ahead.Status = StatusPaused
+	ahead.StopReason = StopReasonPausedByUser
+	ahead.StatusReasonCode = "paused"
+	ahead.Revision = submitted.Revision + 1
+	ahead.UpdatedAt = submitted.UpdatedAt.Add(time.Second)
+	if err := writeJSON(filesAhead.statePath, ahead); err != nil {
+		t.Fatalf("write state-ahead divergence: %v", err)
+	}
+
+	if _, err := Submit(root, SubmitOptions{JobID: "job-event-ahead"}); err != nil {
+		t.Fatalf("submit event-ahead job: %v", err)
+	}
+	filesEventAhead, err := resolveJobFiles(root, "job-event-ahead")
+	if err != nil {
+		t.Fatalf("resolve job-event-ahead files: %v", err)
+	}
+	if err := appendEvent(filesEventAhead.eventsPath, Event{
+		SchemaID:      eventSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     time.Date(2026, time.March, 12, 12, 0, 1, 0, time.UTC),
+		JobID:         "job-event-ahead",
+		Revision:      2,
+		Type:          "paused",
+		ReasonCode:    "paused",
+	}); err != nil {
+		t.Fatalf("append event-ahead divergence: %v", err)
+	}
+
+	if _, err := Submit(root, SubmitOptions{JobID: "job-pending"}); err != nil {
+		t.Fatalf("submit pending job: %v", err)
+	}
+	filesPending, err := resolveJobFiles(root, "job-pending")
+	if err != nil {
+		t.Fatalf("resolve job-pending files: %v", err)
+	}
+	pendingState, err := readState(filesPending.statePath)
+	if err != nil {
+		t.Fatalf("read pending baseline state: %v", err)
+	}
+	if err := writeJSON(filesPending.pendingPath, pendingMutation{
+		SchemaID:      pendingSchemaID,
+		SchemaVersion: jobSchemaVersion,
+		CreatedAt:     pendingState.UpdatedAt.Add(time.Second),
+		JobID:         "job-pending",
+		PreviousState: &pendingState,
+		UpdatedState:  pendingState,
+		Event: Event{
+			SchemaID:      eventSchemaID,
+			SchemaVersion: jobSchemaVersion,
+			CreatedAt:     pendingState.UpdatedAt.Add(time.Second),
+			JobID:         "job-pending",
+			Revision:      pendingState.Revision + 1,
+			Type:          "paused",
+			ReasonCode:    "paused",
+		},
+	}); err != nil {
+		t.Fatalf("write pending mutation divergence: %v", err)
+	}
+
+	issues, err := DiagnoseDurableState(root)
+	if err != nil {
+		t.Fatalf("diagnose durable state: %v", err)
+	}
+	if len(issues) != 3 {
+		t.Fatalf("expected three durable-state issues, got %#v", issues)
+	}
+	if issues[0].JobID != "job-event-ahead" || issues[0].Kind != "event_log_ahead_of_state" {
+		t.Fatalf("unexpected first issue ordering/content: %#v", issues)
+	}
+	if issues[1].JobID != "job-pending" || issues[1].Kind != "pending_mutation" {
+		t.Fatalf("unexpected pending issue: %#v", issues)
+	}
+	if issues[2].JobID != "job-state-ahead" || issues[2].Kind != "state_ahead_of_event_log" {
+		t.Fatalf("unexpected state-ahead issue: %#v", issues)
+	}
+}
+
+func TestDiagnoseDurableStateDetectsMissingStateWithEvents(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-missing-state"
+	if _, err := Submit(root, SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	files, err := resolveJobFiles(root, jobID)
+	if err != nil {
+		t.Fatalf("resolve job files: %v", err)
+	}
+	if err := os.Remove(files.statePath); err != nil {
+		t.Fatalf("remove state path: %v", err)
+	}
+
+	issues, err := DiagnoseDurableState(root)
+	if err != nil {
+		t.Fatalf("diagnose durable state: %v", err)
+	}
+	if len(issues) != 1 || issues[0].Kind != "missing_state_with_events" {
+		t.Fatalf("expected missing_state_with_events issue, got %#v", issues)
+	}
+}
+
+func TestDiagnoseDurableStateMissingRootReturnsNoIssues(t *testing.T) {
+	issues, err := DiagnoseDurableState(filepath.Join(t.TempDir(), "missing"))
+	if err != nil {
+		t.Fatalf("diagnose missing root: %v", err)
+	}
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues for missing root, got %#v", issues)
+	}
+}
+
+func TestDiagnoseDurableStateReturnsParseErrorForInvalidState(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobDir := filepath.Join(root, "job-invalid-state")
+	if err := os.MkdirAll(jobDir, 0o750); err != nil {
+		t.Fatalf("mkdir job dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(jobDir, "state.json"), []byte("{invalid"), 0o600); err != nil {
+		t.Fatalf("write invalid state: %v", err)
+	}
+	if _, err := DiagnoseDurableState(root); err == nil {
+		t.Fatalf("expected diagnose parse error for invalid state")
+	}
+}
+
+func TestStatusFailsForMalformedPendingMutation(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-malformed-pending"
+	if _, err := Submit(root, SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	files, err := resolveJobFiles(root, jobID)
+	if err != nil {
+		t.Fatalf("resolve job files: %v", err)
+	}
+	if err := os.WriteFile(files.pendingPath, []byte("{invalid"), 0o600); err != nil {
+		t.Fatalf("write malformed pending marker: %v", err)
+	}
+	if _, err := Status(root, jobID); err == nil {
+		t.Fatalf("expected status to fail for malformed pending marker")
+	}
+}
+
 func TestAcquireLockTimeoutAndPathErrors(t *testing.T) {
 	now := time.Now().UTC()
 
@@ -570,6 +930,55 @@ func TestAcquireLockTimeoutAndPathErrors(t *testing.T) {
 	if _, err := acquireLock(lockPath, now, 0); !errors.Is(err, ErrStateContention) {
 		t.Fatalf("expected ErrStateContention, got %v", err)
 	}
+}
+
+func TestMutationStateWriteFailureCleansPendingMarker(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "jobs")
+	jobID := "job-state-write-failure"
+	if _, err := Submit(root, SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	files, err := resolveJobFiles(root, jobID)
+	if err != nil {
+		t.Fatalf("resolve job files: %v", err)
+	}
+
+	restoreJobPersistenceHooks(t)
+	persistJobJSON = func(path string, value any) error {
+		if filepath.Base(path) == "state.json" {
+			return errors.New("state write failure")
+		}
+		return writeJSON(path, value)
+	}
+
+	if _, err := Pause(root, jobID, TransitionOptions{}); err == nil {
+		t.Fatalf("expected pause state write failure")
+	}
+	if _, err := os.Stat(files.pendingPath); !os.IsNotExist(err) {
+		t.Fatalf("expected pending marker cleanup after state write failure, stat=%v", err)
+	}
+	state, err := Status(root, jobID)
+	if err != nil {
+		t.Fatalf("status after state write failure: %v", err)
+	}
+	if state.Status != StatusRunning || state.Revision != 1 {
+		t.Fatalf("expected unchanged state after state write failure, got %#v", state)
+	}
+}
+
+func restoreJobPersistenceHooks(t *testing.T) {
+	t.Helper()
+	originalWrite := persistJobJSON
+	originalAppend := persistJobEvent
+	originalRemove := removeJobPath
+	persistJobJSON = writeJSON
+	persistJobEvent = appendEvent
+	removeJobPath = os.Remove
+	t.Cleanup(func() {
+		persistJobJSON = originalWrite
+		persistJobEvent = originalAppend
+		removeJobPath = originalRemove
+	})
 }
 
 func TestAcquireLockTimeoutUsesWallClock(t *testing.T) {

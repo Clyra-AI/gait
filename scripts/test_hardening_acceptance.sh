@@ -13,6 +13,9 @@ go test ./cmd/gait -run 'TestMarshalOutputWithErrorEnvelope|TestMarshalOutputWit
 echo "[hardening-acceptance] atomic write integrity under failure simulation"
 go test ./core/fsx -count=1
 
+echo "[hardening-acceptance] durable job rollback and divergence diagnostics"
+go test ./core/jobruntime ./core/doctor -run 'TestMutationAppendFailureRollsBackStateAndRetrySucceeds|TestStatusRecoversPendingMutationWithoutEventByRollingBackState|TestStatusRecoversPendingMutationWithDurableEvent|TestDiagnoseDurableStateDetectsPendingAndRevisionDivergence|TestRunDetectsDurableStateDivergence' -count=1
+
 echo "[hardening-acceptance] lock contention behavior"
 go test ./core/gate -run 'TestEnforceRateLimitConcurrentLocking|TestEnforceRateLimitRecoversStaleLock|TestWithRateLimitLockTimeoutCategory' -count=1
 
