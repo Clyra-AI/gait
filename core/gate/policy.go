@@ -300,7 +300,8 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 		violations = mergeUniqueSorted(violations, endpointViolations)
 		if len(reasons) > 0 {
 			return EvalOutcome{
-				Result: buildGateResult(normalizedPolicy, normalizedIntent, opts, "block", reasons, violations),
+				Result:         buildGateResult(normalizedPolicy, normalizedIntent, opts, "block", reasons, violations),
+				PreparedIntent: normalizedIntent,
 			}, nil
 		}
 	}

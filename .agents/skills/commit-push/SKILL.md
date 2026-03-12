@@ -77,7 +77,7 @@ If preconditions fail, stop and report.
 - once `eyes` is observed, assume a terminal Codex signal should follow soon and continue polling every `30s` for up to `15 minutes` before declaring the gate blocked
 - once `eyes` is observed, wait for a terminal Codex signal (`actionable`, `approved`, `thumbs_up`, explicit service/quota failure, or a new actionable comment/review on the latest head) before deciding the gate result
 - Use a two-stage gate:
-- Stage A: for the first `5 minutes`, look for latest-head Codex terminal signals or an `eyes` in-progress signal
+- Stage A: for the first `15 minutes`, look for latest-head Codex terminal signals or an `eyes` in-progress signal
 - Stage B: if `eyes` was observed during Stage A or later, continue polling every `30s` for up to `15 minutes` from the first observed `eyes` on the current review cycle
 - If no terminal Codex signal appears within that `15 minute` Stage B window, stop and report a blocked Codex review gate
 - If no latest-head terminal signal appears and no `eyes` in-progress signal is seen during Stage A, fall back to PR-wide Codex review inventory:
@@ -183,7 +183,7 @@ Never use inline `--body "..."` for multi-line PR text.
 - Required local gate before push: `make prepush-full` (includes CodeQL in this repo).
 - PR CI watch timeout: `25 minutes`.
 - Codex review settle polling interval: `15 seconds`.
-- Codex review settle initial window: `5 minutes` to find latest-head terminal signals or an `eyes` in-progress signal.
+- Codex review settle initial window: `15 minutes` to find latest-head terminal signals or an `eyes` in-progress signal.
 - Codex review settle after `eyes`: poll every `30 seconds` for up to `15 minutes` before blocking if no terminal signal appears.
 - Pre-merge comment-fix loop cap: `2`.
 - Post-merge main CI watch timeout: `25 minutes`.

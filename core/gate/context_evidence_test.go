@@ -47,8 +47,17 @@ rules:
 	if !contains(outcome.Result.ReasonCodes, "context_freshness_exceeded") {
 		t.Fatalf("expected context_freshness_exceeded, got %#v", outcome.Result.ReasonCodes)
 	}
+	if outcome.PreparedIntent.ToolName != intent.ToolName {
+		t.Fatalf("expected prepared intent tool name %q, got %q", intent.ToolName, outcome.PreparedIntent.ToolName)
+	}
+	if len(outcome.PreparedIntent.Targets) != len(intent.Targets) {
+		t.Fatalf("expected prepared intent targets %#v, got %#v", intent.Targets, outcome.PreparedIntent.Targets)
+	}
 	if outcome.PreparedIntent.Context.ContextSetDigest != "" {
 		t.Fatalf("expected prepared intent to strip unverified context digest, got %q", outcome.PreparedIntent.Context.ContextSetDigest)
+	}
+	if outcome.PreparedIntent.Context.ContextEvidenceMode != "" {
+		t.Fatalf("expected prepared intent to strip unverified context evidence mode, got %q", outcome.PreparedIntent.Context.ContextEvidenceMode)
 	}
 }
 
