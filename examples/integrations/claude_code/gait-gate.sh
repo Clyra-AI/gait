@@ -16,14 +16,15 @@ emit_response() {
 import json
 import os
 
-payload = {
+inner = {
+    "hookEventName": "PreToolUse",
     "permissionDecision": os.environ["DECISION"],
     "permissionDecisionReason": os.environ["REASON"],
 }
 trace_path = os.environ.get("TRACE_PATH", "").strip()
 if trace_path:
-    payload["tracePath"] = trace_path
-print(json.dumps(payload))
+    inner["tracePath"] = trace_path
+print(json.dumps({"hookSpecificOutput": inner}))
 PY
 }
 
@@ -60,13 +61,14 @@ strict_mode = os.environ.get("STRICT_MODE", "0").strip().lower() in {"1", "true"
 trace_path = os.environ.get("TRACE_PATH", "").strip()
 
 def emit(decision: str, reason: str) -> None:
-    payload = {
+    inner = {
+        "hookEventName": "PreToolUse",
         "permissionDecision": decision,
         "permissionDecisionReason": reason,
     }
     if trace_path:
-        payload["tracePath"] = trace_path
-    print(json.dumps(payload))
+        inner["tracePath"] = trace_path
+    print(json.dumps({"hookSpecificOutput": inner}))
 
 try:
     decoded = json.loads(proxy_output) if proxy_output.strip() else {}
