@@ -5,6 +5,8 @@
 Framework-native controls help, but most production stacks are multi-framework and multi-model.
 Gait keeps one execution-boundary and artifact contract across all of them.
 
+It is also not a framework replacement. The framework keeps planning and orchestration; Gait owns the execution verdict and evidence contract.
+
 ## "Is this another prompt-injection scanner?"
 
 No. Gait enforces policy at tool-call execution boundary.

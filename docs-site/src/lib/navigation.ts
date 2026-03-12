@@ -10,40 +10,15 @@ export const navigation: NavItem[] = [
     href: '/docs',
     children: [
       { title: 'Install', href: '/docs/install' },
+      { title: 'Policy Authoring', href: '/docs/policy_authoring' },
+      { title: 'Integration Checklist', href: '/docs/integration_checklist' },
       { title: 'Adopt In One PR', href: '/docs/adopt_in_one_pr' },
       { title: 'Mental Model', href: '/docs/concepts/mental_model' },
+      { title: 'Simple Scenario', href: '/docs/scenarios/simple_agent_tool_boundary' },
       { title: 'Architecture', href: '/docs/architecture' },
       { title: 'Flows', href: '/docs/flows' },
-      { title: 'Simple Scenario', href: '/docs/scenarios/simple_agent_tool_boundary' },
       { title: 'Demo Output Legend', href: '/docs/demo_output_legend' },
       { title: 'Local UI Playground', href: '/docs/ui_localhost' },
-    ],
-  },
-  {
-    title: 'Durable Jobs & Packs',
-    href: '/docs/durable_jobs',
-    children: [
-      { title: 'Durable Jobs', href: '/docs/durable_jobs' },
-      { title: 'PackSpec v1', href: '/docs/contracts/packspec_v1' },
-      { title: 'PackSpec TCK', href: '/docs/contracts/packspec_tck' },
-      { title: 'Pack Producer Kit', href: '/docs/contracts/pack_producer_kit' },
-      { title: 'Compatibility Matrix', href: '/docs/contracts/compatibility_matrix' },
-      { title: 'Artifact Graph', href: '/docs/contracts/artifact_graph' },
-      { title: 'Skill Provenance', href: '/docs/contracts/skill_provenance' },
-    ],
-  },
-  {
-    title: 'Voice Mode',
-    href: '/docs/voice_mode',
-    children: [
-      { title: 'Voice Mode Guide', href: '/docs/voice_mode' },
-    ],
-  },
-  {
-    title: 'Context Evidence',
-    href: '/docs/contracts/contextspec_v1',
-    children: [
-      { title: 'ContextSpec v1', href: '/docs/contracts/contextspec_v1' },
     ],
   },
   {
@@ -68,6 +43,29 @@ export const navigation: NavItem[] = [
       { title: 'Cloud Runtime Patterns', href: '/docs/deployment/cloud_runtime_patterns' },
       { title: 'CI Regress Kit', href: '/docs/ci_regress_kit' },
     ],
+  },
+  {
+    title: 'Evidence, Jobs & Replay',
+    href: '/docs/durable_jobs',
+    children: [
+      { title: 'Durable Jobs', href: '/docs/durable_jobs' },
+      { title: 'PackSpec v1', href: '/docs/contracts/packspec_v1' },
+      { title: 'PackSpec TCK', href: '/docs/contracts/packspec_tck' },
+      { title: 'Pack Producer Kit', href: '/docs/contracts/pack_producer_kit' },
+      { title: 'Compatibility Matrix', href: '/docs/contracts/compatibility_matrix' },
+      { title: 'Artifact Graph', href: '/docs/contracts/artifact_graph' },
+      { title: 'Skill Provenance', href: '/docs/contracts/skill_provenance' },
+    ],
+  },
+  {
+    title: 'Voice Mode',
+    href: '/docs/voice_mode',
+    children: [{ title: 'Voice Mode Guide', href: '/docs/voice_mode' }],
+  },
+  {
+    title: 'Context Evidence',
+    href: '/docs/contracts/contextspec_v1',
+    children: [{ title: 'ContextSpec v1', href: '/docs/contracts/contextspec_v1' }],
   },
   {
     title: 'Hardening',
@@ -95,9 +93,7 @@ export const navigation: NavItem[] = [
   {
     title: 'Blog',
     href: '/docs/blog/openclaw_24h_boundary_enforcement',
-    children: [
-      { title: '2,880 Tool Calls Gate-Checked', href: '/docs/blog/openclaw_24h_boundary_enforcement' },
-    ],
+    children: [{ title: '2,880 Tool Calls Gate-Checked', href: '/docs/blog/openclaw_24h_boundary_enforcement' }],
   },
   {
     title: 'Ecosystem',

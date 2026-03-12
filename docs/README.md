@@ -19,14 +19,17 @@ Extended first-class surfaces:
 
 ## Start Here
 
-1. `README.md` for product overview and first win
-2. `docs/concepts/mental_model.md` for terminology and execution model
-3. `docs/architecture.md` for component boundaries
-4. `docs/flows.md` for end-to-end runtime and ops sequences
-5. `docs/contracts/primitive_contract.md` for normative behavior
+1. `README.md` for the product wedge and first five commands
+2. `docs/policy_authoring.md` for `.gait.yaml`, validation, and rollout workflow
+3. `docs/integration_checklist.md` for shipped wrapper, MCP, and SDK lanes
+4. `docs/agent_integration_boundary.md` for tool-boundary placement rules
+5. `docs/ci_regress_kit.md` for incident-to-CI adoption
 
 ## Core Product Docs
 
+- Policy bootstrap and authoring: `docs/policy_authoring.md`
+- Integration checklist: `docs/integration_checklist.md`
+- Integration boundary: `docs/agent_integration_boundary.md`
 - Architecture: `docs/architecture.md`
 - Runtime flows: `docs/flows.md`
 - Durable jobs lifecycle: `docs/durable_jobs.md`
@@ -90,12 +93,12 @@ Extended first-class surfaces:
 - Marketplace action publishing path: `docs/marketplace_action_publishing.md`
 - Canonical MCP boundary demo: `docs/scenarios/mcp_canonical_boundary.md`
 - Content cadence plan (v2.6): `docs/launch/content_cadence_v2_6.md`
-- Hero demo asset review (v2.6): `docs/launch/hero_demo_asset_review_v2_6.md`
+- Hero GIF/script alignment decision log (v2.6): `docs/launch/hero_demo_asset_review_v2_6.md`
 
 ## Ownership Rules
 
 - `docs/contracts/*` are normative. If any other doc conflicts, contracts win.
-- `README.md` is onboarding and positioning, not a full runbook dump.
+- `README.md` is the truthful onboarding surface for `gait init`, `gait check`, `gait demo`, and the first CI regression path.
 - Ops procedures belong in runbooks (`approval_runbook`, `policy_rollout`, `ci_regress_kit`, hardening docs).
 - Wiki (`docs/wiki/*`) is a convenience layer; `docs/*` remains authoritative.
 

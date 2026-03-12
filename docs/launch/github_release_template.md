@@ -8,7 +8,7 @@ Use this structure for tagged releases.
 
 ## Header
 
-Gait is the offline-first Agent Control Plane for production tool actions.
+Gait is the offline-first policy-as-code runtime for AI agent tool calls.
 
 ## What Shipped
 
@@ -21,11 +21,11 @@ Gait is the offline-first Agent Control Plane for production tool actions.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
-gait doctor --json
+gait init --json
+gait check --json
 gait demo
-gait verify run_demo
-gait regress init --from run_demo --json
-gait regress run --json --junit ./gait-out/junit.xml
+gait verify run_demo --json
+gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 ```
 
 ## Security Boundary Example

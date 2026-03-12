@@ -121,6 +121,22 @@ The official surface is `GaitLangChainMiddleware`, and enforcement only happens 
 - callback handlers never decide allow or block behavior
 - the official example lane is `examples/integrations/langchain/quickstart.py`
 
+Minimal snippet:
+
+```python
+from gait import ToolAdapter
+from gait.langchain import GaitLangChainMiddleware, GaitLangChainCallbackHandler
+
+adapter = ToolAdapter(policy_path="examples/integrations/langchain/policy_allow.yaml")
+
+middleware = [
+    GaitLangChainMiddleware(
+        adapter=adapter,
+        callback_handler=GaitLangChainCallbackHandler(),
+    )
+]
+```
+
 ### What happens if the Gait binary is not found?
 
 The SDK raises a clear error with install instructions and PATH guidance instead of an opaque FileNotFoundError.

@@ -9,7 +9,7 @@ Use this skill to isolate failing CI causes with deterministic artifact checks.
 
 ## Gait Context
 
-Gait is an offline-first runtime for AI agents that enforces tool-boundary policy, emits signed and verifiable evidence artifacts, and supports deterministic regressions.
+Gait is the offline-first policy-as-code runtime for AI agent tool calls. It enforces tool-boundary policy, emits signed and verifiable evidence artifacts, and supports deterministic regressions.
 
 Use this skill when:
 - incident triage requires artifact-first root-cause isolation
@@ -39,7 +39,8 @@ Do not use this skill when:
 3. Enter an isolated triage workspace:
    - `mkdir -p <workdir> && cd <workdir>`
 4. If failure came from regress grading, bind reruns to the requested target:
-   - `gait regress init --from <failure_target_ref> --json`
+   - explicit path: `gait capture --from <failure_target_ref> --json`
+   - then `gait regress add --from ./gait-out/capture.json --json`
    - `gait regress run --json`
 5. If baseline evidence exists, compute deterministic diff:
    - `gait pack diff <baseline_target_ref> <failure_target_ref> --json`
@@ -65,14 +66,15 @@ gait demo --json
 gait verify run_demo --json
 failure_target_ref="$(python3 -c 'import os,sys; v=sys.argv[1]; print(os.path.abspath(v) if os.path.exists(v) else v)' run_demo)"
 mkdir -p ./triage && cd ./triage
-gait regress init --from "${failure_target_ref}" --json
+gait capture --from "${failure_target_ref}" --json
+gait regress add --from ./gait-out/capture.json --json
 gait regress run --json
 gait doctor --json
 ```
 
 Expected result:
 - verify output reports integrity status for the target artifact
-- regress init output references the requested `failure_target`
+- fixture creation output references the requested `failure_target`
 - doctor output reports actionable diagnostics
 - regress output reports stable pass/fail status and failures
 

@@ -4,30 +4,30 @@ Use this as a baseline for launch threads. Keep it factual and concrete.
 
 ## Candidate Titles
 
-- Show HN: Gait - offline-first control plane for production agent tool calls
+- Show HN: Gait - policy-as-code for production agent tool calls
 - Show HN: Gait - deterministic incident-to-regress workflow for AI agents
 - Launch HN: Gait - policy enforcement + verifiable receipts for agent actions
 
 ## Post Body Template
 
 ```
-We are launching Gait, an offline-first CLI that makes production AI agent actions controllable and debuggable by default.
+We are launching Gait, an offline-first CLI for policy-as-code at AI agent tool boundaries.
 
 Core loop:
-- capture a run artifact (`runpack_<run_id>.zip`)
-- verify/replay/diff deterministically
-- enforce policy at tool-call boundary (`gate`)
-- turn incidents into deterministic CI regressions (`regress`)
+- bootstrap repo policy (`gait init`, `gait check`)
+- enforce policy at tool-call boundary (`gait gate eval`)
+- capture signed evidence
+- turn incidents into deterministic CI regressions
 
 It is intentionally artifact-first and vendor-neutral.
 No hosted service required for core workflows.
 
 Quick first win:
-1) gait doctor --json
-2) gait demo
-3) gait verify run_demo
-4) gait regress init --from run_demo --json
-5) gait regress run --json
+1) gait init --json
+2) gait check --json
+3) gait demo
+4) gait verify run_demo --json
+5) gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 
 Repo: https://github.com/Clyra-AI/gait
 ```
@@ -45,7 +45,8 @@ Expected:
 
 And here is the incident-to-regress path:
 
-gait regress init --from run_demo --json
+gait capture --from run_demo --json
+gait regress add --from ./gait-out/capture.json --json
 gait regress run --json --junit ./gait-out/junit.xml
 ```
 

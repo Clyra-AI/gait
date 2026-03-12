@@ -13,6 +13,7 @@
 - Context evidence envelopes with fail-closed enforcement when evidence is missing for high-risk actions.
 - Durable jobs with deterministic stop reasons and checkpoint integrity.
 - No hosted service dependency required for core operation.
+- MCP trust inputs remain local-file based and complementary to external scanners or registries; Gait enforces, it does not become the scanner.
 
 Operational references:
 

@@ -10,6 +10,7 @@ Current safe-default rollout note:
 - ship `baseline-highrisk` destructive budget defaults for fail-closed bursts
 - stage rollout: monitor -> approval -> enforce
 - when citing MCP trust, show local snapshot + `gait mcp verify`, not a hosted scanner replacement story
+- keep category language fixed: policy-as-code for agent tool calls, not control plane, dashboard, or framework replacement
 
 ## Contents
 
@@ -53,6 +54,7 @@ Generated artifacts:
 
 1. run `scripts/demo_90s.sh`
 2. run `scripts/test_v2_3_acceptance.sh ./gait` and confirm `release_gate_passed=true`
+3. confirm first-run copy still matches `gait init`, `gait check`, `gait demo`, `gait verify`, and `gait regress bootstrap`
 3. generate ecosystem release notes:
 
 ```bash

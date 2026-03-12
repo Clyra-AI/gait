@@ -82,7 +82,7 @@ What Gait cannot do (without interception):
 
 - Tier A quickstart: `examples/integrations/openai_agents/quickstart.py`
 - Tier A/B transport path: `gait mcp serve`
-- Tier C fallback: `gait report top`, `gait regress init`, `gait regress run`
+- Tier C fallback: `gait report top`, `gait capture`, `gait regress add`, `gait regress run` (or `gait regress bootstrap` for the one-command path)
 
 ## Related Docs
 

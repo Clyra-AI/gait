@@ -13,6 +13,8 @@ It does three things in one workflow:
 2. verifies artifact integrity
 3. fails the PR on a forced deterministic regression (`exit 5`)
 
+For GitLab, Jenkins, and CircleCI variants using the same contract, see `examples/ci/portability/README.md`.
+
 Copy this file into `.github/workflows/gait-adopt-one-pr.yml`:
 
 ```yaml
@@ -149,3 +151,9 @@ Expected PR behavior:
   - `junit.xml`
 
 If you want a passing lane after validating setup, remove the forced-drift step.
+
+Local hook reminder:
+
+- `pre-commit install`
+- `pre-commit run --all-files`
+- pre-push runs `make prepush` from `.pre-commit-config.yaml`

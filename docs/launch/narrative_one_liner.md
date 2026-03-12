@@ -4,11 +4,11 @@ Use one primary line and one supporting line. Do not switch category language mi
 
 ## Core Category Line
 
-Gait is the offline-first policy-as-code runtime for production tool actions.
+Gait is the offline-first policy-as-code runtime for AI agent tool calls.
 
 ## Product Promise Line
 
-Bootstrap with `gait init` and `gait check`, enforce at the tool boundary, and turn incidents into deterministic CI regressions.
+Bootstrap `.gait.yaml` with `gait init` and `gait check`, enforce at the tool boundary, and turn incidents into deterministic CI regressions.
 
 ## Audience Variants
 
@@ -22,7 +22,7 @@ Security:
 
 Developer:
 
-- `gait demo` to deterministic regressions in minutes, with no hosted dependency.
+- `gait init` and `gait check` to a real tool-boundary regression path in minutes, with no hosted dependency.
 
 Compliance:
 

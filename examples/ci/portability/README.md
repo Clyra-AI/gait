@@ -1,5 +1,7 @@
 # CI Portability Templates
 
+GitHub Actions is the primary lane through `.github/workflows/adoption-regress-template.yml`.
+
 These templates wrap the same CI contract script:
 
 - `scripts/ci_regress_contract.sh`
@@ -15,3 +17,4 @@ All templates preserve:
 - stable regress exit handling (`0`, `5`, passthrough)
 - deterministic artifacts under `gait-out/adoption_regress/`
 - deterministic fixture fallback init from `run_demo`
+- parity with the explicit `gait capture` + `gait regress add` handoff flow

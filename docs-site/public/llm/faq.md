@@ -2,7 +2,11 @@
 
 ## What is the primary job of Gait?
 
-Gait dispatches durable agent jobs, captures signed evidence at the tool boundary, and enforces fail-closed policy before side effects execute.
+Gait enforces fail-closed policy before agent tool side effects execute and keeps signed evidence you can verify offline.
+
+## What should teams run first?
+
+Run `gait init --json`, `gait check --json`, `gait demo`, `gait verify run_demo --json`, and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`.
 
 ## What problem does Gait solve for long-running agent work?
 
@@ -18,15 +22,15 @@ At tool-call execution intent, not prompt text alone. Non-allow gate outcomes do
 
 ## What is the tool boundary in concrete terms?
 
-The tool boundary is the exact call site in your wrapper/adapter where a real tool side effect is about to execute. The adapter sends structured intent to Gait and only executes the tool when verdict is `allow`.
+The tool boundary is the exact call site in your wrapper or adapter where a real tool side effect is about to execute. The adapter sends structured intent to Gait and only executes the tool when verdict is `allow`.
 
 ## How do I turn a failed agent run into a CI gate?
 
-Run `gait regress bootstrap --from <run_id> --junit output.xml`. This converts the run into a permanent regression fixture. Exit 0 means pass, exit 5 means the same drift was detected. Wire the JUnit output into any CI system.
+Run `gait regress bootstrap --from <run_id> --junit output.xml`. This converts the run into a permanent regression fixture. Exit 0 means pass, exit 5 means drift. Wire the JUnit output into any CI system.
 
 ## Can Gait gate voice agent actions?
 
-Yes. Voice mode gates high-stakes spoken commitments (refunds, quotes, eligibility) before they are uttered. A signed SayToken capability token must be present for gated speech, and every call produces a signed callpack artifact.
+Yes. Voice mode gates high-stakes spoken commitments before they are uttered. A signed SayToken capability token must be present for gated speech, and every call produces a signed callpack artifact.
 
 ## What is context evidence?
 
@@ -38,7 +42,7 @@ Yes. `gait run replay` uses recorded results as deterministic stubs so you can d
 
 ## How does Gait integrate with agent frameworks?
 
-Gait provides three integration modes: wrapper/sidecar pattern, Python SDK, and MCP server (`gait mcp serve`). The integration checklist covers the path from first demo to production enforcement.
+Gait provides wrapper or sidecar, Python SDK, and MCP boundary modes. The official LangChain surface is middleware with optional callback correlation; enforcement still happens only at the tool boundary.
 
 ## Can Gait pre-approve known multi-step scripts?
 
@@ -46,4 +50,4 @@ Yes. Use `gait approve-script` to mint signed registry entries bound to policy d
 
 ## How should teams start?
 
-Run `gait tour` for a guided walkthrough, then `gait demo` to create and verify a signed pack. Wire one integration path from the integration checklist to move toward production enforcement.
+Bootstrap `.gait.yaml` with `gait init` and `gait check`, then run `gait demo` and wire one integration seam from the integration checklist.

@@ -77,7 +77,8 @@ Expected:
 ## Step 3: Convert Incident/Evidence to Regression
 
 ```bash
-gait regress init --from run_demo --json
+gait capture --from run_demo --json
+gait regress add --from ./gait-out/capture.json --json
 gait regress run --json --junit ./gait-out/junit.xml
 ```
 
@@ -85,6 +86,7 @@ Expected:
 
 - deterministic `status=pass` on known-good fixture
 - CI-ready `junit.xml`
+- same result is available via `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`
 
 ## Optional: One-Shot Policy Check From Fixture Intent
 

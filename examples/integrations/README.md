@@ -2,10 +2,13 @@
 
 This directory contains framework adapters that demonstrate the same Gait execution contract across runtimes.
 
-Current adapters:
+Official lanes:
 
 - `openai_agents`
 - `langchain` (official middleware with optional callback correlation)
+
+Reference adapters:
+
 - `autogen`
 - `openclaw`
 - `autogpt`
@@ -13,6 +16,8 @@ Current adapters:
 - `claude_code`
 - `voice_reference`
 - `template` (canonical copy/paste template)
+
+Do not promote an adapter into public launch copy until it has an in-repo lane and clears the integration scorecard threshold.
 
 ## Contract (Must Stay Identical)
 

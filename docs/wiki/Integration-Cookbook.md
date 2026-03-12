@@ -11,8 +11,8 @@ Use one boundary pattern only: wrapper or sidecar. Execute tools only on `allow`
 
 ## Framework Recipes
 
-- OpenAI Agents: `examples/integrations/openai_agents/`
-- LangChain: `examples/integrations/langchain/`
+- OpenAI Agents (blessed lane): `examples/integrations/openai_agents/`
+- LangChain (official middleware with optional callback correlation): `examples/integrations/langchain/`
 - AutoGen: `examples/integrations/autogen/`
 - OpenClaw: `examples/integrations/openclaw/`
 - AutoGPT: `examples/integrations/autogpt/`

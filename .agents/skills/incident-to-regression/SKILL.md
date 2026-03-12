@@ -9,7 +9,7 @@ Use this skill to transform an observed incident into deterministic regression c
 
 ## Gait Context
 
-Gait is an offline-first runtime for AI agents that enforces tool-boundary policy, emits signed and verifiable evidence artifacts, and supports deterministic regressions.
+Gait is the offline-first policy-as-code runtime for AI agent tool calls. It enforces tool-boundary policy, emits signed and verifiable evidence artifacts, and supports deterministic regressions.
 
 Use this skill when:
 - incident triage needs repeatable regression fixtures
@@ -22,7 +22,7 @@ Do not use this skill when:
 
 ## Required Inputs
 
-- `run_source`: run id, runpack path, or equivalent source accepted by `gait regress init`.
+- `run_source`: run id, runpack path, or equivalent source accepted by `gait capture` / `gait regress add` / `gait regress init`.
 - `workdir`: writable working directory where fixtures and outputs will be created.
 
 ## Workflow
@@ -33,9 +33,11 @@ Do not use this skill when:
    - `run_source_ref="$(python3 -c 'import os,sys; v=sys.argv[1]; print(os.path.abspath(v) if os.path.exists(v) else v)' <run_source>)"`
 2. Enter the declared working directory before generating artifacts:
    - `mkdir -p <workdir> && cd <workdir>`
-3. Initialize deterministic fixture from the incident source:
-   - `gait regress init --from <run_source_ref> --json`
-4. Parse fields from init output and record them:
+3. Create deterministic fixture from the incident source:
+   - explicit path: `gait capture --from <run_source_ref> --json`
+   - then `gait regress add --from ./gait-out/capture.json --json`
+   - legacy fallback: `gait regress init --from <run_source_ref> --json`
+4. Parse fields from the fixture-creation output and record them:
    - `ok`, `run_id`, `fixture_name`, `fixture_dir`, `config_path`, `next_commands`
 5. Execute regression graders:
    - `gait regress run --json`
@@ -60,13 +62,14 @@ Do not use this skill when:
 run_source_ref="$(python3 -c 'import os,sys; v=sys.argv[1]; print(os.path.abspath(v) if os.path.exists(v) else v)' run_demo)"
 mkdir -p ./regress-workdir && cd ./regress-workdir
 gait demo --json
-gait regress init --from "${run_source_ref}" --json
+gait capture --from "${run_source_ref}" --json
+gait regress add --from ./gait-out/capture.json --json
 mkdir -p ./artifacts
 gait regress run --json --junit ./artifacts/junit.xml
 ```
 
 Expected result:
-- init output includes `ok=true` and a `fixture_dir`
+- fixture creation output includes `ok=true` and a `fixture_dir`
 - run output includes stable `status` and grader failure details
 - JUnit file exists at `./artifacts/junit.xml`
 
@@ -75,7 +78,8 @@ Expected result:
 ```bash
 mkdir -p ./regress-workdir && cd ./regress-workdir
 gait demo --json
-gait regress init --from run_demo --json
+gait capture --from run_demo --json
+gait regress add --from ./gait-out/capture.json --json
 mkdir -p ./artifacts
 gait regress run --json > ./artifacts/regress_result.json
 python3 - <<'PY'

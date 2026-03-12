@@ -19,6 +19,19 @@ Use this when an external source such as Snyk or an internal registry produces t
 3. Preflight with `gait mcp verify`.
 4. Enforce the same trust policy through `gait mcp proxy` or `gait mcp serve`.
 
+Example policy contract:
+
+```yaml
+mcp_trust:
+  enabled: true
+  snapshot: ./examples/integrations/mcp_trust/trust_snapshot.json
+  action: block
+  required_risk_classes: [high, critical]
+  min_score: 0.8
+  max_age: 168h
+  require_registry: true
+```
+
 ```bash
 python3 scripts/render_mcp_trust_snapshot.py \
   --input examples/integrations/mcp_trust/snyk_mcp_report.json \

@@ -34,6 +34,80 @@ Interpretation:
 - `policy test` evaluates one intent fixture and returns verdict, reason codes, and `matched_rule`.
 - `policy simulate` compares baseline vs candidate verdicts over fixture corpora and recommends rollout stage (`observe`, `require_approval`, `enforce`).
 
+## Repo-Root Policy Contract
+
+The default onboarding contract is the repo-root file `.gait.yaml`.
+
+`gait init --json` writes that file and returns:
+
+- `policy_path`
+- `template`
+- `next_commands`
+
+`gait check --json` reads `.gait.yaml` and reports the live contract, including:
+
+- `default_verdict`
+- `rule_count`
+- `gap_warnings`
+
+Use `gait policy init --out gait.policy.yaml --json` only when you intentionally want a non-default path.
+
+## Common Top-Level Fields
+
+The schema for `.gait.yaml` is `schemas/v1/gate/policy.schema.json`.
+
+Most policies start with these fields:
+
+- `schema_id`: must be `gait.gate.policy`
+- `schema_version`: currently `1.0.0`
+- `default_verdict`: one of `allow`, `block`, `dry_run`, `require_approval`
+- `fail_closed`: optional high-risk missing-data rules
+- `mcp_trust`: optional local trust-snapshot contract for MCP server admission
+- `rules`: ordered rule list
+
+Example:
+
+```yaml
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+fail_closed:
+  enabled: true
+  risk_classes: [critical]
+  required_fields: [targets, arg_provenance]
+mcp_trust:
+  enabled: true
+  snapshot: ./examples/integrations/mcp_trust/trust_snapshot.json
+  action: block
+  required_risk_classes: [high, critical]
+  min_score: 0.8
+rules:
+  - name: require-approval-tool-write
+    priority: 20
+    effect: require_approval
+    min_approvals: 2
+    match:
+      tool_names: [tool.write]
+    reason_codes: [approval_required_for_write]
+```
+
+## Common Rule Fields
+
+Rules usually combine:
+
+- `name`, `priority`, and `effect`
+- `match.tool_name` or `match.tool_names`
+- `match.risk_classes`, `match.target_kinds`, `match.identities`, or other structured selectors
+- `reason_codes` and optional `violations`
+
+Additional rule features are available when needed:
+
+- `endpoint` for path/domain and destructive endpoint controls
+- `destructive_budget` and `rate_limit` for bounded execution
+- `require_context_evidence` for context-proof gating
+- `require_broker_credential` for broker-backed approval flows
+- script-specific controls via `approved-script-registry` on `gait gate eval`
+
 ## Failure Semantics
 
 - exit `0`: valid / allow path
@@ -71,6 +145,7 @@ This gives fast feedback for enum values and unknown keys before runtime.
 - Run `policy simulate` against representative fixture sets before changing rollout stage.
 - Keep policy files formatted by `policy fmt --write` before review.
 - Review policy changes with fixture deltas and matched-rule evidence, not raw YAML diff alone.
+- Keep the repo-default contract truthful: if docs say `.gait.yaml`, examples should use `.gait.yaml` unless a custom path is the point of the example.
 
 ## Signing Key Lifecycle (Local)
 

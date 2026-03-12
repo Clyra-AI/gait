@@ -4,14 +4,14 @@ This file gives coding assistants and contributors the project-wide rules for bu
 
 ## What Gait is
 
-Gait is an offline-first durable agent runtime that dispatches long-running jobs, captures signed evidence, and enforces fail-closed policy at the tool boundary.
+Gait is the offline-first policy-as-code runtime for AI agent tool calls. It bootstraps repo policy with `gait init` and `gait check`, captures signed evidence, and enforces fail-closed policy at the tool boundary.
 
 Core primitives:
 
 - **Jobs**: dispatch multi-step agent work with checkpoints, pause/resume/cancel, approval gates, and deterministic stop reasons (`gait job submit/status/checkpoint/pause/resume/cancel/approve/inspect`)
 - **Packs**: unified portable artifact envelope (PackSpec v1) for run, job, and call evidence with Ed25519 signatures and SHA-256 manifest (`gait pack verify/diff`)
 - **Gate**: evaluate structured tool-call intent against YAML policy with fail-closed enforcement (`gait gate eval`)
-- **Regress**: convert incidents into deterministic CI regression fixtures with JUnit output (`gait regress bootstrap`)
+- **Regress**: convert incidents into deterministic CI regression fixtures with JUnit output (`gait capture`, `gait regress add`, `gait regress bootstrap`)
 - **Voice**: gate high-stakes spoken commitments before utterance via signed SayToken capability tokens and callpack artifacts (`gait voice token mint/verify`, `gait voice pack build/verify/diff`)
 - **Context Evidence**: deterministic proof of what context the model was working from, with privacy-aware envelopes and fail-closed enforcement when evidence is missing
 - **Doctor**: first-5-minutes diagnostics (stable JSON + fixes) (`gait doctor --json`)

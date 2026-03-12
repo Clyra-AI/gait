@@ -7,7 +7,7 @@ Gate evaluates intent, policy, approvals, and provenance before side effects exe
 
 ## Is Gait offline-first?
 
-Yes for core workflows. Recording, verifying, diffing, replay, policy test, and regression run locally.
+Yes for core workflows. Policy bootstrap, recording, verifying, diffing, replay, policy test, and regression run locally.
 
 ## Is fail-open supported?
 
@@ -20,6 +20,7 @@ Use traces, runpacks, verification output, and ticket footer artifacts. These ar
 ## How do we prevent framework lock-in?
 
 Use one contract across adapters. No framework receives privileged bypass behavior.
+Gait is not a framework replacement; it owns the execution verdict and evidence contract while the framework keeps orchestration.
 
 ## How do we keep reports deterministic?
 

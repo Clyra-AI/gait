@@ -54,7 +54,8 @@ Deterministic artifact root:
 - `gait-out/adoption_regress/`
   - `regress_result.json`
   - `junit.xml`
-  - `regress_init_result.json` (only when fallback init runs)
+  - `capture.json` and `regress_add_result.json` (when using the explicit handoff path)
+  - `regress_init_result.json` (only when legacy fallback init runs)
   - `pack_verify_fixture.json` (fixture integrity evidence)
 
 ## Composite Action Contract
@@ -105,6 +106,40 @@ The portability templates are wrappers around this script and must preserve:
 - identical regress exit handling (`0`, `5`, passthrough)
 - identical artifact root (`gait-out/adoption_regress/`)
 - identical fixture fallback behavior (`run_demo` init path)
+
+## Explicit Capture vs One-Command Bootstrap
+
+Use one of these two truthful paths:
+
+1. Explicit handoff artifact:
+   - `gait capture --from <run_id> --json`
+   - `gait regress add --from ./gait-out/capture.json --json`
+   - `gait regress run --json --junit <path>`
+2. One-command bootstrap:
+   - `gait regress bootstrap --from <run_id> --json --junit <path>`
+
+Both paths preserve the same stable exit and artifact contract.
+
+## Pre-Commit and Pre-Push Hooks
+
+The repo-local hook contract lives in `.pre-commit-config.yaml`.
+
+Use:
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+Current hook coverage includes:
+
+- standard hygiene checks
+- Go formatting and module tidy
+- `golangci-lint`
+- Ruff and Ruff format for Python
+- `site-stack-lint` on docs-site and `ui/local/`
+- pre-push `site-stack-build`
+- pre-push `make prepush`
 
 ## Downstream Reuse Example
 

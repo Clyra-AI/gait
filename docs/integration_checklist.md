@@ -1,6 +1,6 @@
 ---
 title: "Integration Checklist"
-description: "Step-by-step checklist for integrating Gait with agent frameworks including OpenAI Agents, LangChain, and AutoGen."
+description: "Step-by-step checklist for integrating Gait at the tool boundary with the shipped OpenAI Agents lane, official LangChain middleware, and reference adapters."
 ---
 
 # Gait Integration Checklist
@@ -31,6 +31,7 @@ Blessed default lane:
 Expansion policy:
 
 - no new official lane is added unless scorecard threshold is met
+- do not name additional frameworks publicly (for example CrewAI) until the scorecard threshold is met and an in-repo lane exists
 - scorecard command:
 
 ```bash
@@ -83,22 +84,26 @@ Run these first. Stop if expected output is missing.
 5. Wrapper non-allow path:
 - run wrapper block or approval scenario
 - expect `executed=false`
-6. Regress fixture init:
-- `gait regress init --from run_demo --json`
-- expect fixture created
+6. Explicit capture path:
+- `gait capture --from run_demo --json`
+- `gait regress add --from ./gait-out/capture.json --json`
+- expect deterministic fixture created
 7. Regress gate run:
 - `gait regress run --json --junit ./gait-out/junit.xml`
 - expect `status=pass` and exit `0`
-8. CI parity:
+8. One-command shortcut:
+- `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`
+- expect the same stable regress contract without a separate capture handoff
+9. CI parity:
 - wire `.github/workflows/adoption-regress-template.yml`
 - confirm local/CI fixture parity
-9. Activation timing report:
+10. Activation timing report:
 - run `gait doctor adoption --from ./gait-out/adoption.jsonl --json`
 - confirm `activation_timing_ms` and `activation_medians_ms` present
-10. Observe->enforce rollout baseline:
+11. Observe->enforce rollout baseline:
 - observe: `gait gate eval ... --simulate --json`
 - enforce: `gait gate eval ... --json`
-11. Approved script registry path (if script automation is used):
+12. Approved script registry path (if script automation is used):
 - mint entry: `gait approve-script --policy <policy.yaml> --intent <script_intent.json> --registry <registry.json> --approver <id> --key-mode prod --private-key <path> --json`
 - inspect entry: `gait list-scripts --registry <registry.json> --json`
 - enforce with registry: `gait gate eval ... --approved-script-registry <registry.json> --approved-script-public-key <path> --json`
@@ -173,14 +178,19 @@ Contract docs:
 
 ### Adapter Parity / Secondary Lanes
 
-Supported references:
+Official lanes:
 
+- `examples/integrations/openai_agents/`
 - `examples/integrations/langchain/` (official middleware with optional callback correlation)
+
+Reference adapters:
+
 - `examples/integrations/autogen/`
 - `examples/integrations/openclaw/`
 - `examples/integrations/autogpt/`
 - `examples/integrations/gastown/`
 - `examples/integrations/voice_reference/`
+- `examples/integrations/claude_code/`
 - sidecar path: `examples/sidecar/gate_sidecar.py`
 - MCP proxy/serve: `gait mcp proxy`, `gait mcp serve`
 
@@ -251,7 +261,7 @@ Default path (GitHub Actions):
 
 Required parity:
 
-- same fixture source (`fixtures/run_demo/runpack.zip` + `gait.yaml` or `gait regress init` fallback)
+- same fixture source (`fixtures/run_demo/runpack.zip` + `gait.yaml` or the explicit `gait capture` + `gait regress add` path)
 - same stable exit handling (`0` pass, `5` deterministic failure)
 - same retained artifacts (`regress_result.json`, `junit.xml`, fixture files)
 
@@ -273,7 +283,7 @@ First deterministic wrapper integration targets 15 minutes. Full production roll
 
 ### Does Gait work with LangChain?
 
-Yes. See `examples/integrations/langchain/` for a maintained adapter that wraps tool calls through gate evaluation.
+Yes. See `examples/integrations/langchain/` for the official middleware lane. The correct wording is middleware with optional callback correlation; callbacks do not decide allow or block outcomes.
 
 ### What if I cannot intercept tool calls?
 
@@ -281,7 +291,7 @@ If your agent runtime is fully hosted with no interception point, Gait can still
 
 ### Which integration path should I start with?
 
-The blessed lane is OpenAI Agents (`examples/integrations/openai_agents/`). All adapters follow the same wrapper pattern and emit the same artifacts.
+The blessed lane is OpenAI Agents (`examples/integrations/openai_agents/`). LangChain is the official middleware lane. Other adapters are reference parity lanes on the same contract.
 
 ### Do I need to modify my agent code?
 

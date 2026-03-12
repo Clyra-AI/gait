@@ -1,58 +1,40 @@
 # Gait
 
-> Offline-first policy-as-code runtime: bootstrap repo policy with `gait init`/`gait check`, gate tool calls and voice commitments with fail-closed policy, capture signed evidence, and turn incidents into deterministic CI regressions.
+> Offline-first policy-as-code runtime for AI agent tool calls: bootstrap `.gait.yaml` with `gait init` and `gait check`, enforce fail-closed verdicts at the execution boundary, keep signed evidence, and turn incidents into deterministic CI regressions.
 
 ## Canonical
 - https://github.com/Clyra-AI/gait
 - https://clyra-ai.github.io/gait/
 
 ## Core Commands
-- gait demo
-- gait demo --durable
-- gait demo --policy
 - gait init --json
 - gait check --json
-- gait tour
+- gait gate eval --policy <policy.yaml> --intent <intent.json>
+- gait demo
 - gait verify <run_id|path>
 - gait test -- <child command...>
 - gait enforce -- <child command...>
 - gait capture --from <run_id|path>
 - gait regress add --from <capture.json|run_id|path>
-- gait run replay <run_id>
-- gait pack verify <pack.zip>
-- gait pack diff <left.zip> <right.zip>
-- gait pack export <pack.zip> --otel-out <otel.jsonl>
 - gait regress bootstrap --from <run_id|path> --junit <path>
 - gait regress run --json --junit <path>
 - gait policy test <policy.yaml> <intent.json>
-- gait gate eval --policy <policy.yaml> --intent <intent.json>
 - gait mcp verify --policy <policy.yaml> --server <server.json>
 - gait trace -- <child command...>
-- gait gate eval --policy <policy.yaml> --intent <intent.json> --wrkr-inventory <inventory.json>
-- gait approve-script --policy <policy.yaml> --intent <script_intent.json> --registry <registry.json> --approver <id>
-- gait list-scripts --registry <registry.json>
+- gait pack verify <pack.zip>
+- gait pack diff <left.zip> <right.zip>
+- gait pack export <pack.zip> --otel-out <otel.jsonl>
+- gait run replay <run_id>
 - gait job submit --id <job_id> --policy <policy.yaml> --identity <id>
-- gait job status --id <job_id>
-- gait job checkpoint add --id <job_id> --type <type> --summary <text>
-- gait job checkpoint list --id <job_id>
-- gait job pause --id <job_id>
-- gait job stop --id <job_id>
-- gait job resume --id <job_id> --policy <policy.yaml> [--identity-revocations <path>]
-- gait job cancel --id <job_id>
-- gait gateway ingest --source <kong|docker|mintmcp> --log-path <path>
 - gait voice token mint --intent <intent.json> --policy <policy.yaml>
-- gait voice token verify --token <token.json>
-- gait voice pack build --from <call_record.json>
-- gait voice pack verify <callpack.zip>
-- gait voice pack diff <left.zip> <right.zip>
 - gait doctor --json
-- gait doctor --summary
 - gait ui
 
 ## Tool Boundary
 - Boundary location: the exact adapter call site before real tool side effects execute.
 - Input: structured intent payload.
 - Rule: `verdict != allow` means no tool execution.
+- Official LangChain lane: middleware with optional callback correlation, not a separate policy engine.
 
 ## When To Use
 - You need enforceable policy decisions before agent tool side effects.
@@ -62,30 +44,26 @@
 ## When Not To Use
 - No local Gait CLI/artifact path exists.
 - No tool side effects or evidence requirements exist.
+- You only want a hosted observability dashboard without offline verification.
 
 ## Safety Model
 - Fail-closed by default for ambiguous high-risk policy outcomes.
-- Out-of-band emergency stop preemption blocks post-stop dispatches (`emergency_stop_preempted`).
+- `gait init` writes `.gait.yaml`; `gait check` reports the live policy contract and gap warnings.
 - Offline verification for packs, runpacks, and traces.
-- Destructive operations support phase-aware plan/apply boundaries and fail-closed destructive budgets.
-- Structured intent model for policy decisions (not free-form prompt filtering).
+- Structured intent model for policy decisions, not free-form prompt filtering.
 - SayToken capability tokens for voice agent commitment gating.
 - Context evidence envelopes with fail-closed enforcement when evidence is missing.
-- Signed traces and explicit reason codes for blocked actions.
 - MCP trust stays file-based and offline-first: external tool finds, Gait enforces.
-- No hosted service dependency required for core operation.
 
 ## Canonical Docs
-- /docs/adopt_in_one_pr/
-- /docs/durable_jobs/
+- /docs/policy_authoring/
 - /docs/integration_checklist/
-- /docs/architecture/
-- /docs/flows/
-- /docs/threat_model/
-- /docs/failure_taxonomy_exit_codes/
+- /docs/agent_integration_boundary/
+- /docs/adopt_in_one_pr/
+- /docs/ci_regress_kit/
+- /docs/mcp_capability_matrix/
 - /docs/contracts/packspec_v1/
-- /docs/contracts/pack_producer_kit/
-- /docs/contracts/compatibility_matrix/
+- /docs/failure_taxonomy_exit_codes/
 
 ## LLM Resources
 - /llms-full.txt

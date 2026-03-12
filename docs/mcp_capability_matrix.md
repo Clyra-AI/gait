@@ -47,7 +47,7 @@ if verdict != allow: do not execute side effects
 
 MCP modes do not replace operator/CI workflows such as:
 
-- `gait regress init` / `gait regress run`
+- `gait capture` / `gait regress add` / `gait regress run`
 - `gait doctor`
 - `gait pack inspect` / `gait pack diff`
 - release and CI contract gates
