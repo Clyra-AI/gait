@@ -183,37 +183,38 @@ def write_trace(*, trace_path: str | Path, destination_path: str | Path) -> Path
 def capture_demo_runpack(
     *, gait_bin: str | Sequence[str] = "gait", cwd: str | Path | None = None
 ) -> DemoCapture:
-    result = _run_command(_command_prefix(gait_bin) + ["demo"], cwd=cwd)
-    if result.exit_code != 0:
+    result = _run_command(_command_prefix(gait_bin) + ["demo", "--json"], cwd=cwd)
+    payload = _parse_json_stdout(result.stdout)
+    if payload is None:
         raise GaitCommandError(
-            "gait demo failed",
+            "failed to parse JSON from gait demo",
+            command=result.command,
+            exit_code=result.exit_code,
+            stdout=result.stdout,
+            stderr=result.stderr,
+        )
+    if result.exit_code != 0:
+        message = str(payload.get("error") or "gait demo failed")
+        raise GaitCommandError(
+            message,
             command=result.command,
             exit_code=result.exit_code,
             stdout=result.stdout,
             stderr=result.stderr,
         )
 
-    run_id = ""
-    bundle_path = ""
-    ticket_footer = ""
-    verified = False
-    for line in result.stdout.splitlines():
-        if line.startswith("run_id="):
-            run_id = line.removeprefix("run_id=").strip()
-        elif line.startswith("bundle="):
-            bundle_path = line.removeprefix("bundle=").strip()
-        elif line.startswith("ticket_footer="):
-            ticket_footer = line.removeprefix("ticket_footer=").strip()
-        elif line.strip() == "verify=ok":
-            verified = True
+    if not bool(payload.get("ok", False)):
+        raise GaitError("gait demo returned ok=false")
 
+    run_id = str(payload.get("run_id", ""))
+    bundle_path = str(payload.get("bundle", ""))
     if not run_id or not bundle_path:
-        raise GaitError("unable to parse gait demo output")
+        raise GaitError("gait demo JSON response is missing run_id or bundle")
     return DemoCapture(
         run_id=run_id,
         bundle_path=bundle_path,
-        ticket_footer=ticket_footer,
-        verified=verified,
+        ticket_footer=str(payload.get("ticket_footer", "")),
+        verified=str(payload.get("verify", "")).strip().lower() == "ok",
         raw_output=result.stdout,
     )
 

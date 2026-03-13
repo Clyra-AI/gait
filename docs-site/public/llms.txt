@@ -11,6 +11,7 @@
 - gait check --json
 - gait gate eval --policy <policy.yaml> --intent <intent.json> [--context-envelope <context_envelope.json>]
 - gait demo
+- gait demo --json
 - gait verify <run_id|path>
 - gait test -- <child command...>
 - gait enforce -- <child command...>
@@ -48,6 +49,7 @@
 
 ## Safety Model
 - Fail-closed by default for ambiguous high-risk policy outcomes.
+- Equal-priority rule overlaps resolve to the most restrictive verdict for that priority tier, not by rule name ordering.
 - `gait init` writes `.gait.yaml`; `gait check` reports the live policy contract and gap warnings.
 - Offline verification for packs, runpacks, and traces.
 - Structured intent model for policy decisions, not free-form prompt filtering.

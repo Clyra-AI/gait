@@ -13,6 +13,9 @@ gait check --json
 # Create a signed pack from a synthetic agent run
 gait demo
 
+# Machine-readable wrapper/SDK path
+gait demo --json
+
 # Prove it's intact
 gait verify run_demo --json
 
@@ -34,6 +37,8 @@ run_id=run_demo
 ticket_footer=GAIT run_id=run_demo ...
 verify=ok
 ```
+
+For SDKs and wrappers, prefer the JSON form and treat the text form as human-facing output only.
 
 Then continue with one integration seam:
 

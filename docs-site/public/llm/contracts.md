@@ -7,6 +7,7 @@ Stable OSS contracts include:
 - **ContextSpec v1**: Deterministic context evidence envelopes with privacy-aware modes and fail-closed enforcement. For `gait gate eval`, required context-proof checks are satisfied through a verified `--context-envelope` input rather than raw intent claims.
 - **Primitive Contract**: Four deterministic primitives — capture, enforce, regress, diagnose.
 - **Repo Policy Contract**: `gait init` writes `.gait.yaml`; `gait check` reports the live contract (`default_verdict`, `rule_count`, `gap_warnings`).
+- **Equal-Priority Policy Semantics**: when multiple rules at the same priority match one intent, Gait evaluates that priority tier and applies the most restrictive verdict rather than depending on rule names.
 - **MCP Trust + Trace Onboarding**: local MCP trust snapshots and observe-only `gait trace` are additive onboarding contracts over the same signed trace and policy surfaces.
   - `mcp_trust.snapshot` must point at a local file; scanners and registries remain complementary inputs.
 - **Script Governance Contract**: Script intent steps, deterministic `script_hash`, Wrkr-derived context matching fields, and signed approved-script registry entries.

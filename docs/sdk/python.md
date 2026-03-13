@@ -18,7 +18,7 @@ Supported primitives:
 
 - intent capture (`capture_intent`)
 - gate evaluation (`evaluate_gate`)
-- demo capture (`capture_demo_runpack`)
+- demo capture (`capture_demo_runpack`, via `gait demo --json`)
 - regress fixture init (`create_regress_fixture`)
 - run capture (`record_runpack`)
 - trace copy/validation (`write_trace`)
@@ -36,6 +36,7 @@ The SDK executes commands via `subprocess.run(...)` with a bounded timeout.
 
 - default timeout: `30s`
 - JSON-decoding is strict for command responses expected to be JSON
+- demo capture consumes machine-readable `gait demo --json` output only
 - non-zero exits raise `GaitCommandError` with command, exit code, stdout, and stderr
 
 ## Binary Resolution And Errors

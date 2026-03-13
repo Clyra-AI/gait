@@ -125,6 +125,8 @@ verify=ok
 next=gait verify run_demo --json,gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml,...
 ```
 
+For wrappers and SDKs, use `gait demo --json`; machine-readable clients should not scrape the human text form.
+
 No account. No API key. No hosted dependency.
 
 ## Simple End-To-End Scenario
@@ -133,7 +135,7 @@ See [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent
 
 ## What Ships In OSS
 
-**Gate** — evaluate structured tool-call intent against YAML policy with fail-closed enforcement. Non-allow means non-execute.
+**Gate** — evaluate structured tool-call intent against YAML policy with fail-closed enforcement. Non-allow means non-execute. When multiple rules at the same priority match, Gait resolves that priority tier to the most restrictive verdict instead of depending on rule names.
 
 **Evidence** — signed traces, runpacks, packs, and callpacks you can verify, diff, and attach to tickets, PRs, audits, and incidents.
 

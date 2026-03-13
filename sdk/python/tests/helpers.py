@@ -98,11 +98,26 @@ def run_regress_init():
     return 0
 
 
-def run_demo():
-    print("run_id=run_demo")
-    print("bundle=./gait-out/runpack_run_demo.zip")
-    print("ticket_footer=GAIT run_id=run_demo manifest=sha256:abc verify=\\"gait verify run_demo\\"")
-    print("verify=ok")
+def run_demo(args):
+    if "--json" in args:
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "mode": "standard",
+                    "run_id": "run_demo",
+                    "bundle": "./gait-out/runpack_run_demo.zip",
+                    "ticket_footer": 'GAIT run_id=run_demo manifest=sha256:abc verify="gait verify run_demo"',
+                    "verify": "ok",
+                }
+            )
+        )
+        return 0
+
+    print("demo_run=run_demo")
+    print("artifact=./gait-out/runpack_run_demo.zip")
+    print('receipt=GAIT run_id=run_demo manifest=sha256:abc verify="gait verify run_demo"')
+    print("verification_status=ok")
     return 0
 
 
@@ -149,7 +164,7 @@ def main():
     if args[:2] == ["run", "record"]:
         return run_record(args[2:])
     if args[:1] == ["demo"]:
-        return run_demo()
+        return run_demo(args[1:])
     print(json.dumps({"ok": False, "error": "unsupported command", "argv": args}))
     return 6
 

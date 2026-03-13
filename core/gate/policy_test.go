@@ -722,6 +722,180 @@ rules:
 	}
 }
 
+func TestEvaluatePolicyDetailedEqualPriorityUsesMostRestrictiveVerdict(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: allow-write
+    priority: 1
+    effect: allow
+    match:
+      tool_names: [tool.write]
+    reason_codes: [allow_write]
+  - name: block-write
+    priority: 1
+    effect: block
+    match:
+      tool_names: [tool.write]
+    reason_codes: [block_write]
+    violations: [blocked_write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy detailed: %v", err)
+	}
+	if outcome.Result.Verdict != "block" {
+		t.Fatalf("expected block verdict, got %#v", outcome.Result)
+	}
+	if !reflect.DeepEqual(outcome.Result.ReasonCodes, []string{"block_write"}) {
+		t.Fatalf("unexpected reason codes: %#v", outcome.Result.ReasonCodes)
+	}
+	if !reflect.DeepEqual(outcome.Result.Violations, []string{"blocked_write"}) {
+		t.Fatalf("unexpected violations: %#v", outcome.Result.Violations)
+	}
+	if outcome.MatchedRule != "allow-write,block-write" {
+		t.Fatalf("unexpected matched rule set: %q", outcome.MatchedRule)
+	}
+}
+
+func TestEvaluatePolicyDetailedEqualPriorityRenameDoesNotChangeVerdict(t *testing.T) {
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+
+	policyA, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: alpha-allow
+    priority: 1
+    effect: allow
+    match:
+      tool_names: [tool.write]
+    reason_codes: [allow_write]
+  - name: zeta-block
+    priority: 1
+    effect: block
+    match:
+      tool_names: [tool.write]
+    reason_codes: [block_write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy A: %v", err)
+	}
+	policyB, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: zeta-allow
+    priority: 1
+    effect: allow
+    match:
+      tool_names: [tool.write]
+    reason_codes: [allow_write]
+  - name: alpha-block
+    priority: 1
+    effect: block
+    match:
+      tool_names: [tool.write]
+    reason_codes: [block_write]
+`))
+	if err != nil {
+		t.Fatalf("parse policy B: %v", err)
+	}
+
+	outcomeA, err := EvaluatePolicyDetailed(policyA, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy A: %v", err)
+	}
+	outcomeB, err := EvaluatePolicyDetailed(policyB, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy B: %v", err)
+	}
+	if outcomeA.Result.Verdict != outcomeB.Result.Verdict {
+		t.Fatalf("expected stable verdict across renamed rules, got %q vs %q", outcomeA.Result.Verdict, outcomeB.Result.Verdict)
+	}
+	if !reflect.DeepEqual(outcomeA.Result.ReasonCodes, outcomeB.Result.ReasonCodes) {
+		t.Fatalf("expected stable reason codes across renamed rules, got %#v vs %#v", outcomeA.Result.ReasonCodes, outcomeB.Result.ReasonCodes)
+	}
+}
+
+func TestMostRestrictiveRateLimitPolicy(t *testing.T) {
+	tests := []struct {
+		name      string
+		current   RateLimitPolicy
+		candidate RateLimitPolicy
+		want      RateLimitPolicy
+	}{
+		{
+			name:      "ignore empty candidate",
+			current:   RateLimitPolicy{Requests: 5, Window: "day", Scope: "workspace"},
+			candidate: RateLimitPolicy{},
+			want:      RateLimitPolicy{Requests: 5, Window: "day", Scope: "workspace"},
+		},
+		{
+			name:      "use candidate when current unset",
+			current:   RateLimitPolicy{},
+			candidate: RateLimitPolicy{Requests: 4, Window: "day", Scope: "workspace"},
+			want:      RateLimitPolicy{Requests: 4, Window: "day", Scope: "workspace"},
+		},
+		{
+			name:      "prefer lower request count",
+			current:   RateLimitPolicy{Requests: 6, Window: "day", Scope: "workspace"},
+			candidate: RateLimitPolicy{Requests: 3, Window: "hour", Scope: "workspace"},
+			want:      RateLimitPolicy{Requests: 3, Window: "hour", Scope: "workspace"},
+		},
+		{
+			name:      "prefer shorter window on tied requests",
+			current:   RateLimitPolicy{Requests: 3, Window: "day", Scope: "workspace"},
+			candidate: RateLimitPolicy{Requests: 3, Window: "hour", Scope: "workspace"},
+			want:      RateLimitPolicy{Requests: 3, Window: "hour", Scope: "workspace"},
+		},
+		{
+			name:      "prefer smaller scope on tied requests and window",
+			current:   RateLimitPolicy{Requests: 3, Window: "hour", Scope: "workspace"},
+			candidate: RateLimitPolicy{Requests: 3, Window: "hour", Scope: "org"},
+			want:      RateLimitPolicy{Requests: 3, Window: "hour", Scope: "org"},
+		},
+		{
+			name:      "keep current when candidate is less restrictive",
+			current:   RateLimitPolicy{Requests: 3, Window: "hour", Scope: "org"},
+			candidate: RateLimitPolicy{Requests: 3, Window: "day", Scope: "workspace"},
+			want:      RateLimitPolicy{Requests: 3, Window: "hour", Scope: "org"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := mostRestrictiveRateLimitPolicy(tc.current, tc.candidate)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("mostRestrictiveRateLimitPolicy(%#v, %#v) = %#v, want %#v", tc.current, tc.candidate, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRateLimitWindowRank(t *testing.T) {
+	tests := []struct {
+		window string
+		want   int
+	}{
+		{window: "minute", want: 0},
+		{window: " HOUR ", want: 1},
+		{window: "day", want: 2},
+	}
+
+	for _, tc := range tests {
+		if got := rateLimitWindowRank(tc.window); got != tc.want {
+			t.Fatalf("rateLimitWindowRank(%q) = %d, want %d", tc.window, got, tc.want)
+		}
+	}
+}
+
 func TestPolicyHighRiskBrokerRequirements(t *testing.T) {
 	withoutBroker, err := ParsePolicyYAML([]byte(`
 default_verdict: allow

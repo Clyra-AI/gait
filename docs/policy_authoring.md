@@ -34,6 +34,16 @@ Interpretation:
 - `policy test` evaluates one intent fixture and returns verdict, reason codes, and `matched_rule`.
 - `policy simulate` compares baseline vs candidate verdicts over fixture corpora and recommends rollout stage (`observe`, `require_approval`, `enforce`).
 
+## Equal-Priority Contract
+
+When multiple rules at the same priority match one intent, Gait evaluates the entire matching priority tier and applies the most restrictive verdict from that tier.
+
+- verdict precedence is `allow < dry_run < require_approval < block`
+- renaming same-priority rules must not change the verdict
+- `matched_rule` remains deterministic and may include a comma-separated set of same-priority matches when more than one rule is visible
+
+If you need one rule to win unconditionally, give it a strictly lower numeric `priority` instead of relying on rule names.
+
 ## Repo-Root Policy Contract
 
 The default onboarding contract is the repo-root file `.gait.yaml`.
@@ -145,6 +155,7 @@ This gives fast feedback for enum values and unknown keys before runtime.
 - Run `policy simulate` against representative fixture sets before changing rollout stage.
 - Keep policy files formatted by `policy fmt --write` before review.
 - Review policy changes with fixture deltas and matched-rule evidence, not raw YAML diff alone.
+- Include equal-priority overlap fixtures in CI when multiple rules intentionally target the same tool surface.
 - Keep the repo-default contract truthful: if docs say `.gait.yaml`, examples should use `.gait.yaml` unless a custom path is the point of the example.
 
 ## Signing Key Lifecycle (Local)

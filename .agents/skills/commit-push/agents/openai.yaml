@@ -1,4 +1,4 @@
 interface:
   display_name: "Commit Push"
-  short_description: "Ship branch, PR, and CI to green"
-  default_prompt: "Use $commit-push to commit changes, open or update a PR, and drive checks to green."
+  short_description: "Ship branch, fix blockers, land green"
+  default_prompt: "Use $commit-push to commit changes, open or update a PR, fix actionable blockers through CI and review loops, and land the branch on green main."

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -2157,6 +2158,81 @@ func TestPolicyValidateFmtAndMatchedRuleOutput(t *testing.T) {
 	}
 }
 
+func TestPolicyTestEqualPriorityRenamesDoNotChangeVerdict(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+
+	policyAPath := filepath.Join(workDir, "policy_a.yaml")
+	mustWriteFile(t, policyAPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: alpha-allow",
+		"    priority: 1",
+		"    effect: allow",
+		"    match:",
+		"      tool_names: [tool.write]",
+		"    reason_codes: [allow_write]",
+		"  - name: zeta-block",
+		"    priority: 1",
+		"    effect: block",
+		"    match:",
+		"      tool_names: [tool.write]",
+		"    reason_codes: [block_write]",
+	}, "\n")+"\n")
+
+	policyBPath := filepath.Join(workDir, "policy_b.yaml")
+	mustWriteFile(t, policyBPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: zeta-allow",
+		"    priority: 1",
+		"    effect: allow",
+		"    match:",
+		"      tool_names: [tool.write]",
+		"    reason_codes: [allow_write]",
+		"  - name: alpha-block",
+		"    priority: 1",
+		"    effect: block",
+		"    match:",
+		"      tool_names: [tool.write]",
+		"    reason_codes: [block_write]",
+	}, "\n")+"\n")
+
+	var codeA int
+	rawA := captureStdout(t, func() {
+		codeA = runPolicyTest([]string{policyAPath, intentPath, "--json"})
+	})
+	if codeA != exitPolicyBlocked {
+		t.Fatalf("expected policy A to block with exit %d, got %d", exitPolicyBlocked, codeA)
+	}
+	var outputA policyTestOutput
+	if err := json.Unmarshal([]byte(rawA), &outputA); err != nil {
+		t.Fatalf("decode policy A output: %v", err)
+	}
+
+	var codeB int
+	rawB := captureStdout(t, func() {
+		codeB = runPolicyTest([]string{policyBPath, intentPath, "--json"})
+	})
+	if codeB != exitPolicyBlocked {
+		t.Fatalf("expected policy B to block with exit %d, got %d", exitPolicyBlocked, codeB)
+	}
+	var outputB policyTestOutput
+	if err := json.Unmarshal([]byte(rawB), &outputB); err != nil {
+		t.Fatalf("decode policy B output: %v", err)
+	}
+
+	if outputA.Verdict != "block" || outputB.Verdict != "block" {
+		t.Fatalf("expected both policy tests to block, got %q and %q", outputA.Verdict, outputB.Verdict)
+	}
+	if !reflect.DeepEqual(outputA.ReasonCodes, outputB.ReasonCodes) {
+		t.Fatalf("expected stable reason codes across renamed rules, got %#v vs %#v", outputA.ReasonCodes, outputB.ReasonCodes)
+	}
+}
+
 func TestDemoJSONOutput(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
@@ -2914,18 +2990,11 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 		"      tool_names: [tool.write]",
 	}, "\n")+"\n")
 
-	brokerPath := filepath.Join(workDir, "broker.sh")
-	brokerScript := "#!/bin/sh\necho '{\"issued_by\":\"command\",\"credential_ref\":\"cmd:token\"}'\n"
-	if runtime.GOOS == "windows" {
-		brokerPath = filepath.Join(workDir, "broker.cmd")
-		brokerScript = "@echo {\"issued_by\":\"command\",\"credential_ref\":\"cmd:token\"}\r\n"
+	brokerPath, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve test executable: %v", err)
 	}
-	mustWriteFile(t, brokerPath, brokerScript)
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(brokerPath, 0o700); err != nil {
-			t.Fatalf("chmod broker script: %v", err)
-		}
-	}
+	t.Setenv("GAIT_TEST_GATE_CREDENTIAL_BROKER_HELPER", "1")
 
 	rateStatePath := filepath.Join(workDir, "rate_state.json")
 	if code := runGateEval([]string{
@@ -2933,6 +3002,7 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 		"--intent", intentPath,
 		"--credential-broker", "command",
 		"--credential-command", brokerPath,
+		"--credential-command-args", "-test.run,TestGateEvalCredentialBrokerHelperProcess,--",
 		"--rate-limit-state", rateStatePath,
 		"--json",
 	}); code != exitOK {
@@ -2951,6 +3021,7 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 		"--intent", intentPath,
 		"--credential-broker", "command",
 		"--credential-command", brokerPath,
+		"--credential-command-args", "-test.run,TestGateEvalCredentialBrokerHelperProcess,--",
 		"--rate-limit-state", rateStatePath,
 		"--json",
 	}); code != exitPolicyBlocked {
@@ -2980,6 +3051,14 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 	}); code != exitInvalidInput {
 		t.Fatalf("runGateEval command broker missing command: expected %d got %d", exitInvalidInput, code)
 	}
+}
+
+func TestGateEvalCredentialBrokerHelperProcess(t *testing.T) {
+	if os.Getenv("GAIT_TEST_GATE_CREDENTIAL_BROKER_HELPER") != "1" {
+		t.Skip("helper process")
+	}
+	fmt.Print(`{"issued_by":"command","credential_ref":"cmd:token"}`)
+	os.Exit(0)
 }
 
 func TestGateEvalDestructiveBudgetAppliesToScriptTargets(t *testing.T) {

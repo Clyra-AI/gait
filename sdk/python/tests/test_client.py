@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Sequence
 
 import pytest
 
@@ -153,6 +154,34 @@ def test_capture_demo_and_create_regress_fixture(tmp_path: Path) -> None:
     assert fixture.run_id == "run_demo"
     assert fixture.fixture_name == "run_demo"
     assert fixture.runpack_path == "fixtures/run_demo/runpack.zip"
+
+
+def test_capture_demo_runpack_uses_json_cli_contract(tmp_path: Path) -> None:
+    observed_commands: list[list[str]] = []
+
+    def fake_run(command: Sequence[str], cwd: object = None) -> client_module._CommandResult:
+        observed_commands.append(list(command))
+        return client_module._CommandResult(
+            command=list(command),
+            exit_code=0,
+            stdout=json.dumps(
+                {
+                    "ok": True,
+                    "run_id": "run_demo",
+                    "bundle": "./gait-out/runpack_run_demo.zip",
+                    "ticket_footer": "GAIT run_id=run_demo manifest=sha256:abc",
+                    "verify": "ok",
+                }
+            ),
+            stderr="",
+        )
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(client_module, "_run_command", fake_run)
+        demo = capture_demo_runpack(gait_bin="gait", cwd=tmp_path)
+
+    assert demo.run_id == "run_demo"
+    assert observed_commands == [["gait", "demo", "--json"]]
 
 
 def test_record_runpack_round_trip(tmp_path: Path) -> None:
@@ -345,6 +374,25 @@ def test_create_regress_fixture_malformed_json_raises_command_error(
 
     with pytest.raises(client_module.GaitCommandError) as raised:
         create_regress_fixture(from_run="run_demo", gait_bin="gait", cwd=tmp_path)
+    assert "failed to parse JSON" in str(raised.value)
+
+
+def test_capture_demo_runpack_malformed_json_raises_command_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=0,
+            stdout="run_id=run_demo\nbundle=./gait-out/runpack_run_demo.zip\n",
+            stderr="",
+        ),
+    )
+
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        capture_demo_runpack(gait_bin="gait", cwd=tmp_path)
     assert "failed to parse JSON" in str(raised.value)
 
 

@@ -216,6 +216,22 @@ type EvalOutcome struct {
 	MCPTrust                 *schemagate.MCPTrustDecision
 }
 
+type matchedRuleEvaluation struct {
+	RuleName                 string
+	Effect                   string
+	Reasons                  []string
+	Violations               []string
+	MinApprovals             int
+	RequireDistinctApprovers bool
+	RequireBrokerCredential  bool
+	RequireDelegation        bool
+	BrokerReference          string
+	BrokerScopes             []string
+	RateLimit                RateLimitPolicy
+	DestructiveBudget        RateLimitPolicy
+	DataflowTriggered        bool
+}
+
 func LoadPolicyFile(path string) (Policy, error) {
 	// #nosec G304 -- policy path is explicit local user input.
 	content, err := os.ReadFile(path)
@@ -326,63 +342,77 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 }
 
 func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (EvalOutcome, error) {
+	matchedRules := make([]PolicyRule, 0, 1)
+	matchedPriority := 0
 	for _, rule := range policy.Rules {
 		if !ruleMatches(rule.Match, intent) {
 			continue
 		}
-		effect := rule.Effect
-		reasons := uniqueSorted(rule.ReasonCodes)
-		violations := uniqueSorted(rule.Violations)
-		if len(reasons) == 0 {
-			reasons = []string{"matched_rule_" + sanitizeName(rule.Name)}
+		if len(matchedRules) == 0 {
+			matchedPriority = rule.Priority
 		}
-		dataflowTriggered, dataflowEffect, dataflowReasons, dataflowViolations := evaluateDataflowConstraint(rule.Dataflow, intent)
-		if dataflowTriggered {
-			effect = dataflowEffect
-			reasons = mergeUniqueSorted(reasons, dataflowReasons)
-			violations = mergeUniqueSorted(violations, dataflowViolations)
+		if rule.Priority != matchedPriority {
+			break
 		}
-		endpointTriggered, endpointEffect, endpointReasons, endpointViolations := evaluateEndpointConstraint(rule.Endpoint, intent)
-		if endpointTriggered {
-			effect = mostRestrictiveVerdict(effect, endpointEffect)
-			reasons = mergeUniqueSorted(reasons, endpointReasons)
-			violations = mergeUniqueSorted(violations, endpointViolations)
+		matchedRules = append(matchedRules, rule)
+	}
+
+	if len(matchedRules) > 0 {
+		evaluations := make([]matchedRuleEvaluation, 0, len(matchedRules))
+		verdict := "allow"
+		matchedRuleNames := make([]string, 0, len(matchedRules))
+		for _, rule := range matchedRules {
+			evaluation := evaluateMatchedRule(rule, intent)
+			evaluations = append(evaluations, evaluation)
+			matchedRuleNames = append(matchedRuleNames, evaluation.RuleName)
+			verdict = mostRestrictiveVerdict(verdict, evaluation.Effect)
 		}
-		contextTriggered, contextEffect, contextReasons, contextViolations := evaluateContextConstraint(rule, intent)
-		if contextTriggered {
-			effect = mostRestrictiveVerdict(effect, contextEffect)
-			reasons = mergeUniqueSorted(reasons, contextReasons)
-			violations = mergeUniqueSorted(violations, contextViolations)
-		}
-		destructiveTarget := intentContainsDestructiveTarget(intent.Targets)
-		switch strings.ToLower(strings.TrimSpace(intent.Context.Phase)) {
-		case "plan":
-			if destructiveTarget {
-				effect = mostRestrictiveVerdict(effect, "dry_run")
-				reasons = mergeUniqueSorted(reasons, []string{"plan_phase_non_destructive"})
+
+		reasons := []string{}
+		violations := []string{}
+		minApprovals := 0
+		requireDistinctApprovers := false
+		requireBrokerCredential := false
+		requireDelegation := false
+		brokerReferences := []string{}
+		brokerScopes := []string{}
+		rateLimit := RateLimitPolicy{}
+		destructiveBudget := RateLimitPolicy{}
+		dataflowTriggered := false
+		for _, evaluation := range evaluations {
+			if evaluation.Effect != verdict {
+				continue
 			}
-		case "", "apply":
-			if destructiveTarget {
-				effect = mostRestrictiveVerdict(effect, "require_approval")
-				reasons = mergeUniqueSorted(reasons, []string{"destructive_apply_requires_approval"})
+			reasons = mergeUniqueSorted(reasons, evaluation.Reasons)
+			violations = mergeUniqueSorted(violations, evaluation.Violations)
+			if evaluation.MinApprovals > minApprovals {
+				minApprovals = evaluation.MinApprovals
 			}
+			requireDistinctApprovers = requireDistinctApprovers || evaluation.RequireDistinctApprovers
+			requireBrokerCredential = requireBrokerCredential || evaluation.RequireBrokerCredential
+			requireDelegation = requireDelegation || evaluation.RequireDelegation
+			brokerReferences = mergeUniqueSorted(brokerReferences, []string{evaluation.BrokerReference})
+			brokerScopes = mergeUniqueSorted(brokerScopes, evaluation.BrokerScopes)
+			rateLimit = mostRestrictiveRateLimitPolicy(rateLimit, evaluation.RateLimit)
+			destructiveBudget = mostRestrictiveRateLimitPolicy(destructiveBudget, evaluation.DestructiveBudget)
+			dataflowTriggered = dataflowTriggered || evaluation.DataflowTriggered
 		}
-		minApprovals := rule.MinApprovals
-		if effect == "require_approval" && minApprovals == 0 {
-			minApprovals = 1
+		if verdict != "require_approval" {
+			minApprovals = 0
+			requireDistinctApprovers = false
 		}
 		return EvalOutcome{
-			Result:                   buildGateResult(policy, intent, opts, effect, reasons, violations),
+			Result:                   buildGateResult(policy, intent, opts, verdict, reasons, violations),
 			PreparedIntent:           intent,
-			MatchedRule:              rule.Name,
+			MatchedRule:              strings.Join(uniqueSorted(matchedRuleNames), ","),
 			MinApprovals:             minApprovals,
-			RequireDistinctApprovers: rule.RequireDistinctApprovers,
-			RequireBrokerCredential:  rule.RequireBrokerCredential,
-			RequireDelegation:        rule.Match.RequireDelegation,
-			BrokerReference:          rule.BrokerReference,
-			BrokerScopes:             uniqueSorted(rule.BrokerScopes),
-			RateLimit:                rule.RateLimit,
-			DestructiveBudget:        rule.DestructiveBudget,
+			RequireDistinctApprovers: requireDistinctApprovers,
+			RequireBrokerCredential:  requireBrokerCredential,
+			RequireDelegation:        requireDelegation,
+			BrokerReference:          strings.Join(uniqueSorted(brokerReferences), ","),
+			BrokerScopes:             uniqueSorted(brokerScopes),
+			RateLimit:                rateLimit,
+			DestructiveBudget:        destructiveBudget,
 			DataflowTriggered:        dataflowTriggered,
 		}, nil
 	}
@@ -403,6 +433,66 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 		PreparedIntent: intent,
 		MinApprovals:   minApprovals,
 	}, nil
+}
+
+func evaluateMatchedRule(rule PolicyRule, intent schemagate.IntentRequest) matchedRuleEvaluation {
+	effect := rule.Effect
+	reasons := uniqueSorted(rule.ReasonCodes)
+	violations := uniqueSorted(rule.Violations)
+	if len(reasons) == 0 {
+		reasons = []string{"matched_rule_" + sanitizeName(rule.Name)}
+	}
+	dataflowTriggered, dataflowEffect, dataflowReasons, dataflowViolations := evaluateDataflowConstraint(rule.Dataflow, intent)
+	if dataflowTriggered {
+		effect = dataflowEffect
+		reasons = mergeUniqueSorted(reasons, dataflowReasons)
+		violations = mergeUniqueSorted(violations, dataflowViolations)
+	}
+	endpointTriggered, endpointEffect, endpointReasons, endpointViolations := evaluateEndpointConstraint(rule.Endpoint, intent)
+	if endpointTriggered {
+		effect = mostRestrictiveVerdict(effect, endpointEffect)
+		reasons = mergeUniqueSorted(reasons, endpointReasons)
+		violations = mergeUniqueSorted(violations, endpointViolations)
+	}
+	contextTriggered, contextEffect, contextReasons, contextViolations := evaluateContextConstraint(rule, intent)
+	if contextTriggered {
+		effect = mostRestrictiveVerdict(effect, contextEffect)
+		reasons = mergeUniqueSorted(reasons, contextReasons)
+		violations = mergeUniqueSorted(violations, contextViolations)
+	}
+	destructiveTarget := intentContainsDestructiveTarget(intent.Targets)
+	switch strings.ToLower(strings.TrimSpace(intent.Context.Phase)) {
+	case "plan":
+		if destructiveTarget {
+			effect = mostRestrictiveVerdict(effect, "dry_run")
+			reasons = mergeUniqueSorted(reasons, []string{"plan_phase_non_destructive"})
+		}
+	case "", "apply":
+		if destructiveTarget {
+			effect = mostRestrictiveVerdict(effect, "require_approval")
+			reasons = mergeUniqueSorted(reasons, []string{"destructive_apply_requires_approval"})
+		}
+	}
+	minApprovals := rule.MinApprovals
+	if effect == "require_approval" && minApprovals == 0 {
+		minApprovals = 1
+	}
+
+	return matchedRuleEvaluation{
+		RuleName:                 rule.Name,
+		Effect:                   effect,
+		Reasons:                  reasons,
+		Violations:               violations,
+		MinApprovals:             minApprovals,
+		RequireDistinctApprovers: rule.RequireDistinctApprovers,
+		RequireBrokerCredential:  rule.RequireBrokerCredential,
+		RequireDelegation:        rule.Match.RequireDelegation,
+		BrokerReference:          rule.BrokerReference,
+		BrokerScopes:             uniqueSorted(rule.BrokerScopes),
+		RateLimit:                rule.RateLimit,
+		DestructiveBudget:        rule.DestructiveBudget,
+		DataflowTriggered:        dataflowTriggered,
+	}
 }
 
 func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (EvalOutcome, error) {
@@ -1793,6 +1883,42 @@ func mostRestrictiveVerdict(current string, candidate string) string {
 		return candidate
 	}
 	return current
+}
+
+func mostRestrictiveRateLimitPolicy(current RateLimitPolicy, candidate RateLimitPolicy) RateLimitPolicy {
+	if candidate.Requests <= 0 {
+		return current
+	}
+	if current.Requests <= 0 {
+		return candidate
+	}
+	if candidate.Requests < current.Requests {
+		return candidate
+	}
+	if candidate.Requests > current.Requests {
+		return current
+	}
+	if rateLimitWindowRank(candidate.Window) < rateLimitWindowRank(current.Window) {
+		return candidate
+	}
+	if rateLimitWindowRank(candidate.Window) > rateLimitWindowRank(current.Window) {
+		return current
+	}
+	if candidate.Scope < current.Scope {
+		return candidate
+	}
+	return current
+}
+
+func rateLimitWindowRank(window string) int {
+	switch strings.ToLower(strings.TrimSpace(window)) {
+	case "minute":
+		return 0
+	case "hour":
+		return 1
+	default:
+		return 2
+	}
 }
 
 func buildGateResult(
