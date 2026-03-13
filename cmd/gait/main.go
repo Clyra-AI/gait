@@ -15,6 +15,11 @@ import (
 // version is stamped at release time via ldflags; default stays dev for local builds.
 var version = "0.0.0-dev"
 
+type versionOutput struct {
+	OK      bool   `json:"ok"`
+	Version string `json:"version"`
+}
+
 type telemetryStreamHealth struct {
 	Attempts int64 `json:"attempts"`
 	Success  int64 `json:"success"`
@@ -56,6 +61,10 @@ func run(arguments []string) int {
 func runDispatch(arguments []string) int {
 	if len(arguments) < 2 {
 		fmt.Println("gait", version)
+		return exitOK
+	}
+	if isTopLevelHelp(arguments[1]) {
+		printUsage()
 		return exitOK
 	}
 	if arguments[1] == "--explain" {
@@ -126,15 +135,34 @@ func runDispatch(arguments []string) int {
 	case "ui":
 		return runUI(arguments[2:])
 	case "version", "--version", "-v":
-		if hasExplainFlag(arguments[2:]) {
-			return writeExplain("Print the CLI version.")
-		}
-		fmt.Println("gait", version)
-		return exitOK
+		return runVersion(arguments[2:])
 	default:
 		printUsage()
 		return exitInvalidInput
 	}
+}
+
+func isTopLevelHelp(argument string) bool {
+	switch strings.TrimSpace(argument) {
+	case "--help", "-h", "help":
+		return true
+	default:
+		return false
+	}
+}
+
+func runVersion(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Print the CLI version.")
+	}
+	if hasJSONFlag(arguments) {
+		return writeJSONOutput(versionOutput{
+			OK:      true,
+			Version: version,
+		}, exitOK)
+	}
+	fmt.Println("gait", version)
+	return exitOK
 }
 
 func normalizeAdoptionCommand(arguments []string) string {
@@ -146,6 +174,8 @@ func normalizeAdoptionCommand(arguments []string) string {
 		return "unknown"
 	}
 	switch command {
+	case "--help", "-h", "help":
+		return "help"
 	case "--version", "-v", "version":
 		return "version"
 	case "--explain":

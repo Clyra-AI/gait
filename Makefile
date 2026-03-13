@@ -19,7 +19,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint lint-fast codeql test test-fast test-scenarios prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-v2-4-acceptance test-v2-5-acceptance test-v2-6-acceptance test-voice-acceptance test-context-conformance test-context-chaos test-packspec-tck test-script-intent-acceptance test-ui-acceptance test-ui-unit test-ui-e2e-smoke test-ui-perf test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-ci-portability-templates test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge test-docs-storyline test-docs-consistency test-demo-recording openclaw-skill-install build bench bench-check bench-budgets context-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
+.PHONY: fmt lint lint-fast codeql test test-fast test-scenarios prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-v2-4-acceptance test-v2-5-acceptance test-v2-6-acceptance test-voice-acceptance test-context-conformance test-context-chaos test-packspec-tck test-script-intent-acceptance test-ui-acceptance test-ui-unit test-ui-e2e-smoke test-ui-perf test-claude-code-hook-contract test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-ci-portability-templates test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge test-docs-storyline test-docs-consistency test-demo-recording openclaw-skill-install build bench bench-check bench-budgets context-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
 .PHONY: hooks
 .PHONY: docs-site-install docs-site-build docs-site-lint docs-site-check
 
@@ -174,6 +174,9 @@ test-ui-perf:
 	$(GO) build -o ./gait ./cmd/gait
 	$(PYTHON) scripts/check_ui_budgets.py ./gait perf/ui_budgets.json perf/ui_budget_report.json
 
+test-claude-code-hook-contract:
+	bash scripts/test_claude_code_hook_contract.sh
+
 test-adoption:
 	bash scripts/test_adoption_smoke.sh
 
@@ -186,6 +189,7 @@ test-ecosystem-automation:
 	bash scripts/test_ci_portability_templates.sh
 
 test-release-smoke: build
+	bash scripts/test_claude_code_hook_contract.sh ./gait
 	bash scripts/test_release_smoke.sh ./gait
 
 test-install: build

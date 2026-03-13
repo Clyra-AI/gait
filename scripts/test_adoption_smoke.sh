@@ -62,6 +62,9 @@ for field in ("runpack", "verify_json", "regress_init_json", "regress_run_json",
         raise SystemExit(f"quickstart artifact missing: {field}={parsed[field]}")
 PY
 
+echo "==> claude code hook contract"
+bash scripts/test_claude_code_hook_contract.sh ./gait
+
 echo "==> integration adapter smoke"
 bash scripts/test_adapter_parity.sh
 python3 examples/integrations/template/quickstart.py --scenario allow

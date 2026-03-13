@@ -103,6 +103,25 @@ extract_version() {
   "$bin" --version | awk 'NR==1{print $2}'
 }
 
+extract_version_json() {
+  local bin="$1"
+  local selector="$2"
+  local raw
+  raw="$("$bin" "$selector" --json)"
+  JSON_PAYLOAD="$raw" python3 - <<'PY'
+import json
+import os
+
+payload = json.loads(os.environ["JSON_PAYLOAD"])
+if payload.get("ok") is not True:
+    raise SystemExit(f"expected ok=true, got {payload}")
+version = payload.get("version")
+if not isinstance(version, str) or not version:
+    raise SystemExit(f"version field missing or invalid: {payload}")
+print(version)
+PY
+}
+
 assert_version() {
   local label="$1"
   local bin="$2"
@@ -113,6 +132,14 @@ assert_version() {
     echo "${label}: expected version ${expected}, got ${got}" >&2
     exit 1
   fi
+  for selector in version --version -v; do
+    local json_got
+    json_got="$(extract_version_json "$bin" "$selector")"
+    if [[ "$json_got" != "$expected" ]]; then
+      echo "${label} (${selector} --json): expected version ${expected}, got ${json_got}" >&2
+      exit 1
+    fi
+  done
   echo "${label}: version ${got}"
 }
 

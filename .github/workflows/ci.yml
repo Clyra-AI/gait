@@ -358,6 +358,14 @@ jobs:
         shell: bash
         run: |
           make test-install
+      - name: Install/version JSON contract checks
+        shell: bash
+        run: |
+          if command -v brew >/dev/null 2>&1; then
+            make test-install-path-versions
+          else
+            bash scripts/test_cli_version_install_paths.sh --skip-brew
+          fi
 
   contracts:
     needs: changes

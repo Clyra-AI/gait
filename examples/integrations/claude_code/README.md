@@ -1,6 +1,6 @@
 # Claude Code Quickstart
 
-This integration demonstrates two first-party paths for Claude Code:
+This reference integration demonstrates two local Claude Code paths:
 
 - wrapper parity quickstart (`quickstart.py`)
 - PreToolUse hook interception (`gait-gate.sh`)
@@ -45,4 +45,9 @@ Expected decision mapping:
 - gait `block` -> Claude `permissionDecision=deny`
 - gait `require_approval` -> Claude `permissionDecision=ask`
 
-By default hook errors fail open (`allow`). Set `GAIT_CLAUDE_STRICT=1` for fail-closed (`deny`) on hook/runtime errors.
+Hook/runtime/input errors fail closed (`deny`) by default. If you intentionally need permissive debugging behavior, set `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1`.
+
+Migration note:
+
+- `GAIT_CLAUDE_STRICT=0` no longer enables fail-open behavior.
+- Existing users who relied on fail-open defaults must opt in explicitly with `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1`.

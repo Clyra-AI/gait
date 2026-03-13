@@ -249,10 +249,10 @@ gait doctor [--production-readiness] [adoption]    Diagnostics + readiness
 gait policy init|validate|fmt|simulate|test        Policy authoring workflows
 gait keys init|rotate|verify                       Signing key lifecycle
 gait ui                                            Local playground
-gait version                                       Print version
+gait version [--json] [--explain]                  Print version
 ```
 
-All commands support `--json`. Most support `--explain`.
+Most commands support `--json`. Machine-readable version output is available via `gait version --json`, `gait --version --json`, and `gait -v --json`. Root help (`gait --help`) is text-only and exits `0`. Most commands support `--explain`.
 
 ## Feedback
 

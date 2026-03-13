@@ -13,7 +13,7 @@ Reference adapters:
 - `openclaw`
 - `autogpt`
 - `gastown`
-- `claude_code`
+- `claude_code` (reference adapter; hook errors fail closed by default, `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override)
 - `voice_reference`
 - `template` (canonical copy/paste template)
 

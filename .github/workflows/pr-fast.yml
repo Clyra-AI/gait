@@ -54,6 +54,12 @@ jobs:
           PYTHONPATH: .
         run: |
           make test-fast
+      - name: CLI contract tests
+        run: |
+          go test ./cmd/gait -count=1
+      - name: Claude Code hook contract
+        run: |
+          bash scripts/test_claude_code_hook_contract.sh
       - name: Validate scenario fixtures
         run: |
           bash scripts/validate_scenarios.sh

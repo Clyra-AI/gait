@@ -30,6 +30,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait"}); code != exitOK {
 		t.Fatalf("run without args: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "--help"}); code != exitOK {
+		t.Fatalf("run root help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "--explain"}); code != exitOK {
 		t.Fatalf("run explain: expected %d got %d", exitOK, code)
 	}
@@ -224,6 +227,77 @@ func TestRunDispatch(t *testing.T) {
 	}
 }
 
+func TestRunDispatchRootHelpWritesUsage(t *testing.T) {
+	raw := captureStdout(t, func() {
+		if code := run([]string{"gait", "--help"}); code != exitOK {
+			t.Fatalf("run root help: expected %d got %d", exitOK, code)
+		}
+	})
+	if !strings.Contains(raw, "Usage:\n") {
+		t.Fatalf("root help missing usage banner: %q", raw)
+	}
+	if !strings.Contains(raw, "gait version [--json] [--explain]") {
+		t.Fatalf("root help missing version contract line: %q", raw)
+	}
+}
+
+func TestRunDispatchVersionJSONAliases(t *testing.T) {
+	testCases := []struct {
+		name string
+		args []string
+	}{
+		{name: "version", args: []string{"gait", "version", "--json"}},
+		{name: "version alias", args: []string{"gait", "--version", "--json"}},
+		{name: "short alias", args: []string{"gait", "-v", "--json"}},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			raw := captureStdout(t, func() {
+				if code := run(testCase.args); code != exitOK {
+					t.Fatalf("run version json: expected %d got %d", exitOK, code)
+				}
+			})
+
+			var output versionOutput
+			if err := json.Unmarshal([]byte(raw), &output); err != nil {
+				t.Fatalf("decode version json: %v raw=%q", err, raw)
+			}
+			expected := versionOutput{
+				OK:      true,
+				Version: version,
+			}
+			if output != expected {
+				t.Fatalf("unexpected version output: got=%#v want=%#v", output, expected)
+			}
+		})
+	}
+}
+
+func TestRunDispatchVersionTextAliases(t *testing.T) {
+	testCases := []struct {
+		name string
+		args []string
+	}{
+		{name: "version", args: []string{"gait", "version"}},
+		{name: "version alias", args: []string{"gait", "--version"}},
+		{name: "short alias", args: []string{"gait", "-v"}},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			raw := captureStdout(t, func() {
+				if code := run(testCase.args); code != exitOK {
+					t.Fatalf("run version text: expected %d got %d", exitOK, code)
+				}
+			})
+			if strings.TrimSpace(raw) != "gait "+version {
+				t.Fatalf("unexpected version text: %q", raw)
+			}
+		})
+	}
+}
+
 func TestTopLevelUsageIncludesSessionAndMCPServe(t *testing.T) {
 	raw := captureStdout(t, func() {
 		printUsage()
@@ -240,6 +314,7 @@ func TestTopLevelUsageIncludesSessionAndMCPServe(t *testing.T) {
 		"gait run session checkpoint",
 		"gait gateway ingest",
 		"gait mcp serve --policy <policy.yaml>",
+		"gait version [--json] [--explain]",
 	} {
 		if !strings.Contains(raw, snippet) {
 			t.Fatalf("top-level usage missing %q", snippet)
