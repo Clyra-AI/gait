@@ -92,7 +92,7 @@ gait verify run_demo --json
 gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 ```
 
-Before high-risk production enforcement, start from the canonical hardened template at `examples/config/oss_prod_template.yaml` and require `gait doctor --production-readiness --json` to return `ok=true`. The full path is documented in `docs/install.md`.
+Before high-risk production enforcement, start from the canonical hardened template at `examples/config/oss_prod_template.yaml` from a repo checkout, or fetch that same file from the repo if you installed only the binary. Then require `gait doctor --production-readiness --json` to return `ok=true`. The full path is documented in `docs/install.md`.
 
 `gait init --json` writes `.gait.yaml` and returns a real scaffold summary like:
 

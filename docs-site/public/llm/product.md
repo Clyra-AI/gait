@@ -33,7 +33,7 @@ When to use:
 - incidents must become deterministic CI regressions
 - teams need signed portable evidence instead of dashboard-only traces
 - teams want truthful repo bootstrap commands before wiring a full integration
-- teams need a documented path from demo mode to `oss-prod` readiness using `examples/config/oss_prod_template.yaml` plus `gait doctor --production-readiness --json`
+- teams need a documented path from demo mode to `oss-prod` readiness using `examples/config/oss_prod_template.yaml` from a repo checkout, or that same file fetched after a binary-only install, plus `gait doctor --production-readiness --json`
 
 When not to use:
 

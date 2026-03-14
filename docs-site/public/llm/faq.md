@@ -40,7 +40,7 @@ For context-required policies, the gate only trusts a verified `--context-envelo
 
 ## How do I know install is valid and high-risk enforcement is production-ready?
 
-Use `gait version --json` as the machine-readable install probe. For `oss-prod`, copy `examples/config/oss_prod_template.yaml` into `.gait/config.yaml`, run `gait check --json`, then require `gait doctor --production-readiness --json` to return `ok=true` before treating high-risk enforcement as production-ready.
+Use `gait version --json` as the machine-readable install probe. For `oss-prod`, use the canonical template at `examples/config/oss_prod_template.yaml`: copy it from a repo checkout, or fetch that same file after a binary-only install, then run `gait check --json` and require `gait doctor --production-readiness --json` to return `ok=true` before treating high-risk enforcement as production-ready.
 
 ## Can I replay an agent run without re-executing real API calls?
 

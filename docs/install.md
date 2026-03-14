@@ -92,12 +92,17 @@ Before production use, apply hardened defaults and validate readiness:
 
 ```bash
 gait init --json
+# From a repo checkout:
 cp examples/config/oss_prod_template.yaml .gait/config.yaml
+
+# Or, if you installed only the binary:
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/examples/config/oss_prod_template.yaml -o .gait/config.yaml
+
 gait check --json
 gait doctor --production-readiness --json
 ```
 
-Use `examples/config/oss_prod_template.yaml` as the canonical hardened starting point, then review the environment variable names, listener, and retention values for your deployment before enforcing. High-risk runtime boundaries are not production-ready until `gait doctor --production-readiness --json` reports `ok=true`.
+Use `examples/config/oss_prod_template.yaml` as the canonical hardened starting point, whether you copy it from a repo checkout or fetch that same file after a binary-only install. Then review the environment variable names, listener, and retention values for your deployment before enforcing. High-risk runtime boundaries are not production-ready until `gait doctor --production-readiness --json` reports `ok=true`.
 
 If PATH is still not updated, run directly once:
 

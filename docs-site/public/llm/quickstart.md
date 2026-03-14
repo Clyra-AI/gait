@@ -62,10 +62,15 @@ Boundary touchpoints:
 
 Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries. `gait enforce` is a bounded wrapper for integrations that already emit Gait trace references.
 
-Before high-risk production enforcement, seed the canonical hardened config from a repo checkout and require readiness to pass:
+Before high-risk production enforcement, seed the canonical hardened config and require readiness to pass:
 
 ```bash
+# From a repo checkout:
 cp examples/config/oss_prod_template.yaml .gait/config.yaml
+
+# Or, if you installed only the binary:
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/examples/config/oss_prod_template.yaml -o .gait/config.yaml
+
 gait check --json
 gait doctor --production-readiness --json
 ```

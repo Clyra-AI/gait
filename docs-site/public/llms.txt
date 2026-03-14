@@ -58,7 +58,7 @@
 - `gait --help` is text-only and exits `0`; machine consumers should use `gait version --json`, `gait --version --json`, or `gait -v --json`.
 - Machine-readable wrappers and SDKs use `gait demo --json`; the text form is human-facing only.
 - `examples/integrations/claude_code/` is a reference adapter; hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.
-- High-risk enforcement is not production-ready until `gait doctor --production-readiness --json` returns `ok=true`, typically from config seeded by `examples/config/oss_prod_template.yaml`.
+- High-risk enforcement is not production-ready until `gait doctor --production-readiness --json` returns `ok=true`, typically from config seeded by `examples/config/oss_prod_template.yaml` from a repo checkout or by fetching that same file after a binary-only install.
 - `gait init` writes `.gait.yaml`; `gait check` reports the live policy contract and gap warnings.
 - Offline verification for packs, runpacks, and traces.
 - Structured intent model for policy decisions, not free-form prompt filtering.
