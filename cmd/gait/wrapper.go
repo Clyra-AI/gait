@@ -18,21 +18,34 @@ type wrapperVerdictCount struct {
 }
 
 type wrapperOutput struct {
-	OK            bool                  `json:"ok"`
-	Mode          string                `json:"mode,omitempty"`
-	Command       []string              `json:"command,omitempty"`
-	Cwd           string                `json:"cwd,omitempty"`
-	ChildExitCode int                   `json:"child_exit_code,omitempty"`
-	TimedOut      bool                  `json:"timed_out,omitempty"`
-	DurationMS    int64                 `json:"duration_ms,omitempty"`
-	VerdictCounts []wrapperVerdictCount `json:"verdict_counts,omitempty"`
-	TracePaths    []string              `json:"trace_paths,omitempty"`
-	RunpackPaths  []string              `json:"runpack_paths,omitempty"`
-	Stdout        string                `json:"stdout,omitempty"`
-	Stderr        string                `json:"stderr,omitempty"`
-	Warnings      []string              `json:"warnings,omitempty"`
-	Error         string                `json:"error,omitempty"`
+	OK                     bool                  `json:"ok"`
+	Mode                   string                `json:"mode,omitempty"`
+	Command                []string              `json:"command,omitempty"`
+	Cwd                    string                `json:"cwd,omitempty"`
+	BoundaryContract       string                `json:"boundary_contract,omitempty"`
+	TraceReferenceRequired bool                  `json:"trace_reference_required,omitempty"`
+	FailureReason          string                `json:"failure_reason,omitempty"`
+	ChildExitCode          int                   `json:"child_exit_code,omitempty"`
+	TimedOut               bool                  `json:"timed_out,omitempty"`
+	DurationMS             int64                 `json:"duration_ms,omitempty"`
+	VerdictCounts          []wrapperVerdictCount `json:"verdict_counts,omitempty"`
+	TracePaths             []string              `json:"trace_paths,omitempty"`
+	RunpackPaths           []string              `json:"runpack_paths,omitempty"`
+	Stdout                 string                `json:"stdout,omitempty"`
+	Stderr                 string                `json:"stderr,omitempty"`
+	Warnings               []string              `json:"warnings,omitempty"`
+	Error                  string                `json:"error,omitempty"`
 }
+
+const (
+	wrapperBoundaryContractExplicitTrace = "explicit_trace_reference"
+
+	wrapperFailureReasonChildStartFailed     = "child_start_failed"
+	wrapperFailureReasonChildWaitFailed      = "child_wait_failed"
+	wrapperFailureReasonChildTimedOut        = "child_timed_out"
+	wrapperFailureReasonMissingTraceRef      = "missing_trace_reference"
+	wrapperFailureReasonInvalidTraceArtifact = "invalid_trace_artifact"
+)
 
 func runTest(arguments []string) int {
 	return runWrapperMode("test", arguments)
@@ -133,11 +146,14 @@ func executeWrapperCommand(opts wrapperOptions) (wrapperOutput, int) {
 
 	if err := cmd.Start(); err != nil {
 		return wrapperOutput{
-			OK:      false,
-			Mode:    opts.Mode,
-			Command: append([]string(nil), opts.Command...),
-			Cwd:     opts.Cwd,
-			Error:   err.Error(),
+			OK:                     false,
+			Mode:                   opts.Mode,
+			Command:                append([]string(nil), opts.Command...),
+			Cwd:                    opts.Cwd,
+			BoundaryContract:       wrapperBoundaryContractExplicitTrace,
+			TraceReferenceRequired: true,
+			FailureReason:          wrapperFailureReasonChildStartFailed,
+			Error:                  err.Error(),
 		}, exitCodeForError(err, exitInternalFailure)
 	}
 
@@ -167,13 +183,15 @@ func executeWrapperCommand(opts wrapperOptions) (wrapperOutput, int) {
 	}
 
 	output := wrapperOutput{
-		Mode:       opts.Mode,
-		Command:    append([]string(nil), opts.Command...),
-		Cwd:        opts.Cwd,
-		TimedOut:   timedOut,
-		DurationMS: time.Since(startedAt).Milliseconds(),
-		Stdout:     stdout.String(),
-		Stderr:     stderr.String(),
+		Mode:                   opts.Mode,
+		Command:                append([]string(nil), opts.Command...),
+		Cwd:                    opts.Cwd,
+		BoundaryContract:       wrapperBoundaryContractExplicitTrace,
+		TraceReferenceRequired: true,
+		TimedOut:               timedOut,
+		DurationMS:             time.Since(startedAt).Milliseconds(),
+		Stdout:                 stdout.String(),
+		Stderr:                 stderr.String(),
 	}
 	if cmd.ProcessState != nil {
 		output.ChildExitCode = cmd.ProcessState.ExitCode()
@@ -188,21 +206,25 @@ func executeWrapperCommand(opts wrapperOptions) (wrapperOutput, int) {
 
 	if timedOut {
 		output.OK = false
+		output.FailureReason = wrapperFailureReasonChildTimedOut
 		output.Error = fmt.Sprintf("child command timed out after %s", opts.Timeout)
 		return output, exitInternalFailure
 	}
 	if waitErr != nil && output.ChildExitCode == 0 {
 		output.OK = false
+		output.FailureReason = wrapperFailureReasonChildWaitFailed
 		output.Error = waitErr.Error()
 		return output, exitInternalFailure
 	}
 	if len(tracePaths) == 0 {
 		output.OK = false
+		output.FailureReason = wrapperFailureReasonMissingTraceRef
 		output.Error = "child command did not emit a Gait trace reference; wrappers require an explicit Gait interception seam"
 		return output, exitInvalidInput
 	}
 	if opts.Mode == "enforce" && invalidTraceCount > 0 {
 		output.OK = false
+		output.FailureReason = wrapperFailureReasonInvalidTraceArtifact
 		output.Error = "child command emitted an invalid Gait trace artifact; enforce mode fails closed"
 		return output, exitPolicyBlocked
 	}
@@ -291,6 +313,12 @@ func uniquePaths(paths []string) []string {
 }
 
 func writeWrapperOutput(jsonOutput bool, output wrapperOutput, exitCode int) int {
+	if output.BoundaryContract == "" {
+		output.BoundaryContract = wrapperBoundaryContractExplicitTrace
+	}
+	if !output.TraceReferenceRequired {
+		output.TraceReferenceRequired = true
+	}
 	if jsonOutput {
 		return writeJSONOutput(output, exitCode)
 	}
@@ -309,4 +337,5 @@ func writeWrapperOutput(jsonOutput bool, output wrapperOutput, exitCode int) int
 func printWrapperUsage(mode string) {
 	fmt.Println("Usage:")
 	fmt.Printf("  gait %s [--cwd .] [--timeout 30s] [--json] -- <child command...>\n", mode)
+	fmt.Println("  note: child command must emit trace_path=<path>; wrappers do not auto-instrument arbitrary runtimes")
 }

@@ -49,6 +49,19 @@ If you need one rule to win unconditionally, give it a strictly lower numeric `p
 - For context-required policies, runtime enforcement now requires a verified `--context-envelope` on `gait gate eval`; raw intent context claims are not enough to satisfy `require_context_evidence`, `required_context_evidence_mode`, or `max_context_age_seconds`.
 - If a policy review depends on a same-priority rule "winning" by name, change the numeric `priority` instead. Equal-priority names are no longer part of the verdict contract.
 
+## Draft Proposal Migration
+
+If an older draft or pasted spec still uses the proposal keys below, keep the repo-root `.gait.yaml` contract and migrate to the shipped fields instead:
+
+- `version` -> `schema_id` plus `schema_version`
+- `name` -> remove the top-level field; use `rules[].name` only where rule naming matters
+- `boundaries` -> `rules` and optional `mcp_trust`
+- `defaults` -> `default_verdict` and optional `fail_closed`
+- `trust_sources` -> `mcp_trust.snapshot` after rendering a local trust snapshot file
+- `unknown_server` -> `mcp_trust.action` with local snapshot coverage and fail-closed policy
+
+`gait policy validate .gait.yaml --json` now returns deterministic migration guidance when those draft proposal fields are present, rather than silently accepting a second policy DSL.
+
 ## Repo-Root Policy Contract
 
 The default onboarding contract is the repo-root file `.gait.yaml`.
@@ -57,13 +70,18 @@ The default onboarding contract is the repo-root file `.gait.yaml`.
 
 - `policy_path`
 - `template`
+- `detected_signals`
+- `generated_rules`
+- `unknown_signals`
 - `next_commands`
 
 `gait check --json` reads `.gait.yaml` and reports the live contract, including:
 
 - `default_verdict`
 - `rule_count`
+- `findings`
 - `gap_warnings`
+- `next_commands`
 
 Use `gait policy init --out gait.policy.yaml --json` only when you intentionally want a non-default path.
 

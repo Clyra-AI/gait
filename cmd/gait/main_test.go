@@ -298,6 +298,35 @@ func TestRunDispatchVersionTextAliases(t *testing.T) {
 	}
 }
 
+func TestRunDispatchLegacyMCPVerifyJSONGuidance(t *testing.T) {
+	raw := captureStdout(t, func() {
+		if code := run([]string{"gait", "mcp-verify", "--json"}); code != exitInvalidInput {
+			t.Fatalf("run legacy mcp-verify: expected %d got %d", exitInvalidInput, code)
+		}
+	})
+
+	decoded := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatalf("decode legacy mcp-verify output: %v raw=%q", err, raw)
+	}
+	if decoded["error"] != legacyCommandError("gait mcp-verify", "gait mcp verify") {
+		t.Fatalf("unexpected error: %#v", decoded["error"])
+	}
+	if decoded["hint"] != "use `gait mcp verify` instead" {
+		t.Fatalf("unexpected hint: %#v", decoded["hint"])
+	}
+	migration, ok := decoded["migration"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected migration object, got %#v", decoded["migration"])
+	}
+	if migration["kind"] != "command" {
+		t.Fatalf("unexpected migration kind: %#v", migration["kind"])
+	}
+	if migration["replacement_command"] != "gait mcp verify" {
+		t.Fatalf("unexpected replacement command: %#v", migration["replacement_command"])
+	}
+}
+
 func TestTopLevelUsageIncludesSessionAndMCPServe(t *testing.T) {
 	raw := captureStdout(t, func() {
 		printUsage()
@@ -319,6 +348,17 @@ func TestTopLevelUsageIncludesSessionAndMCPServe(t *testing.T) {
 		if !strings.Contains(raw, snippet) {
 			t.Fatalf("top-level usage missing %q", snippet)
 		}
+	}
+}
+
+func TestWrapperHelpMentionsExplicitTraceRequirement(t *testing.T) {
+	raw := captureStdout(t, func() {
+		if code := runTest([]string{"--help"}); code != exitOK {
+			t.Fatalf("run test help: expected %d got %d", exitOK, code)
+		}
+	})
+	if !strings.Contains(raw, "child command must emit trace_path=<path>") {
+		t.Fatalf("wrapper help missing trace seam note: %q", raw)
 	}
 }
 
@@ -1066,6 +1106,12 @@ func TestInitAndCheckPolicyContract(t *testing.T) {
 	if len(initResult.Detection.Frameworks) != 1 || initResult.Detection.Frameworks[0] != "langchain" {
 		t.Fatalf("unexpected init detection: %#v", initResult.Detection)
 	}
+	if len(initResult.DetectedSignals) == 0 {
+		t.Fatalf("expected detected signals in init output: %#v", initResult)
+	}
+	if len(initResult.GeneratedRules) == 0 {
+		t.Fatalf("expected generated starter rules in init output: %#v", initResult)
+	}
 	if initResult.Contract.RepoPolicyPath != ".gait.yaml" || initResult.Contract.ProjectDefaultsPath != ".gait/config.yaml" || initResult.Contract.RegressConfigPath != "gait.yaml" {
 		t.Fatalf("unexpected contract paths: %#v", initResult.Contract)
 	}
@@ -1075,6 +1121,9 @@ func TestInitAndCheckPolicyContract(t *testing.T) {
 	}
 	if !strings.Contains(string(rawPolicy), "# detected_frameworks: langchain") {
 		t.Fatalf("generated policy missing detection hints: %s", string(rawPolicy))
+	}
+	if !strings.Contains(string(rawPolicy), "# generated_rules:") {
+		t.Fatalf("generated policy missing starter rule comments: %s", string(rawPolicy))
 	}
 	if code := runPolicyValidate([]string{"./.gait.yaml", "--json"}); code != exitOK {
 		t.Fatalf("runPolicyValidate generated policy: expected %d got %d", exitOK, code)
@@ -1100,20 +1149,39 @@ func TestInitAndCheckPolicyContract(t *testing.T) {
 	if len(checkResult.GapWarnings) == 0 {
 		t.Fatalf("expected gap warnings in check output")
 	}
+	if len(checkResult.Findings) == 0 {
+		t.Fatalf("expected structured findings in check output: %#v", checkResult)
+	}
+	if len(checkResult.NextCommands) == 0 {
+		t.Fatalf("expected next commands in check output: %#v", checkResult)
+	}
 }
 
 func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
 
-	noTraceCode := runTest([]string{
-		"--json",
-		"--",
-		os.Args[0],
-		"-test.run=TestWrapperChildProcess",
+	var noTraceCode int
+	noTraceRaw := captureStdout(t, func() {
+		noTraceCode = runTest([]string{
+			"--json",
+			"--",
+			os.Args[0],
+			"-test.run=TestWrapperChildProcess",
+		})
 	})
 	if noTraceCode != exitInvalidInput {
 		t.Fatalf("runTest without child mode env: expected %d got %d", exitInvalidInput, noTraceCode)
+	}
+	var noTraceOutput wrapperOutput
+	if err := json.Unmarshal([]byte(noTraceRaw), &noTraceOutput); err != nil {
+		t.Fatalf("decode no-trace wrapper output: %v", err)
+	}
+	if noTraceOutput.FailureReason != wrapperFailureReasonMissingTraceRef {
+		t.Fatalf("unexpected no-trace failure reason: %#v", noTraceOutput)
+	}
+	if noTraceOutput.BoundaryContract != wrapperBoundaryContractExplicitTrace || !noTraceOutput.TraceReferenceRequired {
+		t.Fatalf("unexpected no-trace boundary contract: %#v", noTraceOutput)
 	}
 
 	tracePath := filepath.Join(workDir, "trace_block.json")
@@ -1142,6 +1210,9 @@ func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
 	if len(testOutput.TracePaths) != 1 || testOutput.TracePaths[0] != tracePath {
 		t.Fatalf("unexpected test trace paths: %#v", testOutput.TracePaths)
 	}
+	if testOutput.BoundaryContract != wrapperBoundaryContractExplicitTrace || !testOutput.TraceReferenceRequired {
+		t.Fatalf("unexpected test wrapper boundary contract: %#v", testOutput)
+	}
 
 	var traceCode int
 	traceRaw := captureStdout(t, func() {
@@ -1162,6 +1233,9 @@ func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
 	if traceOutput.Mode != "trace" || len(traceOutput.TracePaths) != 1 || traceOutput.TracePaths[0] != tracePath {
 		t.Fatalf("unexpected trace wrapper output: %#v", traceOutput)
 	}
+	if traceOutput.BoundaryContract != wrapperBoundaryContractExplicitTrace || !traceOutput.TraceReferenceRequired {
+		t.Fatalf("unexpected trace wrapper boundary contract: %#v", traceOutput)
+	}
 
 	var enforceCode int
 	enforceRaw := captureStdout(t, func() {
@@ -1176,6 +1250,9 @@ func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
 	}
 	if len(enforceOutput.VerdictCounts) != 1 || enforceOutput.VerdictCounts[0].Verdict != "block" {
 		t.Fatalf("unexpected enforce verdict counts: %#v", enforceOutput.VerdictCounts)
+	}
+	if enforceOutput.BoundaryContract != wrapperBoundaryContractExplicitTrace || !enforceOutput.TraceReferenceRequired {
+		t.Fatalf("unexpected enforce wrapper boundary contract: %#v", enforceOutput)
 	}
 
 	invalidTracePath := filepath.Join(workDir, "trace_invalid.json")
@@ -1194,6 +1271,9 @@ func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
 	}
 	if !strings.Contains(invalidEnforceOutput.Error, "fails closed") {
 		t.Fatalf("expected fail-closed error, got %#v", invalidEnforceOutput)
+	}
+	if invalidEnforceOutput.FailureReason != wrapperFailureReasonInvalidTraceArtifact {
+		t.Fatalf("unexpected invalid-trace failure reason: %#v", invalidEnforceOutput)
 	}
 }
 
@@ -1223,6 +1303,9 @@ func TestWrapperTimeoutIsDeterministic(t *testing.T) {
 	}
 	if !output.TimedOut {
 		t.Fatalf("expected timed_out=true: %#v", output)
+	}
+	if output.FailureReason != wrapperFailureReasonChildTimedOut {
+		t.Fatalf("unexpected timeout failure reason: %#v", output)
 	}
 }
 
@@ -1274,6 +1357,35 @@ func TestCaptureAndRegressAddFlow(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workDir, "gait.yaml")); err != nil {
 		t.Fatalf("regress config missing: %v", err)
+	}
+}
+
+func TestRunCaptureLegacySaveAsJSONGuidance(t *testing.T) {
+	raw := captureStdout(t, func() {
+		if code := runCapture([]string{"--from", "run_demo", "--save-as", "capture.json", "--json"}); code != exitInvalidInput {
+			t.Fatalf("runCapture legacy save-as: expected %d got %d", exitInvalidInput, code)
+		}
+	})
+
+	decoded := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatalf("decode capture legacy save-as output: %v raw=%q", err, raw)
+	}
+	if decoded["error"] != legacyFlagError("--save-as", "--out") {
+		t.Fatalf("unexpected capture error: %#v", decoded["error"])
+	}
+	if decoded["hint"] != "use `--out` instead" {
+		t.Fatalf("unexpected capture hint: %#v", decoded["hint"])
+	}
+	migration, ok := decoded["migration"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected migration object, got %#v", decoded["migration"])
+	}
+	if migration["kind"] != "flag" {
+		t.Fatalf("unexpected migration kind: %#v", migration["kind"])
+	}
+	if migration["replacement_flag"] != "--out" {
+		t.Fatalf("unexpected replacement flag: %#v", migration["replacement_flag"])
 	}
 }
 
@@ -1413,11 +1525,111 @@ func TestOnboardingAndWrapperHelperBranches(t *testing.T) {
 	if got := summarizeDetectedToolsForComment([]string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}); !strings.Contains(got, "(+1 more)") {
 		t.Fatalf("expected summarized tool overflow, got %q", got)
 	}
-	if warnings := buildPolicyGapWarnings(gatecore.Policy{DefaultVerdict: "allow"}, repoDetection{}); len(warnings) == 0 {
-		t.Fatalf("expected gap warnings for permissive empty policy")
+	findings := buildPolicyReadinessFindings(gatecore.Policy{DefaultVerdict: "allow"}, repoDetection{}, nil, nil, nil)
+	if len(findingsToWarnings(findings)) == 0 {
+		t.Fatalf("expected readiness findings for permissive empty policy")
 	}
 	if detection := summarizeRepoDetection(schemascout.InventorySnapshot{Items: []schemascout.InventoryItem{{Kind: "tool", Name: "delete_user", Tags: []string{"framework:langchain"}}}}); len(detection.Frameworks) != 1 || detection.Frameworks[0] != "langchain" {
 		t.Fatalf("unexpected summarized detection: %#v", detection)
+	}
+}
+
+func TestOnboardingSignalClassificationHelpers(t *testing.T) {
+	detection := repoDetection{
+		Frameworks: []string{"langchain", " ", "openai_agents"},
+		ToolNames: []string{
+			"DeleteUser",
+			"UpdateTicket",
+			"RefundInvoice",
+			"postgres.query",
+			"acme.sync",
+			"__hidden_tool",
+			"HTTP",
+			strings.Repeat("x", 49),
+		},
+	}
+
+	signals, generated, unknown := deriveRepoSignalsAndStarterRules(detection)
+	if len(signals) < 6 {
+		t.Fatalf("expected multiple derived signals, got %#v", signals)
+	}
+	if len(generated) != 2 {
+		t.Fatalf("expected destructive and approval starter rules, got %#v", generated)
+	}
+	if len(unknown) != 1 || len(unknown[0].Evidence) != 1 || unknown[0].Evidence[0] != "acme.sync" {
+		t.Fatalf("expected unclassified dotted tool evidence, got %#v", unknown)
+	}
+
+	commentLines := renderStarterRuleComments(generated, unknown)
+	commentBlock := strings.Join(commentLines, "\n")
+	for _, snippet := range []string{
+		"# generated_rules:",
+		"# unknown_signals:",
+		"starter.block.destructive",
+		"starter.require_approval.state_change",
+		"acme.sync",
+	} {
+		if !strings.Contains(commentBlock, snippet) {
+			t.Fatalf("expected %q in starter comment block: %s", snippet, commentBlock)
+		}
+	}
+
+	normalized := normalizeActionCandidateTools([]string{
+		" DeleteUser ",
+		"acme.sync",
+		"HTTP",
+		"__skip",
+		strings.Repeat("z", 49),
+		"postgres.query",
+	})
+	if len(normalized) != 3 {
+		t.Fatalf("unexpected normalized tool count: %#v", normalized)
+	}
+	for _, expected := range []string{"acme.sync", "deleteuser", "postgres.query"} {
+		found := false
+		for _, actual := range normalized {
+			if actual == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected normalized tool %q in %#v", expected, normalized)
+		}
+	}
+	if !isAllUpper("HTTP") || isAllUpper("Http") || isAllUpper("1234") {
+		t.Fatalf("unexpected isAllUpper classification")
+	}
+	if got := limitStrings([]string{"a", "b", "c"}, 0); len(got) != 3 {
+		t.Fatalf("limitStrings with zero limit should preserve values: %#v", got)
+	}
+
+	findings := buildPolicyReadinessFindings(gatecore.Policy{
+		DefaultVerdict: "require_approval",
+		Rules: []gatecore.PolicyRule{
+			{
+				Effect: "block",
+				Match: gatecore.PolicyMatch{
+					ToolNames: []string{"other.tool"},
+				},
+			},
+		},
+	}, detection, signals, generated, unknown)
+	warnings := findingsToWarnings(findings)
+	for _, code := range []string{"repo.tool_inventory_name_mismatch", "repo.generated_rules_available", "repo.manual_review_required"} {
+		found := false
+		for _, finding := range findings {
+			if finding.Code == code {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected finding %q in %#v", code, findings)
+		}
+	}
+	if len(warnings) < len(findings) {
+		t.Fatalf("expected warnings to preserve all finding summaries: warnings=%#v findings=%#v", warnings, findings)
 	}
 }
 
@@ -2230,6 +2442,37 @@ func TestPolicyValidateFmtAndMatchedRuleOutput(t *testing.T) {
 	mustWriteFile(t, invalidPolicyPath, "default_verdit: allow\n")
 	if code := runPolicyValidate([]string{"--json", invalidPolicyPath}); code != exitInvalidInput {
 		t.Fatalf("runPolicyValidate unknown field: expected %d got %d", exitInvalidInput, code)
+	}
+
+	legacyPolicyPath := filepath.Join(workDir, "policy_legacy.yaml")
+	mustWriteFile(t, legacyPolicyPath, strings.Join([]string{
+		"version: 1",
+		"defaults:",
+		"  action: block",
+		"unknown_server: block",
+	}, "\n")+"\n")
+	legacyRaw := captureStdout(t, func() {
+		if code := runPolicyValidate([]string{"--json", legacyPolicyPath}); code != exitInvalidInput {
+			t.Fatalf("runPolicyValidate legacy fields: expected %d got %d", exitInvalidInput, code)
+		}
+	})
+	legacyOutput := map[string]any{}
+	if err := json.Unmarshal([]byte(legacyRaw), &legacyOutput); err != nil {
+		t.Fatalf("decode legacy policy validate output: %v raw=%q", err, legacyRaw)
+	}
+	if legacyOutput["hint"] != "use the repo-root `.gait.yaml` contract: `schema_id`, `schema_version`, `default_verdict`, optional `fail_closed`, optional `mcp_trust`, and `rules`" {
+		t.Fatalf("unexpected legacy policy hint: %#v", legacyOutput["hint"])
+	}
+	migration, ok := legacyOutput["migration"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected policy migration object, got %#v", legacyOutput["migration"])
+	}
+	if migration["kind"] != "policy_fields" {
+		t.Fatalf("unexpected migration kind: %#v", migration["kind"])
+	}
+	deprecatedFields, ok := migration["deprecated_fields"].([]any)
+	if !ok || len(deprecatedFields) != 3 {
+		t.Fatalf("unexpected deprecated_fields payload: %#v", migration["deprecated_fields"])
 	}
 }
 

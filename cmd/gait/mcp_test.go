@@ -240,6 +240,12 @@ func TestRunMCPVerifyTrustPolicy(t *testing.T) {
 	if !output.OK || output.MCPTrust == nil || output.MCPTrust.Status != "trusted" {
 		t.Fatalf("expected trusted verify output, got %#v", output)
 	}
+	if output.TrustModel != "local_snapshot" {
+		t.Fatalf("expected local snapshot trust model, got %#v", output)
+	}
+	if output.SnapshotPath != "./trust_snapshot.json" {
+		t.Fatalf("expected snapshot path in output, got %#v", output)
+	}
 }
 
 func TestRunMCPVerifyInfersPolicyRiskClass(t *testing.T) {
@@ -297,6 +303,12 @@ func TestRunMCPVerifyBlockedAndReadServerErrors(t *testing.T) {
 	if output.OK || output.MCPTrust == nil || output.MCPTrust.Status != "unknown" {
 		t.Fatalf("expected unknown blocked verify output, got %#v", output)
 	}
+	if output.TrustModel != "local_snapshot" {
+		t.Fatalf("expected local snapshot trust model, got %#v", output)
+	}
+	if output.SnapshotPath != "./trust_snapshot.json" {
+		t.Fatalf("expected snapshot path in blocked output, got %#v", output)
+	}
 
 	badServerPath := filepath.Join(workDir, "bad_server.json")
 	mustWriteFile(t, badServerPath, `{`)
@@ -311,6 +323,17 @@ func TestWriteMCPVerifyOutputTextModes(t *testing.T) {
 	}
 	if code := writeMCPVerifyOutput(false, mcpVerifyOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
 		t.Fatalf("writeMCPVerifyOutput error expected %d got %d", exitInvalidInput, code)
+	}
+}
+
+func TestRunMCPVerifyHelpMentionsLocalSnapshot(t *testing.T) {
+	raw := captureStdout(t, func() {
+		if code := runMCPVerify([]string{"--help"}); code != exitOK {
+			t.Fatalf("runMCPVerify help expected %d got %d", exitOK, code)
+		}
+	})
+	if !strings.Contains(raw, "mcp_trust.snapshot") {
+		t.Fatalf("expected local snapshot note in help, got %q", raw)
 	}
 }
 

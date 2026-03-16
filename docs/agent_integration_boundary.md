@@ -63,6 +63,7 @@ Constraints:
 - normalization quality depends on payload completeness at boundary
 - enforcement reliability depends on strict middleware placement
 - `gait test` and `gait enforce` do not auto-instrument arbitrary runtimes; they require emitted Gait trace references from the child integration
+- wrapper JSON now makes that boundary explicit with `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values such as `missing_trace_reference` or `invalid_trace_artifact`
 
 ## Tier C: Managed/Preloaded Agent Products (Limited Interception)
 

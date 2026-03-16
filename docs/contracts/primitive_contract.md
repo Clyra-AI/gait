@@ -28,6 +28,12 @@ These file locations and command roles are part of the public OSS onboarding con
 - `gait trace`: observe-only wrapper for integrations that already emit Gait trace references
 - `gait trace verify`: shipped trace verification command
 
+Canonical migration notes:
+
+- Policy DSL stays on the shipped repo-root contract: `schema_id`, `schema_version`, `default_verdict`, optional `fail_closed`, optional `mcp_trust`, and `rules`.
+- Draft proposal keys such as `version`, `name`, `boundaries`, `defaults`, `trust_sources`, and `unknown_server` are not alternate supported syntax; they return deterministic migration guidance instead.
+- The canonical CLI surface is `gait mcp verify` and `gait capture --out ...`; draft proposal spellings such as `gait mcp-verify` and `gait capture --save-as ...` are not separate commands.
+
 Intent + receipt continuity conformance profile:
 
 - `docs/contracts/intent_receipt_conformance.md`

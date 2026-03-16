@@ -43,7 +43,7 @@ Official onboarding lanes:
 - Inline wrapper or sidecar: call `gait gate eval` in your dispatcher before real execution.
 - MCP boundary: use `gait mcp verify` for trust preflight, then `gait mcp proxy` or `gait mcp serve`.
 - Python SDK: thin subprocess ergonomics over the local Go binary, including official LangChain middleware with optional callback correlation.
-- Observe-only path: `gait trace --json -- <child command...>` for integrations that already emit Gait trace references.
+- Observe-only path: `gait trace --json -- <child command...>` for integrations that already emit Gait trace references. Wrapper JSON reports `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values when that seam is missing or invalid.
 
 Other frameworks are named publicly only when an in-repo lane exists and clears the integration scorecard threshold.
 
@@ -55,6 +55,29 @@ Start here:
 - [`docs/agent_integration_boundary.md`](docs/agent_integration_boundary.md)
 - [`docs/mcp_capability_matrix.md`](docs/mcp_capability_matrix.md)
 - [`docs/sdk/python.md`](docs/sdk/python.md)
+
+## Framework Lanes
+
+Official lanes:
+
+- OpenAI Agents: wrapper or sidecar boundary with deterministic allow/block/approval quickstarts in [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
+- LangChain: official middleware with optional callback correlation in [`examples/integrations/langchain/`](examples/integrations/langchain/)
+
+Reference adapters:
+
+- Autogen, OpenClaw, AutoGPT, Gastown, Claude Code, Voice Reference, and the template lane live in [`examples/integrations/README.md`](examples/integrations/README.md)
+
+Promotion rule:
+
+- A framework is only named as an official lane when an in-repo implementation exists and clears the integration scorecard threshold.
+- CrewAI is not an official Gait lane today.
+
+Official lane quickstart commands:
+
+```bash
+python3 examples/integrations/openai_agents/quickstart.py --scenario allow
+(cd sdk/python && uv run --python 3.13 --extra langchain python ../../examples/integrations/langchain/quickstart.py --scenario allow)
+```
 
 ## When To Use Gait
 
@@ -101,6 +124,21 @@ Before high-risk production enforcement, start from the canonical hardened templ
   "ok": true,
   "policy_path": ".gait.yaml",
   "template": "baseline-highrisk",
+  "detected_signals": [
+    {
+      "code": "framework.langchain",
+      "category": "framework",
+      "value": "langchain",
+      "confidence": "high"
+    }
+  ],
+  "generated_rules": [
+    {
+      "id": "starter.block.destructive",
+      "name": "block-destructive-tools",
+      "effect": "block"
+    }
+  ],
   "next_commands": [
     "gait check --policy .gait.yaml --json",
     "gait policy validate .gait.yaml --json",
@@ -117,7 +155,14 @@ Before high-risk production enforcement, start from the canonical hardened templ
   "policy_path": ".gait.yaml",
   "default_verdict": "block",
   "rule_count": 7,
-  "summary": "policy ok: default_verdict=block rules=7 gap_warnings=1"
+  "findings": [
+    {
+      "code": "repo.generated_rules_available",
+      "severity": "info",
+      "detected_surface": "repo.signals"
+    }
+  ],
+  "summary": "policy ok: default_verdict=block rules=7 findings=2 gap_warnings=1"
 }
 ```
 
@@ -145,6 +190,13 @@ Migration notes:
 - If an older integration relied on raw intent context fields to satisfy `require_context_evidence`, move that proof to a verified `--context-envelope` input.
 - If tooling parsed `gait demo` text output, switch it to `gait demo --json` or the Python SDK helper surface.
 
+Draft proposal migration notes:
+
+- Use the shipped repo-root policy DSL: `schema_id`, `schema_version`, `default_verdict`, optional `fail_closed`, optional `mcp_trust`, and `rules`.
+- Do not treat `version`, `name`, `boundaries`, `defaults`, `trust_sources`, or `unknown_server` as alternate supported policy syntax.
+- Use `gait mcp verify`, not `gait mcp-verify`.
+- Use `gait capture --out ...`, not `gait capture --save-as ...`.
+
 No account. No API key. No hosted dependency.
 
 ## Simple End-To-End Scenario
@@ -162,16 +214,18 @@ See [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent
 **Durable jobs** — checkpointed long-running work with pause/resume/cancel, approvals, and deterministic stop reasons.
 
 **MCP trust** — evaluate local trust snapshots with `gait mcp verify`, then enforce via `gait mcp proxy` or `gait mcp serve`.
+`gait mcp verify --json` reports `trust_model=local_snapshot` and `snapshot_path` when MCP trust is configured.
 
 **Voice and context evidence** — fail-closed gating for spoken commitments and missing-context high-risk decisions.
 
-## Differentiation
+## Gait Vs Observability
 
-Gait is complementary to observability products.
+Gait is complementary to observability products such as LangSmith, Langfuse, and AgentOps.
 
-- Observability tools help you inspect what happened after the fact.
+- LangSmith, Langfuse, and AgentOps focus on hosted tracing, analytics, and after-the-fact inspection.
 - Gait decides whether a tool action may execute, emits a signed trace for that decision, and makes the artifact reusable in CI.
-- External scanners and registries can feed Gait. Gait enforces at the action boundary; it does not replace the scanner.
+- The practical model is camera plus gate: use observability to inspect, and use Gait to enforce at the action boundary before side effects land.
+- External scanners and registries can feed Gait. Gait enforces at the action boundary; it does not replace the scanner or dashboard.
 
 ## CI Adoption
 

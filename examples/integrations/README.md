@@ -7,6 +7,13 @@ Official lanes:
 - `openai_agents`
 - `langchain` (official middleware with optional callback correlation)
 
+Quick commands:
+
+```bash
+python3 examples/integrations/openai_agents/quickstart.py --scenario allow
+(cd sdk/python && uv run --python 3.13 --extra langchain python ../../examples/integrations/langchain/quickstart.py --scenario allow)
+```
+
 Reference adapters:
 
 - `autogen`

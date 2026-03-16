@@ -67,6 +67,7 @@ Reference: `docs/agent_integration_boundary.md`.
 ## Boundary Touchpoints To Wire
 
 - Wrapper or sidecar: call `gait gate eval` immediately before the real tool side effect.
+- If you use `gait test`, `gait enforce`, or `gait trace`, the child integration must emit `trace_path=<path>`; wrapper JSON exposes `boundary_contract=explicit_trace_reference` and stable `failure_reason` values when that seam is missing or invalid.
 - Context-required policies: pass `--context-envelope <context_envelope.json>` from the local capture boundary; on `gait mcp serve`, either pin that envelope at server startup or explicitly enable same-host request paths before accepting `call.context.context_envelope_path`. Raw intent context fields are not authoritative by themselves.
 - SDK or CI automation: use `gait demo --json` for machine-readable smoke checks and handoff metadata.
 - CI regression loop: persist the trace or runpack from that same boundary, then wire `gait regress bootstrap --from ... --json --junit ...`.
@@ -92,6 +93,7 @@ Run these first. Stop if expected output is missing.
 5. Wrapper non-allow path:
 - run wrapper block or approval scenario
 - expect `executed=false`
+- if `gait test` / `gait enforce` / `gait trace` are used around that quickstart, expect `boundary_contract=explicit_trace_reference` and a stable `failure_reason` when no trace seam is present
 6. Explicit capture path:
 - `gait capture --from run_demo --json`
 - `gait regress add --from ./gait-out/capture.json --json`

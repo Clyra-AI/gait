@@ -29,8 +29,8 @@ gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 Expected bootstrap shape:
 
 ```json
-{"ok":true,"policy_path":".gait.yaml","template":"baseline-highrisk"}
-{"ok":true,"policy_path":".gait.yaml","default_verdict":"block","rule_count":7}
+{"ok":true,"policy_path":".gait.yaml","template":"baseline-highrisk","detected_signals":[{"code":"framework.langchain","category":"framework","value":"langchain","confidence":"high"}],"generated_rules":[{"id":"starter.block.destructive","name":"block-destructive-tools","effect":"block"}]}
+{"ok":true,"policy_path":".gait.yaml","default_verdict":"block","rule_count":7,"findings":[{"code":"repo.generated_rules_available","severity":"info","detected_surface":"repo.signals"}]}
 ```
 
 Expected demo shape:

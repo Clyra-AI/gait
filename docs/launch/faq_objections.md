@@ -14,6 +14,13 @@ Prompt text can be hostile; execution decisions must be structured and determini
 
 For MCP trust, the same rule applies: external scanners or registries produce local evidence, and Gait evaluates that local evidence at the boundary. Gait is not replacing the scanner.
 
+## "Why not just use LangSmith, Langfuse, or AgentOps?"
+
+Those products are valuable for hosted tracing, analytics, and after-the-fact debugging.
+Gait solves a different problem: it decides whether a tool action may execute before side effects happen, then emits signed evidence that can also flow into CI and operational review.
+
+The practical model is camera plus gate, not camera or gate.
+
 ## "Will this add too much latency?"
 
 Runtime budgets are measured and enforced (`make bench-budgets`).

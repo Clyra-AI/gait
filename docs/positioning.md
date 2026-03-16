@@ -59,6 +59,7 @@ OSS vs Enterprise framing:
 - "Gait integrates with your existing identity, vault, gateway, and SIEM stack."
 - "Guardrails scan content. Gait evaluates structured action intent and enforces policy before execution."
 - "Gait produces the evidence your monitoring stack consumes."
+- "LangSmith, Langfuse, and AgentOps are complementary observability layers; Gait is the execution-boundary gate."
 
 ## Adapter Neutrality Language
 

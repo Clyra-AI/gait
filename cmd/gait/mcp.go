@@ -56,14 +56,16 @@ type mcpProxyOutput struct {
 }
 
 type mcpVerifyOutput struct {
-	OK          bool                         `json:"ok"`
-	ServerID    string                       `json:"server_id,omitempty"`
-	ServerName  string                       `json:"server_name,omitempty"`
-	Verdict     string                       `json:"verdict,omitempty"`
-	ReasonCodes []string                     `json:"reason_codes,omitempty"`
-	Violations  []string                     `json:"violations,omitempty"`
-	MCPTrust    *schemagate.MCPTrustDecision `json:"mcp_trust,omitempty"`
-	Error       string                       `json:"error,omitempty"`
+	OK           bool                         `json:"ok"`
+	ServerID     string                       `json:"server_id,omitempty"`
+	ServerName   string                       `json:"server_name,omitempty"`
+	TrustModel   string                       `json:"trust_model,omitempty"`
+	SnapshotPath string                       `json:"snapshot_path,omitempty"`
+	Verdict      string                       `json:"verdict,omitempty"`
+	ReasonCodes  []string                     `json:"reason_codes,omitempty"`
+	Violations   []string                     `json:"violations,omitempty"`
+	MCPTrust     *schemagate.MCPTrustDecision `json:"mcp_trust,omitempty"`
+	Error        string                       `json:"error,omitempty"`
 }
 
 type mcpProxyEvalOptions struct {
@@ -217,7 +219,7 @@ func runMCPProxy(arguments []string) int {
 
 func runMCPVerify(arguments []string) int {
 	if hasExplainFlag(arguments) {
-		return writeExplain("Evaluate optional MCP server trust policy against a local server description without executing a tool call.")
+		return writeExplain("Evaluate optional MCP server trust policy against a local server description and local trust snapshot without executing a tool call or performing a hosted registry lookup.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
 		"policy":     true,
@@ -262,10 +264,12 @@ func runMCPVerify(arguments []string) int {
 	trustDecision := mcp.EvaluateServerTrust(policy.MCPTrust, server, resolvedRiskClass, time.Now().UTC())
 	if trustDecision == nil {
 		return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{
-			OK:         true,
-			ServerID:   strings.TrimSpace(server.ServerID),
-			ServerName: strings.TrimSpace(server.ServerName),
-			Verdict:    "allow",
+			OK:           true,
+			ServerID:     strings.TrimSpace(server.ServerID),
+			ServerName:   strings.TrimSpace(server.ServerName),
+			TrustModel:   mcpVerifyTrustModel(policy),
+			SnapshotPath: strings.TrimSpace(policy.MCPTrust.SnapshotPath),
+			Verdict:      "allow",
 		}, exitOK)
 	}
 
@@ -283,14 +287,23 @@ func runMCPVerify(arguments []string) int {
 	}
 	ok := exitCode == exitOK
 	return writeMCPVerifyOutput(jsonOutput, mcpVerifyOutput{
-		OK:          ok,
-		ServerID:    trustDecision.ServerID,
-		ServerName:  trustDecision.ServerName,
-		Verdict:     verdict,
-		ReasonCodes: append([]string(nil), trustDecision.ReasonCodes...),
-		Violations:  violations,
-		MCPTrust:    trustDecision,
+		OK:           ok,
+		ServerID:     trustDecision.ServerID,
+		ServerName:   trustDecision.ServerName,
+		TrustModel:   mcpVerifyTrustModel(policy),
+		SnapshotPath: strings.TrimSpace(policy.MCPTrust.SnapshotPath),
+		Verdict:      verdict,
+		ReasonCodes:  append([]string(nil), trustDecision.ReasonCodes...),
+		Violations:   violations,
+		MCPTrust:     trustDecision,
 	}, exitCode)
+}
+
+func mcpVerifyTrustModel(policy gate.Policy) string {
+	if strings.TrimSpace(policy.MCPTrust.SnapshotPath) == "" {
+		return ""
+	}
+	return "local_snapshot"
 }
 
 func readMCPServerInfo(path string) (*mcp.ServerInfo, error) {
@@ -1016,6 +1029,7 @@ func printMCPProxyUsage() {
 func printMCPVerifyUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
+	fmt.Println("  note: trust preflight reads mcp_trust.snapshot from a local file; scanners and registries stay outside the evaluator")
 }
 
 func normalizeMCPContextEnvelopePath(path string) (string, error) {

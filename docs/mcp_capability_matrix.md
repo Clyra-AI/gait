@@ -42,6 +42,7 @@ if verdict != allow: do not execute side effects
 - Bound payload size (`--max-request-bytes`) and retention (`--trace-max-*`, `--runpack-max-*`, `--session-max-*`).
 - MCP trust remains offline-first: `mcp_trust.snapshot` points to a local trust snapshot file, and high-risk trust failures fail closed.
 - Trust inputs stay complementary to scanners and registries. Scanner finds; Gait enforces.
+- `gait mcp verify --json` makes the trust model explicit with `trust_model=local_snapshot` and `snapshot_path=<policy snapshot path>` when MCP trust is configured.
 
 ## What MCP Modes Do Not Replace
 
@@ -62,7 +63,7 @@ MCP modes do not replace operator/CI workflows such as:
 
 ### What is gait mcp verify?
 
-One-shot trust preflight for a single MCP server description. Use it to validate a local trust snapshot before wiring the server into `proxy` or `serve`.
+One-shot trust preflight for a single MCP server description. Use it to validate a local trust snapshot before wiring the server into `proxy` or `serve`. It does not call a hosted registry at evaluation time.
 
 ### What is gait mcp proxy?
 

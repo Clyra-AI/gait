@@ -242,6 +242,14 @@ func LoadPolicyFile(path string) (Policy, error) {
 }
 
 func ParsePolicyYAML(data []byte) (Policy, error) {
+	legacyFields, err := detectLegacyPolicyFieldMigrations(data)
+	if err != nil {
+		return Policy{}, fmt.Errorf("parse policy yaml: %w", err)
+	}
+	if len(legacyFields) > 0 {
+		return Policy{}, fmt.Errorf("parse policy yaml: %w", LegacyPolicyContractError{Fields: legacyFields})
+	}
+
 	var policy Policy
 	if err := yaml.UnmarshalWithOptions(data, &policy, yaml.Strict(), yaml.DisallowUnknownField()); err != nil {
 		formatted := strings.TrimSpace(yaml.FormatError(err, false, false))

@@ -8,6 +8,8 @@ Gait enforces fail-closed policy before agent tool side effects execute and keep
 
 Run `gait version --json`, `gait init --json`, `gait check --json`, `gait demo` for the operator path, `gait demo --json` for wrappers/SDKs, then `gait verify run_demo --json` and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`.
 
+`gait init --json` returns `detected_signals`, conservative `generated_rules`, and `unknown_signals`. `gait check --json` reports structured `findings` and `next_commands` in addition to compatibility `gap_warnings`.
+
 ## What problem does Gait solve for long-running agent work?
 
 Multi-step and multi-hour agent jobs fail mid-flight, losing state and provenance. Gait dispatches durable jobs with checkpointed state, pause/resume/stop/cancel, and deterministic stop reasons so work survives failures and stays auditable.
@@ -49,6 +51,18 @@ Yes. `gait run replay` uses recorded results as deterministic stubs so you can d
 ## How does Gait integrate with agent frameworks?
 
 Gait provides wrapper or sidecar, Python SDK, and MCP boundary modes. The official LangChain surface is middleware with optional callback correlation; enforcement still happens only at the tool boundary. Claude Code remains a reference adapter, and its hook/runtime/input errors fail closed by default unless an operator explicitly opts into unsafe fail-open behavior.
+
+Official lanes today are OpenAI Agents and LangChain. Reference adapters stay in-repo, but they are not promoted into official launch claims until they clear the scorecard threshold. CrewAI is not an official lane today.
+
+If you use `gait test`, `gait enforce`, or `gait trace`, the child integration must emit a `trace_path=<path>` seam. Wrapper JSON makes that explicit with `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values such as `missing_trace_reference` or `invalid_trace_artifact`.
+
+`gait mcp verify` is also local-snapshot-based: `mcp_trust.snapshot` points to a local file, and `gait mcp verify --json` reports `trust_model=local_snapshot` and `snapshot_path` rather than performing a hosted registry lookup.
+
+## Why not just use LangSmith, Langfuse, or AgentOps?
+
+Those tools are useful for hosted tracing and analytics. Gait solves a different problem: it gates execution before tool side effects happen and emits signed evidence that can be reused in CI, incident review, and audit trails.
+
+The practical model is camera plus gate, not camera or gate.
 
 ## Can Gait pre-approve known multi-step scripts?
 

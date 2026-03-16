@@ -136,9 +136,10 @@ func runDispatch(arguments []string) int {
 		return runUI(arguments[2:])
 	case "version", "--version", "-v":
 		return runVersion(arguments[2:])
+	case "mcp-verify":
+		return writeRootInputError(arguments, legacyCommandError("gait mcp-verify", "gait mcp verify"))
 	default:
-		printUsage()
-		return exitInvalidInput
+		return writeRootInputError(arguments, "unknown command: "+strings.TrimSpace(arguments[1]))
 	}
 }
 

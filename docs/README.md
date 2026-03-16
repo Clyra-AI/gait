@@ -21,7 +21,7 @@ Extended first-class surfaces:
 
 1. `README.md` for the product wedge and first five commands
 2. `docs/policy_authoring.md` for `.gait.yaml`, validation, and rollout workflow
-3. `docs/integration_checklist.md` for shipped wrapper, MCP, and SDK lanes
+3. `docs/integration_checklist.md` for official OpenAI Agents and LangChain lanes plus the reference-adapter promotion rules
 4. `docs/agent_integration_boundary.md` for tool-boundary placement rules
 5. `docs/ci_regress_kit.md` for incident-to-CI adoption
 

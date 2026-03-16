@@ -153,3 +153,31 @@ func TestMarshalOutputWithProvidedEnvelopeFields(t *testing.T) {
 		t.Fatalf("expected custom retryable to be preserved, got %#v", decoded["retryable"])
 	}
 }
+
+func TestMarshalOutputWithLegacyMigrationMetadata(t *testing.T) {
+	payload := map[string]any{
+		"ok":    false,
+		"error": legacyCommandError("gait mcp-verify", "gait mcp verify"),
+	}
+	encoded, err := marshalOutputWithErrorEnvelope(payload, exitInvalidInput)
+	if err != nil {
+		t.Fatalf("marshalOutputWithErrorEnvelope: %v", err)
+	}
+	decoded := map[string]any{}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode enveloped output: %v", err)
+	}
+	if decoded["hint"] != "use `gait mcp verify` instead" {
+		t.Fatalf("unexpected hint: %#v", decoded["hint"])
+	}
+	migration, ok := decoded["migration"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected migration object, got %#v", decoded["migration"])
+	}
+	if migration["kind"] != "command" {
+		t.Fatalf("unexpected migration kind: %#v", migration["kind"])
+	}
+	if migration["replacement_command"] != "gait mcp verify" {
+		t.Fatalf("unexpected replacement command: %#v", migration["replacement_command"])
+	}
+}

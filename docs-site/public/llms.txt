@@ -41,6 +41,8 @@
 - Context-required policies must receive `--context-envelope <context_envelope.json>` at that boundary; raw context digest/mode/age claims are not authoritative alone.
 - For `gait mcp serve`, same-host callers may use `call.context.context_envelope_path` only when the server explicitly enables `--allow-client-artifact-paths`.
 - Official LangChain lane: middleware with optional callback correlation, not a separate policy engine.
+- Official framework lanes today: OpenAI Agents and LangChain middleware.
+- Reference adapters stay in-repo but outside official-lane claims until they clear the promotion scorecard threshold. CrewAI is not an official lane today.
 
 ## When To Use
 - You need enforceable policy decisions before agent tool side effects.
@@ -60,11 +62,17 @@
 - `examples/integrations/claude_code/` is a reference adapter; hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.
 - High-risk enforcement is not production-ready until `gait doctor --production-readiness --json` returns `ok=true`, typically from config seeded by `examples/config/oss_prod_template.yaml` from a repo checkout or by fetching that same file after a binary-only install.
 - `gait init` writes `.gait.yaml`; `gait check` reports the live policy contract and gap warnings.
+- Repo bootstrap JSON: `gait init --json` returns `detected_signals`, conservative `generated_rules`, and `unknown_signals`; `gait check --json` returns structured `findings`, compatibility `gap_warnings`, and `next_commands`.
+- Draft proposal migration: use `schema_id`, `schema_version`, `default_verdict`, optional `fail_closed`, optional `mcp_trust`, and `rules`, not `version`, `name`, `boundaries`, `defaults`, `trust_sources`, or `unknown_server`.
+- CLI migration: use `gait mcp verify`, not `gait mcp-verify`, and `gait capture --out ...`, not `gait capture --save-as ...`.
+- Wrapper JSON contract: `gait test`, `gait enforce`, and `gait trace` require `trace_path=<path>` from the child integration and expose `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values for missing or invalid seams.
+- MCP trust JSON contract: `gait mcp verify --json` reports `trust_model=local_snapshot` and `snapshot_path`; trust evaluation stays offline-first and file-based.
 - Offline verification for packs, runpacks, and traces.
 - Structured intent model for policy decisions, not free-form prompt filtering.
 - SayToken capability tokens for voice agent commitment gating.
 - Context evidence envelopes with fail-closed enforcement when evidence is missing, stale, or not supplied through a verified `--context-envelope` gate input.
 - MCP trust stays file-based and offline-first: external tool finds, Gait enforces.
+- Observability comparison: LangSmith, Langfuse, and AgentOps are complementary hosted tracing/analytics products; Gait is the execution-boundary gate.
 
 ## Canonical Docs
 - /docs/policy_authoring/

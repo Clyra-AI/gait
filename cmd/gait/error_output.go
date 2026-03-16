@@ -49,8 +49,18 @@ func marshalOutputWithErrorEnvelope(output any, exitCode int) ([]byte, error) {
 		category := coreerrors.Category(asString(result["error_category"]))
 		result["retryable"] = defaultRetryable(category)
 	}
+	hint, migration := migrationMetadataFromError(errorText)
 	if strings.TrimSpace(asString(result["hint"])) == "" {
-		result["hint"] = defaultHint(exitCode)
+		if hint != "" {
+			result["hint"] = hint
+		} else {
+			result["hint"] = defaultHint(exitCode)
+		}
+	}
+	if migration != nil {
+		if _, exists := result["migration"]; !exists {
+			result["migration"] = migration
+		}
 	}
 	return marshalJSON(result)
 }

@@ -8,10 +8,14 @@ Stable OSS contracts include:
 - **Primitive Contract**: Four deterministic primitives — capture, enforce, regress, diagnose.
 - **CLI Meta Contract**: `gait --help` is text-only and exits `0`; machine-readable version discovery uses `gait version --json` or the `--version` / `-v` aliases.
 - **Python SDK Demo Contract**: machine-readable SDK/demo capture consumes `gait demo --json` output only; the human text form is non-contractual.
-- **Repo Policy Contract**: `gait init` writes `.gait.yaml`; `gait check` reports the live contract (`default_verdict`, `rule_count`, `gap_warnings`).
+- **Repo Policy Contract**: `gait init` writes `.gait.yaml` and returns `detected_signals`, `generated_rules`, and `unknown_signals`; `gait check` reports the live contract with `default_verdict`, `rule_count`, structured `findings`, compatibility `gap_warnings`, and `next_commands`.
+- **Draft Proposal Migration Contract**: keep the shipped policy DSL (`schema_id`, `schema_version`, `default_verdict`, optional `fail_closed`, optional `mcp_trust`, `rules`); proposal keys like `version`, `name`, `boundaries`, `defaults`, `trust_sources`, and `unknown_server` return deterministic migration guidance instead of enabling a second DSL.
+- **CLI Migration Contract**: use `gait mcp verify` rather than `gait mcp-verify`, and `gait capture --out ...` rather than `gait capture --save-as ...`.
 - **Equal-Priority Policy Semantics**: when multiple rules at the same priority match one intent, Gait evaluates that priority tier and applies the most restrictive verdict rather than depending on rule names.
 - **MCP Trust + Trace Onboarding**: local MCP trust snapshots and observe-only `gait trace` are additive onboarding contracts over the same signed trace and policy surfaces.
   - `mcp_trust.snapshot` must point at a local file; scanners and registries remain complementary inputs.
+  - `gait mcp verify --json` reports `trust_model=local_snapshot` and `snapshot_path` when MCP trust is configured.
+  - wrapper JSON reports `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values such as `missing_trace_reference` and `invalid_trace_artifact`.
 - **Script Governance Contract**: Script intent steps, deterministic `script_hash`, Wrkr-derived context matching fields, and signed approved-script registry entries.
 - **Intent+Receipt Spec**: Structured tool-call intent with deterministic receipt generation.
 - **Endpoint Action Model**: Maps tool-call intent to policy-evaluated action outcomes.

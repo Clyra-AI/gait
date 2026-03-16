@@ -2,6 +2,8 @@
 
 Gait is the offline-first policy-as-code runtime for AI agent tool calls. It bootstraps repo policy with `gait init` and `gait check`, enforces fail-closed verdicts at the tool boundary, captures signed evidence, and turns incidents into deterministic CI regressions.
 
+Repo bootstrap stays machine-readable: `gait init --json` returns repo `detected_signals`, conservative `generated_rules`, and `unknown_signals`, while `gait check --json` reports structured `findings` plus `next_commands` for readiness follow-up.
+
 It provides seven OSS primitives:
 
 1. **Gate**: Evaluate structured tool-call intent against YAML policy with fail-closed enforcement. Supports destructive plan/apply boundaries, destructive budgets, multi-step script rollups, Wrkr context enrichment, and signed approved-script fast-path allow.
@@ -18,6 +20,13 @@ Secondary boundary surfaces:
 - **Trace**: observe-only wrapper mode with `gait trace` for integrations that already emit Gait trace references.
 - **LangChain Middleware**: official Python middleware with optional callback correlation; callbacks never decide allow or block behavior, and demo capture stays bound to `gait demo --json`.
 - **Reference Adapters**: `examples/integrations/claude_code/` remains a reference lane; its hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.
+
+Official framework lanes today:
+
+- OpenAI Agents
+- LangChain middleware
+
+Reference adapters stay in-repo but outside official-lane claims until they clear the promotion scorecard. CrewAI is not an official lane today.
 
 Gait is vendor-neutral and offline-first for core workflows: capture, verify, diff, policy evaluation, regressions, and voice/context verification all run without network dependencies.
 
@@ -40,6 +49,12 @@ When not to use:
 - no Gait CLI/artifact path is available in the runtime
 - workflow has no tool-side effects and no evidence requirements
 - you only want a hosted observability dashboard without offline verification or deterministic replay
+
+Observability comparison:
+
+- LangSmith, Langfuse, and AgentOps focus on hosted tracing and analytics.
+- Gait is the execution-boundary gate that decides whether the tool action may run and emits signed evidence for CI and audit reuse.
+- The model is camera plus gate, not camera or gate.
 
 Canonical docs:
 

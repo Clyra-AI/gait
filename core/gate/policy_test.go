@@ -285,6 +285,30 @@ func TestParsePolicyYAMLRejectsUnknownFields(t *testing.T) {
 	}
 }
 
+func TestParsePolicyYAMLRejectsLegacyProposalFieldsWithMigrationDetails(t *testing.T) {
+	_, err := ParsePolicyYAML([]byte(strings.Join([]string{
+		"version: 1",
+		"defaults:",
+		"  action: block",
+		"trust_sources:",
+		"  - snyk",
+	}, "\n") + "\n"))
+	if err == nil {
+		t.Fatalf("expected parse failure for legacy proposal fields")
+	}
+	raw := err.Error()
+	for _, snippet := range []string{
+		"legacy policy proposal fields are not supported [version, defaults, trust_sources]",
+		"version->schema_id|schema_version",
+		"defaults->default_verdict|fail_closed",
+		"trust_sources->mcp_trust.snapshot",
+	} {
+		if !strings.Contains(raw, snippet) {
+			t.Fatalf("expected %q in error, got %q", snippet, raw)
+		}
+	}
+}
+
 func TestEvaluatePolicyRuleMatchDeterministic(t *testing.T) {
 	policy, err := ParsePolicyYAML([]byte(`
 default_verdict: allow

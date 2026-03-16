@@ -6,6 +6,7 @@ This example shows the bounded MCP trust path:
 - a deterministic trust snapshot is rendered from that file
 - `gait mcp verify` and `gait mcp proxy` consume the local snapshot
 - Gait enforces; the scanner or registry remains the evidence source
+- `gait mcp verify --json` reports `trust_model=local_snapshot` and the configured `snapshot_path`
 
 ## Files
 

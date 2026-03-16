@@ -19,6 +19,8 @@ Use this when an external source such as Snyk or an internal registry produces t
 3. Preflight with `gait mcp verify`.
 4. Enforce the same trust policy through `gait mcp proxy` or `gait mcp serve`.
 
+`gait mcp verify --json` reports that contract explicitly with `trust_model=local_snapshot` and `snapshot_path=<local file>`. The evaluator does not fetch hosted registry data at decision time.
+
 Example policy contract:
 
 ```yaml
