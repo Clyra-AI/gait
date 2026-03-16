@@ -23,6 +23,9 @@ gait init --template baseline-mediumrisk --json
 gait check --json
 gait policy validate .gait.yaml --json
 gait policy fmt .gait.yaml --write --json
+gait doctor --json
+
+# Optional richer fixture loop from a repo checkout:
 gait policy test .gait.yaml examples/policy/intents/intent_write.json --json
 gait policy simulate --baseline examples/policy/base_medium_risk.yaml --policy .gait.yaml --fixtures examples/policy/intents --json
 ```
@@ -31,6 +34,7 @@ Interpretation:
 
 - `policy validate` checks strict YAML parsing + policy semantics only.
 - `policy fmt` rewrites normalized YAML deterministically.
+- `doctor` confirms the install-safe onboarding lane before you depend on richer repo fixtures.
 - `policy test` evaluates one intent fixture and returns verdict, reason codes, and `matched_rule`.
 - `policy simulate` compares baseline vs candidate verdicts over fixture corpora and recommends rollout stage (`observe`, `require_approval`, `enforce`).
 
@@ -84,6 +88,8 @@ The default onboarding contract is the repo-root file `.gait.yaml`.
 - `next_commands`
 
 Use `gait policy init --out gait.policy.yaml --json` only when you intentionally want a non-default path.
+
+`next_commands` from `gait init --json` and `gait check --json` stay install-safe: they only point at commands and files available after the CLI created `.gait.yaml`. Repo fixture paths under `examples/policy/intents/` remain a repo-checkout authoring lane.
 
 ## Common Top-Level Fields
 

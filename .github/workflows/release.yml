@@ -23,7 +23,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run v2.3 acceptance gate
         run: |
           make test-v2-3-acceptance
@@ -48,7 +48,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run v2.4 release contract gate
         run: |
           make test-v2-4-acceptance
@@ -70,7 +70,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run v2.5 release contract gate
         run: |
           make test-v2-5-acceptance
@@ -92,13 +92,16 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run v2.6 release contract gate
         run: |
           make test-v2-6-acceptance
 
   boundary_repro_gate:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
     permissions:
       contents: read
     steps:
@@ -108,7 +111,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
       - name: Install uv
         uses: astral-sh/setup-uv@v6
       - name: Run boundary contract repro guards
@@ -120,7 +123,7 @@ jobs:
           go test ./core/gate -count=1 -run 'TestEvaluatePolicyDetailedEqualPriorityRenameDoesNotChangeVerdict'
           go test ./core/jobruntime -count=1 -run 'TestSubmitAppendFailureRollsBackNewJob|TestMutationAppendFailureRollsBackStateAndRetrySucceeds|TestMutationAppendFailureWithDurableEventPreservesPendingMarker'
           cd sdk/python
-          uv run --python 3.13 --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'
+          uv run --python ${{ matrix.python-version }} --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'
 
   hardening_gate:
     runs-on: ubuntu-latest
@@ -133,7 +136,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run release hardening gate
         run: |
           bash scripts/test_claude_code_hook_contract.sh
@@ -157,7 +160,7 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Install goreleaser
         run: |
           go install "github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}"

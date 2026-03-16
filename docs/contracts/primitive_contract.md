@@ -27,6 +27,12 @@ These file locations and command roles are part of the public OSS onboarding con
 - `gait regress *`: deterministic regress workflow commands; `regress add` is a convenience path over the same fixture semantics as `regress init`
 - `gait trace`: observe-only wrapper for integrations that already emit Gait trace references
 - `gait trace verify`: shipped trace verification command
+- `gait doctor --json`: install-safe diagnostics for a clean writable directory; repo-only checks are additive and appear only in a Gait repo checkout
+
+Onboarding JSON obligations:
+
+- `gait doctor --json` MUST remain truthful for the installed-binary lane and MAY add fields such as `onboarding_mode` or per-check `scope` only additively.
+- `gait init --json` and `gait check --json` `next_commands` MUST be executable in the environment they are emitted for, or MUST include an explicit repo/fetch step in the command text.
 
 Canonical migration notes:
 

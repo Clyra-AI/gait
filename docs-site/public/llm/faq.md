@@ -6,9 +6,9 @@ Gait enforces fail-closed policy before agent tool side effects execute and keep
 
 ## What should teams run first?
 
-Run `gait version --json`, `gait init --json`, `gait check --json`, `gait demo` for the operator path, `gait demo --json` for wrappers/SDKs, then `gait verify run_demo --json` and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`.
+Run `gait version --json`, `gait doctor --json`, `gait init --json`, `gait check --json`, `gait demo` for the operator path, `gait demo --json` for wrappers/SDKs, then `gait verify run_demo --json` and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`.
 
-`gait init --json` returns `detected_signals`, conservative `generated_rules`, and `unknown_signals`. `gait check --json` reports structured `findings` and `next_commands` in addition to compatibility `gap_warnings`.
+`gait doctor --json` stays install-safe in a clean writable directory. `gait init --json` returns `detected_signals`, conservative `generated_rules`, and `unknown_signals`. `gait check --json` reports structured `findings` and install-safe `next_commands` in addition to compatibility `gap_warnings`.
 
 ## What problem does Gait solve for long-running agent work?
 

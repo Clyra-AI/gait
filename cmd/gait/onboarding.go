@@ -180,11 +180,7 @@ func runInit(arguments []string) int {
 		GeneratedRules:  generatedRules,
 		UnknownSignals:  unknownSignals,
 		Contract:        currentSurfaceContract(),
-		NextCommands: []string{
-			fmt.Sprintf("gait check --policy %s --json", trimmedOutPath),
-			fmt.Sprintf("gait policy validate %s --json", trimmedOutPath),
-			fmt.Sprintf("gait gate eval --policy %s --intent examples/policy/intents/intent_delete.json --json", trimmedOutPath),
-		},
+		NextCommands:    initNextCommands(trimmedOutPath),
 	}, exitOK)
 }
 
@@ -277,12 +273,25 @@ func runCheck(arguments []string) int {
 		Contract:        currentSurfaceContract(),
 		Findings:        findings,
 		GapWarnings:     gapWarnings,
-		NextCommands: []string{
-			fmt.Sprintf("gait policy validate %s --json", trimmedPolicyPath),
-			fmt.Sprintf("gait policy test %s examples/policy/intents/intent_delete.json --json", trimmedPolicyPath),
-		},
-		Summary: summary,
+		NextCommands:    checkNextCommands(trimmedPolicyPath),
+		Summary:         summary,
 	}, exitOK)
+}
+
+func initNextCommands(policyPath string) []string {
+	return []string{
+		fmt.Sprintf("gait check --policy %s --json", policyPath),
+		fmt.Sprintf("gait policy validate %s --json", policyPath),
+		"gait doctor --json",
+	}
+}
+
+func checkNextCommands(policyPath string) []string {
+	return []string{
+		fmt.Sprintf("gait policy validate %s --json", policyPath),
+		"gait doctor --json",
+		"gait demo --json",
+	}
 }
 
 func runCapture(arguments []string) int {

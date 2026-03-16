@@ -102,6 +102,7 @@ curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.
 
 # Machine-readable install probe
 gait version --json
+gait doctor --json
 
 # Bootstrap repo policy-as-code
 gait init --json
@@ -142,7 +143,7 @@ Before high-risk production enforcement, start from the canonical hardened templ
   "next_commands": [
     "gait check --policy .gait.yaml --json",
     "gait policy validate .gait.yaml --json",
-    "gait gate eval --policy .gait.yaml --intent examples/policy/intents/intent_delete.json --json"
+    "gait doctor --json"
   ]
 }
 ```
@@ -155,6 +156,11 @@ Before high-risk production enforcement, start from the canonical hardened templ
   "policy_path": ".gait.yaml",
   "default_verdict": "block",
   "rule_count": 7,
+  "next_commands": [
+    "gait policy validate .gait.yaml --json",
+    "gait doctor --json",
+    "gait demo --json"
+  ],
   "findings": [
     {
       "code": "repo.generated_rules_available",
@@ -165,6 +171,8 @@ Before high-risk production enforcement, start from the canonical hardened templ
   "summary": "policy ok: default_verdict=block rules=7 findings=2 gap_warnings=1"
 }
 ```
+
+Standard `gait doctor --json` is install-safe in any clean writable directory. It returns `status=pass|warn` for the installed-binary lane and only includes repo-only checks when you run it from a Gait repo checkout.
 
 `gait demo` prints a portable proof trail:
 

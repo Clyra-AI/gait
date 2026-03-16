@@ -20,6 +20,13 @@ const (
 	statusPass = "pass"
 	statusWarn = "warn"
 	statusFail = "fail"
+
+	checkScopeUniversal           = "universal"
+	checkScopeRepoCheckout        = "repo_checkout"
+	checkScopeProductionReadiness = "production_readiness"
+
+	onboardingModeInstalledBinary = "installed_binary"
+	onboardingModeRepoCheckout    = "repo_checkout"
 )
 
 type Options struct {
@@ -36,6 +43,7 @@ type Result struct {
 	SchemaVersion   string   `json:"schema_version"`
 	CreatedAt       string   `json:"created_at"`
 	ProducerVersion string   `json:"producer_version"`
+	OnboardingMode  string   `json:"onboarding_mode,omitempty"`
 	Status          string   `json:"status"`
 	NonFixable      bool     `json:"non_fixable"`
 	Summary         string   `json:"summary"`
@@ -45,6 +53,7 @@ type Result struct {
 
 type Check struct {
 	Name       string `json:"name"`
+	Scope      string `json:"scope,omitempty"`
 	Status     string `json:"status"`
 	Message    string `json:"message"`
 	FixCommand string `json:"fix_command,omitempty"`
@@ -102,33 +111,39 @@ func Run(opts Options) Result {
 		producerVersion = "0.0.0-dev"
 	}
 
+	onboardingMode := detectOnboardingMode(workDir)
+
 	var checks []Check
 	if opts.ProductionReadiness {
 		checks = []Check{
-			checkWorkDirWritable(workDir),
-			checkOutputDir(outputDir),
-			checkJobRuntimeDurability(outputDir),
-			checkTempDirWritable(),
-			checkKeySourceAmbiguity(opts.KeyConfig),
-			checkKeyFilePermissions(opts.KeyConfig),
-			checkKeyConfig(opts.KeyMode, opts.KeyConfig),
+			withScope(checkWorkDirWritable(workDir), checkScopeUniversal),
+			withScope(checkOutputDir(outputDir), checkScopeUniversal),
+			withScope(checkJobRuntimeDurability(outputDir), checkScopeUniversal),
+			withScope(checkTempDirWritable(), checkScopeUniversal),
+			withScope(checkKeySourceAmbiguity(opts.KeyConfig), checkScopeUniversal),
+			withScope(checkKeyFilePermissions(opts.KeyConfig), checkScopeUniversal),
+			withScope(checkKeyConfig(opts.KeyMode, opts.KeyConfig), checkScopeUniversal),
 		}
-		checks = append(checks, checkProductionReadiness(workDir)...)
+		checks = append(checks, scopedChecks(checkProductionReadiness(workDir), checkScopeProductionReadiness)...)
 	} else {
 		checks = []Check{
-			checkWorkDirWritable(workDir),
-			checkOutputDir(outputDir),
-			checkJobRuntimeDurability(outputDir),
-			checkTempDirWritable(),
-			checkSchemaFiles(workDir),
-			checkHooksPath(workDir),
-			checkRegistryCacheHealth(),
-			checkRateLimitLock(outputDir),
-			checkOnboardingBinary(workDir),
-			checkOnboardingAssets(workDir),
-			checkKeySourceAmbiguity(opts.KeyConfig),
-			checkKeyFilePermissions(opts.KeyConfig),
-			checkKeyConfig(opts.KeyMode, opts.KeyConfig),
+			withScope(checkWorkDirWritable(workDir), checkScopeUniversal),
+			withScope(checkOutputDir(outputDir), checkScopeUniversal),
+			withScope(checkJobRuntimeDurability(outputDir), checkScopeUniversal),
+			withScope(checkTempDirWritable(), checkScopeUniversal),
+			withScope(checkRegistryCacheHealth(), checkScopeUniversal),
+			withScope(checkRateLimitLock(outputDir), checkScopeUniversal),
+			withScope(checkOnboardingBinary(workDir), checkScopeUniversal),
+			withScope(checkKeySourceAmbiguity(opts.KeyConfig), checkScopeUniversal),
+			withScope(checkKeyFilePermissions(opts.KeyConfig), checkScopeUniversal),
+			withScope(checkKeyConfig(opts.KeyMode, opts.KeyConfig), checkScopeUniversal),
+		}
+		if onboardingMode == onboardingModeRepoCheckout {
+			checks = append(checks,
+				withScope(checkSchemaFiles(workDir), checkScopeRepoCheckout),
+				withScope(checkHooksPath(workDir), checkScopeRepoCheckout),
+				withScope(checkOnboardingAssets(workDir), checkScopeRepoCheckout),
+			)
 		}
 	}
 
@@ -163,19 +178,73 @@ func Run(opts Options) Result {
 	}
 
 	sort.Strings(fixCommands)
-	summary := fmt.Sprintf("doctor: status=%s failed=%d warned=%d non_fixable=%t", status, failed, warned, nonFixable)
+	summary := fmt.Sprintf(
+		"doctor: onboarding_mode=%s status=%s failed=%d warned=%d non_fixable=%t",
+		onboardingMode,
+		status,
+		failed,
+		warned,
+		nonFixable,
+	)
 
 	return Result{
 		SchemaID:        "gait.doctor.result",
 		SchemaVersion:   "1.0.0",
 		CreatedAt:       time.Now().UTC().Format(time.RFC3339Nano),
 		ProducerVersion: producerVersion,
+		OnboardingMode:  onboardingMode,
 		Status:          status,
 		NonFixable:      nonFixable,
 		Summary:         summary,
 		FixCommands:     fixCommands,
 		Checks:          checks,
 	}
+}
+
+func withScope(check Check, scope string) Check {
+	check.Scope = scope
+	return check
+}
+
+func scopedChecks(checks []Check, scope string) []Check {
+	scoped := make([]Check, 0, len(checks))
+	for _, check := range checks {
+		scoped = append(scoped, withScope(check, scope))
+	}
+	return scoped
+}
+
+func detectOnboardingMode(workDir string) string {
+	if isGaitRepoCheckout(workDir) {
+		return onboardingModeRepoCheckout
+	}
+	return onboardingModeInstalledBinary
+}
+
+func isGaitRepoCheckout(workDir string) bool {
+	goModPath := filepath.Join(workDir, "go.mod")
+	// #nosec G304 -- doctor mode detection intentionally inspects go.mod under the caller-selected local workspace.
+	rawGoMod, err := os.ReadFile(goModPath)
+	if err != nil {
+		return false
+	}
+	if !strings.Contains(string(rawGoMod), "module github.com/Clyra-AI/gait") {
+		return false
+	}
+
+	requiredPaths := []string{
+		"cmd/gait",
+		"core",
+		"schemas/v1",
+		"scripts/install.sh",
+	}
+	for _, relativePath := range requiredPaths {
+		fullPath := filepath.Join(workDir, filepath.FromSlash(relativePath))
+		if _, err := os.Stat(fullPath); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func checkWorkDirWritable(workDir string) Check {

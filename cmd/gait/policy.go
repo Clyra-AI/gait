@@ -228,9 +228,7 @@ func runPolicyInit(arguments []string) int {
 	nextCommands := []string{
 		fmt.Sprintf("gait policy validate %s --json", trimmedOutPath),
 		fmt.Sprintf("gait policy fmt %s --write --json", trimmedOutPath),
-		fmt.Sprintf("gait policy test %s examples/policy/intents/intent_read.json --json", trimmedOutPath),
-		fmt.Sprintf("gait policy test %s examples/policy/intents/intent_write.json --json", trimmedOutPath),
-		fmt.Sprintf("gait policy test %s examples/policy/intents/intent_delete.json --json", trimmedOutPath),
+		"gait doctor --json",
 	}
 
 	return writePolicyInitOutput(jsonOutput, policyInitOutput{

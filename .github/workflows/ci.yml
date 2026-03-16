@@ -57,7 +57,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Install uv
         run: |
           python -m pip install --upgrade pip uv
@@ -178,7 +178,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Install uv
         run: |
           python -m pip install --upgrade pip uv
@@ -215,6 +215,9 @@ jobs:
   boundary-repro-guards:
     needs: changes
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -222,7 +225,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
       - name: Install uv
         uses: astral-sh/setup-uv@v6
       - name: Run boundary contract repro guards
@@ -234,7 +237,7 @@ jobs:
           go test ./core/gate -count=1 -run 'TestEvaluatePolicyDetailedEqualPriorityRenameDoesNotChangeVerdict'
           go test ./core/jobruntime -count=1 -run 'TestSubmitAppendFailureRollsBackNewJob|TestMutationAppendFailureRollsBackStateAndRetrySucceeds|TestMutationAppendFailureWithDurableEventPreservesPendingMarker'
           cd sdk/python
-          uv run --python 3.13 --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'
+          uv run --python ${{ matrix.python-version }} --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'
 
   e2e:
     needs: changes
@@ -262,7 +265,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: V1 acceptance checks
         run: |
           make test-acceptance
@@ -277,7 +280,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: V1.6 wedge acceptance checks
         run: |
           make test-v1-6-acceptance
@@ -292,7 +295,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: V1.7 wedge acceptance checks
         run: |
           make test-v1-7-acceptance
@@ -307,7 +310,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: V1.8 wedge acceptance checks
         run: |
           make test-v1-8-acceptance
@@ -322,7 +325,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Script intent governance acceptance checks
         run: |
           make test-script-intent-acceptance
@@ -337,7 +340,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Release smoke checks
         run: |
           make test-release-smoke
@@ -381,7 +384,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Contract and compatibility checks
         shell: bash
         run: |
@@ -420,7 +423,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Install uv
         uses: astral-sh/setup-uv@v6
       - name: Run adoption smoke suite
@@ -448,7 +451,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run v2.3 acceptance gate
         shell: bash
         run: |
@@ -474,7 +477,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run v2.4 acceptance gate
         shell: bash
         run: |
@@ -491,7 +494,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run v2.5 acceptance gate
         shell: bash
         run: |
@@ -507,7 +510,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run v2.6 acceptance gate
         shell: bash
         run: |
@@ -524,7 +527,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run voice acceptance gate
         shell: bash
         run: |
@@ -541,7 +544,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run context conformance gate
         shell: bash
         run: |
@@ -558,7 +561,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run context chaos gate
         shell: bash
         run: |
@@ -574,7 +577,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run PackSpec TCK lane
         shell: bash
         run: |
@@ -590,7 +593,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Install uv
         uses: astral-sh/setup-uv@v6
       - name: Run adapter parity suite
@@ -605,7 +608,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run ecosystem contribution/release automation checks
         shell: bash
         run: |
@@ -627,7 +630,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run skill supply-chain suite
         shell: bash
         run: |
@@ -671,7 +674,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - name: Run runtime SLO budget suite
         shell: bash
         run: |

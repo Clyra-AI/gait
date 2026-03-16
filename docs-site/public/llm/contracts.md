@@ -9,7 +9,8 @@ Stable OSS contracts include:
 - **Primitive Contract**: Four deterministic primitives — capture, enforce, regress, diagnose.
 - **CLI Meta Contract**: `gait --help` is text-only and exits `0`; machine-readable version discovery uses `gait version --json` or the `--version` / `-v` aliases.
 - **Python SDK Demo Contract**: machine-readable SDK/demo capture consumes `gait demo --json` output only; the human text form is non-contractual.
-- **Repo Policy Contract**: `gait init` writes `.gait.yaml` and returns `detected_signals`, `generated_rules`, and `unknown_signals`; `gait check` reports the live contract with `default_verdict`, `rule_count`, structured `findings`, compatibility `gap_warnings`, and `next_commands`.
+- **Doctor Install Contract**: `gait doctor --json` is truthful for a clean writable binary-install lane, returning `status=pass|warn` there and only surfacing repo-only checks from a Gait repo checkout.
+- **Repo Policy Contract**: `gait init` writes `.gait.yaml` and returns `detected_signals`, `generated_rules`, and `unknown_signals`; `gait check` reports the live contract with `default_verdict`, `rule_count`, structured `findings`, compatibility `gap_warnings`, and install-safe `next_commands`.
 - **Draft Proposal Migration Contract**: keep the shipped policy DSL (`schema_id`, `schema_version`, `default_verdict`, optional `fail_closed`, optional `mcp_trust`, `rules`); proposal keys like `version`, `name`, `boundaries`, `defaults`, `trust_sources`, and `unknown_server` return deterministic migration guidance instead of enabling a second DSL.
 - **CLI Migration Contract**: use `gait mcp verify` rather than `gait mcp-verify`, and `gait capture --out ...` rather than `gait capture --save-as ...`.
 - **Equal-Priority Policy Semantics**: when multiple rules at the same priority match one intent, Gait evaluates that priority tier and applies the most restrictive verdict rather than depending on rule names.

@@ -88,7 +88,7 @@ Expected:
 - CI-ready `junit.xml`
 - same result is available via `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`
 
-## Optional: One-Shot Policy Check From Fixture Intent
+## Optional: One-Shot Policy Check From Fixture Intent (Repo Checkout)
 
 ```bash
 gait gate eval \

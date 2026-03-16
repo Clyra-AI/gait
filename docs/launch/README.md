@@ -54,7 +54,7 @@ Generated artifacts:
 
 1. run `scripts/demo_90s.sh`
 2. run `scripts/test_v2_3_acceptance.sh ./gait` and confirm `release_gate_passed=true`
-3. confirm first-run copy still matches `gait init`, `gait check`, `gait demo`, `gait verify`, and `gait regress bootstrap`
+3. confirm first-run copy still matches `gait doctor`, `gait init`, `gait check`, `gait demo`, `gait verify`, and `gait regress bootstrap`
 3. generate ecosystem release notes:
 
 ```bash
