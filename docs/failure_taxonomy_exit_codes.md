@@ -25,7 +25,7 @@ Canonical constants live in:
 | `4` | approval required | `gait gate eval`, `gait policy test` |
 | `5` | deterministic regression failure | `gait regress run`, `gait regress bootstrap` |
 | `6` | invalid input/usage | malformed flags, missing required args, invalid schema input |
-| `7` | missing dependency | dependency checks, doctor readiness failures |
+| `7` | missing dependency | repo-checkout dependency checks, missing runtime prerequisites, non-fixable doctor failures |
 | `8` | unsafe operation blocked | explicit unsafe replay guardrails |
 
 ## JSON Error Envelope
@@ -77,6 +77,7 @@ For gating workflows, treat these as explicit contract signals:
    - `reason_codes`
    - `violations`
 4. For verification outcomes (`2`), inspect mismatch lists and artifact digests.
+5. For `doctor`, treat installed-binary `status=warn` as a successful onboarding lane unless `non_fixable=true` or `--production-readiness` returned exit `2`.
 
 ## Quick Commands
 

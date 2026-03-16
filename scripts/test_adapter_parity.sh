@@ -20,7 +20,7 @@ for framework in "${frameworks[@]}"; do
     if [[ "$framework" == "langchain" ]]; then
       adapter_output="$(
         cd "$repo_root/sdk/python" && \
-          uv run --python 3.13 --extra langchain python \
+          uv run --python 3.11 --extra langchain python \
             "../../examples/integrations/${framework}/quickstart.py" --scenario "$scenario"
       )"
     else

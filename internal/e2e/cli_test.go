@@ -1145,21 +1145,31 @@ func TestCLIDoctor(t *testing.T) {
 	)
 	doctorMissing.Dir = root
 	missingOut, err := doctorMissing.CombinedOutput()
-	if err == nil {
-		t.Fatalf("expected missing schema doctor run to fail with exit code 7")
-	}
-	if code := commandExitCode(t, err); code != 7 {
-		t.Fatalf("unexpected doctor missing dependency exit code: got=%d want=7 output=%s", code, string(missingOut))
+	if err != nil {
+		t.Fatalf("expected installed-binary doctor run to succeed, got err=%v output=%s", err, string(missingOut))
 	}
 	var missingResult struct {
-		OK         bool `json:"ok"`
-		NonFixable bool `json:"non_fixable"`
+		OK             bool   `json:"ok"`
+		NonFixable     bool   `json:"non_fixable"`
+		OnboardingMode string `json:"onboarding_mode"`
+		Checks         []struct {
+			Name string `json:"name"`
+		} `json:"checks"`
 	}
 	if err := json.Unmarshal(missingOut, &missingResult); err != nil {
 		t.Fatalf("parse doctor missing output: %v\n%s", err, string(missingOut))
 	}
-	if missingResult.OK || !missingResult.NonFixable {
+	if !missingResult.OK || missingResult.NonFixable {
 		t.Fatalf("unexpected doctor missing output: %s", string(missingOut))
+	}
+	if missingResult.OnboardingMode != "installed_binary" {
+		t.Fatalf("expected installed_binary onboarding mode, got %s", missingResult.OnboardingMode)
+	}
+	for _, check := range missingResult.Checks {
+		switch check.Name {
+		case "schema_files", "hooks_path", "onboarding_assets":
+			t.Fatalf("repo-only check should not appear in installed-binary doctor output: %s", string(missingOut))
+		}
 	}
 }
 

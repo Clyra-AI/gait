@@ -19,6 +19,7 @@ type doctorOutput struct {
 	SchemaVersion   string         `json:"schema_version,omitempty"`
 	CreatedAt       string         `json:"created_at,omitempty"`
 	ProducerVersion string         `json:"producer_version,omitempty"`
+	OnboardingMode  string         `json:"onboarding_mode,omitempty"`
 	Status          string         `json:"status,omitempty"`
 	NonFixable      bool           `json:"non_fixable,omitempty"`
 	Summary         string         `json:"summary,omitempty"`
@@ -108,6 +109,7 @@ func runDoctor(arguments []string) int {
 		SchemaVersion:   result.SchemaVersion,
 		CreatedAt:       result.CreatedAt,
 		ProducerVersion: result.ProducerVersion,
+		OnboardingMode:  result.OnboardingMode,
 		Status:          result.Status,
 		NonFixable:      result.NonFixable,
 		Summary:         result.Summary,

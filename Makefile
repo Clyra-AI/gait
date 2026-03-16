@@ -12,7 +12,7 @@ GAIT_BINARY := ./gait.exe
 endif
 
 SDK_DIR := sdk/python
-UV_PY := 3.13
+UV_PY := 3.11
 GO_COVERAGE_PACKAGES := ./core/... ./cmd/gait
 BENCH_PACKAGES := ./core/gate ./core/runpack ./core/scout ./core/guard ./core/registry ./core/mcp
 BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypical|SnapshotTypical|DiffSnapshotsTypical|VerifyPackTypical|BuildIncidentPackTypical|InstallLocalTypical|VerifyInstalledTypical|DecodeToolCallOpenAITypical|EvaluateToolCallTypical)$$

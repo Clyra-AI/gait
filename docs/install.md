@@ -75,8 +75,10 @@ bash scripts/install.sh --version vX.Y.Z --install-dir ~/.local/bin
 ```bash
 gait version --json
 gait doctor --json
+gait init --json
+gait check --json
 gait demo
-gait verify run_demo
+gait verify run_demo --json
 ```
 
 ## Dev vs Prod Mode (Important)
@@ -85,7 +87,7 @@ Use development mode for first-run validation:
 
 ```bash
 gait demo
-gait verify run_demo
+gait verify run_demo --json
 ```
 
 Before production use, apply hardened defaults and validate readiness:
@@ -103,6 +105,8 @@ gait doctor --production-readiness --json
 ```
 
 Use `examples/config/oss_prod_template.yaml` as the canonical hardened starting point, whether you copy it from a repo checkout or fetch that same file after a binary-only install. Then review the environment variable names, listener, and retention values for your deployment before enforcing. High-risk runtime boundaries are not production-ready until `gait doctor --production-readiness --json` reports `ok=true`.
+
+`gait doctor --json` is truthful for binary-only installs: in a clean writable directory it returns the installed-binary lane with `status=pass|warn` and skips repo-only schema/example checks unless you run it inside a Gait repo checkout.
 
 If PATH is still not updated, run directly once:
 
@@ -154,7 +158,7 @@ Yes. Download the Windows binary from the GitHub release and add it to your PATH
 
 ### How do I verify the install worked?
 
-Run `gait version --json` and `gait doctor --json`. Then run `gait demo` to create your first signed artifact. Before claiming high-risk production readiness, require `gait doctor --production-readiness --json` to return `ok=true`.
+Run `gait version --json`, `gait doctor --json`, `gait init --json`, and `gait check --json`. Then run `gait demo` to create your first signed artifact. Before claiming high-risk production readiness, require `gait doctor --production-readiness --json` to return `ok=true`.
 
 ### Can I install via Homebrew?
 

@@ -8,6 +8,7 @@ curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.
 
 # Machine-readable install probe
 gait version --json
+gait doctor --json
 
 # Bootstrap repo policy-as-code
 gait init --json
@@ -30,7 +31,7 @@ Expected bootstrap shape:
 
 ```json
 {"ok":true,"policy_path":".gait.yaml","template":"baseline-highrisk","detected_signals":[{"code":"framework.langchain","category":"framework","value":"langchain","confidence":"high"}],"generated_rules":[{"id":"starter.block.destructive","name":"block-destructive-tools","effect":"block"}]}
-{"ok":true,"policy_path":".gait.yaml","default_verdict":"block","rule_count":7,"findings":[{"code":"repo.generated_rules_available","severity":"info","detected_surface":"repo.signals"}]}
+{"ok":true,"policy_path":".gait.yaml","default_verdict":"block","rule_count":7,"next_commands":["gait policy validate .gait.yaml --json","gait doctor --json","gait demo --json"],"findings":[{"code":"repo.generated_rules_available","severity":"info","detected_surface":"repo.signals"}]}
 ```
 
 Expected demo shape:
@@ -76,6 +77,8 @@ gait doctor --production-readiness --json
 ```
 
 Do not treat `oss-prod` enforcement as production-ready until that doctor command reports `ok=true`.
+
+Standard `gait doctor --json` is truthful in a clean writable directory after a binary-only install: repo-only schema/example checks stay scoped to a Gait repo checkout.
 
 Wrapper lane example:
 

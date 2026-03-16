@@ -110,7 +110,7 @@ LangChain is opt-in:
 
 ### What Python version is required?
 
-Python 3.13 or higher.
+Python 3.11 or higher.
 
 ### How do I wrap a tool function with Gait?
 

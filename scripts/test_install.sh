@@ -85,6 +85,10 @@ if [[ ! -x "${install_dir}/gait" ]]; then
   exit 1
 fi
 
+export PATH="${install_dir}:$PATH"
+
+bash "${REPO_ROOT}/scripts/test_onboarding_contract.sh" "${install_dir}/gait" "${work_dir}/onboarding"
+
 "${install_dir}/gait" demo > "${work_dir}/demo.txt"
 if ! grep -q '^run_id=run_demo$' "${work_dir}/demo.txt"; then
   echo "installed binary demo output missing run_id" >&2

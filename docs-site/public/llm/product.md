@@ -2,7 +2,7 @@
 
 Gait is the offline-first policy-as-code runtime for AI agent tool calls. It bootstraps repo policy with `gait init` and `gait check`, enforces fail-closed verdicts at the tool boundary, captures signed evidence, and turns incidents into deterministic CI regressions.
 
-Repo bootstrap stays machine-readable: `gait init --json` returns repo `detected_signals`, conservative `generated_rules`, and `unknown_signals`, while `gait check --json` reports structured `findings` plus `next_commands` for readiness follow-up.
+Repo bootstrap stays machine-readable: `gait doctor --json` is truthful for binary installs, `gait init --json` returns repo `detected_signals`, conservative `generated_rules`, and `unknown_signals`, and `gait check --json` reports structured `findings` plus install-safe `next_commands` for readiness follow-up.
 
 It provides seven OSS primitives:
 

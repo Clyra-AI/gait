@@ -8,6 +8,6 @@
   "description": "Fail-closed OpenClaw tool boundary using gait mcp proxy.",
   "requires": {
     "gait": ">=1.0.0",
-    "python": ">=3.13"
+    "python": ">=3.11"
   }
 }

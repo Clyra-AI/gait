@@ -23,7 +23,8 @@ Extended first-class surfaces:
 2. `docs/policy_authoring.md` for `.gait.yaml`, validation, and rollout workflow
 3. `docs/integration_checklist.md` for official OpenAI Agents and LangChain lanes plus the reference-adapter promotion rules
 4. `docs/agent_integration_boundary.md` for tool-boundary placement rules
-5. `docs/ci_regress_kit.md` for incident-to-CI adoption
+5. `docs/install.md` for the truthful binary-install lane (`doctor`, `init`, `check`, `demo`, `verify`)
+6. `docs/ci_regress_kit.md` for incident-to-CI adoption
 
 ## Core Product Docs
 
@@ -99,6 +100,7 @@ Extended first-class surfaces:
 
 - `docs/contracts/*` are normative. If any other doc conflicts, contracts win.
 - `README.md` is the truthful onboarding surface for `gait init`, `gait check`, `gait demo`, and the first CI regression path.
+- `docs/install.md` is the truthful binary-install surface for `gait doctor`, `gait init`, `gait check`, and the first signed artifact path after a prebuilt install.
 - Ops procedures belong in runbooks (`approval_runbook`, `policy_rollout`, `ci_regress_kit`, hardening docs).
 - Wiki (`docs/wiki/*`) is a convenience layer; `docs/*` remains authoritative.
 

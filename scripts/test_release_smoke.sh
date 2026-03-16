@@ -27,6 +27,12 @@ fi
 
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
+
+export PATH="$(dirname "$BIN_PATH"):$PATH"
+
+echo "==> installed-binary onboarding contract"
+bash "$REPO_ROOT/scripts/test_onboarding_contract.sh" "$BIN_PATH" "$WORK_DIR/onboarding"
+
 cd "$WORK_DIR"
 
 echo "==> demo -> verify"

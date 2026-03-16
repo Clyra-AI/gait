@@ -672,8 +672,8 @@ func TestGatePolicyTraceApproveAndDoctor(t *testing.T) {
 		"--workdir", workDir,
 		"--output-dir", filepath.Join(workDir, "gait-out"),
 		"--json",
-	}); code != exitMissingDependency {
-		t.Fatalf("doctor missing schemas: expected %d got %d", exitMissingDependency, code)
+	}); code != exitOK {
+		t.Fatalf("doctor install-path mode: expected %d got %d", exitOK, code)
 	}
 	if code := runDoctor([]string{
 		"--workdir", workDir,
@@ -1115,6 +1115,11 @@ func TestInitAndCheckPolicyContract(t *testing.T) {
 	if initResult.Contract.RepoPolicyPath != ".gait.yaml" || initResult.Contract.ProjectDefaultsPath != ".gait/config.yaml" || initResult.Contract.RegressConfigPath != "gait.yaml" {
 		t.Fatalf("unexpected contract paths: %#v", initResult.Contract)
 	}
+	if len(initResult.NextCommands) == 0 {
+		t.Fatalf("expected install-safe next commands in init output: %#v", initResult)
+	}
+	assertNoRepoExampleNextCommands(t, initResult.NextCommands)
+	runNextCommand(t, initResult.NextCommands[0])
 	rawPolicy, err := os.ReadFile(filepath.Join(workDir, ".gait.yaml"))
 	if err != nil {
 		t.Fatalf("read generated policy: %v", err)
@@ -1155,6 +1160,8 @@ func TestInitAndCheckPolicyContract(t *testing.T) {
 	if len(checkResult.NextCommands) == 0 {
 		t.Fatalf("expected next commands in check output: %#v", checkResult)
 	}
+	assertNoRepoExampleNextCommands(t, checkResult.NextCommands)
+	runNextCommand(t, checkResult.NextCommands[0])
 }
 
 func TestWrapperCommandsRequireTraceAndPromoteNonAllowVerdicts(t *testing.T) {
@@ -2300,6 +2307,11 @@ func TestPolicyInitScaffolds(t *testing.T) {
 	if initOutput.PolicyPath != policyPath {
 		t.Fatalf("unexpected policy path: %s", initOutput.PolicyPath)
 	}
+	if len(initOutput.NextCommands) == 0 {
+		t.Fatalf("expected policy init next commands: %#v", initOutput)
+	}
+	assertNoRepoExampleNextCommands(t, initOutput.NextCommands)
+	runNextCommand(t, initOutput.NextCommands[0])
 
 	loadedPolicy, err := gatecore.LoadPolicyFile(policyPath)
 	if err != nil {
@@ -2869,6 +2881,9 @@ func TestDoctorProductionReadinessIgnoresRepoOnlyChecks(t *testing.T) {
 	if output.NonFixable {
 		t.Fatalf("expected non_fixable=false in production readiness mode")
 	}
+	if output.OnboardingMode != "installed_binary" {
+		t.Fatalf("expected installed_binary onboarding mode, got %#v", output.OnboardingMode)
+	}
 	for _, check := range output.Checks {
 		if check.Name == "schema_files" {
 			t.Fatalf("schema_files check should not be present in production readiness mode")
@@ -2879,6 +2894,30 @@ func TestDoctorProductionReadinessIgnoresRepoOnlyChecks(t *testing.T) {
 		if check.Name == "hooks_path" {
 			t.Fatalf("hooks_path check should not be present in production readiness mode")
 		}
+	}
+}
+
+func assertNoRepoExampleNextCommands(t *testing.T, nextCommands []string) {
+	t.Helper()
+	for _, command := range nextCommands {
+		if strings.Contains(command, "examples/policy/intents/") {
+			t.Fatalf("expected install-safe next command, got %q", command)
+		}
+	}
+}
+
+func runNextCommand(t *testing.T, command string) {
+	t.Helper()
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		t.Fatalf("next command must not be empty")
+	}
+	if fields[0] != "gait" {
+		t.Fatalf("expected gait next command, got %q", command)
+	}
+	args := append([]string{"gait"}, fields[1:]...)
+	if code := run(args); code != exitOK {
+		t.Fatalf("next command %q: expected %d got %d", command, exitOK, code)
 	}
 }
 

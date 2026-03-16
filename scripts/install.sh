@@ -253,5 +253,7 @@ fi
 
 echo "==> Next steps"
 echo "gait doctor --json"
+echo "gait init --json"
+echo "gait check --json"
 echo "gait demo"
-echo "gait verify run_demo"
+echo "gait verify run_demo --json"

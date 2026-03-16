@@ -30,11 +30,13 @@ gate:
   credential_broker: stub
 ```
 
-With this file present, the repeated command becomes:
+With this file present, a repo-checkout repeated command becomes:
 
 ```bash
 gait gate eval --intent examples/policy/intents/intent_delete.json --json
 ```
+
+If you installed only the binary, point `--intent` at your own local intent JSON instead of assuming repo fixtures are present.
 
 ## Supported `gate` Defaults
 

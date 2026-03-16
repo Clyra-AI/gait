@@ -2,7 +2,7 @@
 name = "gait"
 version = "0.0.0.dev0"
 description = "Gait Python SDK (thin wrapper)"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]

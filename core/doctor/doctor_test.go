@@ -17,7 +17,7 @@ import (
 	sign "github.com/Clyra-AI/proof/signing"
 )
 
-func TestRunDetectsMissingSchemasAsNonFixable(t *testing.T) {
+func TestRunInstalledBinaryModeSkipsRepoOnlyFailures(t *testing.T) {
 	workDir := t.TempDir()
 	result := Run(Options{
 		WorkDir:         workDir,
@@ -26,14 +26,23 @@ func TestRunDetectsMissingSchemasAsNonFixable(t *testing.T) {
 		KeyMode:         sign.ModeDev,
 	})
 
-	if result.Status != statusFail {
-		t.Fatalf("expected fail status, got: %s", result.Status)
+	if result.Status == statusFail {
+		t.Fatalf("expected non-failing status, got: %s (%s)", result.Status, result.Summary)
 	}
-	if !result.NonFixable {
-		t.Fatalf("expected non-fixable result")
+	if result.NonFixable {
+		t.Fatalf("expected install-path result to remain fixable")
 	}
-	if !checkStatus(result.Checks, "schema_files", statusFail) {
-		t.Fatalf("expected schema_files fail check")
+	if result.OnboardingMode != onboardingModeInstalledBinary {
+		t.Fatalf("expected installed binary mode, got %s", result.OnboardingMode)
+	}
+	if hasCheck(result.Checks, "schema_files") {
+		t.Fatalf("schema_files should not run outside a gait repo checkout")
+	}
+	if hasCheck(result.Checks, "hooks_path") {
+		t.Fatalf("hooks_path should not run outside a gait repo checkout")
+	}
+	if hasCheck(result.Checks, "onboarding_assets") {
+		t.Fatalf("onboarding_assets should not run outside a gait repo checkout")
 	}
 }
 
@@ -95,6 +104,9 @@ func TestRunProductionReadinessSkipsRepoOnlyChecks(t *testing.T) {
 	if !checkStatus(result.Checks, "production_profile", statusPass) {
 		t.Fatalf("expected production_profile pass check")
 	}
+	if result.OnboardingMode != onboardingModeInstalledBinary {
+		t.Fatalf("expected installed binary onboarding mode, got %s", result.OnboardingMode)
+	}
 }
 
 func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
@@ -119,6 +131,9 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	if result.NonFixable {
 		t.Fatalf("expected non-fixable to be false")
 	}
+	if result.OnboardingMode != onboardingModeRepoCheckout {
+		t.Fatalf("expected repo checkout mode, got %s", result.OnboardingMode)
+	}
 	if len(result.Checks) != 13 {
 		t.Fatalf("unexpected checks count: %d", len(result.Checks))
 	}
@@ -136,6 +151,18 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	}
 	if !checkStatus(result.Checks, "key_source_ambiguity", statusPass) {
 		t.Fatalf("expected key_source_ambiguity pass check")
+	}
+	for _, check := range result.Checks {
+		switch check.Name {
+		case "schema_files", "hooks_path", "onboarding_assets":
+			if check.Scope != checkScopeRepoCheckout {
+				t.Fatalf("expected repo-only scope for %s, got %s", check.Name, check.Scope)
+			}
+		default:
+			if check.Scope != checkScopeUniversal {
+				t.Fatalf("expected universal scope for %s, got %s", check.Name, check.Scope)
+			}
+		}
 	}
 }
 
@@ -234,6 +261,9 @@ func TestDoctorHelperBranches(t *testing.T) {
 	if !hasAnyVerifySource(sign.KeyConfig{PublicKeyEnv: "KEY"}) {
 		t.Fatalf("expected verify source detection")
 	}
+	if detectOnboardingMode(workDir) != onboardingModeInstalledBinary {
+		t.Fatalf("expected temp dir to resolve as installed binary mode")
+	}
 
 	filePath := filepath.Join(workDir, "out-file")
 	if err := os.WriteFile(filePath, []byte("x"), 0o600); err != nil {
@@ -314,6 +344,14 @@ func TestDoctorHelperBranches(t *testing.T) {
 	check = checkKeyFilePermissions(sign.KeyConfig{PrivateKeyPath: privateKeyPath})
 	if check.Status != statusPass {
 		t.Fatalf("expected strict key permissions to pass: %#v", check)
+	}
+
+	repoDir := repoRoot(t)
+	if !isGaitRepoCheckout(repoDir) {
+		t.Fatalf("expected repo root to resolve as a gait checkout")
+	}
+	if detectOnboardingMode(repoDir) != onboardingModeRepoCheckout {
+		t.Fatalf("expected repo root onboarding mode to be repo checkout")
 	}
 }
 
