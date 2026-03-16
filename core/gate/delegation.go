@@ -469,11 +469,11 @@ func matchesDelegationScope(requiredScope []string, tokenScope []string, scopeCl
 		return true
 	}
 	for _, scope := range requiredScope {
-		if _, ok := tokenSet[scope]; !ok {
-			return false
+		if _, ok := tokenSet[scope]; ok {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func DelegationDigest(delegation schemagate.IntentDelegation) (string, error) {

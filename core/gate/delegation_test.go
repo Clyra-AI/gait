@@ -192,6 +192,14 @@ func TestValidateDelegationTokenAdditionalFailureModes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected signed scope_class to satisfy required scope, got %v", err)
 	}
+
+	err = ValidateDelegationToken(minted.Token, keyPair.Public, DelegationValidationOptions{
+		Now:           time.Date(2026, time.February, 10, 0, 30, 0, 0, time.UTC),
+		RequiredScope: []string{"read", "write"},
+	})
+	if err != nil {
+		t.Fatalf("expected any matching required scope to satisfy validation, got %v", err)
+	}
 }
 
 func TestDelegationBindingDigest(t *testing.T) {
