@@ -429,9 +429,10 @@ func findZipFile(all []*zip.File, indexed map[string]*zip.File, name string) *zi
 	if indexed != nil {
 		return indexed[name]
 	}
-	for _, zipFile := range all {
-		if zipFile.Name == name {
-			return zipFile
+	// Preserve the existing map-based last-entry-wins semantics for duplicate names.
+	for index := len(all) - 1; index >= 0; index-- {
+		if all[index].Name == name {
+			return all[index]
 		}
 	}
 	return nil
