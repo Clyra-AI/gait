@@ -10,7 +10,7 @@
     "test": "vitest run --coverage"
   },
   "dependencies": {
-    "next": "16.1.6",
+    "next": "16.1.7",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -20,7 +20,7 @@
     "@types/react-dom": "19.2.3",
     "@vitest/coverage-v8": "4.0.7",
     "eslint": "9.39.1",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.1.7",
     "jsdom": "27.2.0",
     "typescript": "5.9.3",
     "vitest": "4.0.7"
