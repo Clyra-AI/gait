@@ -97,6 +97,38 @@ func TestDecodeToolCallAdapters(t *testing.T) {
 	}
 }
 
+func TestDecodeToolCallOpenAIArgumentShapes(t *testing.T) {
+	objectPayload := []byte(`{
+  "type": "function",
+  "function": {
+    "name": "tool.fetch",
+    "arguments": {"url":"https://example.local/object"}
+  }
+}`)
+	call, err := DecodeToolCall("openai", objectPayload)
+	if err != nil {
+		t.Fatalf("decode openai object arguments: %v", err)
+	}
+	if call.Name != "tool.fetch" || call.Args["url"] != "https://example.local/object" {
+		t.Fatalf("unexpected openai object call: %#v", call)
+	}
+
+	nullPayload := []byte(`{
+  "type": "function",
+  "function": {
+    "name": "tool.noop",
+    "arguments": null
+  }
+}`)
+	call, err = DecodeToolCall("openai", nullPayload)
+	if err != nil {
+		t.Fatalf("decode openai null arguments: %v", err)
+	}
+	if call.Name != "tool.noop" || len(call.Args) != 0 {
+		t.Fatalf("unexpected openai null-args call: %#v", call)
+	}
+}
+
 func TestDecodeToolCallClaudeCodeFallbackNameAndTargets(t *testing.T) {
 	payload := []byte(`{
   "tool_name":"NotebookEdit",
