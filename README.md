@@ -1,34 +1,123 @@
-# Gait — Policy-as-Code for AI Agent Tool Calls
+# Gait
 
-Use Gait when an agent can cause real side effects and you need an execution-time verdict plus portable proof.
+Policy-as-code for AI agent tool calls.
 
-Gait is an offline-first CLI and runtime boundary. It is not an agent framework, not a hosted dashboard, and not a model host.
+Gait sits at the execution boundary between an agent decision and a real tool call. It evaluates structured intent, blocks non-`allow` decisions before side effects land, emits signed proof you can verify offline, and turns failures into deterministic CI regressions.
 
-Start with `gait init` and `gait check`, evaluate structured tool-call intent with `gait gate eval`, and turn incidents into deterministic CI regressions with `gait capture`, `gait regress add`, or `gait regress bootstrap`.
+Offline-first. Fail-closed. Portable evidence.
 
-Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`docs/install.md`](docs/install.md) | Homebrew: [`docs/homebrew.md`](docs/homebrew.md)
+Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`docs/install.md`](docs/install.md) | Examples: [`examples/integrations/`](examples/integrations/) | Command docs: [`docs/README.md`](docs/README.md)
 
-## Overview
+## In Brief
 
-Gait gives you a truthful first-run path: bootstrap `.gait.yaml`, inspect the live policy contract, gate real tool execution, and keep portable evidence.
+Gait is a local CLI and runtime boundary for tool-calling agents. It is not an agent framework, not a model host, and not a hosted dashboard.
 
-Managed/preloaded agent note: managed agents can use Gait at the tool boundary, but Gait does not host the model or replace your runtime.
+Managed/preloaded agent note: if you cannot intercept tool execution before side effects, Gait still provides observe, verify, capture, and regress workflows. Strict inline fail-closed enforcement starts only when you control the execution boundary.
+
+## Install
+
+Choose one install path:
+
+### Homebrew
+
+```bash
+brew install Clyra-AI/tap/gait
+```
+
+### Go Install
+
+```bash
+go install github.com/Clyra-AI/gait/cmd/gait@latest
+```
+
+### Release Installer
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
+```
+
+## Start Here
+
+Choose the path that matches what you need right now.
+
+### Fast 20-Second Proof
+
+Use this when you want to validate the install, create one real artifact, and wire the first deterministic CI gate without integrating into an agent yet.
+
+```bash
+gait version --json
+gait doctor --json
+gait demo
+gait verify run_demo --json
+gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+```
+
+This path gives you:
+
+- a truthful install and environment check via `gait doctor --json`
+- one signed demo artifact you can verify offline
+- one deterministic regress gate you can drop into CI immediately
+
+### Add Repo Policy To A Real Project
+
+Use this when you want a repo-root policy file and a local contract check.
+
+```bash
+gait init --json
+gait check --json
+```
+
+This path writes `.gait.yaml`, reports the live policy contract, and returns install-safe next commands.
+
+### Integrate At The Runtime Boundary
+
+Use this when your agent already makes real tool calls and you want enforcement at the execution seam.
+
+Official lanes:
+
+- OpenAI Agents wrapper lane: [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
+- LangChain middleware lane: [`examples/integrations/langchain/`](examples/integrations/langchain/)
+
+Other supported boundary paths:
+
+- generic wrapper or sidecar calling `gait gate eval` before real execution
+- MCP trust and transport boundary via `gait mcp verify`, `gait mcp proxy`, or `gait mcp serve`
+
+No account. No API key. No hosted dependency.
 
 ## Why Gait
 
-- Enforce `allow` / `block` / `require_approval` at the tool boundary before real side effects execute.
-- Keep signed traces, packs, and callpacks as ticket-ready evidence instead of dashboard-only screenshots.
-- Convert failures into deterministic CI regressions with stable exit codes and offline verification.
-- Add durable jobs, MCP trust preflight, and voice gating on the same artifact and policy contract.
+Agent frameworks decide what to do. Gait decides whether the tool action may execute.
+
+Use Gait when you need to:
+
+- enforce `allow`, `block`, or `require_approval` before a real side effect happens
+- keep signed traces, packs, and callpacks as ticket-ready evidence
+- convert incidents into deterministic CI regressions with stable exit codes
+- add MCP trust preflight, context evidence, durable jobs, or voice gating on the same artifact contract
+
+## When To Use Gait
+
+- Your agent can cause real side effects and you need `allow`, `block`, or `require_approval` at execution time.
+- You want signed portable evidence for PRs, incidents, tickets, or audits.
+- You need deterministic regressions that fail CI with stable exit behavior.
+- You want one contract across wrappers, middleware, sidecars, and MCP boundaries.
+
+## When Not To Use Gait
+
+- You do not have a real interception seam before tool execution.
+- Your workflow has no tool-side effects and no evidence requirement.
+- You only need hosted observability and do not need offline verification or deterministic regression.
+- You need a vulnerability scanner, model host, or orchestration framework rather than an execution-boundary control layer.
 
 ## The Boundary Contract
 
-The integration rule is simple:
+Every integration path should implement the same rule:
 
-1. normalize a real tool action into structured intent
-2. ask Gait for a verdict
-3. execute the side effect only when `verdict == "allow"`
-4. keep the resulting signed trace or pack
+1. Normalize a real tool action into structured intent.
+2. Ask Gait for a verdict.
+3. Execute the side effect only when `verdict == "allow"`.
+4. Keep the signed trace, runpack, or pack.
 
 ```python
 def dispatch_tool(tool_call):
@@ -38,277 +127,196 @@ def dispatch_tool(tool_call):
     return {"executed": True, "result": execute_real_tool(tool_call)}
 ```
 
-Official onboarding lanes:
+This is the core contract across wrappers, middleware, sidecars, and MCP boundaries.
 
-- Inline wrapper or sidecar: call `gait gate eval` in your dispatcher before real execution.
-- MCP boundary: use `gait mcp verify` for trust preflight, then `gait mcp proxy` or `gait mcp serve`.
-- Python SDK: thin subprocess ergonomics over the local Go binary, including official LangChain middleware with optional callback correlation.
-- Observe-only path: `gait trace --json -- <child command...>` for integrations that already emit Gait trace references. Wrapper JSON reports `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values when that seam is missing or invalid.
+## Runtime Integration Paths
 
-Other frameworks are named publicly only when an in-repo lane exists and clears the integration scorecard threshold.
+### OpenAI Agents
 
-Start here:
-
-- [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
-- [`examples/integrations/langchain/`](examples/integrations/langchain/)
-- [`docs/integration_checklist.md`](docs/integration_checklist.md)
-- [`docs/agent_integration_boundary.md`](docs/agent_integration_boundary.md)
-- [`docs/mcp_capability_matrix.md`](docs/mcp_capability_matrix.md)
-- [`docs/sdk/python.md`](docs/sdk/python.md)
-
-## Framework Lanes
-
-Official lanes:
-
-- OpenAI Agents: wrapper or sidecar boundary with deterministic allow/block/approval quickstarts in [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
-- LangChain: official middleware with optional callback correlation in [`examples/integrations/langchain/`](examples/integrations/langchain/)
-
-Reference adapters:
-
-- Autogen, OpenClaw, AutoGPT, Gastown, Claude Code, Voice Reference, and the template lane live in [`examples/integrations/README.md`](examples/integrations/README.md)
-
-Promotion rule:
-
-- A framework is only named as an official lane when an in-repo implementation exists and clears the integration scorecard threshold.
-- CrewAI is not an official Gait lane today.
-
-Official lane quickstart commands:
+This is the blessed top-of-funnel runtime lane: a local wrapper at the tool boundary with deterministic allow, block, and approval quickstarts.
 
 ```bash
 python3 examples/integrations/openai_agents/quickstart.py --scenario allow
+python3 examples/integrations/openai_agents/quickstart.py --scenario block
+python3 examples/integrations/openai_agents/quickstart.py --scenario require_approval
+```
+
+See [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/).
+
+### LangChain
+
+The official LangChain surface is middleware with optional callback correlation. Enforcement happens in `wrap_tool_call`; callbacks are additive only.
+
+```bash
+(cd sdk/python && uv sync --extra langchain --extra dev)
 (cd sdk/python && uv run --python 3.13 --extra langchain python ../../examples/integrations/langchain/quickstart.py --scenario allow)
 ```
 
-## When To Use Gait
+See [`examples/integrations/langchain/`](examples/integrations/langchain/) and [`docs/sdk/python.md`](docs/sdk/python.md).
 
-- Tool-calling AI agents need enforceable allow/block/approval decisions.
-- You need signed portable evidence for PRs, incidents, tickets, or audits.
-- You want deterministic regressions that fail CI with stable exit behavior.
-- You need additive durable jobs, MCP trust preflight, or voice gating on the same contract.
+### Generic Wrapper Or Sidecar
 
-## When Not To Use Gait
+If your framework is not an official lane, put Gait at the dispatcher boundary and call `gait gate eval` immediately before the real side effect.
 
-- No local Gait CLI or Gait artifact path exists in the execution environment.
-- Your workflow has no tool-side effects and no evidence requirements.
-- You only need hosted observability dashboards and do not need offline verification or deterministic replay.
+See [`docs/agent_integration_boundary.md`](docs/agent_integration_boundary.md), [`docs/integration_checklist.md`](docs/integration_checklist.md), and [`examples/sidecar/README.md`](examples/sidecar/README.md).
 
-## Quickstart (Real Commands, Under 60 Seconds)
+### Bounded Wrapper Commands
 
-### Fast 20-Second Proof
+`gait test`, `gait enforce`, and `gait trace` are real commands, but they are bounded wrappers for explicit Gait-aware integrations that emit trace references. They do not auto-instrument arbitrary runtimes.
 
 ```bash
-# Install
-curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
-
-# Machine-readable install probe
-gait version --json
-gait doctor --json
-
-# Bootstrap repo policy-as-code
-gait init --json
-gait check --json
-
-# Create a portable demo artifact and verify it
-gait demo
-gait verify run_demo --json
-
-# Turn the same artifact into a CI gate
-gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+gait trace --json -- <child command...>
+gait test --json -- <child command...>
+gait enforce --json -- <child command...>
 ```
-
-Before high-risk production enforcement, start from the canonical hardened template at `examples/config/oss_prod_template.yaml` from a repo checkout, or fetch that same file from the repo if you installed only the binary. Then require `gait doctor --production-readiness --json` to return `ok=true`. The full path is documented in `docs/install.md`.
-
-`gait init --json` writes `.gait.yaml` and returns a real scaffold summary like:
-
-```json
-{
-  "ok": true,
-  "policy_path": ".gait.yaml",
-  "template": "baseline-highrisk",
-  "detected_signals": [
-    {
-      "code": "framework.langchain",
-      "category": "framework",
-      "value": "langchain",
-      "confidence": "high"
-    }
-  ],
-  "generated_rules": [
-    {
-      "id": "starter.block.destructive",
-      "name": "block-destructive-tools",
-      "effect": "block"
-    }
-  ],
-  "next_commands": [
-    "gait check --policy .gait.yaml --json",
-    "gait policy validate .gait.yaml --json",
-    "gait doctor --json"
-  ]
-}
-```
-
-`gait check --json` validates the repo policy contract and reports the live policy shape:
-
-```json
-{
-  "ok": true,
-  "policy_path": ".gait.yaml",
-  "default_verdict": "block",
-  "rule_count": 7,
-  "next_commands": [
-    "gait policy validate .gait.yaml --json",
-    "gait doctor --json",
-    "gait demo --json"
-  ],
-  "findings": [
-    {
-      "code": "repo.generated_rules_available",
-      "severity": "info",
-      "detected_surface": "repo.signals"
-    }
-  ],
-  "summary": "policy ok: default_verdict=block rules=7 findings=2 gap_warnings=1"
-}
-```
-
-Standard `gait doctor --json` is install-safe in any clean writable directory. It returns `status=pass|warn` for the installed-binary lane and only includes repo-only checks when you run it from a Gait repo checkout.
-
-`gait demo` prints a portable proof trail:
-
-```text
-run_id=run_demo
-ticket_footer=GAIT run_id=run_demo ...
-verify=ok
-next=gait verify run_demo --json,gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml,...
-```
-
-For wrappers and SDKs, use `gait demo --json`; machine-readable clients should not scrape the human text form.
-
-Integration touchpoints:
-
-- Wrapper or sidecar: call `gait gate eval` at the exact tool-dispatch site before side effects execute.
-- Context-required policies: pass `--context-envelope <context_envelope.json>` at that boundary on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`; raw `intent.context_set_digest`, `intent.context_evidence_mode`, or `context.auth_context.context_age_seconds` claims are treated as non-authoritative until the envelope is verified.
-- Delegated execution: pass signed delegation token evidence to `gait gate eval`; multi-hop delegation only authorizes when each claimed hop is backed by a signed token for that hop, and policy-required delegation scope must be satisfied by the token's signed `scope` or `scope_class`.
-- MCP serve nuance: if the server starts with `--allow-client-artifact-paths`, same-host callers may provide `call.context.context_envelope_path`; otherwise keep context proof fixed at the serve boundary with `--context-envelope`.
-- SDKs and automation: use `gait demo --json` for smoke checks and handoffs; the text form is human-facing only.
-- Policy authors: when same-priority rules overlap, Gait applies the most restrictive verdict for that priority tier. Use a strictly lower numeric `priority` when one rule must win.
-
-Migration notes:
-
-- If an older integration relied on raw intent context fields to satisfy `require_context_evidence`, move that proof to a verified `--context-envelope` input.
-- If tooling parsed `gait demo` text output, switch it to `gait demo --json` or the Python SDK helper surface.
-
-Draft proposal migration notes:
-
-- Use the shipped repo-root policy DSL: `schema_id`, `schema_version`, `default_verdict`, optional `fail_closed`, optional `mcp_trust`, and `rules`.
-- Do not treat `version`, `name`, `boundaries`, `defaults`, `trust_sources`, or `unknown_server` as alternate supported policy syntax.
-- Use `gait mcp verify`, not `gait mcp-verify`.
-- Use `gait capture --out ...`, not `gait capture --save-as ...`.
-
-No account. No API key. No hosted dependency.
 
 ## Simple End-To-End Scenario
 
 See [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent_tool_boundary.md) and the promoted wrapper quickstart at `examples/integrations/openai_agents/quickstart.py`.
 
-## What Ships In OSS
+## Policy Onboarding
 
-**Gate** — evaluate structured tool-call intent against YAML policy with fail-closed enforcement. Non-allow means non-execute. When multiple rules at the same priority match, Gait resolves that priority tier to the most restrictive verdict instead of depending on rule names.
-Approved-script fast-path allow only applies to verified registry entries; missing verification prerequisites disable the fast path in standard low-risk mode and fail closed in high-risk paths.
+The repo-root policy contract is `.gait.yaml`.
 
-**Evidence** — signed traces, runpacks, packs, and callpacks you can verify, diff, and attach to tickets, PRs, audits, and incidents.
+`gait init --json` writes the starter file. `gait check --json` validates it and reports the live contract.
 
-**Regress** — `gait capture`, `gait regress add`, and `gait regress bootstrap` turn incidents into deterministic CI gates with JUnit output.
+Minimal shape:
 
-**Durable jobs** — checkpointed long-running work with pause/resume/cancel, approvals, and deterministic stop reasons.
+```yaml
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+mcp_trust:
+  enabled: true
+  snapshot: ./examples/integrations/mcp_trust/trust_snapshot.json
+rules:
+  - name: require-approval-tool-write
+    priority: 20
+    effect: require_approval
+    match:
+      tool_names: [tool.write]
+```
 
-**MCP trust** — evaluate local trust snapshots with `gait mcp verify`, then enforce via `gait mcp proxy` or `gait mcp serve`.
-`gait mcp verify --json` reports `trust_model=local_snapshot` and `snapshot_path` when MCP trust is configured.
+Policy docs:
 
-**Voice and context evidence** — fail-closed gating for spoken commitments and missing-context high-risk decisions.
+- [`docs/policy_authoring.md`](docs/policy_authoring.md)
+- [`schemas/v1/gate/policy.schema.json`](schemas/v1/gate/policy.schema.json)
+
+## Regress And CI
+
+Gait turns incidents into deterministic CI gates.
+
+One-command bootstrap path:
+
+```bash
+gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+```
+
+Explicit handoff path:
+
+```bash
+gait capture --from run_demo --json
+gait regress add --from ./gait-out/capture.json --json
+gait regress run --json --junit ./gait-out/junit.xml
+```
+
+CI adoption assets:
+
+- GitHub Actions template: [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml)
+- GitLab, Jenkins, CircleCI, and hook guidance: [`docs/ci_regress_kit.md`](docs/ci_regress_kit.md)
+- One-PR rollout guide: [`docs/adopt_in_one_pr.md`](docs/adopt_in_one_pr.md)
+
+Stable regress exits:
+
+- `0` pass
+- `5` deterministic regression failure
+
+Stable exit codes:
+
+- `0` success
+- `1` internal or runtime failure
+- `2` verification failure
+- `3` policy block
+- `4` approval required
+- `5` deterministic regression failure
+- `6` invalid input
+- `7` dependency missing
+- `8` unsafe operation blocked
+
+## MCP Trust
+
+Gait can preflight and enforce MCP trust at the connection boundary.
+
+Current shipped model:
+
+- external scanners or registries produce a local trust snapshot
+- `gait mcp verify`, `gait mcp proxy`, and `gait mcp serve` consume that local file
+- Gait enforces the decision at the boundary; it does not replace the scanner
+
+This is the right split with tools such as Snyk: external tooling finds the issue, and Gait enforces the runtime response.
+
+See [`examples/integrations/mcp_trust/README.md`](examples/integrations/mcp_trust/README.md), [`docs/mcp_capability_matrix.md`](docs/mcp_capability_matrix.md), and [`docs/external_tool_registry_policy.md`](docs/external_tool_registry_policy.md).
 
 ## Gait Vs Observability
 
 Gait is complementary to observability products such as LangSmith, Langfuse, and AgentOps.
 
 - LangSmith, Langfuse, and AgentOps focus on hosted tracing, analytics, and after-the-fact inspection.
-- Gait decides whether a tool action may execute, emits a signed trace for that decision, and makes the artifact reusable in CI.
-- The practical model is camera plus gate: use observability to inspect, and use Gait to enforce at the action boundary before side effects land.
-- External scanners and registries can feed Gait. Gait enforces at the action boundary; it does not replace the scanner or dashboard.
+- Gait evaluates structured action intent, enforces at the execution boundary, and emits signed artifacts you can reuse in CI and incident response.
+- The practical model is camera plus gate: use observability to inspect, and use Gait to block or gate high-risk tool actions before they land.
 
-## CI Adoption
+## What Gait Does Not Do
 
-```bash
-gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
-```
+- Gait is not an agent framework, orchestrator, model host, or hosted dashboard.
+- Gait does not auto-instrument arbitrary runtimes without an interception seam.
+- Gait is not a vulnerability scanner.
+- Gait does not replace your tracing, analytics, SIEM, or scanner stack.
 
-- exit `0` means pass
-- exit `5` means regression drift
-- GitHub Actions template: [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml)
-- GitLab, Jenkins, CircleCI, and hook guidance: [`docs/ci_regress_kit.md`](docs/ci_regress_kit.md)
-- Copy-paste rollout: [`docs/adopt_in_one_pr.md`](docs/adopt_in_one_pr.md)
+## What Ships In OSS
+
+- **Gate**: structured policy evaluation with fail-closed enforcement
+- **Evidence**: signed traces, runpacks, packs, and callpacks
+- **Regress**: deterministic incident-to-CI workflows
+- **Durable jobs**: checkpointed long-running work with pause, resume, cancel, and approvals
+- **MCP trust**: trust preflight plus proxy, bridge, and serve boundaries
+- **Voice and context evidence**: fail-closed gating for spoken commitments and missing-context high-risk actions
 
 ## Compliance And Evidence
 
-Put this copy at the bottom of launch surfaces: Gait produces signed evidence artifacts for operational proof.
+Every Gait decision can produce signed proof artifacts that map to operational and audit evidence.
 
-- `gait verify`, `gait pack verify`, and `gait trace verify` work offline.
-- If you provide a verify key and signature validation fails, `gait pack verify` returns verification failure instead of a soft success.
-- Packs use Ed25519 signatures plus SHA-256 manifests.
-- Artifacts are versioned, deterministic, and designed for change control, audit trails, PRs, and incident handoff.
+- `gait verify`, `gait pack verify`, and `gait trace verify` work offline
+- packs use Ed25519 signatures plus SHA-256 manifests
+- artifacts are deterministic, versioned, and designed for PRs, incidents, change control, and audits
 
-Normative references:
+Framework mapping and evidence docs:
 
 - [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md)
 - [`docs/contracts/packspec_v1.md`](docs/contracts/packspec_v1.md)
 - [`docs/contracts/intent_receipt_conformance.md`](docs/contracts/intent_receipt_conformance.md)
 - [`docs/failure_taxonomy_exit_codes.md`](docs/failure_taxonomy_exit_codes.md)
 
-Stable exit codes:
+## Learn More
 
-- `0` success
-- `1` internal/runtime failure
-- `2` verification failure
-- `3` policy block
-- `4` approval required
-- `5` regress failed
-- `6` invalid input
-- `7` dependency missing
-- `8` unsafe operation blocked
-
-## Documentation
-
-1. [`docs/README.md`](docs/README.md)
-2. [`docs/policy_authoring.md`](docs/policy_authoring.md)
-3. [`docs/integration_checklist.md`](docs/integration_checklist.md)
-4. [`docs/agent_integration_boundary.md`](docs/agent_integration_boundary.md)
-5. [`docs/ci_regress_kit.md`](docs/ci_regress_kit.md)
-6. [`docs/mcp_capability_matrix.md`](docs/mcp_capability_matrix.md)
-
-## Developer Workflow
-
-![CI](https://github.com/Clyra-AI/gait/actions/workflows/ci.yml/badge.svg)
-![CodeQL](https://github.com/Clyra-AI/gait/actions/workflows/codeql.yml/badge.svg)
-
-```bash
-make fmt && make lint && make test
-make test-docs-consistency
-make test-docs-storyline
-```
-
-Hooks: `make hooks` | Contributor guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Install: [`docs/install.md`](docs/install.md)
+- Policy authoring: [`docs/policy_authoring.md`](docs/policy_authoring.md)
+- Integration checklist: [`docs/integration_checklist.md`](docs/integration_checklist.md)
+- Boundary guide: [`docs/agent_integration_boundary.md`](docs/agent_integration_boundary.md)
+- Python SDK: [`docs/sdk/python.md`](docs/sdk/python.md)
+- MCP capability matrix: [`docs/mcp_capability_matrix.md`](docs/mcp_capability_matrix.md)
+- CI regress kit: [`docs/ci_regress_kit.md`](docs/ci_regress_kit.md)
+- Docs index: [`docs/README.md`](docs/README.md)
 
 ## Command Surface
 
 ```text
 gait init|check                                    Repo policy bootstrap and validation
-gait gate eval                                     Policy enforcement + signed trace
+gait gate eval                                     Policy evaluation + signed trace
 gait test|enforce                                  Bounded wrappers for explicit Gait-aware integrations
 gait capture                                       Persist portable capture receipt from explicit source
 gait regress add|init|bootstrap|run                Incident -> CI gate
 gait mcp verify|proxy|bridge|serve                 MCP trust preflight and transport adapters
-gait trace|trace verify                            Observe-only trace wrapper and trace integrity verification
+gait trace|trace verify                            Observe-only wrapper and trace integrity verification
 gait demo|verify                                   First artifact and offline verification
 gait pack build|verify|inspect|diff|export         Unified pack operations
 gait job submit|status|checkpoint|pause|resume     Durable job lifecycle
@@ -321,8 +329,6 @@ gait keys init|rotate|verify                       Signing key lifecycle
 gait ui                                            Local playground
 gait version [--json] [--explain]                  Print version
 ```
-
-Most commands support `--json`. Machine-readable version output is available via `gait version --json`, `gait --version --json`, and `gait -v --json`. Root help (`gait --help`) is text-only and exits `0`. Most commands support `--explain`.
 
 ## Feedback
 
