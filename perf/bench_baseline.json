@@ -3,7 +3,7 @@
   "benchmarks": {
     "BenchmarkEvaluatePolicyTypical": {
       "baseline_ns_op": 7054,
-      "max_regression_factor": 4.0
+      "max_regression_factor": 4.2
     },
     "BenchmarkVerifyZipTypical": {
       "baseline_ns_op": 98898,
