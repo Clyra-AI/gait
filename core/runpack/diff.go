@@ -3,6 +3,7 @@ package runpack
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -58,24 +59,6 @@ func DiffRunpacks(leftPath, rightPath string, privacy DiffPrivacy) (DiffResult, 
 	leftManifest := normalizeManifest(left.Manifest)
 	rightManifest := normalizeManifest(right.Manifest)
 
-	leftManifestJSON, err := json.Marshal(leftManifest)
-	if err != nil {
-		return DiffResult{}, err
-	}
-	rightManifestJSON, err := json.Marshal(rightManifest)
-	if err != nil {
-		return DiffResult{}, err
-	}
-
-	leftManifestDigest, err := digestNormalized(leftManifestJSON)
-	if err != nil {
-		return DiffResult{}, err
-	}
-	rightManifestDigest, err := digestNormalized(rightManifestJSON)
-	if err != nil {
-		return DiffResult{}, err
-	}
-
 	filesChanged := diffManifestFiles(left.Manifest.Files, right.Manifest.Files)
 
 	intentsChanged, leftOnlyIntents, rightOnlyIntents, err := diffRecords(left.Intents, right.Intents, privacy)
@@ -92,19 +75,17 @@ func DiffRunpacks(leftPath, rightPath string, privacy DiffPrivacy) (DiffResult, 
 	leftRefs := normalizeRefs(left.Refs)
 	rightRefs := normalizeRefs(right.Refs)
 	if privacy == DiffPrivacyFull {
-		refsChanged, err = jsonDiff(leftRefs, rightRefs)
-		if err != nil {
-			return DiffResult{}, err
+		if reflect.DeepEqual(leftRefs, rightRefs) {
+			contextDriftClassification = "none"
+		} else {
+			classification, changed, runtimeOnly, classifyErr := contextproof.ClassifyRefsDrift(left.Refs, right.Refs)
+			if classifyErr != nil {
+				return DiffResult{}, classifyErr
+			}
+			refsChanged = changed
+			contextDriftClassification = classification
+			contextRuntimeOnly = runtimeOnly
 		}
-		classification, changed, runtimeOnly, classifyErr := contextproof.ClassifyRefsDrift(left.Refs, right.Refs)
-		if classifyErr != nil {
-			return DiffResult{}, classifyErr
-		}
-		contextDriftClassification = classification
-		if changed {
-			refsChanged = true
-		}
-		contextRuntimeOnly = runtimeOnly
 	} else {
 		refsChanged = len(leftRefs.Receipts) != len(rightRefs.Receipts)
 		contextDriftClassification = "none"
@@ -113,7 +94,7 @@ func DiffRunpacks(leftPath, rightPath string, privacy DiffPrivacy) (DiffResult, 
 	summary := DiffSummary{
 		RunIDLeft:                  left.Run.RunID,
 		RunIDRight:                 right.Run.RunID,
-		ManifestChanged:            leftManifestDigest != rightManifestDigest,
+		ManifestChanged:            !reflect.DeepEqual(leftManifest, rightManifest),
 		FilesChanged:               filesChanged,
 		IntentsChanged:             intentsChanged,
 		ResultsChanged:             resultsChanged,
@@ -227,26 +208,6 @@ func diffKeys(left, right map[string]struct{}) []string {
 
 func digestNormalized(raw []byte) (string, error) {
 	return jcs.DigestJCS(raw)
-}
-
-func jsonDiff(left, right any) (bool, error) {
-	leftRaw, err := json.Marshal(left)
-	if err != nil {
-		return false, err
-	}
-	rightRaw, err := json.Marshal(right)
-	if err != nil {
-		return false, err
-	}
-	leftDigest, err := digestNormalized(leftRaw)
-	if err != nil {
-		return false, err
-	}
-	rightDigest, err := digestNormalized(rightRaw)
-	if err != nil {
-		return false, err
-	}
-	return leftDigest != rightDigest, nil
 }
 
 func recordKey(record any) (string, error) {

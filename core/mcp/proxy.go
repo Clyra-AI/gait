@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -252,22 +253,38 @@ func DecodeToolCall(adapter string, payload []byte) (ToolCall, error) {
 }
 
 func decodeOpenAIToolCall(payload []byte) (ToolCall, error) {
-	var envelope struct {
-		Type     string `json:"type"`
+	var stringEnvelope struct {
 		Function struct {
 			Name      string `json:"name"`
-			Arguments any    `json:"arguments"`
+			Arguments string `json:"arguments"`
 		} `json:"function"`
 	}
-	if err := json.Unmarshal(payload, &envelope); err != nil {
+	if err := json.Unmarshal(payload, &stringEnvelope); err == nil {
+		args, decodeErr := decodeJSONStringArguments(stringEnvelope.Function.Arguments)
+		if decodeErr != nil {
+			return ToolCall{}, fmt.Errorf("decode openai arguments: %w", decodeErr)
+		}
+		return ToolCall{
+			Name: stringEnvelope.Function.Name,
+			Args: args,
+		}, nil
+	}
+
+	var rawEnvelope struct {
+		Function struct {
+			Name      string          `json:"name"`
+			Arguments json.RawMessage `json:"arguments"`
+		} `json:"function"`
+	}
+	if err := json.Unmarshal(payload, &rawEnvelope); err != nil {
 		return ToolCall{}, fmt.Errorf("parse openai tool call: %w", err)
 	}
-	args, err := decodeArguments(envelope.Function.Arguments)
+	args, err := decodeRawArguments(rawEnvelope.Function.Arguments)
 	if err != nil {
 		return ToolCall{}, fmt.Errorf("decode openai arguments: %w", err)
 	}
 	return ToolCall{
-		Name: envelope.Function.Name,
+		Name: rawEnvelope.Function.Name,
 		Args: args,
 	}, nil
 }
@@ -560,6 +577,52 @@ func decodeArguments(raw any) (map[string]any, error) {
 			return nil, err
 		}
 		return parsed, nil
+	}
+}
+
+func decodeJSONStringArguments(encoded string) (map[string]any, error) {
+	if strings.TrimSpace(encoded) == "" {
+		return map[string]any{}, nil
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(encoded), &parsed); err != nil {
+		return nil, err
+	}
+	return parsed, nil
+}
+
+func decodeRawArguments(raw json.RawMessage) (map[string]any, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return map[string]any{}, nil
+	}
+
+	switch raw[0] {
+	case '{':
+		var parsed map[string]any
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return nil, err
+		}
+		return parsed, nil
+	case '"':
+		var encoded string
+		if err := json.Unmarshal(raw, &encoded); err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(encoded) == "" {
+			return map[string]any{}, nil
+		}
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(encoded), &parsed); err != nil {
+			return nil, err
+		}
+		return parsed, nil
+	default:
+		var decoded any
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			return nil, err
+		}
+		return decodeArguments(decoded)
 	}
 }
 
