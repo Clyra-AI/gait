@@ -84,7 +84,7 @@ func BuildIncidentPack(options IncidentPackOptions) (IncidentPackResult, error) 
 		return IncidentPackResult{}, fmt.Errorf("encode policy digests: %w", err)
 	}
 
-	buildResult, err := BuildPack(BuildOptions{
+	buildResult, err := buildPackWithRunpack(BuildOptions{
 		RunpackPath:             runpackPath,
 		OutputPath:              options.OutputPath,
 		CaseID:                  options.CaseID,
@@ -105,7 +105,7 @@ func BuildIncidentPack(options IncidentPackOptions) (IncidentPackResult, error) 
 		},
 		AutoDiscoverV12: false,
 		ProducerVersion: options.ProducerVersion,
-	})
+	}, data)
 	if err != nil {
 		return IncidentPackResult{}, err
 	}

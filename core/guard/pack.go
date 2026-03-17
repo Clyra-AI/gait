@@ -97,7 +97,10 @@ func BuildPack(options BuildOptions) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("read runpack: %w", err)
 	}
+	return buildPackWithRunpack(options, runpackData)
+}
 
+func buildPackWithRunpack(options BuildOptions, runpackData runpack.Runpack) (BuildResult, error) {
 	evidenceFiles := map[string][]byte{}
 	runpackSummary, err := buildRunpackSummary(runpackData)
 	if err != nil {
@@ -320,16 +323,18 @@ func VerifyPack(path string) (VerifyResult, error) {
 }
 
 func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error) {
-	zipReader, err := zip.OpenReader(path)
+	zipReader, zipCloser, err := openPackZip(path)
 	if err != nil {
 		return VerifyResult{}, fmt.Errorf("open evidence pack zip: %w", err)
 	}
-	defer func() {
-		_ = zipReader.Close()
-	}()
+	if zipCloser != nil {
+		defer func() {
+			_ = zipCloser.Close()
+		}()
+	}
 
 	var files map[string]*zip.File
-	if len(zipReader.File) > 16 {
+	if len(zipReader.File) > 4 {
 		files = make(map[string]*zip.File, len(zipReader.File))
 		for _, zipFile := range zipReader.File {
 			files[zipFile.Name] = zipFile
@@ -423,6 +428,28 @@ func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error
 	}
 	sort.Strings(result.SignatureErrors)
 	return result, nil
+}
+
+const maxInMemoryPackVerifyBytes = 1 << 20
+
+func openPackZip(path string) (*zip.Reader, io.Closer, error) {
+	info, err := os.Stat(path)
+	if err == nil && info.Size() > 0 && info.Size() <= maxInMemoryPackVerifyBytes {
+		// #nosec G304 -- verify path is an explicit local artifact selected by the caller.
+		packBytes, readErr := os.ReadFile(path)
+		if readErr == nil {
+			zipReader, zipErr := zip.NewReader(bytes.NewReader(packBytes), int64(len(packBytes)))
+			if zipErr == nil {
+				return zipReader, nil, nil
+			}
+		}
+	}
+
+	zipReader, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &zipReader.Reader, zipReader, nil
 }
 
 func findZipFile(all []*zip.File, indexed map[string]*zip.File, name string) *zip.File {
