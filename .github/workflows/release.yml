@@ -137,6 +137,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Configure repo hooks path
+        run: |
+          git config core.hooksPath .githooks
       - name: Run release hardening gate
         run: |
           bash scripts/test_claude_code_hook_contract.sh
