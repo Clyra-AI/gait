@@ -21,6 +21,8 @@ Prove that a user can:
 Windows is included in CI matrix validation, but this local script focuses on Linux/macOS hosts.
 
 The UAT script refreshes Homebrew taps before reinstall to avoid stale formula reads during release validation.
+The UAT script runs `make test-runtime-slo` and the UAT-specific perf gate `make bench-uat-check` before the longest chaos/soak suites to reduce host-throttle variance during local release validation.
+The local UAT perf bench step retries once before failing so a single noisy local benchmark sample set does not block an otherwise healthy release candidate, while the stricter baseline-regression gate remains in `make bench-check` for pre-release validation.
 
 ## Required Scripts
 

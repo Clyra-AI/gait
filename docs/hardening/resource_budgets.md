@@ -53,6 +53,7 @@ Covered benchmark families:
 - `BenchmarkInstallLocalTypical` budget reflects full local install integrity work (JCS digest, signature verification, and atomic fsync writes), not a metadata-only path.
 - Absolute `max_ns_op` ceilings should stay rounded above repeated release-host medians and close to the baseline regression envelope tracked in `perf/bench_baseline.json`.
 - When a benchmark repeatedly lands within a few percent of the regression ceiling on supported release hosts, refresh the baseline or factor in the same change that established the new steady state.
+- Local UAT may use `perf/resource_budgets_uat.json` via `make bench-uat-check` to validate absolute release-host perf ceilings without re-running the stricter baseline-regression gate that `make bench-check` enforces earlier in release validation.
 - Tightening a budget requires:
   1. Baseline refresh in `perf/bench_baseline.json`
   2. Updated budget rationale in this document

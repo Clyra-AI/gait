@@ -242,6 +242,11 @@ bench-check: bench
 	$(GO) build -o ./gait ./cmd/gait
 	$(PYTHON) scripts/check_context_budgets.py ./gait perf/context_budgets.json perf/context_budget_report.json
 
+bench-uat-check: bench
+	$(PYTHON) scripts/check_resource_budgets.py $(BENCH_OUTPUT) perf/resource_budgets_uat.json perf/resource_budget_report.json
+	$(GO) build -o ./gait ./cmd/gait
+	$(PYTHON) scripts/check_context_budgets.py ./gait perf/context_budgets.json perf/context_budget_report.json
+
 bench-budgets:
 	$(GO) build -o ./gait ./cmd/gait
 	$(PYTHON) scripts/check_command_budgets.py ./gait perf/command_budget_report.json perf/runtime_slo_budgets.json

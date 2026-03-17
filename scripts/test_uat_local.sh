@@ -134,6 +134,29 @@ run_step() {
   fi
 }
 
+run_step_with_retry() {
+  local name="$1"
+  local max_attempts="$2"
+  shift 2
+  mkdir -p "${OUTPUT_DIR}/logs"
+  local log_path="${OUTPUT_DIR}/logs/${name}.log"
+  local attempt=1
+  while true; do
+    log "==> ${name} (attempt ${attempt}/${max_attempts})"
+    if "$@" >"${log_path}" 2>&1; then
+      log "PASS ${name}"
+      return 0
+    fi
+    if [[ "${attempt}" -ge "${max_attempts}" ]]; then
+      log "FAIL ${name} (see ${log_path})"
+      tail -n 80 "${log_path}" || true
+      exit 1
+    fi
+    log "RETRY ${name} after transient/local perf variance"
+    attempt=$((attempt + 1))
+  done
+}
+
 run_binary_contract_suite() {
   local label="$1"
   local bin_path="$2"
@@ -197,6 +220,9 @@ run_step "quality_adoption" make -C "${REPO_ROOT}" test-adoption
 run_step "quality_adapter_parity" make -C "${REPO_ROOT}" test-adapter-parity
 run_step "quality_policy_compliance" bash "${REPO_ROOT}/scripts/policy_compliance_ci.sh"
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
+# Run perf-sensitive gates before the longest soak/chaos suites to reduce host-throttle noise.
+run_step "quality_runtime_slo" make -C "${REPO_ROOT}" test-runtime-slo
+run_step_with_retry "quality_perf_bench_check" 2 make -C "${REPO_ROOT}" bench-uat-check
 run_step "quality_v2_3_acceptance" make -C "${REPO_ROOT}" test-v2-3-acceptance
 run_step "quality_v2_4_acceptance" make -C "${REPO_ROOT}" test-v2-4-acceptance
 run_step "quality_v2_5_acceptance" make -C "${REPO_ROOT}" test-v2-5-acceptance
@@ -212,8 +238,6 @@ run_step "quality_packspec_tck" make -C "${REPO_ROOT}" test-packspec-tck
 run_step "quality_hardening_acceptance" make -C "${REPO_ROOT}" test-hardening-acceptance
 run_step "quality_chaos" make -C "${REPO_ROOT}" test-chaos
 run_step "quality_session_soak" bash "${REPO_ROOT}/scripts/test_session_soak.sh"
-run_step "quality_runtime_slo" make -C "${REPO_ROOT}" test-runtime-slo
-run_step "quality_perf_bench_check" make -C "${REPO_ROOT}" bench-check
 if [[ "${SKIP_BREW}" == "true" ]]; then
   run_step "quality_install_path_versions" bash "${REPO_ROOT}/scripts/test_cli_version_install_paths.sh" --skip-brew
 else

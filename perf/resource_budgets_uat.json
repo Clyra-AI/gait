@@ -1,0 +1,46 @@
+{
+  "BenchmarkEvaluatePolicyTypical": {
+    "max_ns_op": 34000,
+    "max_allocs_op": 320
+  },
+  "BenchmarkVerifyZipTypical": {
+    "max_ns_op": 420000,
+    "max_allocs_op": 700
+  },
+  "BenchmarkDiffRunpacksTypical": {
+    "max_ns_op": 1000000,
+    "max_allocs_op": 3500
+  },
+  "BenchmarkSnapshotTypical": {
+    "max_ns_op": 255000,
+    "max_allocs_op": 900
+  },
+  "BenchmarkDiffSnapshotsTypical": {
+    "max_ns_op": 6000,
+    "max_allocs_op": 20
+  },
+  "BenchmarkVerifyPackTypical": {
+    "max_ns_op": 305000,
+    "max_allocs_op": 350
+  },
+  "BenchmarkBuildIncidentPackTypical": {
+    "max_ns_op": 2600000,
+    "max_allocs_op": 3500
+  },
+  "BenchmarkInstallLocalTypical": {
+    "max_ns_op": 30000000,
+    "max_allocs_op": 700
+  },
+  "BenchmarkVerifyInstalledTypical": {
+    "max_ns_op": 220000,
+    "max_allocs_op": 400
+  },
+  "BenchmarkDecodeToolCallOpenAITypical": {
+    "max_ns_op": 4500,
+    "max_allocs_op": 40
+  },
+  "BenchmarkEvaluateToolCallTypical": {
+    "max_ns_op": 36000,
+    "max_allocs_op": 500
+  }
+}
