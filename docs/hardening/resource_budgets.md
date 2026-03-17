@@ -51,6 +51,8 @@ Covered benchmark families:
 
 - Budgets are intentionally conservative to reduce false positives in shared CI environments.
 - `BenchmarkInstallLocalTypical` budget reflects full local install integrity work (JCS digest, signature verification, and atomic fsync writes), not a metadata-only path.
+- Absolute `max_ns_op` ceilings should stay rounded above repeated release-host medians and close to the baseline regression envelope tracked in `perf/bench_baseline.json`.
+- When a benchmark repeatedly lands within a few percent of the regression ceiling on supported release hosts, refresh the baseline or factor in the same change that established the new steady state.
 - Tightening a budget requires:
   1. Baseline refresh in `perf/bench_baseline.json`
   2. Updated budget rationale in this document
