@@ -70,6 +70,8 @@ Reference: `docs/agent_integration_boundary.md`.
 - If you use `gait test`, `gait enforce`, or `gait trace`, the child integration must emit `trace_path=<path>`; wrapper JSON exposes `boundary_contract=explicit_trace_reference` and stable `failure_reason` values when that seam is missing or invalid.
 - Context-required policies: pass `--context-envelope <context_envelope.json>` from the local capture boundary; on `gait mcp serve`, either pin that envelope at server startup or explicitly enable same-host request paths before accepting `call.context.context_envelope_path`. Raw intent context fields are not authoritative by themselves.
 - SDK or CI automation: use `gait demo --json` for machine-readable smoke checks and handoff metadata.
+- Python run-session capture should pass raw normalization data to `gait run record` and let Go compute digest-bearing artifact fields; do not hash portable artifact digests in the wrapper.
+- MCP trust snapshots must use unique normalized `server_id` / `server_name` identities; duplicates are invalid and high-risk trust checks fail closed.
 - CI regression loop: persist the trace or runpack from that same boundary, then wire `gait regress bootstrap --from ... --json --junit ...`.
 
 ## Core Track (First Integration, Required)
@@ -83,6 +85,7 @@ Run these first. Stop if expected output is missing.
 2. Verify artifact:
 - `gait verify run_demo --json`
 - expect `ok=true`
+- duplicate ZIP entry names in runpacks or packs are verification failures, not ambiguous soft passes
 3. Policy decision shape:
 - `gait gate eval ... --json`
 - expect deterministic `verdict`, `reason_codes`, `intent_digest`, `policy_digest`, `trace_path`

@@ -5,6 +5,7 @@
 - Structured intent model for policy decisions (not free-form prompt filtering).
 - Destructive paths support phase-aware plan/apply boundaries plus fail-closed destructive budgets.
 - Deterministic and offline verification for all artifact types (runpacks, jobpacks, callpacks).
+- Duplicate ZIP entry names fail verification rather than falling back to ambiguous first/last-wins behavior.
 - Ed25519 signatures and SHA-256 manifest integrity in PackSpec v1.
 - Signed traces and explicit reason codes for blocked actions.
 - Approval tokens can carry bounded destructive scope (`max_targets`, `max_ops`); overruns fail closed.
@@ -14,6 +15,7 @@
 - Durable jobs with deterministic stop reasons and checkpoint integrity.
 - No hosted service dependency required for core operation.
 - MCP trust inputs remain local-file based and complementary to external scanners or registries; Gait enforces, it does not become the scanner.
+- Duplicate normalized MCP trust identities invalidate the local snapshot and required high-risk trust paths fail closed.
 
 Operational references:
 

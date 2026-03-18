@@ -64,6 +64,12 @@ def test_run_session_captures_attempts_and_emits_runpack(
     assert len(record_input["intents"]) == 2
     assert len(record_input["results"]) == 2
     assert record_input["capture_mode"] == "reference"
+    assert "args_digest" not in record_input["intents"][0]
+    assert "result_digest" not in record_input["results"][0]
+    assert "query_digest" not in record_input["refs"]["receipts"][0]
+    assert "content_digest" not in record_input["refs"]["receipts"][0]
+    assert record_input["normalization"]["intent_args"]["intent_0001"]["path"] == "/tmp/ok.txt"
+    assert record_input["normalization"]["result_payloads"]["intent_0001"]["executed"] is True
 
 
 def test_run_session_records_executor_errors(
@@ -101,3 +107,35 @@ def test_run_session_records_executor_errors(
     assert session.attempts[0].status == "error"
     record_input = json.loads(capture_input_path.read_text(encoding="utf-8"))
     assert record_input["results"][0]["status"] == "error"
+    assert "result_digest" not in record_input["results"][0]
+    assert record_input["normalization"]["result_payloads"]["intent_0001"]["error"] == "boom"
+
+
+def test_run_session_rejects_set_payloads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_gait = tmp_path / "fake_gait.py"
+    create_fake_gait_script(fake_gait)
+    capture_input_path = tmp_path / "record_input_set.json"
+    monkeypatch.setenv("FAKE_GAIT_RECORD_CAPTURE", str(capture_input_path))
+
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml",
+        gait_bin=[sys.executable, str(fake_gait)],
+    )
+    intent = capture_intent(
+        tool_name="tool.allow",
+        args={"tags": {"alpha", "beta"}},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+    )
+
+    with run_session(
+        run_id="run_sdk_set_error",
+        gait_bin=[sys.executable, str(fake_gait)],
+        cwd=tmp_path,
+        out_dir=tmp_path / "gait-out",
+    ):
+        with pytest.raises(TypeError, match="set values are not supported"):
+            adapter.execute(
+                intent=intent,
+                executor=lambda _: {"status": "ok"},
+                cwd=tmp_path,
+            )

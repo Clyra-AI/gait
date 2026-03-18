@@ -97,7 +97,9 @@ def evaluate_gate(
 ) -> GateEvalResult:
     with tempfile.TemporaryDirectory(prefix="gait-intent-") as tmp_dir:
         intent_path = Path(tmp_dir) / "intent.json"
-        intent_path.write_text(json.dumps(intent.to_dict(), indent=2) + "\n", encoding="utf-8")
+        intent_path.write_text(
+            json.dumps(_json_ready(intent.to_dict()), indent=2) + "\n", encoding="utf-8"
+        )
 
         command = _command_prefix(gait_bin) + [
             "gate",
@@ -265,7 +267,9 @@ def record_runpack(
 
     with tempfile.TemporaryDirectory(prefix="gait-run-record-") as tmp_dir:
         input_path = Path(tmp_dir) / "run_record.json"
-        input_path.write_text(json.dumps(dict(record_input), indent=2) + "\n", encoding="utf-8")
+        input_path.write_text(
+            json.dumps(_json_ready(dict(record_input)), indent=2) + "\n", encoding="utf-8"
+        )
 
         command = _command_prefix(gait_bin) + [
             "run",
@@ -379,3 +383,25 @@ def _command_prefix(gait_bin: str | Sequence[str]) -> list[str]:
     if isinstance(gait_bin, str):
         return [gait_bin]
     return [str(part) for part in gait_bin]
+
+
+def _json_ready(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, set):
+        raise TypeError("set values are not supported in Gait JSON payloads; convert to a list")
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    if hasattr(value, "model_dump") and callable(value.model_dump):
+        return _json_ready(value.model_dump())
+    if hasattr(value, "dict") and callable(value.dict):
+        return _json_ready(value.dict())
+    if hasattr(value, "to_dict") and callable(value.to_dict):
+        return _json_ready(value.to_dict())
+    raise TypeError(f"unsupported JSON value in Gait payloads: {type(value).__name__}")

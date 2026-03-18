@@ -438,6 +438,61 @@ func TestMCPServeHandlerEvaluateSSE(t *testing.T) {
 	}
 }
 
+func TestMCPServeHandlerRejectsDuplicateSnapshotIdentities(t *testing.T) {
+	workDir := t.TempDir()
+	snapshotPath := filepath.Join(workDir, "trust_snapshot.json")
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"mcp_trust:",
+		"  snapshot: " + snapshotPath,
+		"  action: block",
+		"  required_risk_classes: [high]",
+	}, "\n")+"\n")
+	mustWriteFile(t, snapshotPath, `{"schema_id":"gait.mcp.trust_snapshot","schema_version":"1.0.0","created_at":"2026-03-01T00:00:00Z","producer_version":"test","entries":[{"server_id":"github","status":"trusted","updated_at":"2026-03-01T00:00:00Z","score":0.95},{"server_name":"GitHub","status":"blocked","updated_at":"2026-03-01T00:00:00Z","score":0.10}]}`)
+
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:     policyPath,
+		DefaultAdapter: "mcp",
+		TraceDir:       filepath.Join(workDir, "traces"),
+		KeyMode:        "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "run_id":"run_mcp_server_duplicate_snapshot",
+	  "call":{
+	    "name":"tool.read",
+	    "args":{"path":"/tmp/out.txt"},
+	    "server":{"server_id":"github","server_name":"GitHub"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("evaluate status: expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode evaluate response: %v", err)
+	}
+	if response.Verdict != "block" || response.MCPTrust == nil || response.MCPTrust.Status != "invalid" {
+		t.Fatalf("expected invalid trust block response, got %#v", response)
+	}
+	if response.ExitCode != exitPolicyBlocked {
+		t.Fatalf("expected exit code %d got %d", exitPolicyBlocked, response.ExitCode)
+	}
+	if !strings.Contains(strings.Join(response.ReasonCodes, ","), "mcp_trust_snapshot_invalid") {
+		t.Fatalf("expected duplicate snapshot reason code, got %#v", response)
+	}
+}
+
 func TestMCPServeHandlerEvaluateStream(t *testing.T) {
 	workDir := t.TempDir()
 	policyPath := filepath.Join(workDir, "policy.yaml")

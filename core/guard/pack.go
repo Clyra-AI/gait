@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemaguard "github.com/Clyra-AI/gait/core/schema/v1/guard"
@@ -331,6 +332,15 @@ func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error
 		defer func() {
 			_ = zipCloser.Close()
 		}()
+	}
+	if duplicates := zipx.DuplicatePaths(zipReader.File); len(duplicates) > 0 {
+		return VerifyResult{}, coreerrors.Wrap(
+			fmt.Errorf("zip contains duplicate entries: %s", strings.Join(duplicates, ", ")),
+			coreerrors.CategoryVerification,
+			"guard_pack_duplicate_entries",
+			"rebuild the artifact so each zip path is unique",
+			false,
+		)
 	}
 
 	var files map[string]*zip.File

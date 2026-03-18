@@ -17,11 +17,17 @@ import (
 )
 
 type runRecordInput struct {
-	Run         schemarunpack.Run            `json:"run"`
-	Intents     []schemarunpack.IntentRecord `json:"intents"`
-	Results     []schemarunpack.ResultRecord `json:"results"`
-	Refs        schemarunpack.Refs           `json:"refs"`
-	CaptureMode string                       `json:"capture_mode"`
+	Run           schemarunpack.Run            `json:"run"`
+	Intents       []schemarunpack.IntentRecord `json:"intents"`
+	Results       []schemarunpack.ResultRecord `json:"results"`
+	Refs          schemarunpack.Refs           `json:"refs"`
+	CaptureMode   string                       `json:"capture_mode"`
+	Normalization runRecordNormalization       `json:"normalization,omitempty"`
+}
+
+type runRecordNormalization struct {
+	IntentArgs     map[string]json.RawMessage `json:"intent_args,omitempty"`
+	ResultPayloads map[string]json.RawMessage `json:"result_payloads,omitempty"`
 }
 
 type runRecordOutput struct {
@@ -239,6 +245,10 @@ func runRecord(arguments []string) int {
 		Refs:        recordInput.Refs,
 		CaptureMode: resolvedCaptureMode,
 		SignKey:     signingKey.Private,
+		Normalization: runpack.DigestNormalizationOptions{
+			IntentArgs:     recordInput.Normalization.IntentArgs,
+			ResultPayloads: recordInput.Normalization.ResultPayloads,
+		},
 	})
 	if err != nil {
 		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

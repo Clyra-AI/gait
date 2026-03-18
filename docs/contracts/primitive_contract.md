@@ -251,11 +251,13 @@ Producer obligations:
 - MUST generate byte-stable artifacts for identical inputs.
 - MUST use RFC 8785 (JCS) canonicalization for digest-bearing JSON.
 - MUST record `capture_mode` (`reference` default, `raw` explicit).
+- SDK or wrapper helper inputs MAY omit digest-bearing fields only when a Go-authoritative normalization path computes them before artifact emission.
 
 Consumer obligations:
 
 - MUST verify manifest and file digests before trust.
 - MUST treat missing required files or digest mismatches as verification failure.
+- MUST treat duplicate ZIP entry names in artifact archives as verification failure.
 - MUST treat `context_evidence_mode=required` with missing `context_set_digest` as invalid input.
 
 ## PackSpec (`gait.pack.*`, `1.0.0`)
@@ -287,6 +289,7 @@ Consumer obligations:
 
 - MUST verify declared file hashes and reject undeclared files.
 - MUST treat schema mismatch and hash mismatch as verification failure.
+- MUST treat duplicate ZIP entry names as verification failure even when one duplicate would otherwise satisfy the declared hash.
 - SHOULD support legacy runpack/evidence verification during v2.4 compatibility window.
 - SHOULD expose deterministic context drift summary in diff outputs when context data exists.
 
@@ -296,6 +299,7 @@ Consumer obligations:
   - `--context-envelope <path>`
   - `--context-evidence-mode best_effort|required`
   - `--unsafe-context-raw`
+  - additive normalization helpers may be used by thin SDK/wrapper lanes so Go computes digest-bearing record fields before runpack emission
 - `gait regress run`:
   - `--context-conformance`
   - `--allow-context-runtime-drift`

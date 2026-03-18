@@ -12,7 +12,9 @@ import (
 	"sort"
 	"strings"
 
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	"github.com/Clyra-AI/gait/core/zipx"
 	sign "github.com/Clyra-AI/proof/signing"
 )
 
@@ -50,6 +52,9 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 	defer func() {
 		_ = zipReader.Close()
 	}()
+	if err := rejectDuplicateZipEntries(zipReader.File); err != nil {
+		return VerifyResult{}, err
+	}
 
 	manifestFile, manifestFound := findZipFile(zipReader.File, "manifest.json")
 	if !manifestFound {
@@ -189,6 +194,20 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 	sort.Strings(result.SignatureErrors)
 
 	return result, nil
+}
+
+func rejectDuplicateZipEntries(files []*zip.File) error {
+	duplicates := zipx.DuplicatePaths(files)
+	if len(duplicates) == 0 {
+		return nil
+	}
+	return coreerrors.Wrap(
+		fmt.Errorf("zip contains duplicate entries: %s", strings.Join(duplicates, ", ")),
+		coreerrors.CategoryVerification,
+		"runpack_duplicate_entries",
+		"rebuild the artifact so each zip path is unique",
+		false,
+	)
 }
 
 func signableManifestBytes(manifest []byte) ([]byte, error) {

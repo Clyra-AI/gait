@@ -39,6 +39,8 @@ Security checks run in CI and local lint workflows:
 
 - `go vet`, `golangci-lint`, `gosec`, `govulncheck` for Go
 - `ruff`, `mypy`, `bandit`, `pytest` for Python wrapper code
+- artifact verification fails closed on duplicate ZIP entry names
+- MCP trust snapshots with duplicate normalized identities are treated as invalid and fail closed on required high-risk paths
 
 Release integrity is validated with signed checksums, SBOM, and provenance artifacts.
 

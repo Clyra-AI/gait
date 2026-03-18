@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemaguard "github.com/Clyra-AI/gait/core/schema/v1/guard"
@@ -284,13 +285,12 @@ func TestVerifyPackWithSignatures(t *testing.T) {
 	}
 }
 
-func TestVerifyPackDetectsTamperedLastDuplicateEntry(t *testing.T) {
+func TestVerifyPackRejectsDuplicateEntries(t *testing.T) {
 	workDir := t.TempDir()
 	now := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 	matchingContent := []byte(`{"status":"ok"}`)
 	tamperedContent := []byte(`{"status":"tampered"}`)
 	expectedHash := sha256Hex(matchingContent)
-	tamperedHash := sha256Hex(tamperedContent)
 
 	manifestBytes, err := marshalCanonicalJSON(schemaguard.PackManifest{
 		SchemaID:        "gait.guard.pack_manifest",
@@ -310,32 +310,48 @@ func TestVerifyPackDetectsTamperedLastDuplicateEntry(t *testing.T) {
 		t.Fatalf("marshal manifest: %v", err)
 	}
 
-	var archive bytes.Buffer
-	if err := zipx.WriteDeterministicZip(&archive, []zipx.File{
-		{Path: "pack_manifest.json", Data: manifestBytes, Mode: 0o644},
-		{Path: "evidence.json", Data: matchingContent, Mode: 0o644},
-		{Path: "evidence.json", Data: tamperedContent, Mode: 0o644},
-	}); err != nil {
-		t.Fatalf("write duplicate-entry zip: %v", err)
+	cases := []struct {
+		name  string
+		files []zipx.File
+	}{
+		{
+			name: "good_then_tampered",
+			files: []zipx.File{
+				{Path: "pack_manifest.json", Data: manifestBytes, Mode: 0o644},
+				{Path: "evidence.json", Data: matchingContent, Mode: 0o644},
+				{Path: "evidence.json", Data: tamperedContent, Mode: 0o644},
+			},
+		},
+		{
+			name: "tampered_then_good",
+			files: []zipx.File{
+				{Path: "pack_manifest.json", Data: manifestBytes, Mode: 0o644},
+				{Path: "evidence.json", Data: tamperedContent, Mode: 0o644},
+				{Path: "evidence.json", Data: matchingContent, Mode: 0o644},
+			},
+		},
 	}
 
-	packPath := filepath.Join(workDir, "duplicate_entries.zip")
-	if err := os.WriteFile(packPath, archive.Bytes(), 0o600); err != nil {
-		t.Fatalf("write duplicate-entry zip: %v", err)
-	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var archive bytes.Buffer
+			if err := zipx.WriteDeterministicZip(&archive, tc.files); err != nil {
+				t.Fatalf("write duplicate-entry zip: %v", err)
+			}
 
-	verifyResult, err := VerifyPack(packPath)
-	if err != nil {
-		t.Fatalf("verify duplicate-entry zip: %v", err)
-	}
-	if len(verifyResult.HashMismatches) != 1 {
-		t.Fatalf("expected one hash mismatch, got %#v", verifyResult.HashMismatches)
-	}
-	if verifyResult.HashMismatches[0].Path != "evidence.json" {
-		t.Fatalf("expected mismatch for evidence.json, got %#v", verifyResult.HashMismatches)
-	}
-	if verifyResult.HashMismatches[0].Expected != expectedHash || verifyResult.HashMismatches[0].Actual != tamperedHash {
-		t.Fatalf("unexpected mismatch payload: %#v", verifyResult.HashMismatches[0])
+			packPath := filepath.Join(workDir, tc.name+".zip")
+			if err := os.WriteFile(packPath, archive.Bytes(), 0o600); err != nil {
+				t.Fatalf("write duplicate-entry zip: %v", err)
+			}
+
+			if _, err := VerifyPack(packPath); err == nil {
+				t.Fatalf("expected duplicate-entry verification error")
+			} else if coreerrors.CategoryOf(err) != coreerrors.CategoryVerification {
+				t.Fatalf("expected verification-category error, got %q (%v)", coreerrors.CategoryOf(err), err)
+			} else if !strings.Contains(err.Error(), "zip contains duplicate entries: evidence.json") {
+				t.Fatalf("expected duplicate-entry error, got %v", err)
+			}
+		})
 	}
 }
 

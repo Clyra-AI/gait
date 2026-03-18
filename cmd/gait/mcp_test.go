@@ -273,6 +273,81 @@ func TestRunMCPVerifyInfersPolicyRiskClass(t *testing.T) {
 	}
 }
 
+func TestRunMCPVerifyRejectsDuplicateSnapshotIdentities(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"mcp_trust:",
+		"  snapshot: ./trust_snapshot.json",
+		"  action: block",
+		"  required_risk_classes: [high]",
+	}, "\n")+"\n")
+	mustWriteFile(t, filepath.Join(workDir, "trust_snapshot.json"), `{"schema_id":"gait.mcp.trust_snapshot","schema_version":"1.0.0","created_at":"2026-03-01T00:00:00Z","producer_version":"test","entries":[{"server_id":"github","status":"trusted","updated_at":"2026-03-01T00:00:00Z","score":0.95},{"server_name":"GitHub","status":"blocked","updated_at":"2026-03-01T00:00:00Z","score":0.10}]}`)
+	serverPath := filepath.Join(workDir, "server.json")
+	mustWriteFile(t, serverPath, `{"server_id":"github","server_name":"GitHub"}`)
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runMCPVerify([]string{"--policy", policyPath, "--server", serverPath, "--json"})
+	})
+	if code != exitPolicyBlocked {
+		t.Fatalf("runMCPVerify duplicate snapshot expected %d got %d (%s)", exitPolicyBlocked, code, raw)
+	}
+	var output mcpVerifyOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode verify output: %v", err)
+	}
+	if output.OK || output.MCPTrust == nil || output.MCPTrust.Status != "invalid" {
+		t.Fatalf("expected invalid verify output, got %#v", output)
+	}
+	if !strings.Contains(strings.Join(output.ReasonCodes, ","), "mcp_trust_snapshot_invalid") {
+		t.Fatalf("expected duplicate snapshot reason code, got %#v", output)
+	}
+}
+
+func TestRunMCPProxyRejectsDuplicateSnapshotIdentities(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"mcp_trust:",
+		"  snapshot: ./trust_snapshot.json",
+		"  action: block",
+		"  required_risk_classes: [high]",
+	}, "\n")+"\n")
+	mustWriteFile(t, filepath.Join(workDir, "trust_snapshot.json"), `{"schema_id":"gait.mcp.trust_snapshot","schema_version":"1.0.0","created_at":"2026-03-01T00:00:00Z","producer_version":"test","entries":[{"server_id":"github","status":"trusted","updated_at":"2026-03-01T00:00:00Z","score":0.95},{"server_name":"GitHub","status":"blocked","updated_at":"2026-03-01T00:00:00Z","score":0.10}]}`)
+	callPath := filepath.Join(workDir, "call.json")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.read",
+  "args":{"path":"/tmp/in.txt"},
+  "server":{"server_id":"github","server_name":"GitHub"},
+  "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","run_id":"run_mcp_duplicate_snapshot"}
+}`)
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runMCPProxy([]string{"--policy", policyPath, "--call", callPath, "--json"})
+	})
+	if code != exitPolicyBlocked {
+		t.Fatalf("runMCPProxy duplicate snapshot expected %d got %d (%s)", exitPolicyBlocked, code, raw)
+	}
+	var output mcpProxyOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode proxy output: %v", err)
+	}
+	if output.Verdict != "block" || output.MCPTrust == nil || output.MCPTrust.Status != "invalid" {
+		t.Fatalf("expected invalid trust block output, got %#v", output)
+	}
+	if !strings.Contains(strings.Join(output.ReasonCodes, ","), "mcp_trust_snapshot_invalid") {
+		t.Fatalf("expected duplicate snapshot reason code, got %#v", output)
+	}
+}
+
 func TestRunMCPVerifyBlockedAndReadServerErrors(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)

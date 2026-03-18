@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -100,6 +101,26 @@ func TestWriteDeterministicZipWriteError(t *testing.T) {
 	err := WriteDeterministicZip(errWriter{}, files)
 	if err == nil {
 		t.Fatalf("expected write error")
+	}
+}
+
+func TestDuplicatePaths(t *testing.T) {
+	files := []*zip.File{
+		{FileHeader: zip.FileHeader{Name: "a.txt"}},
+		{FileHeader: zip.FileHeader{Name: "dir/b.txt"}},
+		{FileHeader: zip.FileHeader{Name: "a.txt"}},
+		{FileHeader: zip.FileHeader{Name: "dir/b.txt"}},
+		{FileHeader: zip.FileHeader{Name: "dir/c.txt"}},
+	}
+	if got, want := DuplicatePaths(files), []string{"a.txt", "dir/b.txt"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("DuplicatePaths() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDuplicatePathsNone(t *testing.T) {
+	files := []*zip.File{{FileHeader: zip.FileHeader{Name: "a.txt"}}, {FileHeader: zip.FileHeader{Name: "dir/b.txt"}}}
+	if got := DuplicatePaths(files); got != nil {
+		t.Fatalf("expected no duplicates, got %#v", got)
 	}
 }
 

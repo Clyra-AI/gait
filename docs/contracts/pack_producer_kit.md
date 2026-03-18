@@ -52,6 +52,7 @@ Producers MUST:
 - use stable file modes
 - hash bytes exactly as written into archive
 - compute `pack_id` from canonicalized manifest with empty `pack_id` and no signatures
+- avoid duplicate ZIP entry names; `gait pack verify` treats duplicate names as verification failure
 
 ## Required Files (`pack_type=run`)
 
@@ -66,5 +67,7 @@ If a producer emits the required schema and hash contract, Gait consumers verify
 - `gait pack verify`
 - `gait pack inspect`
 - `gait pack diff`
+
+Duplicate entry names are not a valid interop variant; consumers fail closed on ambiguous archives.
 
 This enables artifact-format adoption without runtime lock-in.

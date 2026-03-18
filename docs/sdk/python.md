@@ -38,6 +38,8 @@ The SDK executes commands via `subprocess.run(...)` with a bounded timeout.
 - JSON-decoding is strict for command responses expected to be JSON
 - demo capture consumes machine-readable `gait demo --json` output only
 - non-zero exits raise `GaitCommandError` with command, exit code, stdout, and stderr
+- `run_session(...)` delegates digest-bearing runpack fields to `gait run record`; Go computes or validates `args_digest`, `result_digest`, and trace receipt digests before artifact emission
+- unsupported non-JSON values such as Python `set` are rejected deterministically; convert them to stable JSON types before calling the SDK
 
 ## Migration Note
 
@@ -115,6 +117,10 @@ Python 3.11 or higher.
 ### How do I wrap a tool function with Gait?
 
 Use the `@gate_tool` decorator from the SDK. It automatically evaluates gate policy before executing the tool and records the result.
+
+### How does `run_session(...)` keep digests deterministic?
+
+`run_session(...)` records raw normalization payloads and lets `gait run record` compute authoritative digests in Go/JCS. The SDK no longer synthesizes portable artifact digests locally.
 
 ### How does the official LangChain integration work?
 

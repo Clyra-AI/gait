@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -335,6 +336,107 @@ func TestRecordRunInvalidIntent(test *testing.T) {
 	}
 	if _, err := RecordRun(RecordOptions{Run: run, Intents: intents}); err == nil {
 		test.Fatalf("expected error for invalid intent args")
+	}
+}
+
+func TestRecordRunNormalizesMissingDigestsFromNormalization(test *testing.T) {
+	run := schemarunpack.Run{
+		RunID: "run_normalized",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	intents := []schemarunpack.IntentRecord{{
+		IntentID: "intent_1",
+		ToolName: "tool.write",
+	}}
+	results := []schemarunpack.ResultRecord{{
+		IntentID: "intent_1",
+		Status:   "ok",
+	}}
+	refs := schemarunpack.Refs{
+		Receipts: []schemarunpack.RefReceipt{{
+			RefID:         "trace_intent_1",
+			SourceType:    "gait.trace",
+			SourceLocator: "trace://trace_intent_1",
+			RetrievedAt:   time.Date(2026, time.February, 5, 0, 0, 1, 0, time.UTC),
+			RedactionMode: "reference",
+		}},
+	}
+
+	result, err := RecordRun(RecordOptions{
+		Run:     run,
+		Intents: intents,
+		Results: results,
+		Refs:    refs,
+		Normalization: DigestNormalizationOptions{
+			IntentArgs: map[string]json.RawMessage{
+				"intent_1": json.RawMessage(`{"path":"/tmp/out.txt"}`),
+			},
+			ResultPayloads: map[string]json.RawMessage{
+				"intent_1": json.RawMessage(`{"executed":true,"verdict":"allow","reason_codes":["default_allow"]}`),
+			},
+		},
+	})
+	if err != nil {
+		test.Fatalf("record run: %v", err)
+	}
+	files := readZipFiles(test, result.ZipBytes)
+
+	intentsDecoded, err := decodeJSONL[schemarunpack.IntentRecord](files["intents.jsonl"])
+	if err != nil {
+		test.Fatalf("decode intents: %v", err)
+	}
+	if intentsDecoded[0].ArgsDigest == "" {
+		test.Fatalf("expected normalized args digest")
+	}
+
+	resultsDecoded, err := decodeJSONL[schemarunpack.ResultRecord](files["results.jsonl"])
+	if err != nil {
+		test.Fatalf("decode results: %v", err)
+	}
+	if resultsDecoded[0].ResultDigest == "" {
+		test.Fatalf("expected normalized result digest")
+	}
+
+	var refsDecoded schemarunpack.Refs
+	if err := json.Unmarshal(files["refs.json"], &refsDecoded); err != nil {
+		test.Fatalf("decode refs: %v", err)
+	}
+	if refsDecoded.Receipts[0].QueryDigest == "" || refsDecoded.Receipts[0].ContentDigest == "" {
+		test.Fatalf("expected normalized receipt digests: %#v", refsDecoded.Receipts[0])
+	}
+	if refsDecoded.Receipts[0].ContentDigest != resultsDecoded[0].ResultDigest {
+		test.Fatalf("expected content digest to match normalized result digest")
+	}
+}
+
+func TestRecordRunRejectsDigestMismatchAgainstNormalization(test *testing.T) {
+	run := schemarunpack.Run{
+		RunID: "run_mismatch",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	intents := []schemarunpack.IntentRecord{{
+		IntentID:   "intent_1",
+		ToolName:   "tool.write",
+		ArgsDigest: strings.Repeat("a", 64),
+	}}
+	if _, err := RecordRun(RecordOptions{
+		Run:     run,
+		Intents: intents,
+		Normalization: DigestNormalizationOptions{
+			IntentArgs: map[string]json.RawMessage{
+				"intent_1": json.RawMessage(`{"path":"/tmp/out.txt"}`),
+			},
+		},
+	}); err == nil {
+		test.Fatalf("expected args digest mismatch error")
+	} else if !strings.Contains(err.Error(), "intent intent_1 args digest mismatch") {
+		test.Fatalf("unexpected mismatch error: %v", err)
 	}
 }
 

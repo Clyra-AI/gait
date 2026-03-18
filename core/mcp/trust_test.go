@@ -156,6 +156,44 @@ func TestEvaluateServerTrustMissingSnapshotAndPublisherMismatch(t *testing.T) {
 	}
 }
 
+func TestEvaluateServerTrustInvalidDuplicateSnapshotFailsClosed(t *testing.T) {
+	workDir := t.TempDir()
+	snapshotPath := filepath.Join(workDir, "trust_snapshot.json")
+	writeTrustSnapshot(t, snapshotPath, TrustSnapshot{
+		SchemaID:        mcpTrustSnapshotSchemaID,
+		SchemaVersion:   mcpTrustSnapshotSchemaVersion,
+		CreatedAt:       time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		Entries: []TrustSnapshotEntry{
+			{
+				ServerID:  "github",
+				Status:    "trusted",
+				UpdatedAt: time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC),
+				Score:     0.95,
+			},
+			{
+				ServerName: "GitHub",
+				Status:     "blocked",
+				UpdatedAt:  time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC),
+				Score:      0.10,
+			},
+		},
+	})
+
+	decision := EvaluateServerTrust(gate.MCPTrustPolicy{
+		Enabled:             true,
+		SnapshotPath:        snapshotPath,
+		Action:              "block",
+		RequiredRiskClasses: []string{"high"},
+	}, &ServerInfo{ServerID: "github"}, "high", time.Date(2026, time.March, 2, 0, 0, 0, 0, time.UTC))
+	if decision == nil || decision.Status != "invalid" || !decision.Enforced {
+		t.Fatalf("expected invalid enforced decision, got %#v", decision)
+	}
+	if len(decision.ReasonCodes) != 1 || decision.ReasonCodes[0] != "mcp_trust_snapshot_invalid" {
+		t.Fatalf("unexpected reason codes: %#v", decision)
+	}
+}
+
 func TestLoadTrustSnapshotValidationAndHelpers(t *testing.T) {
 	workDir := t.TempDir()
 	invalidPath := filepath.Join(workDir, "invalid.json")
@@ -193,6 +231,23 @@ func TestLoadTrustSnapshotValidationAndHelpers(t *testing.T) {
 	}
 	if got := mcpTrustMaxAgeSeconds("2h"); got != 7200 {
 		t.Fatalf("unexpected max age seconds: %d", got)
+	}
+
+	duplicatePath := filepath.Join(workDir, "duplicate.json")
+	writeTrustSnapshot(t, duplicatePath, TrustSnapshot{
+		SchemaID:        mcpTrustSnapshotSchemaID,
+		SchemaVersion:   mcpTrustSnapshotSchemaVersion,
+		CreatedAt:       time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		Entries: []TrustSnapshotEntry{
+			{ServerID: "github", UpdatedAt: time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC)},
+			{ServerName: "GitHub", UpdatedAt: time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC)},
+		},
+	})
+	if _, err := LoadTrustSnapshot(duplicatePath); err == nil {
+		t.Fatalf("expected duplicate normalized server identity to fail")
+	} else if trustSnapshotErrorCodeOf(err) != trustSnapshotErrorInvalid {
+		t.Fatalf("expected invalid snapshot error classification, got %q (%v)", trustSnapshotErrorCodeOf(err), err)
 	}
 }
 

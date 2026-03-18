@@ -44,6 +44,8 @@ verify=ok
 
 For SDKs and wrappers, prefer the JSON form and treat the text form as human-facing output only.
 
+`run_session(...)` and other Python run-capture helpers delegate digest-bearing artifact fields to `gait run record` in Go. Convert `set` values to JSON lists before calling the SDK; unsupported non-JSON payloads are rejected.
+
 For binary discovery and install automation, use `gait version --json` (or `gait --version --json` / `gait -v --json`). `gait --help` is text-only and exits `0`.
 
 Context-required policies must pass `--context-envelope <context_envelope.json>` on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`; raw intent context claims are not authoritative by themselves.
@@ -94,6 +96,8 @@ For MCP server admission, keep trust inputs local:
 ```bash
 gait mcp verify --policy ./examples/integrations/mcp_trust/policy.yaml --server ./examples/integrations/mcp_trust/server_github.json --json
 ```
+
+Duplicate normalized `server_id` / `server_name` entries invalidate the trust snapshot and fail closed on required high-risk checks.
 
 For emergency preemption drills:
 

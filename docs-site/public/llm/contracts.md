@@ -5,10 +5,13 @@ Stable OSS contracts include:
 - **PackSpec v1**: Unified portable artifact envelope for run, job, and call evidence with Ed25519 signatures and SHA-256 manifest. Schema: `schemas/v1/pack/manifest.schema.json`.
   - includes first-class export surfaces: `gait pack export --otel-out ...` and `--postgres-sql-out ...` for observability and metadata indexing.
   - `gait pack verify` remains offline-first, but a supplied verify key that produces `signature_status=failed` is a verification failure, not a soft pass.
+  - duplicate ZIP entry names are verification failures, even if one duplicate would otherwise hash-match.
 - **ContextSpec v1**: Deterministic context evidence envelopes with privacy-aware modes and fail-closed enforcement. Required context-proof checks are satisfied through a verified `--context-envelope` input on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`, rather than raw intent claims.
 - **Primitive Contract**: Four deterministic primitives — capture, enforce, regress, diagnose.
 - **CLI Meta Contract**: `gait --help` is text-only and exits `0`; machine-readable version discovery uses `gait version --json` or the `--version` / `-v` aliases.
 - **Python SDK Demo Contract**: machine-readable SDK/demo capture consumes `gait demo --json` output only; the human text form is non-contractual.
+  - `run_session(...)` delegates digest-bearing runpack fields to `gait run record` in Go rather than hashing them in Python.
+  - unsupported `set` values and other non-JSON payloads are rejected deterministically.
 - **Doctor Install Contract**: `gait doctor --json` is truthful for a clean writable binary-install lane, returning `status=pass|warn` there and only surfacing repo-only checks from a Gait repo checkout.
 - **Repo Policy Contract**: `gait init` writes `.gait.yaml` and returns `detected_signals`, `generated_rules`, and `unknown_signals`; `gait check` reports the live contract with `default_verdict`, `rule_count`, structured `findings`, compatibility `gap_warnings`, and install-safe `next_commands`.
 - **Draft Proposal Migration Contract**: keep the shipped policy DSL (`schema_id`, `schema_version`, `default_verdict`, optional `fail_closed`, optional `mcp_trust`, `rules`); proposal keys like `version`, `name`, `boundaries`, `defaults`, `trust_sources`, and `unknown_server` return deterministic migration guidance instead of enabling a second DSL.
@@ -17,6 +20,7 @@ Stable OSS contracts include:
 - **MCP Trust + Trace Onboarding**: local MCP trust snapshots and observe-only `gait trace` are additive onboarding contracts over the same signed trace and policy surfaces.
   - `mcp_trust.snapshot` must point at a local file; scanners and registries remain complementary inputs.
   - `gait mcp verify --json` reports `trust_model=local_snapshot` and `snapshot_path` when MCP trust is configured.
+  - duplicate normalized MCP identities invalidate the snapshot, and required high-risk trust checks fail closed.
   - wrapper JSON reports `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values such as `missing_trace_reference` and `invalid_trace_artifact`.
 - **Script Governance Contract**: Script intent steps, deterministic `script_hash`, Wrkr-derived context matching fields, and signed approved-script registry entries. Fast-path allow requires a verify key; missing verification prerequisites disable fast-path in standard low-risk mode and fail closed in high-risk / `oss-prod` paths.
 - **Delegation Contract**: delegated execution is only authoritative when each claimed delegation hop is backed by signed token evidence; multi-hop chains must stay contiguous and terminate at the requester identity, and policy-required delegation scope must come from the token's signed `scope` or signed `scope_class`.

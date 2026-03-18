@@ -233,11 +233,15 @@ jobs:
           PYTHONPATH: .
         shell: bash
         run: |
+          go test ./core/pack -count=1 -run 'TestVerifyInspectAndDiffRejectDuplicateEntries'
+          go test ./core/runpack -count=1 -run 'TestVerifyZipRejectsDuplicateEntries|TestReadRunpackRejectsDuplicateEntries|TestRecordRunNormalizesMissingDigestsFromNormalization|TestRecordRunRejectsDigestMismatchAgainstNormalization'
+          go test ./core/mcp -count=1 -run 'TestEvaluateServerTrustInvalidDuplicateSnapshotFailsClosed'
           go test ./cmd/gait -count=1 -run 'TestRunGateEvalRequiresVerifiedContextEnvelopeForContextPolicies|TestPolicyTestEqualPriorityRenamesDoNotChangeVerdict'
+          go test ./cmd/gait -count=1 -run 'TestRunPackVerifyRejectsDuplicateEntries|TestRunVerifyRejectsDuplicateEntries|TestRunMCPVerifyRejectsDuplicateSnapshotIdentities|TestRunMCPProxyRejectsDuplicateSnapshotIdentities|TestMCPServeHandlerRejectsDuplicateSnapshotIdentities|TestRunRecordNormalizesMissingDigestsFromNormalization|TestRunRecordRejectsDigestMismatchAgainstNormalization'
           go test ./core/gate -count=1 -run 'TestEvaluatePolicyDetailedEqualPriorityRenameDoesNotChangeVerdict'
           go test ./core/jobruntime -count=1 -run 'TestSubmitAppendFailureRollsBackNewJob|TestMutationAppendFailureRollsBackStateAndRetrySucceeds|TestMutationAppendFailureWithDurableEventPreservesPendingMarker'
           cd sdk/python
-          uv run --python ${{ matrix.python-version }} --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'
+          uv run --python ${{ matrix.python-version }} --extra dev pytest tests/test_client.py tests/test_session.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error or run_session_captures_attempts_and_emits_runpack or run_session_records_executor_errors or run_session_rejects_set_payloads'
 
   e2e:
     needs: changes

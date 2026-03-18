@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -58,4 +59,33 @@ func normalizeMode(mode os.FileMode) os.FileMode {
 		return 0o755
 	}
 	return 0o644
+}
+
+// DuplicatePaths returns sorted duplicate entry names in a zip archive.
+func DuplicatePaths(files []*zip.File) []string {
+	if len(files) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(files))
+	duplicates := make(map[string]struct{})
+	for _, file := range files {
+		name := filepath.ToSlash(strings.TrimSpace(file.Name))
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			duplicates[name] = struct{}{}
+			continue
+		}
+		seen[name] = struct{}{}
+	}
+	if len(duplicates) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(duplicates))
+	for name := range duplicates {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }

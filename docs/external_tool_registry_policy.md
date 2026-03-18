@@ -19,6 +19,12 @@ Use this when an external source such as Snyk or an internal registry produces t
 3. Preflight with `gait mcp verify`.
 4. Enforce the same trust policy through `gait mcp proxy` or `gait mcp serve`.
 
+Snapshot rule:
+
+- normalized MCP server identities must be unique across `server_id` / `server_name`
+- duplicate normalized identities invalidate the snapshot
+- required high-risk trust paths fail closed when the snapshot is invalid
+
 `gait mcp verify --json` reports that contract explicitly with `trust_model=local_snapshot` and `snapshot_path=<local file>`. The evaluator does not fetch hosted registry data at decision time.
 
 Example policy contract:

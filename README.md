@@ -147,6 +147,8 @@ See [`examples/integrations/openai_agents/`](examples/integrations/openai_agents
 
 The official LangChain surface is middleware with optional callback correlation. Enforcement happens in `wrap_tool_call`; callbacks are additive only.
 
+`run_session(...)` and other Python run-capture helpers delegate digest completion to `gait run record` in Go rather than hashing artifact fields in Python. Normalize `set` values to JSON lists before calling the SDK; unsupported non-JSON values now fail deterministically instead of being coerced into digest-affecting output.
+
 ```bash
 (cd sdk/python && uv sync --extra langchain --extra dev)
 (cd sdk/python && uv run --python 3.13 --extra langchain python ../../examples/integrations/langchain/quickstart.py --scenario allow)
@@ -252,6 +254,7 @@ Current shipped model:
 - external scanners or registries produce a local trust snapshot
 - `gait mcp verify`, `gait mcp proxy`, and `gait mcp serve` consume that local file
 - Gait enforces the decision at the boundary; it does not replace the scanner
+- duplicate normalized `server_id` / `server_name` entries invalidate the snapshot, and required high-risk trust paths fail closed on that ambiguity
 
 This is the right split with tools such as Snyk: external tooling finds the issue, and Gait enforces the runtime response.
 
@@ -287,6 +290,7 @@ Every Gait decision can produce signed proof artifacts that map to operational a
 
 - `gait verify`, `gait pack verify`, and `gait trace verify` work offline
 - packs use Ed25519 signatures plus SHA-256 manifests
+- duplicate ZIP entry names are treated as verification failures rather than ambiguous soft passes
 - artifacts are deterministic, versioned, and designed for PRs, incidents, change control, and audits
 
 Framework mapping and evidence docs:

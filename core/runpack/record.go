@@ -23,12 +23,18 @@ import (
 )
 
 type RecordOptions struct {
-	Run         schemarunpack.Run
-	Intents     []schemarunpack.IntentRecord
-	Results     []schemarunpack.ResultRecord
-	Refs        schemarunpack.Refs
-	CaptureMode string
-	SignKey     ed25519.PrivateKey
+	Run           schemarunpack.Run
+	Intents       []schemarunpack.IntentRecord
+	Results       []schemarunpack.ResultRecord
+	Refs          schemarunpack.Refs
+	CaptureMode   string
+	SignKey       ed25519.PrivateKey
+	Normalization DigestNormalizationOptions
+}
+
+type DigestNormalizationOptions struct {
+	IntentArgs     map[string]json.RawMessage
+	ResultPayloads map[string]json.RawMessage
 }
 
 type RecordResult struct {
@@ -45,9 +51,15 @@ func RecordRun(options RecordOptions) (RecordResult, error) {
 	run := options.Run
 	applyRunDefaults(&run)
 
+	var err error
 	intents := applyIntentDefaults(options.Intents, run)
 	results := applyResultDefaults(options.Results, run)
-	refs, err := applyRefsDefaults(options.Refs, run)
+	refs := applyRefsDefaults(options.Refs, run)
+	intents, results, refs, err = normalizeDigestBearingFields(intents, results, refs, options.Normalization)
+	if err != nil {
+		return RecordResult{}, fmt.Errorf("normalize digest-bearing fields: %w", err)
+	}
+	refs, err = contextproof.NormalizeRefs(refs)
 	if err != nil {
 		return RecordResult{}, fmt.Errorf("normalize refs: %w", err)
 	}
@@ -306,7 +318,7 @@ func applyResultDefaults(results []schemarunpack.ResultRecord, run schemarunpack
 	return out
 }
 
-func applyRefsDefaults(refs schemarunpack.Refs, run schemarunpack.Run) (schemarunpack.Refs, error) {
+func applyRefsDefaults(refs schemarunpack.Refs, run schemarunpack.Run) schemarunpack.Refs {
 	if refs.SchemaID == "" {
 		refs.SchemaID = "gait.runpack.refs"
 	}
@@ -325,9 +337,128 @@ func applyRefsDefaults(refs schemarunpack.Refs, run schemarunpack.Run) (schemaru
 	if refs.Receipts == nil {
 		refs.Receipts = []schemarunpack.RefReceipt{}
 	}
-	normalized, err := contextproof.NormalizeRefs(refs)
-	if err != nil {
-		return schemarunpack.Refs{}, err
+	return refs
+}
+
+func normalizeDigestBearingFields(intents []schemarunpack.IntentRecord, results []schemarunpack.ResultRecord, refs schemarunpack.Refs, options DigestNormalizationOptions) ([]schemarunpack.IntentRecord, []schemarunpack.ResultRecord, schemarunpack.Refs, error) {
+	intentIndexByID := make(map[string]int, len(intents))
+	for index := range intents {
+		intent := &intents[index]
+		if rawArgs, ok := options.IntentArgs[intent.IntentID]; ok && len(rawArgs) > 0 {
+			expectedDigest, _, err := digestJSONObjectRaw(rawArgs)
+			if err != nil {
+				return nil, nil, schemarunpack.Refs{}, fmt.Errorf("intent %s args digest: %w", intent.IntentID, err)
+			}
+			if intent.ArgsDigest == "" {
+				intent.ArgsDigest = expectedDigest
+			} else if !equalHex(intent.ArgsDigest, expectedDigest) {
+				return nil, nil, schemarunpack.Refs{}, fmt.Errorf("intent %s args digest mismatch", intent.IntentID)
+			}
+		} else if intent.ArgsDigest == "" {
+			if intent.Args == nil {
+				return nil, nil, schemarunpack.Refs{}, fmt.Errorf("intent %s requires args_digest or normalization.intent_args", intent.IntentID)
+			}
+			expectedDigest, err := digestJSONValue(intent.Args)
+			if err != nil {
+				return nil, nil, schemarunpack.Refs{}, fmt.Errorf("intent %s args digest: %w", intent.IntentID, err)
+			}
+			intent.ArgsDigest = expectedDigest
+		}
+		intentIndexByID[intent.IntentID] = index
 	}
-	return normalized, nil
+
+	resultIndexByIntentID := make(map[string]int, len(results))
+	for index := range results {
+		result := &results[index]
+		if rawPayload, ok := options.ResultPayloads[result.IntentID]; ok && len(rawPayload) > 0 {
+			expectedDigest, _, err := digestJSONObjectRaw(rawPayload)
+			if err != nil {
+				return nil, nil, schemarunpack.Refs{}, fmt.Errorf("result %s digest: %w", result.IntentID, err)
+			}
+			if result.ResultDigest == "" {
+				result.ResultDigest = expectedDigest
+			} else if !equalHex(result.ResultDigest, expectedDigest) {
+				return nil, nil, schemarunpack.Refs{}, fmt.Errorf("result %s digest mismatch", result.IntentID)
+			}
+		} else if result.ResultDigest == "" {
+			if result.Result == nil {
+				return nil, nil, schemarunpack.Refs{}, fmt.Errorf("result %s requires result_digest or normalization.result_payloads", result.IntentID)
+			}
+			expectedDigest, err := digestJSONValue(result.Result)
+			if err != nil {
+				return nil, nil, schemarunpack.Refs{}, fmt.Errorf("result %s digest: %w", result.IntentID, err)
+			}
+			result.ResultDigest = expectedDigest
+		}
+		resultIndexByIntentID[result.IntentID] = index
+	}
+
+	for index := range refs.Receipts {
+		receipt := &refs.Receipts[index]
+		if err := normalizeReceiptDigests(receipt, intents, results, intentIndexByID, resultIndexByIntentID); err != nil {
+			return nil, nil, schemarunpack.Refs{}, err
+		}
+	}
+	return intents, results, refs, nil
+}
+
+func normalizeReceiptDigests(receipt *schemarunpack.RefReceipt, intents []schemarunpack.IntentRecord, results []schemarunpack.ResultRecord, intentIndexByID map[string]int, resultIndexByIntentID map[string]int) error {
+	if receipt == nil {
+		return nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(receipt.SourceType), "gait.trace") || !strings.HasPrefix(strings.TrimSpace(receipt.RefID), "trace_") {
+		if receipt.QueryDigest == "" {
+			return fmt.Errorf("receipt %s requires query_digest", receipt.RefID)
+		}
+		if receipt.ContentDigest == "" {
+			return fmt.Errorf("receipt %s requires content_digest", receipt.RefID)
+		}
+		return nil
+	}
+
+	intentID := strings.TrimPrefix(strings.TrimSpace(receipt.RefID), "trace_")
+	intentIndex, ok := intentIndexByID[intentID]
+	if !ok {
+		return fmt.Errorf("receipt %s references unknown intent %s", receipt.RefID, intentID)
+	}
+	expectedQueryDigest, err := digestJSONValue(map[string]any{
+		"tool_name":   intents[intentIndex].ToolName,
+		"args_digest": intents[intentIndex].ArgsDigest,
+	})
+	if err != nil {
+		return fmt.Errorf("receipt %s query digest: %w", receipt.RefID, err)
+	}
+	if receipt.QueryDigest == "" {
+		receipt.QueryDigest = expectedQueryDigest
+	}
+
+	resultIndex, ok := resultIndexByIntentID[intentID]
+	if !ok {
+		return fmt.Errorf("receipt %s references unknown result for intent %s", receipt.RefID, intentID)
+	}
+	expectedContentDigest := results[resultIndex].ResultDigest
+	if expectedContentDigest == "" {
+		return fmt.Errorf("receipt %s content digest cannot be derived", receipt.RefID)
+	}
+	if receipt.ContentDigest == "" {
+		receipt.ContentDigest = expectedContentDigest
+	}
+	return nil
+}
+
+func digestJSONObjectRaw(raw json.RawMessage) (string, bool, error) {
+	var value map[string]any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", false, err
+	}
+	digest, err := digestJSONValue(value)
+	return digest, true, err
+}
+
+func digestJSONValue(value any) (string, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return jcs.DigestJCS(raw)
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 	"github.com/Clyra-AI/gait/core/zipx"
 )
@@ -58,6 +59,36 @@ func TestReadRunpackMissingFile(t *testing.T) {
 	}
 	if _, err := ReadRunpack(path); err == nil {
 		t.Fatalf("expected error for missing files")
+	}
+}
+
+func TestReadRunpackRejectsDuplicateEntries(t *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildManifestBytes("run_duplicate", manifestFiles, nil)
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	baseFiles := append([]zipx.File{{Path: "manifest.json", Data: manifestBytes, Mode: 0o644}}, runpackFiles...)
+
+	cases := []struct {
+		name           string
+		duplicateFirst bool
+	}{
+		{name: "duplicate_first", duplicateFirst: true},
+		{name: "duplicate_last", duplicateFirst: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeRunpackZipWithDuplicate(t, baseFiles, "run.json", []byte(`{"run":"evil"}`+"\n"), tc.duplicateFirst)
+			if _, err := ReadRunpack(path); err == nil {
+				t.Fatalf("expected duplicate-entry read error")
+			} else if coreerrors.CategoryOf(err) != coreerrors.CategoryVerification {
+				t.Fatalf("expected verification-category error, got %q (%v)", coreerrors.CategoryOf(err), err)
+			} else if !strings.Contains(err.Error(), "zip contains duplicate entries: run.json") {
+				t.Fatalf("unexpected duplicate-entry error: %v", err)
+			}
+		})
 	}
 }
 

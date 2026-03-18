@@ -30,6 +30,9 @@ func ReadRunpack(path string) (Runpack, error) {
 	defer func() {
 		_ = zipReader.Close()
 	}()
+	if err := rejectDuplicateZipEntries(zipReader.File); err != nil {
+		return Runpack{}, err
+	}
 
 	manifestFile, manifestFound := findZipFile(zipReader.File, "manifest.json")
 	if !manifestFound {

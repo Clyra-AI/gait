@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import platform
 import sys
 from contextvars import ContextVar, Token
@@ -103,6 +101,8 @@ class RunSession:
         self._context_set_digest: str | None = None
         self._context_evidence_mode: str | None = context_evidence_mode
         self._context_refs: list[str] = []
+        self._normalization_intent_args: dict[str, Any] = {}
+        self._normalization_result_payloads: dict[str, Any] = {}
 
     def __enter__(self) -> "RunSession":
         self._token = _ACTIVE_RUN_SESSION.set(self)
@@ -144,10 +144,9 @@ class RunSession:
         self._attempt_count += 1
         intent_id = f"intent_{self._attempt_count:04d}"
         created_at = _utc_now()
-
-        args_digest = intent.args_digest or _sha256_json(intent.args)
-        intent_payload = intent.to_dict()
-        intent_digest = intent.intent_digest or _sha256_json(intent_payload)
+        normalized_args = _json_ready(intent.args)
+        args_digest = intent.args_digest
+        intent_digest = decision.intent_digest or intent.intent_digest
         if intent.context.context_set_digest and not self._context_set_digest:
             self._context_set_digest = str(intent.context.context_set_digest)
         if intent.context.context_evidence_mode and not self._context_evidence_mode:
@@ -165,10 +164,12 @@ class RunSession:
             "run_id": self.run_id,
             "intent_id": intent_id,
             "tool_name": intent.tool_name,
-            "args_digest": args_digest,
         }
+        if args_digest:
+            intent_record["args_digest"] = args_digest
         if self.capture_mode == "raw" and self.include_raw_payload:
-            intent_record["args"] = _json_compatible(intent.args)
+            intent_record["args"] = normalized_args
+        self._normalization_intent_args[intent_id] = normalized_args
         self._intents.append(intent_record)
 
         verdict = decision.verdict or "unknown"
@@ -182,11 +183,13 @@ class RunSession:
             "policy_digest": decision.policy_digest,
             "intent_digest": decision.intent_digest or intent_digest,
         }
+        if intent_digest:
+            result_payload["intent_digest"] = intent_digest
         if error is not None:
             result_payload["error"] = str(error)
         if executed and result is not None:
-            result_payload["result"] = _json_compatible(result)
-        result_digest = _sha256_json(result_payload)
+            result_payload["result"] = _json_ready(result)
+        normalized_result_payload = _json_ready(result_payload)
 
         result_record: dict[str, Any] = {
             "schema_id": "gait.runpack.result",
@@ -196,10 +199,10 @@ class RunSession:
             "run_id": self.run_id,
             "intent_id": intent_id,
             "status": status,
-            "result_digest": result_digest,
         }
         if self.capture_mode == "raw" and self.include_raw_payload:
-            result_record["result"] = _json_compatible(result_payload)
+            result_record["result"] = normalized_result_payload
+        self._normalization_result_payloads[intent_id] = normalized_result_payload
         self._results.append(result_record)
 
         trace_ref = decision.trace_id or intent_id
@@ -208,10 +211,6 @@ class RunSession:
             "ref_id": f"trace_{intent_id}",
             "source_type": "gait.trace",
             "source_locator": source_locator,
-            "query_digest": _sha256_json(
-                {"tool_name": intent.tool_name, "args_digest": args_digest}
-            ),
-            "content_digest": result_digest,
             "retrieved_at": _isoformat(created_at),
             "redaction_mode": self.capture_mode,
             "retrieval_params": {
@@ -276,6 +275,14 @@ class RunSession:
             record_input["refs"]["context_evidence_mode"] = self._context_evidence_mode
         if self._context_refs:
             record_input["refs"]["context_ref_count"] = len(self._context_refs)
+        if self._normalization_intent_args or self._normalization_result_payloads:
+            record_input["normalization"] = {}
+            if self._normalization_intent_args:
+                record_input["normalization"]["intent_args"] = dict(self._normalization_intent_args)
+            if self._normalization_result_payloads:
+                record_input["normalization"]["result_payloads"] = dict(
+                    self._normalization_result_payloads
+                )
         self._record_input = record_input
         self._capture = record_runpack(
             record_input=record_input,
@@ -319,25 +326,23 @@ def _isoformat(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _sha256_json(value: Any) -> str:
-    canonical = _canonical_json_bytes(value)
-    return hashlib.sha256(canonical).hexdigest()
-
-
-def _canonical_json_bytes(value: Any) -> bytes:
-    text = json.dumps(_json_compatible(value), sort_keys=True, separators=(",", ":"))
-    return text.encode("utf-8")
-
-
-def _json_compatible(value: Any) -> Any:
+def _json_ready(value: Any) -> Any:
     if isinstance(value, Mapping):
-        return {str(key): _json_compatible(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_json_compatible(item) for item in value]
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, set):
+        raise TypeError("set values are not supported in run session payloads; convert to a list")
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, datetime):
         return _isoformat(value)
-    return str(value)
+    if hasattr(value, "model_dump") and callable(value.model_dump):
+        return _json_ready(value.model_dump())
+    if hasattr(value, "dict") and callable(value.dict):
+        return _json_ready(value.dict())
+    if hasattr(value, "to_dict") and callable(value.to_dict):
+        return _json_ready(value.to_dict())
+    raise TypeError(f"unsupported JSON value in run session payloads: {type(value).__name__}")

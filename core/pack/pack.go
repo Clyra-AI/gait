@@ -963,6 +963,10 @@ func openZip(path string) (*openedZip, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open zip: %w", err)
 	}
+	if duplicates := zipx.DuplicatePaths(reader.File); len(duplicates) > 0 {
+		_ = reader.Close()
+		return nil, verificationError(fmt.Errorf("zip contains duplicate entries: %s", strings.Join(duplicates, ", ")))
+	}
 	files := make(map[string]*zip.File, len(reader.File))
 	for _, file := range reader.File {
 		files[file.Name] = file

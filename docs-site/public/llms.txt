@@ -60,6 +60,7 @@
 - Equal-priority rule overlaps resolve to the most restrictive verdict for that priority tier, not by rule name ordering.
 - `gait --help` is text-only and exits `0`; machine consumers should use `gait version --json`, `gait --version --json`, or `gait -v --json`.
 - Machine-readable wrappers and SDKs use `gait demo --json`; the text form is human-facing only.
+- Python run-session capture delegates digest-bearing artifact fields to `gait run record` in Go; convert `set` values to JSON lists before calling the SDK.
 - `examples/integrations/claude_code/` is a reference adapter; hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.
 - `gait doctor --json` is install-safe in a clean writable directory: it returns the installed-binary lane with `status=pass|warn` and only adds repo-only checks in a Gait repo checkout.
 - High-risk enforcement is not production-ready until `gait doctor --production-readiness --json` returns `ok=true`, typically from config seeded by `examples/config/oss_prod_template.yaml` from a repo checkout or by fetching that same file after a binary-only install.
@@ -69,6 +70,8 @@
 - CLI migration: use `gait mcp verify`, not `gait mcp-verify`, and `gait capture --out ...`, not `gait capture --save-as ...`.
 - Wrapper JSON contract: `gait test`, `gait enforce`, and `gait trace` require `trace_path=<path>` from the child integration and expose `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values for missing or invalid seams.
 - MCP trust JSON contract: `gait mcp verify --json` reports `trust_model=local_snapshot` and `snapshot_path`; trust evaluation stays offline-first and file-based.
+- Duplicate ZIP entry names in packs or runpacks are verification failures.
+- Duplicate normalized MCP trust identities invalidate the snapshot and required high-risk trust checks fail closed.
 - Offline verification for packs, runpacks, and traces.
 - Structured intent model for policy decisions, not free-form prompt filtering.
 - SayToken capability tokens for voice agent commitment gating.

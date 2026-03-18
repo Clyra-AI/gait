@@ -844,6 +844,69 @@ func TestVerifyRejectsSchemaInvalidRunPayload(t *testing.T) {
 	}
 }
 
+func TestVerifyInspectAndDiffRejectDuplicateEntries(t *testing.T) {
+	workDir := t.TempDir()
+	jobsRoot := filepath.Join(workDir, "jobs")
+	jobID := "job_duplicate_pack"
+
+	if _, err := jobruntime.Submit(jobsRoot, jobruntime.SubmitOptions{JobID: jobID}); err != nil {
+		t.Fatalf("submit job: %v", err)
+	}
+	packPath := filepath.Join(workDir, "job_pack.zip")
+	if _, err := BuildJobPackFromPath(jobsRoot, jobID, packPath, "test-v24", nil); err != nil {
+		t.Fatalf("build job pack: %v", err)
+	}
+
+	cases := []struct {
+		name            string
+		duplicateFirst  bool
+		duplicateBytes  []byte
+		duplicateTarget string
+	}{
+		{
+			name:            "duplicate_last",
+			duplicateFirst:  false,
+			duplicateBytes:  []byte(`{"job_id":"evil"}`),
+			duplicateTarget: "job_state.json",
+		},
+		{
+			name:            "duplicate_first",
+			duplicateFirst:  true,
+			duplicateBytes:  []byte(`{"job_id":"evil"}`),
+			duplicateTarget: "job_state.json",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mutatedPath := filepath.Join(workDir, tc.name+".zip")
+			if err := rewriteZipWithDuplicateEntry(packPath, mutatedPath, tc.duplicateTarget, tc.duplicateBytes, tc.duplicateFirst); err != nil {
+				t.Fatalf("rewrite duplicate pack: %v", err)
+			}
+
+			if _, err := Verify(mutatedPath, VerifyOptions{}); err == nil {
+				t.Fatalf("expected verify duplicate-entry error")
+			} else if coreerrors.CategoryOf(err) != coreerrors.CategoryVerification {
+				t.Fatalf("expected verification-category error, got %q (%v)", coreerrors.CategoryOf(err), err)
+			} else if !strings.Contains(err.Error(), "zip contains duplicate entries: job_state.json") {
+				t.Fatalf("expected duplicate-entry verify error, got %v", err)
+			}
+
+			if _, err := Inspect(mutatedPath); err == nil {
+				t.Fatalf("expected inspect duplicate-entry error")
+			} else if coreerrors.CategoryOf(err) != coreerrors.CategoryVerification {
+				t.Fatalf("expected verification-category inspect error, got %q (%v)", coreerrors.CategoryOf(err), err)
+			}
+
+			if _, err := Diff(mutatedPath, packPath); err == nil {
+				t.Fatalf("expected diff duplicate-entry error")
+			} else if coreerrors.CategoryOf(err) != coreerrors.CategoryVerification {
+				t.Fatalf("expected verification-category diff error, got %q (%v)", coreerrors.CategoryOf(err), err)
+			}
+		})
+	}
+}
+
 func TestExtractRunpackVariants(t *testing.T) {
 	workDir := t.TempDir()
 	runpackPath := createRunpackFixture(t, workDir, "run_extract")
@@ -1322,6 +1385,72 @@ func rewriteZip(srcPath string, dstPath string, mutate func(name string, payload
 		if _, err := target.Write(payload); err != nil {
 			_ = writer.Close()
 			return err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return err
+	}
+	return os.WriteFile(dstPath, buffer.Bytes(), 0o600)
+}
+
+func rewriteZipWithDuplicateEntry(srcPath string, dstPath string, entryName string, duplicatePayload []byte, duplicateFirst bool) error {
+	src, err := zip.OpenReader(srcPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = src.Close()
+	}()
+
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+	wroteDuplicate := false
+	for _, entry := range src.File {
+		reader, err := entry.Open()
+		if err != nil {
+			_ = writer.Close()
+			return err
+		}
+		payload, err := io.ReadAll(reader)
+		_ = reader.Close()
+		if err != nil {
+			_ = writer.Close()
+			return err
+		}
+		if entry.Name == entryName && duplicateFirst && !wroteDuplicate {
+			target, err := writer.Create(entryName)
+			if err != nil {
+				_ = writer.Close()
+				return err
+			}
+			if _, err := target.Write(duplicatePayload); err != nil {
+				_ = writer.Close()
+				return err
+			}
+			wroteDuplicate = true
+		}
+
+		target, err := writer.Create(entry.Name)
+		if err != nil {
+			_ = writer.Close()
+			return err
+		}
+		if _, err := target.Write(payload); err != nil {
+			_ = writer.Close()
+			return err
+		}
+
+		if entry.Name == entryName && !duplicateFirst && !wroteDuplicate {
+			target, err := writer.Create(entryName)
+			if err != nil {
+				_ = writer.Close()
+				return err
+			}
+			if _, err := target.Write(duplicatePayload); err != nil {
+				_ = writer.Close()
+				return err
+			}
+			wroteDuplicate = true
 		}
 	}
 	if err := writer.Close(); err != nil {

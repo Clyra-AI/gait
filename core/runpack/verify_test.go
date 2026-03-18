@@ -1,6 +1,7 @@
 package runpack
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/ed25519"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 	"github.com/Clyra-AI/gait/core/zipx"
 	sign "github.com/Clyra-AI/proof/signing"
@@ -116,6 +118,36 @@ func TestVerifyZipMissingManifest(test *testing.T) {
 	})
 	if _, err := VerifyZip(zipPath, VerifyOptions{}); err == nil {
 		test.Fatalf("expected error for missing manifest")
+	}
+}
+
+func TestVerifyZipRejectsDuplicateEntries(t *testing.T) {
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	manifestBytes, err := buildManifestBytes("run_test", manifestFiles, nil)
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	baseFiles := append([]zipx.File{{Path: "manifest.json", Data: manifestBytes, Mode: 0o644}}, runpackFiles...)
+
+	cases := []struct {
+		name           string
+		duplicateFirst bool
+	}{
+		{name: "duplicate_first", duplicateFirst: true},
+		{name: "duplicate_last", duplicateFirst: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			zipPath := writeRunpackZipWithDuplicate(t, baseFiles, "run.json", []byte(`{"run":"evil"}`+"\n"), tc.duplicateFirst)
+			if _, err := VerifyZip(zipPath, VerifyOptions{}); err == nil {
+				t.Fatalf("expected duplicate-entry verification error")
+			} else if coreerrors.CategoryOf(err) != coreerrors.CategoryVerification {
+				t.Fatalf("expected verification-category error, got %q (%v)", coreerrors.CategoryOf(err), err)
+			} else if err.Error() != "zip contains duplicate entries: run.json" {
+				t.Fatalf("unexpected duplicate-entry error: %v", err)
+			}
+		})
 	}
 }
 
@@ -491,6 +523,50 @@ func writeRunpackZip(test *testing.T, files []zipx.File) string {
 	path := filepath.Join(test.TempDir(), "runpack_test.zip")
 	if err := os.WriteFile(path, buffer.Bytes(), 0o600); err != nil {
 		test.Fatalf("write zip file: %v", err)
+	}
+	return path
+}
+
+func writeRunpackZipWithDuplicate(test *testing.T, files []zipx.File, duplicatePath string, duplicatePayload []byte, duplicateFirst bool) string {
+	test.Helper()
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+	inserted := false
+	for _, file := range files {
+		if file.Path == duplicatePath && duplicateFirst && !inserted {
+			target, err := writer.Create(duplicatePath)
+			if err != nil {
+				test.Fatalf("create duplicate zip entry: %v", err)
+			}
+			if _, err := target.Write(duplicatePayload); err != nil {
+				test.Fatalf("write duplicate zip entry: %v", err)
+			}
+			inserted = true
+		}
+		target, err := writer.Create(file.Path)
+		if err != nil {
+			test.Fatalf("create zip entry: %v", err)
+		}
+		if _, err := target.Write(file.Data); err != nil {
+			test.Fatalf("write zip entry: %v", err)
+		}
+		if file.Path == duplicatePath && !duplicateFirst && !inserted {
+			target, err := writer.Create(duplicatePath)
+			if err != nil {
+				test.Fatalf("create duplicate zip entry: %v", err)
+			}
+			if _, err := target.Write(duplicatePayload); err != nil {
+				test.Fatalf("write duplicate zip entry: %v", err)
+			}
+			inserted = true
+		}
+	}
+	if err := writer.Close(); err != nil {
+		test.Fatalf("close zip writer: %v", err)
+	}
+	path := filepath.Join(test.TempDir(), "runpack_duplicate.zip")
+	if err := os.WriteFile(path, buffer.Bytes(), 0o600); err != nil {
+		test.Fatalf("write duplicate zip file: %v", err)
 	}
 	return path
 }

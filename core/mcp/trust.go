@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -17,6 +18,32 @@ const (
 	mcpTrustSnapshotSchemaID      = "gait.mcp.trust_snapshot"
 	mcpTrustSnapshotSchemaVersion = "1.0.0"
 )
+
+type trustSnapshotErrorCode string
+
+const (
+	trustSnapshotErrorUnavailable trustSnapshotErrorCode = "unavailable"
+	trustSnapshotErrorInvalid     trustSnapshotErrorCode = "invalid"
+)
+
+type trustSnapshotError struct {
+	code trustSnapshotErrorCode
+	err  error
+}
+
+func (e *trustSnapshotError) Error() string {
+	if e == nil || e.err == nil {
+		return "trust snapshot error"
+	}
+	return e.err.Error()
+}
+
+func (e *trustSnapshotError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
 
 type TrustSnapshot struct {
 	SchemaID        string               `json:"schema_id"`
@@ -83,8 +110,14 @@ func EvaluateServerTrust(policy gate.MCPTrustPolicy, server *ServerInfo, riskCla
 
 	snapshot, err := LoadTrustSnapshot(policy.SnapshotPath)
 	if err != nil {
-		decision.Status = "missing"
-		decision.ReasonCodes = []string{"mcp_trust_snapshot_unavailable"}
+		switch trustSnapshotErrorCodeOf(err) {
+		case trustSnapshotErrorInvalid:
+			decision.Status = "invalid"
+			decision.ReasonCodes = []string{"mcp_trust_snapshot_invalid"}
+		default:
+			decision.Status = "missing"
+			decision.ReasonCodes = []string{"mcp_trust_snapshot_unavailable"}
+		}
 		decision.Enforced = decision.Required
 		return decision
 	}
@@ -151,29 +184,30 @@ func EvaluateServerTrust(policy gate.MCPTrustPolicy, server *ServerInfo, riskCla
 func LoadTrustSnapshot(path string) (TrustSnapshot, error) {
 	trimmedPath := strings.TrimSpace(path)
 	if trimmedPath == "" {
-		return TrustSnapshot{}, fmt.Errorf("trust snapshot path is required")
+		return TrustSnapshot{}, wrapTrustSnapshotError(trustSnapshotErrorInvalid, fmt.Errorf("trust snapshot path is required"))
 	}
 	// #nosec G304 -- trust snapshot path is explicit local user input from policy.
 	raw, err := os.ReadFile(trimmedPath)
 	if err != nil {
-		return TrustSnapshot{}, fmt.Errorf("read trust snapshot: %w", err)
+		return TrustSnapshot{}, wrapTrustSnapshotError(trustSnapshotErrorUnavailable, fmt.Errorf("read trust snapshot: %w", err))
 	}
 	var snapshot TrustSnapshot
 	if err := json.Unmarshal(raw, &snapshot); err != nil {
-		return TrustSnapshot{}, fmt.Errorf("parse trust snapshot: %w", err)
+		return TrustSnapshot{}, wrapTrustSnapshotError(trustSnapshotErrorInvalid, fmt.Errorf("parse trust snapshot: %w", err))
 	}
 	if strings.TrimSpace(snapshot.SchemaID) == "" {
 		snapshot.SchemaID = mcpTrustSnapshotSchemaID
 	}
 	if snapshot.SchemaID != mcpTrustSnapshotSchemaID {
-		return TrustSnapshot{}, fmt.Errorf("unsupported trust snapshot schema_id %q", snapshot.SchemaID)
+		return TrustSnapshot{}, wrapTrustSnapshotError(trustSnapshotErrorInvalid, fmt.Errorf("unsupported trust snapshot schema_id %q", snapshot.SchemaID))
 	}
 	if strings.TrimSpace(snapshot.SchemaVersion) == "" {
 		snapshot.SchemaVersion = mcpTrustSnapshotSchemaVersion
 	}
 	if snapshot.SchemaVersion != mcpTrustSnapshotSchemaVersion {
-		return TrustSnapshot{}, fmt.Errorf("unsupported trust snapshot schema_version %q", snapshot.SchemaVersion)
+		return TrustSnapshot{}, wrapTrustSnapshotError(trustSnapshotErrorInvalid, fmt.Errorf("unsupported trust snapshot schema_version %q", snapshot.SchemaVersion))
 	}
+	seenKeys := make(map[string]int, len(snapshot.Entries))
 	for index := range snapshot.Entries {
 		snapshot.Entries[index].ServerID = strings.TrimSpace(snapshot.Entries[index].ServerID)
 		snapshot.Entries[index].ServerName = strings.TrimSpace(snapshot.Entries[index].ServerName)
@@ -181,9 +215,14 @@ func LoadTrustSnapshot(path string) (TrustSnapshot, error) {
 		snapshot.Entries[index].Source = strings.ToLower(strings.TrimSpace(snapshot.Entries[index].Source))
 		snapshot.Entries[index].Status = strings.ToLower(strings.TrimSpace(snapshot.Entries[index].Status))
 		snapshot.Entries[index].EvidencePath = strings.TrimSpace(snapshot.Entries[index].EvidencePath)
-		if normalizedServerKey(snapshot.Entries[index].ServerID, snapshot.Entries[index].ServerName) == "" {
-			return TrustSnapshot{}, fmt.Errorf("trust snapshot entry[%d] requires server_id or server_name", index)
+		key := normalizedServerKey(snapshot.Entries[index].ServerID, snapshot.Entries[index].ServerName)
+		if key == "" {
+			return TrustSnapshot{}, wrapTrustSnapshotError(trustSnapshotErrorInvalid, fmt.Errorf("trust snapshot entry[%d] requires server_id or server_name", index))
 		}
+		if previousIndex, ok := seenKeys[key]; ok {
+			return TrustSnapshot{}, wrapTrustSnapshotError(trustSnapshotErrorInvalid, fmt.Errorf("trust snapshot contains duplicate server identity %q at entries[%d] and entries[%d]", key, previousIndex, index))
+		}
+		seenKeys[key] = index
 	}
 	sort.Slice(snapshot.Entries, func(i, j int) bool {
 		return normalizedServerKey(snapshot.Entries[i].ServerID, snapshot.Entries[i].ServerName) <
@@ -199,6 +238,21 @@ func findTrustSnapshotEntry(entries []TrustSnapshotEntry, serverKey string) (Tru
 		}
 	}
 	return TrustSnapshotEntry{}, false
+}
+
+func wrapTrustSnapshotError(code trustSnapshotErrorCode, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &trustSnapshotError{code: code, err: err}
+}
+
+func trustSnapshotErrorCodeOf(err error) trustSnapshotErrorCode {
+	var snapshotErr *trustSnapshotError
+	if errors.As(err, &snapshotErr) {
+		return snapshotErr.code
+	}
+	return ""
 }
 
 func normalizedServerKey(serverID string, serverName string) string {
