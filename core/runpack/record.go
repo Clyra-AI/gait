@@ -430,6 +430,8 @@ func normalizeReceiptDigests(receipt *schemarunpack.RefReceipt, intents []schema
 	}
 	if receipt.QueryDigest == "" {
 		receipt.QueryDigest = expectedQueryDigest
+	} else if !equalHex(receipt.QueryDigest, expectedQueryDigest) {
+		return fmt.Errorf("receipt %s query digest mismatch", receipt.RefID)
 	}
 
 	resultIndex, ok := resultIndexByIntentID[intentID]
@@ -442,6 +444,8 @@ func normalizeReceiptDigests(receipt *schemarunpack.RefReceipt, intents []schema
 	}
 	if receipt.ContentDigest == "" {
 		receipt.ContentDigest = expectedContentDigest
+	} else if !equalHex(receipt.ContentDigest, expectedContentDigest) {
+		return fmt.Errorf("receipt %s content digest mismatch", receipt.RefID)
 	}
 	return nil
 }

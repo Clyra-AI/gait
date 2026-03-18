@@ -440,6 +440,53 @@ func TestRecordRunRejectsDigestMismatchAgainstNormalization(test *testing.T) {
 	}
 }
 
+func TestRecordRunRejectsReceiptDigestMismatchAgainstNormalization(test *testing.T) {
+	run := schemarunpack.Run{
+		RunID: "run_receipt_mismatch",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	intents := []schemarunpack.IntentRecord{{
+		IntentID: "intent_1",
+		ToolName: "tool.write",
+	}}
+	results := []schemarunpack.ResultRecord{{
+		IntentID: "intent_1",
+		Status:   "ok",
+	}}
+	refs := schemarunpack.Refs{
+		Receipts: []schemarunpack.RefReceipt{{
+			RefID:         "trace_intent_1",
+			SourceType:    "gait.trace",
+			SourceLocator: "trace://trace_intent_1",
+			QueryDigest:   strings.Repeat("a", 64),
+			ContentDigest: strings.Repeat("b", 64),
+			RetrievedAt:   time.Date(2026, time.February, 5, 0, 0, 1, 0, time.UTC),
+			RedactionMode: "reference",
+		}},
+	}
+	if _, err := RecordRun(RecordOptions{
+		Run:     run,
+		Intents: intents,
+		Results: results,
+		Refs:    refs,
+		Normalization: DigestNormalizationOptions{
+			IntentArgs: map[string]json.RawMessage{
+				"intent_1": json.RawMessage(`{"path":"/tmp/out.txt"}`),
+			},
+			ResultPayloads: map[string]json.RawMessage{
+				"intent_1": json.RawMessage(`{"executed":true,"verdict":"allow","reason_codes":["default_allow"]}`),
+			},
+		},
+	}); err == nil {
+		test.Fatalf("expected receipt digest mismatch error")
+	} else if !strings.Contains(err.Error(), "receipt trace_intent_1 query digest mismatch") {
+		test.Fatalf("unexpected mismatch error: %v", err)
+	}
+}
+
 func TestWriteRunpack(test *testing.T) {
 	run := schemarunpack.Run{
 		RunID: "run_write",
