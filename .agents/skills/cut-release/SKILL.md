@@ -39,6 +39,8 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 - No commit amend unless explicitly requested
 - No changelog modifications
 - PR bodies/comments must use EOF heredoc (`--body-file - <<'EOF' ... EOF`)
+- Do not stop at an external async gate merely because CI, review, merge, or post-merge monitoring is still in progress
+- Continue waiting, polling, merging, retagging, rerunning UAT, and re-monitoring until a success condition or an explicit hard stop condition is reached
 
 ## Workflow
 
@@ -65,6 +67,7 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 - `make test-release-smoke`
 
 If any step fails, stop and report blocker.
+Do not stop merely because a release run is still pending; continue polling until completion or timeout.
 
 ### Phase 1: Tag and Release Monitor
 
@@ -78,6 +81,7 @@ If any step fails, stop and report blocker.
 - transient/infra: rerun workflow once, re-monitor
 - actionable: go to hotfix loop
 - non-actionable: stop with blocker report
+5. If release is still running, keep polling until it reaches a terminal state or the timeout is hit.
 
 ### Phase 2: Post-Release UAT
 
@@ -88,6 +92,7 @@ If any step fails, stop and report blocker.
 - classify actionable vs non-actionable
 - actionable: go to hotfix loop
 - non-actionable: stop with blocker report
+4. If UAT-related async validation is still in progress, continue waiting; async wait alone is not a blocker.
 
 ### Phase 3: Hotfix Loop (Only if Needed, Max 2)
 
@@ -118,29 +123,43 @@ For loop `r1..r2`:
 - `EOF`
 
 7. Monitor PR CI (`ci` and `codeql`) to green (`CI_TIMEOUT_MIN`).
+8. If PR CI is red and actionable, fix the full known actionable set on the same hotfix branch, rerun local validation, push again, and continue monitoring.
 
-8. Merge PR after green.
+9. After PR CI is green, wait for required passive review/release gates as applicable; do not stop merely because those checks are still pending inside their timeout windows.
 
-9. Sync and monitor post-merge main CI:
+10. Merge PR after green and satisfied review gates.
+
+11. Sync and monitor post-merge main CI:
 - `git checkout main`
 - `git pull --ff-only origin main`
 - monitor `ci` and `codeql` on `main` (`CI_TIMEOUT_MIN`)
 - if post-merge main CI is red and actionable, continue same loop (counts against max)
+- if post-merge main CI is still running, continue polling until terminal or timeout; async wait alone is not a blocker
 
-10. Bump patch version:
+12. Bump patch version:
 - `vX.Y.Z -> vX.Y.(Z+1)`
 
-11. Create/push new tag from `main` and monitor `release` workflow again:
+13. Create/push new tag from `main` and monitor `release` workflow again:
 - tag from `main` only
 - monitor until green (`RELEASE_TIMEOUT_MIN`)
 
-12. Rerun full UAT for the new tag:
+14. Rerun full UAT for the new tag:
 - `GAIT_UAT_RELEASE_VERSION=<new-version> bash scripts/test_uat_local.sh`
 
-13. Exit conditions:
+15. Exit conditions:
 - if release + UAT green: success
 - if loop count exceeds 2: stop with blocker report
 - if non-actionable failure appears: stop with blocker report
+
+### Global Wait Rule
+
+- Pending GitHub Actions runs, pending passive review signals, pending merge propagation, and pending post-merge `main` checks are not blockers by themselves.
+- While within the configured timeout windows, keep polling and continue the workflow.
+- Only stop for:
+- explicit failure classified as non-actionable or unsafe
+- timeout expiry for the current wait window
+- exhausted hotfix loop budget
+- unexpected repo state that cannot be reconciled safely
 
 ## Command Contract (JSON Required)
 
@@ -163,3 +182,4 @@ No inline multi-line `--body` strings.
 - Hotfix branch/PR URLs and commit SHAs (if any)
 - Loop count used
 - Final status: success or blocker with last failing gate
+- If blocked, distinguish `hard blocker` from `async gate still in progress`; never report a mere in-progress async wait as the final blocker
