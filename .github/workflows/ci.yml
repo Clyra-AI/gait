@@ -186,7 +186,10 @@ jobs:
         shell: bash
         run: |
           set +e
-          mapfile -t go_test_packages < <(python scripts/list_go_test_packages.py)
+          go_test_packages=()
+          while IFS= read -r package; do
+            go_test_packages+=("$package")
+          done < <(python scripts/list_go_test_packages.py)
           go test "${go_test_packages[@]}" -cover > coverage-go-packages.out 2>&1
           package_test_status=$?
           set -e
