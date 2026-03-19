@@ -317,6 +317,71 @@ func TestVerifyZipSignedDigestMismatch(test *testing.T) {
 	}
 }
 
+func TestVerifyZipSignatureUsesRawManifestBytes(test *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		test.Fatalf("generate keypair: %v", err)
+	}
+	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
+	unsignedManifest, err := buildManifestBytes("run_test", manifestFiles, nil)
+	if err != nil {
+		test.Fatalf("build manifest: %v", err)
+	}
+
+	mutatedManifest := bytes.Replace(
+		unsignedManifest,
+		[]byte(`"created_at":"2026-02-05T00:00:00Z"`),
+		[]byte(`"created_at":"2026-02-05T00:00:00+00:00"`),
+		1,
+	)
+	mutatedManifest = bytes.Replace(
+		mutatedManifest,
+		[]byte(`"manifest_digest"`),
+		[]byte(`"producer_note":"kept","manifest_digest"`),
+		1,
+	)
+
+	signable, err := signableManifestBytes(mutatedManifest)
+	if err != nil {
+		test.Fatalf("signable manifest: %v", err)
+	}
+	signature, err := sign.SignManifestJSON(keyPair.Private, signable)
+	if err != nil {
+		test.Fatalf("sign manifest: %v", err)
+	}
+	signaturesJSON, err := json.Marshal([]schemarunpack.Signature{{
+		Alg:          signature.Alg,
+		KeyID:        signature.KeyID,
+		Sig:          signature.Sig,
+		SignedDigest: signature.SignedDigest,
+	}})
+	if err != nil {
+		test.Fatalf("marshal signatures: %v", err)
+	}
+	signedManifest := append(append(mutatedManifest[:len(mutatedManifest)-1], []byte(`,"signatures":`)...), signaturesJSON...)
+	signedManifest = append(signedManifest, '}')
+
+	archiveFiles := append([]zipx.File{
+		{Path: "manifest.json", Data: signedManifest, Mode: 0o644},
+	}, runpackFiles...)
+	zipPath := writeRunpackZip(test, archiveFiles)
+
+	result, err := VerifyZip(zipPath, VerifyOptions{
+		PublicKey:               keyPair.Public,
+		RequireSignature:        true,
+		SkipManifestDigestCheck: true,
+	})
+	if err != nil {
+		test.Fatalf("verify zip: %v", err)
+	}
+	if result.SignatureStatus != "verified" {
+		test.Fatalf("expected verified signature, got %s (%v)", result.SignatureStatus, result.SignatureErrors)
+	}
+	if len(result.SignatureErrors) != 0 {
+		test.Fatalf("expected no signature errors, got %v", result.SignatureErrors)
+	}
+}
+
 func TestVerifyZipManifestMissingRunID(test *testing.T) {
 	manifestFiles, runpackFiles := buildCompleteRunpackFixture()
 	manifestBytes, err := buildManifestBytes("", manifestFiles, nil)

@@ -157,7 +157,7 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		result.SignatureStatus = "skipped"
 		result.SignatureErrors = append(result.SignatureErrors, "public key not configured")
 	} else {
-		signable, err := signableManifestBytesFromManifest(manifest)
+		signable, err := signableManifestBytes(manifestBytes)
 		if err != nil {
 			return VerifyResult{}, fmt.Errorf("prepare manifest for signing: %w", err)
 		}
@@ -218,11 +218,6 @@ func signableManifestBytes(manifest []byte) ([]byte, error) {
 	}
 	delete(obj, "signatures")
 	return json.Marshal(obj)
-}
-
-func signableManifestBytesFromManifest(manifest schemarunpack.Manifest) ([]byte, error) {
-	manifest.Signatures = nil
-	return json.Marshal(manifest)
 }
 
 func indexZipFiles(files []*zip.File) map[string]*zip.File {
