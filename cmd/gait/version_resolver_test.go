@@ -33,7 +33,9 @@ func TestResolveCLIVersionIgnoresUntrustedBuildInfo(t *testing.T) {
 		version string
 	}{
 		{name: "devel", version: "(devel)"},
-		{name: "pseudo", version: "v1.3.6-0.20260318215907-c90958e0d34e"},
+		{name: "pseudo release bump", version: "v1.3.6-0.20260318215907-c90958e0d34e"},
+		{name: "pseudo no prior tag", version: "v1.0.0-20260318215907-c90958e0d34e"},
+		{name: "pseudo prerelease", version: "v1.3.5-rc.1.0.20260318215907-c90958e0d34e"},
 		{name: "dirty", version: "v1.3.6-0.20260318215907-c90958e0d34e+dirty"},
 		{name: "empty", version: ""},
 	}
