@@ -1072,11 +1072,7 @@ func findGaitBinaryPath(workDir, invokedBinaryPath string) (binaryResolution, er
 		}, nil
 	}
 
-	candidates := []string{
-		filepath.Join(workDir, "gait"),
-		filepath.Join(workDir, "gait.exe"),
-	}
-	for _, candidate := range candidates {
+	for _, candidate := range workDirBinaryCandidates(workDir) {
 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
 			return binaryResolution{
 				BinaryPath:       candidate,
@@ -1085,6 +1081,20 @@ func findGaitBinaryPath(workDir, invokedBinaryPath string) (binaryResolution, er
 		}
 	}
 	return binaryResolution{}, fmt.Errorf("gait binary not found")
+}
+
+func workDirBinaryCandidates(workDir string) []string {
+	candidates := []string{
+		filepath.Join(workDir, "gait"),
+		filepath.Join(workDir, "gait.exe"),
+	}
+	if runtime.GOOS == "windows" {
+		candidates = append(candidates,
+			filepath.Join(workDir, "gait.cmd"),
+			filepath.Join(workDir, "gait.bat"),
+		)
+	}
+	return candidates
 }
 
 func normalizeBinaryPath(path string) (string, bool) {
