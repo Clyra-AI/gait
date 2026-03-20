@@ -7,6 +7,14 @@ import subprocess
 import sys
 
 
+def write_packages(packages: list[str]) -> None:
+    payload = ("\n".join(packages) + "\n").encode("utf-8")
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout.buffer.write(payload)
+        return
+    sys.stdout.write(payload.decode("utf-8"))
+
+
 def main() -> int:
     go_bin = os.environ.get("GO", "go")
     result = subprocess.run(
@@ -25,8 +33,7 @@ def main() -> int:
         print("no Go packages matched after filtering", file=sys.stderr)
         return 1
 
-    sys.stdout.write("\n".join(packages))
-    sys.stdout.write("\n")
+    write_packages(packages)
     return 0
 
 
