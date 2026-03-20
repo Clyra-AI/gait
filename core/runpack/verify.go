@@ -216,14 +216,19 @@ func openZipFiles(path string) ([]*zip.File, func() error, error) {
 		defer func() {
 			_ = root.Close()
 		}()
-		info, err := root.Stat(name)
-		if err != nil {
-			return nil, nil, err
-		}
-		if info.Size() > 0 && info.Size() <= maxVerifyZipReadAllBytes {
-			zipBytes, err := root.ReadFile(name)
+		info, statErr := root.Stat(name)
+		if statErr == nil && info.Size() > 0 && info.Size() <= maxVerifyZipReadAllBytes {
+			file, err := root.Open(name)
 			if err != nil {
 				return nil, nil, err
+			}
+			zipBytes, err := readWithByteLimit(file, maxVerifyZipReadAllBytes)
+			_ = file.Close()
+			if err != nil {
+				return nil, nil, err
+			}
+			if zipBytes == nil {
+				goto fallback
 			}
 			reader, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
 			if err != nil {
@@ -233,11 +238,24 @@ func openZipFiles(path string) ([]*zip.File, func() error, error) {
 		}
 	}
 
+fallback:
 	zipReader, err := zip.OpenReader(path)
 	if err != nil {
 		return nil, nil, err
 	}
 	return zipReader.File, zipReader.Close, nil
+}
+
+func readWithByteLimit(reader io.Reader, limit int64) ([]byte, error) {
+	limited := io.LimitReader(reader, limit+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, nil
+	}
+	return data, nil
 }
 
 func rejectDuplicateZipEntries(files []*zip.File) error {
