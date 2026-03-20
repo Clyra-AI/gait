@@ -2,15 +2,18 @@ package runpack
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	coreerrors "github.com/Clyra-AI/gait/core/errors"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
@@ -43,19 +46,27 @@ type HashMismatch struct {
 }
 
 const maxZipFileBytes = 100 * 1024 * 1024
+const maxVerifyZipReadAllBytes = 8 * 1024 * 1024
+
+var zipCopyBufferPool = sync.Pool{
+	New: func() any {
+		buffer := make([]byte, 32*1024)
+		return &buffer
+	},
+}
 
 func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
-	zipReader, err := zip.OpenReader(path)
+	zipFiles, closeZip, err := openZipFiles(path)
 	if err != nil {
 		return VerifyResult{}, fmt.Errorf("open zip: %w", err)
 	}
 	defer func() {
-		_ = zipReader.Close()
+		_ = closeZip()
 	}()
-	if err := rejectDuplicateZipEntries(zipReader.File); err != nil {
+	if err := rejectDuplicateZipEntries(zipFiles); err != nil {
 		return VerifyResult{}, err
 	}
-	filesByPath := indexZipFiles(zipReader.File)
+	filesByPath := indexZipFiles(zipFiles)
 
 	manifestFile, manifestFound := filesByPath["manifest.json"]
 	if !manifestFound {
@@ -197,6 +208,38 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 	return result, nil
 }
 
+func openZipFiles(path string) ([]*zip.File, func() error, error) {
+	dir := filepath.Dir(path)
+	name := filepath.Base(path)
+	root, err := os.OpenRoot(dir)
+	if err == nil {
+		defer func() {
+			_ = root.Close()
+		}()
+		info, err := root.Stat(name)
+		if err != nil {
+			return nil, nil, err
+		}
+		if info.Size() > 0 && info.Size() <= maxVerifyZipReadAllBytes {
+			zipBytes, err := root.ReadFile(name)
+			if err != nil {
+				return nil, nil, err
+			}
+			reader, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+			if err != nil {
+				return nil, nil, err
+			}
+			return reader.File, func() error { return nil }, nil
+		}
+	}
+
+	zipReader, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return zipReader.File, zipReader.Close, nil
+}
+
 func rejectDuplicateZipEntries(files []*zip.File) error {
 	duplicates := zipx.DuplicatePaths(files)
 	if len(duplicates) == 0 {
@@ -272,7 +315,9 @@ func hashZipFile(zipFile *zip.File) (string, error) {
 	}()
 	hashWriter := sha256.New()
 	limitedReader := io.LimitReader(reader, maxZipFileBytes+1)
-	bytesCopied, err := io.Copy(hashWriter, limitedReader)
+	copyBuffer := zipCopyBufferPool.Get().(*[]byte)
+	defer zipCopyBufferPool.Put(copyBuffer)
+	bytesCopied, err := io.CopyBuffer(hashWriter, limitedReader, *copyBuffer)
 	if err != nil {
 		return "", err
 	}
