@@ -122,6 +122,20 @@ print(version)
 PY
 }
 
+resolve_source_build_expected_version() {
+  local exact_tag
+  if [[ -n "$(git -C "${REPO_ROOT}" status --short 2>/dev/null || true)" ]]; then
+    printf '%s' "0.0.0-dev"
+    return 0
+  fi
+  exact_tag="$(git -C "${REPO_ROOT}" describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
+  if [[ -n "${exact_tag}" ]] && [[ "${exact_tag}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)*$ ]]; then
+    printf '%s' "${exact_tag#v}"
+    return 0
+  fi
+  printf '%s' "0.0.0-dev"
+}
+
 assert_version() {
   local label="$1"
   local bin="$2"
@@ -166,7 +180,7 @@ mkdir -p "${release_dir}" "${install_dir}"
 source_bin="${work_dir}/gait-source"
 cp "${BIN_PATH}" "${source_bin}"
 chmod 0755 "${source_bin}"
-assert_version "source-build" "${source_bin}" "0.0.0-dev"
+assert_version "source-build" "${source_bin}" "$(resolve_source_build_expected_version)"
 
 release_bin="${work_dir}/gait-release"
 go build -ldflags "-X main.version=${release_version}" -o "${release_bin}" ./cmd/gait
