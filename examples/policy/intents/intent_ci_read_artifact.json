@@ -1,0 +1,29 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-03-23T00:00:00Z",
+  "producer_version": "0.0.0-example",
+  "tool_name": "artifact.read",
+  "args": {
+    "artifact_id": "build-output-abc123",
+    "path": "/ci/artifacts/build.tar.gz"
+  },
+  "targets": [
+    {
+      "kind": "path",
+      "value": "/ci/artifacts/build.tar.gz",
+      "operation": "read"
+    }
+  ],
+  "arg_provenance": [
+    {
+      "arg_path": "$.artifact_id",
+      "source": "system"
+    }
+  ],
+  "context": {
+    "identity": "ci-agent",
+    "workspace": "/ci/workspace",
+    "risk_class": "low"
+  }
+}
