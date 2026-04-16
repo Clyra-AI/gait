@@ -7,6 +7,7 @@ These templates provide baseline policy packs by risk tier:
 - `base_high_risk.yaml`
 - `baseline-highrisk.yaml` (hyphenated alias)
 - `knowledge_worker_safe.yaml` (reversible-first profile)
+- `ci_cd_pipeline.yaml` (CI/CD agent guardrails)
 
 Scaffold a baseline file directly from the CLI:
 
@@ -39,6 +40,12 @@ gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/int
 gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_tainted_egress.json --json
 gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delegated_egress_valid.json --json
 gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delegated_egress_invalid.json --json
+
+gait policy test examples/policy/ci_cd_pipeline.yaml examples/policy/intents/intent_ci_read_artifact.json --json
+gait policy test examples/policy/ci_cd_pipeline.yaml examples/policy/intents/intent_ci_deploy_staging.json --json
+gait policy test examples/policy/ci_cd_pipeline.yaml examples/policy/intents/intent_ci_deploy_production.json --json
+gait policy test examples/policy/ci_cd_pipeline.yaml examples/policy/intents/intent_ci_secret_access.json --json
+gait policy test examples/policy/ci_cd_pipeline.yaml examples/policy/intents/intent_ci_infra_destroy.json --json
 ```
 
 Expected verdict matrix:
@@ -49,6 +56,11 @@ Expected verdict matrix:
 - `intent_tainted_egress.json` => `block` (exit `3`)
 - `intent_delegated_egress_valid.json` => `allow` (exit `0`)
 - `intent_delegated_egress_invalid.json` => `block` (exit `3`)
+- `intent_ci_read_artifact.json` => `allow` (exit `0`)
+- `intent_ci_deploy_staging.json` => `allow` (exit `0`)
+- `intent_ci_deploy_production.json` => `block` (exit `3`)
+- `intent_ci_secret_access.json` => `require_approval` (exit `4`)
+- `intent_ci_infra_destroy.json` => `block` (exit `3`)
 
 High-risk note:
 
@@ -56,6 +68,7 @@ High-risk note:
 - `base_high_risk.yaml` requires explicit delegation metadata for high-risk egress writes and blocks tainted external payload flow to network destinations.
 - `base_high_risk.yaml` and `baseline-highrisk.yaml` include `destructive_budget` defaults to fail-closed once destructive threshold windows are exceeded.
 - `knowledge_worker_safe.yaml` defaults unknown tools to block, prefers archive/trash actions, and requires explicit break-glass approval for permanent delete paths.
+- `ci_cd_pipeline.yaml` governs AI agents operating inside CI/CD pipelines: allows artifact reads and staging deploys, blocks production deploys and infrastructure destruction, requires approval for secret access and infrastructure provisioning.
 - For runtime checks in hardened mode, evaluate with `--profile oss-prod` and an explicit broker, for example:
 
 ```bash

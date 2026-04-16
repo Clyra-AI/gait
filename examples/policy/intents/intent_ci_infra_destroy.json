@@ -1,0 +1,30 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-03-23T00:00:00Z",
+  "producer_version": "0.0.0-example",
+  "tool_name": "infra.destroy",
+  "args": {
+    "resource": "rds-cluster-prod",
+    "region": "us-east-1"
+  },
+  "targets": [
+    {
+      "kind": "other",
+      "value": "rds-cluster-prod",
+      "operation": "delete",
+      "destructive": true
+    }
+  ],
+  "arg_provenance": [
+    {
+      "arg_path": "$.resource",
+      "source": "user"
+    }
+  ],
+  "context": {
+    "identity": "ci-agent",
+    "workspace": "/ci/workspace",
+    "risk_class": "high"
+  }
+}
