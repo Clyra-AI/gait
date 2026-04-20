@@ -26,6 +26,15 @@ perf/command_budget_report.json
 perf/context_budget_report.json
 perf/ui_budget_report.json
 /product/*
+!/product/plans/
+!/product/plans/adhoc/
+!/product/plans/adhoc/README.md
+!/product/plans/backlog/
+!/product/plans/backlog/README.md
+!/product/ideas/
+!/product/ideas/README.md
+!/product/dev_guides.md
+!/product/architecture_guides.md
 !/product/PRD.md
 !/product/ROADMAP.md
 !/product/PLAN_v1.md

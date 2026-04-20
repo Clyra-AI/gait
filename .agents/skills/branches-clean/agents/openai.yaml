@@ -1,4 +1,0 @@
-interface:
-  display_name: "Branches Clean"
-  short_description: "Delete non-main branches safely, one by one"
-  default_prompt: "Use $branches-clean to execute one-by-one deletion of all non-main local and remote branches."

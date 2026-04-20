@@ -1,0 +1,4 @@
+[submodule "factory"]
+	path = factory
+	url = git@github.com:Clyra-AI/factory.git
+	branch = main
