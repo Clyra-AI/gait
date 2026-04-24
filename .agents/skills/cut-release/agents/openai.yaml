@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cut Release"
+  short_description: "Resolve, tag, monitor, and hotfix releases"
+  default_prompt: "Use $cut-release to resolve a release version, finalize changelog, tag from the default branch, monitor release/UAT, and run bounded hotfix loops."

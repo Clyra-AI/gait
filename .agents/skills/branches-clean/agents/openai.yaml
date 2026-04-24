@@ -1,0 +1,4 @@
+interface:
+  display_name: "Branches Clean"
+  short_description: "Safely clean local and remote branches"
+  default_prompt: "Use $branches-clean to delete non-protected branches one by one using the active repo profile."

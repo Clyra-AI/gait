@@ -1,0 +1,4 @@
+interface:
+  display_name: "Library Sync"
+  short_description: "Sync shared assets across repositories"
+  default_prompt: "Use $library-sync to package, distribute, or reconcile shared factory assets across repositories."

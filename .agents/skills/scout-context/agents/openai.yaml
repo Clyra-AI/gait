@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scout Context"
+  short_description: "Gather bounded implementation context"
+  default_prompt: "Use $scout-context to collect focused repo context and summarize what implementation needs next."

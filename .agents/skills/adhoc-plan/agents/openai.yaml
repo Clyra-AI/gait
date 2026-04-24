@@ -1,0 +1,4 @@
+interface:
+  display_name: "Adhoc Plan"
+  short_description: "Turn recommendations into execution-ready plans"
+  default_prompt: "Use $adhoc-plan to convert provided recommendations into a timestamped, profile-driven execution plan."

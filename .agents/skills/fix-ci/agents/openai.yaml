@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fix CI"
+  short_description: "Diagnose and fix failing CI"
+  default_prompt: "Use $fix-ci to inspect failing checks, classify blockers, implement repo-owned fixes, and rerun validation."

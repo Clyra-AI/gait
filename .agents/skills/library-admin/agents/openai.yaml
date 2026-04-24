@@ -1,0 +1,4 @@
+interface:
+  display_name: "Library Admin"
+  short_description: "Maintain reusable factory assets"
+  default_prompt: "Use $library-admin to update reusable factory library assets, manifests, and cookbook guidance."

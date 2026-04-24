@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit Push"
+  short_description: "Commit, PR, CI, review, and land"
+  default_prompt: "Use $commit-push to commit scoped changes, open or update a PR, and drive profile-defined checks and review loops."
