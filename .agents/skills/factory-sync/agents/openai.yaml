@@ -1,0 +1,4 @@
+interface:
+  display_name: "Factory Sync"
+  short_description: "Sync Factory submodule before skill use"
+  default_prompt: "Use $factory-sync to update the Factory submodule to latest main through a small PR before running Factory-backed skills."
