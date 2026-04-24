@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backlog Plan"
+  short_description: "Turn repo ideas into test-wired plans"
+  default_prompt: "Use $backlog-plan to convert repo-owned ideas into a timestamped execution plan with profile-specific validation wiring."

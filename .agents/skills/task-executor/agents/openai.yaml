@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Executor"
+  short_description: "Execute bounded task packets"
+  default_prompt: "Use $task-executor to implement a bounded task packet with scoped edits and validation."

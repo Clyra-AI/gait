@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ideas To Plan"
+  short_description: "Convert ideas into implementation plans"
+  default_prompt: "Use $ideas-to-plan to turn repo ideas into an execution-ready plan following the active profile."

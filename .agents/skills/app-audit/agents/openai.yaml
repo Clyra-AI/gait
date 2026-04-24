@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Audit"
+  short_description: "Audit product and OSS readiness"
+  default_prompt: "Use $app-audit to run a profile-driven readiness audit with evidence, severity-ranked findings, and fix waves."

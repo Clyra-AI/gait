@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Bootstrap"
+  short_description: "Bootstrap a new repository operating pack"
+  default_prompt: "Use $repo-bootstrap to create the initial Factory operating pack for a new repository."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Recommendations To Plan"
+  short_description: "Plan from recommendations"
+  default_prompt: "Use $recommendations-to-plan to convert recommendation sets into execution-ready implementation plans."

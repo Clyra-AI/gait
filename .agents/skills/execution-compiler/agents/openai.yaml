@@ -1,0 +1,4 @@
+interface:
+  display_name: "Execution Compiler"
+  short_description: "Compile plans into executable task packets"
+  default_prompt: "Use $execution-compiler to convert approved plans or requirements into executable task packets."

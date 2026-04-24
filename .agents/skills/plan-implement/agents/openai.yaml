@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Implement"
+  short_description: "Execute plan stories with required gates"
+  default_prompt: "Use $plan-implement to implement a provided plan path story-by-story with profile validation and evidence."

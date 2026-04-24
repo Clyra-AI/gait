@@ -1,0 +1,4 @@
+interface:
+  display_name: "Eval Suite Runner"
+  short_description: "Run required evaluation suites"
+  default_prompt: "Use $eval-suite-runner to execute profile or workflow-required evaluation suites and report evidence."

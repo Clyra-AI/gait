@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Review"
+  short_description: "Review code with severity-ranked risks"
+  default_prompt: "Use $code-review to perform a profile-driven code review focused on contracts, safety, determinism, portability, and docs correctness."

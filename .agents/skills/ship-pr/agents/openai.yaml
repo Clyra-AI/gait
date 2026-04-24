@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ship PR"
+  short_description: "Prepare and ship a reviewed PR"
+  default_prompt: "Use $ship-pr to prepare PR evidence, validation, and handoff for branch shipping."

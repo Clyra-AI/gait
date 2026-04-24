@@ -1,0 +1,4 @@
+interface:
+  display_name: "Recovery Advisor"
+  short_description: "Advise after blocked or exhausted loops"
+  default_prompt: "Use $recovery-advisor to analyze blocked work, no-progress loops, or delivery debt and recommend safe recovery."
