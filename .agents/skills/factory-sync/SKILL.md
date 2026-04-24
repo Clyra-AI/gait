@@ -19,7 +19,9 @@ latest shared skill behavior.
    - `git fetch origin main`
    - `git checkout main`
    - `git pull --ff-only origin main`
-3. Create or switch to `codex/update-factory-submodule`.
+3. Reset the dedicated sync branch from current `main`:
+   - `git checkout -B codex/update-factory-submodule main`
+   - do not reuse prior `codex/update-factory-submodule` history
 4. Update Factory:
    - `git submodule update --init factory`
    - `git submodule update --remote factory`
@@ -31,7 +33,7 @@ latest shared skill behavior.
    - ensure only `factory` and optionally `.gitmodules` changed
    - `git add factory .gitmodules`
    - `git commit -m "chore: update factory submodule"`
-   - `git push -u origin codex/update-factory-submodule`
+   - `git push --force-with-lease -u origin codex/update-factory-submodule`
    - create a PR against `main`
    - wait for required checks
    - merge without deleting the branch
@@ -42,7 +44,8 @@ latest shared skill behavior.
 - Do not edit files inside `factory`.
 - Do not run product implementation work in this skill.
 - Do not hide unrelated dirty files; stop and report them.
-- Do not force-push unless explicitly required by a stale branch and clearly reported.
+- Use `--force-with-lease` only for the dedicated sync branch after resetting it
+  from current `main`; stop if the lease fails.
 - Use machine-readable command output when useful, for example `wrkr scan --json`,
   `axym collect --dry-run --json`, or `gait doctor --json` depending on the active repo.
 
