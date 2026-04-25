@@ -35,9 +35,19 @@ latest shared skill behavior.
    - `git commit -m "chore: update factory submodule"`
    - `git push --force-with-lease -u origin codex/update-factory-submodule`
    - create a PR against `main`
-   - wait for required checks
-   - merge without deleting the branch
-7. Sync local `main` after merge and return the merged Factory commit.
+   - merge the PR immediately without polling, waiting for, or inspecting PR CI
+   - do not bypass branch protection or unresolved-review requirements
+   - if branch protection blocks only because required checks are pending, enable
+     auto-merge when available or wait for the protected merge gate to clear
+     without inspecting CI logs
+   - if GitHub blocks merge for failed checks, unresolved review, permissions, or
+     policy, report the blocker and stop before post-merge steps
+   - do not delete the branch
+7. Sync local `main` after merge and monitor post-merge CI.
+8. If post-merge CI fails and the failure is repo-fixable, run a bounded hotfix
+   loop from updated `main`; stop for external, policy, safety, timeout, or
+   no-progress blockers.
+9. Return the merged Factory commit.
 
 ## Safety Rules
 
@@ -46,6 +56,8 @@ latest shared skill behavior.
 - Do not hide unrelated dirty files; stop and report them.
 - Use `--force-with-lease` only for the dedicated sync branch after resetting it
   from current `main`; stop if the lease fails.
+- Do not inspect PR CI for the submodule-pointer-only PR; only wait when
+  branch protection requires pending checks to clear before GitHub allows merge.
 - Use machine-readable command output when useful, for example `wrkr scan --json`,
   `axym collect --dry-run --json`, or `gait doctor --json` depending on the active repo.
 
@@ -54,4 +66,5 @@ latest shared skill behavior.
 - synced Factory commit SHA
 - PR URL or `already up to date`
 - merge SHA when a PR was merged
+- post-merge CI status and hotfix PRs when used
 - next suggested command, such as `Use $adhoc-plan ...`
