@@ -37,7 +37,11 @@ latest shared skill behavior.
    - create a PR against `main`
    - merge the PR immediately without polling, waiting for, or inspecting PR CI
    - do not bypass branch protection or unresolved-review requirements
-   - if GitHub blocks immediate merge, report the blocker instead of waiting on PR CI
+   - if branch protection blocks only because required checks are pending, enable
+     auto-merge when available or wait for the protected merge gate to clear
+     without inspecting CI logs
+   - if GitHub blocks merge for failed checks, unresolved review, permissions, or
+     policy, report the blocker and stop before post-merge steps
    - do not delete the branch
 7. Sync local `main` after merge and monitor post-merge CI.
 8. If post-merge CI fails and the failure is repo-fixable, run a bounded hotfix
@@ -52,8 +56,8 @@ latest shared skill behavior.
 - Do not hide unrelated dirty files; stop and report them.
 - Use `--force-with-lease` only for the dedicated sync branch after resetting it
   from current `main`; stop if the lease fails.
-- Do not wait on PR CI for the submodule-pointer-only PR; monitor default-branch
-  CI after merge instead.
+- Do not inspect PR CI for the submodule-pointer-only PR; only wait when
+  branch protection requires pending checks to clear before GitHub allows merge.
 - Use machine-readable command output when useful, for example `wrkr scan --json`,
   `axym collect --dry-run --json`, or `gait doctor --json` depending on the active repo.
 
