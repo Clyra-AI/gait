@@ -1,4 +1,0 @@
-interface:
-  display_name: "Post Merge Monitor"
-  short_description: "Monitor default-branch health after merge"
-  default_prompt: "Use $post-merge-monitor to watch post-merge checks and advise or run bounded recovery when failures are actionable."

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Trace Grader"
-  short_description: "Grade workflow traces with evidence"
-  default_prompt: "Use $trace-grader to evaluate workflow traces against Factory grading criteria and report findings."

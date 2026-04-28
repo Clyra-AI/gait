@@ -1,4 +1,0 @@
-interface:
-  display_name: "Repo Audit"
-  short_description: "Audit repo operating readiness"
-  default_prompt: "Use $repo-audit to assess a repository against Factory operating, safety, workflow, and evidence standards."

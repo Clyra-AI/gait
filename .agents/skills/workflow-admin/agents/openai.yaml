@@ -1,4 +1,0 @@
-interface:
-  display_name: "Workflow Admin"
-  short_description: "Maintain workflow contracts and runtime policy"
-  default_prompt: "Use $workflow-admin to update or troubleshoot WORKFLOW.md, routing, approvals, trust modes, or workflow policy."

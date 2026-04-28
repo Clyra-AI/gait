@@ -1,4 +1,0 @@
-interface:
-  display_name: "Evidence Attestor"
-  short_description: "Produce provenance and evidence attestations"
-  default_prompt: "Use $evidence-attestor to collect validation evidence and produce required provenance or attestation artifacts."
