@@ -1,18 +1,29 @@
-# Gait Skills
+# Gait Skill Wrappers
 
-This directory contains reusable, portable skills that wrap Gait CLI workflows.
+`.agents/skills/` contains local discovery wrappers for shared Factory development-process skills, local Factory maintenance, and Gait-specific local skills.
 
-Core publishable skills:
+Shared wrapper and maintenance skills kept in this project:
 
-- `incident-to-regression`
+- `adhoc-plan`
+- `app-audit`
+- `backlog-plan`
+- `branches-clean`
+- `code-review`
+- `commit-push`
+- `cut-release`
+- `factory-sync`
+
+Project-local skills kept in this project:
+
 - `ci-failure-triage`
 - `evidence-receipt-generation`
-
-Existing project-specific skills remain available for internal usage:
-
 - `gait-capture-runpack`
 - `gait-incident-to-regression`
 - `gait-policy-test-rollout`
+- `incident-to-regression`
+- `pr-comments`
+
+The shared Factory skill at `factory/skills/<name>/SKILL.md` is authoritative for Factory-backed wrappers. `factory-sync` is a local maintenance wrapper for updating the Factory submodule pointer.
 
 Validation:
 

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Repair Feedback"
-  short_description: "Implement PR feedback with dispositions"
-  default_prompt: "Use $repair-feedback to collect PR comments or feedback, implement bounded fixes, validate, and hand off to commit-push when shipping is requested."

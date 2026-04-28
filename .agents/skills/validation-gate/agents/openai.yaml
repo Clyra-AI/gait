@@ -1,4 +1,0 @@
-interface:
-  display_name: "Validation Gate"
-  short_description: "Run and summarize required validation"
-  default_prompt: "Use $validation-gate to run required profile validation and report evidence before shipping."

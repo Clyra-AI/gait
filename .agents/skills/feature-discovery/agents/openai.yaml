@@ -1,4 +1,0 @@
-interface:
-  display_name: "Feature Discovery"
-  short_description: "Discover evidence-backed product opportunities"
-  default_prompt: "Use $feature-discovery to scan the configured market window and write profile-driven strategic recommendations."

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Recurring GC"
-  short_description: "Run recurring cleanup and drift control"
-  default_prompt: "Use $recurring-gc to perform scheduled cleanup, drift checks, and maintenance reporting."

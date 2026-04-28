@@ -1,4 +1,0 @@
-interface:
-  display_name: "Meta Skill Author"
-  short_description: "Author and refine reusable skills"
-  default_prompt: "Use $meta-skill-author to create or improve reusable Factory skills with portable profile-driven instructions."

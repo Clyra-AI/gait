@@ -1,4 +1,0 @@
-interface:
-  display_name: "Holdout Evaluator"
-  short_description: "Run holdout and hidden evaluation checks"
-  default_prompt: "Use $holdout-evaluator to run required holdout evaluations and report pass/fail evidence."

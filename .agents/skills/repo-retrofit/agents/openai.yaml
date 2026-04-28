@@ -1,4 +1,0 @@
-interface:
-  display_name: "Repo Retrofit"
-  short_description: "Retrofit an existing repo for Factory"
-  default_prompt: "Use $repo-retrofit to add or repair Factory operating contracts in an existing repository."
