@@ -12,6 +12,7 @@ Shared wrapper and maintenance skills kept in this project:
 - `commit-push`
 - `cut-release`
 - `factory-sync`
+- `plan-implement`
 
 Project-local skills kept in this project:
 
