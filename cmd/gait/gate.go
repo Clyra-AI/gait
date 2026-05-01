@@ -62,7 +62,10 @@ type gateEvalOutput struct {
 	DestructiveBudgetUsed      int                           `json:"destructive_budget_used,omitempty"`
 	DestructiveBudgetRemaining int                           `json:"destructive_budget_remaining,omitempty"`
 	CredentialIssuer           string                        `json:"credential_issuer,omitempty"`
+	CredentialSource           string                        `json:"credential_source,omitempty"`
+	CredentialAccessType       string                        `json:"credential_access_type,omitempty"`
 	CredentialRef              string                        `json:"credential_ref,omitempty"`
+	CredentialTTLSeconds       int64                         `json:"credential_ttl_seconds,omitempty"`
 	CredentialEvidencePath     string                        `json:"credential_evidence_path,omitempty"`
 	SimulateMode               bool                          `json:"simulate_mode,omitempty"`
 	WouldHaveBlocked           bool                          `json:"would_have_blocked,omitempty"`
@@ -654,10 +657,19 @@ func runGateEval(arguments []string) int {
 		}
 	}
 
+	credentialBrokerName := ""
 	credentialIssuer := ""
+	credentialSource := ""
+	credentialAccessType := ""
+	credentialSubject := ""
+	credentialOwner := ""
 	credentialRefOut := ""
 	credentialReferenceUsed := ""
 	credentialScopesUsed := []string{}
+	credentialTargetBinding := ""
+	credentialRunBinding := ""
+	credentialJobBinding := ""
+	credentialRequestDigest := ""
 	credentialIssuedAt := time.Time{}
 	credentialExpiresAt := time.Time{}
 	credentialTTLSeconds := int64(0)
@@ -672,28 +684,61 @@ func runGateEval(arguments []string) int {
 			if reference == "" {
 				reference = outcome.BrokerReference
 			}
+			targetBinding, bindingErr := gate.CredentialTargetBinding(preparedIntent)
+			if bindingErr != nil {
+				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: bindingErr.Error()}, exitCodeForError(bindingErr, exitInvalidInput))
+			}
 			credentialReferenceUsed = reference
 			credentialScopesUsed = scope
-			issued, issueErr := credential.Issue(resolvedBroker, credential.Request{
-				ToolName:  preparedIntent.ToolName,
-				Identity:  preparedIntent.Context.Identity,
-				Workspace: preparedIntent.Context.Workspace,
-				SessionID: preparedIntent.Context.SessionID,
-				RequestID: preparedIntent.Context.RequestID,
-				Reference: reference,
-				Scope:     scope,
-			})
+			request := credential.Request{
+				ToolName:      preparedIntent.ToolName,
+				Identity:      preparedIntent.Context.Identity,
+				Workspace:     preparedIntent.Context.Workspace,
+				SessionID:     preparedIntent.Context.SessionID,
+				RequestID:     preparedIntent.Context.RequestID,
+				RunID:         preparedIntent.Context.RunID,
+				JobID:         preparedIntent.Context.JobID,
+				Reference:     reference,
+				Scope:         scope,
+				TargetBinding: targetBinding,
+			}
+			issued, issueErr := credential.Issue(resolvedBroker, request)
 			if issueErr != nil {
 				result.Verdict = "block"
 				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"broker_credential_missing"})
 				result.Violations = mergeUniqueSorted(result.Violations, []string{"broker_credential_missing"})
 			} else {
-				credentialIssuer = issued.IssuedBy
+				reasons, violations := gate.ValidateBrokerCredentialReceipt(policyRuleForMatchedRule(policy, outcome.MatchedRule), request, issued, gate.IntentBrokerBinding{
+					ExpectedCredentialRef: strings.TrimSpace(preparedIntent.Context.CredentialRef),
+					TargetBinding:         targetBinding,
+					RunBinding:            strings.TrimSpace(preparedIntent.Context.RunID),
+					JobBinding:            strings.TrimSpace(preparedIntent.Context.JobID),
+				})
+				if len(reasons) > 0 {
+					result.Verdict = "block"
+					result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, reasons)
+					result.Violations = mergeUniqueSorted(result.Violations, violations)
+				}
+				credentialBrokerName = issued.IssuedBy
+				credentialIssuer = issued.Issuer
+				if credentialIssuer == "" {
+					credentialIssuer = issued.IssuedBy
+				}
+				credentialSource = issued.Source
+				credentialAccessType = issued.AccessType
+				credentialSubject = issued.Subject
+				credentialOwner = issued.Owner
 				credentialRefOut = issued.CredentialRef
+				credentialTargetBinding = issued.TargetBinding
+				credentialRunBinding = issued.RunBinding
+				credentialJobBinding = issued.JobBinding
+				credentialRequestDigest = issued.RequestDigest
 				credentialIssuedAt = issued.IssuedAt
 				credentialExpiresAt = issued.ExpiresAt
 				credentialTTLSeconds = issued.TTLSeconds
-				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"broker_credential_present"})
+				if result.Verdict == "allow" {
+					result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"broker_credential_present"})
+				}
 			}
 		}
 	}
@@ -716,20 +761,28 @@ func runGateEval(arguments []string) int {
 	exitCode = gateEvalExitCodeForVerdict(result.Verdict, exitCode)
 
 	traceResult, err := gate.EmitSignedTrace(policy, preparedIntent, result, gate.EmitTraceOptions{
-		ProducerVersion:       currentVersion(),
-		CorrelationID:         currentCorrelationID(),
-		ApprovalTokenRef:      resolvedApprovalRef,
-		DelegationTokenRef:    resolvedDelegationRef,
-		DelegationReasonCodes: mergeUniqueSorted(nil, filterReasonsByPrefix(result.ReasonCodes, "delegation_")),
-		LatencyMS:             evalLatencyMS,
-		ContextSource:         outcome.ContextSource,
-		CompositeRiskClass:    outcome.CompositeRiskClass,
-		StepVerdicts:          outcome.StepVerdicts,
-		PreApproved:           outcome.PreApproved,
-		PatternID:             outcome.PatternID,
-		RegistryReason:        outcome.RegistryReason,
-		SigningPrivateKey:     keyPair.Private,
-		TracePath:             tracePath,
+		ProducerVersion:            currentVersion(),
+		CorrelationID:              currentCorrelationID(),
+		ApprovalTokenRef:           resolvedApprovalRef,
+		DelegationTokenRef:         resolvedDelegationRef,
+		DelegationReasonCodes:      mergeUniqueSorted(nil, filterReasonsByPrefix(result.ReasonCodes, "delegation_")),
+		LatencyMS:                  evalLatencyMS,
+		ContextSource:              outcome.ContextSource,
+		CompositeRiskClass:         outcome.CompositeRiskClass,
+		StepVerdicts:               outcome.StepVerdicts,
+		PreApproved:                outcome.PreApproved,
+		PatternID:                  outcome.PatternID,
+		RegistryReason:             outcome.RegistryReason,
+		BrokerCredentialRef:        credentialRefOut,
+		BrokerCredentialSource:     credentialSource,
+		BrokerCredentialAccessType: credentialAccessType,
+		BrokerCredentialIssuer:     credentialIssuer,
+		BrokerRequestDigest:        credentialRequestDigest,
+		BrokerTargetBinding:        credentialTargetBinding,
+		BrokerRunBinding:           credentialRunBinding,
+		BrokerJobBinding:           credentialJobBinding,
+		SigningPrivateKey:          keyPair.Private,
+		TracePath:                  tracePath,
 	})
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -764,18 +817,27 @@ func runGateEval(arguments []string) int {
 			resolvedCredentialEvidencePath = fmt.Sprintf("credential_evidence_%s.json", traceResult.Trace.TraceID)
 		}
 		credentialRecord := gate.BuildBrokerCredentialRecord(gate.BuildBrokerCredentialRecordOptions{
-			CreatedAt:       result.CreatedAt,
-			ProducerVersion: currentVersion(),
-			TraceID:         traceResult.Trace.TraceID,
-			ToolName:        traceResult.Trace.ToolName,
-			Identity:        preparedIntent.Context.Identity,
-			Broker:          credentialIssuer,
-			Reference:       credentialReferenceUsed,
-			Scope:           credentialScopesUsed,
-			CredentialRef:   credentialRefOut,
-			IssuedAt:        credentialIssuedAt,
-			ExpiresAt:       credentialExpiresAt,
-			TTLSeconds:      credentialTTLSeconds,
+			CreatedAt:            result.CreatedAt,
+			ProducerVersion:      currentVersion(),
+			TraceID:              traceResult.Trace.TraceID,
+			ToolName:             traceResult.Trace.ToolName,
+			Identity:             preparedIntent.Context.Identity,
+			Broker:               credentialBrokerName,
+			Reference:            credentialReferenceUsed,
+			CredentialSource:     credentialSource,
+			CredentialAccessType: credentialAccessType,
+			CredentialIssuer:     credentialIssuer,
+			CredentialSubject:    credentialSubject,
+			CredentialOwner:      credentialOwner,
+			Scope:                credentialScopesUsed,
+			CredentialRef:        credentialRefOut,
+			TargetBinding:        credentialTargetBinding,
+			RunBinding:           credentialRunBinding,
+			JobBinding:           credentialJobBinding,
+			RequestDigest:        credentialRequestDigest,
+			IssuedAt:             credentialIssuedAt,
+			ExpiresAt:            credentialExpiresAt,
+			TTLSeconds:           credentialTTLSeconds,
 		})
 		if err := gate.WriteBrokerCredentialRecord(resolvedCredentialEvidencePath, credentialRecord); err != nil {
 			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -844,7 +906,10 @@ func runGateEval(arguments []string) int {
 		DestructiveBudgetUsed:      destructiveBudgetDecision.Used,
 		DestructiveBudgetRemaining: destructiveBudgetDecision.Remaining,
 		CredentialIssuer:           credentialIssuer,
+		CredentialSource:           credentialSource,
+		CredentialAccessType:       credentialAccessType,
 		CredentialRef:              credentialRefOut,
+		CredentialTTLSeconds:       credentialTTLSeconds,
 		CredentialEvidencePath:     resolvedCredentialEvidencePath,
 		SimulateMode:               simulate,
 		WouldHaveBlocked:           wouldHaveBlocked,
@@ -912,6 +977,27 @@ func gateIntentContainsDestructiveTarget(intent schemagate.IntentRequest) bool {
 		}
 	}
 	return gate.IntentContainsDestructiveTarget(intent.Targets)
+}
+
+func policyRuleForMatchedRule(policy gate.Policy, matchedRule string) gate.PolicyRule {
+	names := map[string]struct{}{}
+	for _, name := range strings.Split(matchedRule, ",") {
+		trimmed := strings.TrimSpace(name)
+		if trimmed != "" {
+			names[trimmed] = struct{}{}
+		}
+	}
+	merged := gate.PolicyRule{}
+	for _, rule := range policy.Rules {
+		if _, ok := names[rule.Name]; !ok {
+			continue
+		}
+		merged.RequireJITCredential = merged.RequireJITCredential || rule.RequireJITCredential
+		if rule.MaxCredentialTTLSeconds > 0 && (merged.MaxCredentialTTLSeconds == 0 || rule.MaxCredentialTTLSeconds < merged.MaxCredentialTTLSeconds) {
+			merged.MaxCredentialTTLSeconds = rule.MaxCredentialTTLSeconds
+		}
+	}
+	return merged
 }
 
 func buildPreApprovedOutcome(intent schemagate.IntentRequest, producerVersion string, match gate.ApprovedScriptMatch) (gate.EvalOutcome, error) {

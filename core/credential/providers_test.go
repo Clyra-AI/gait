@@ -1,6 +1,7 @@
 package credential
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -389,6 +390,21 @@ func TestCommandBrokerHelperProcess(t *testing.T) {
 		fmt.Print("cmd:plain-ref")
 		os.Exit(0)
 	}
-	fmt.Print(`{"issued_by":"command","credential_ref":"cmd:test-credential"}`)
+	request := Request{}
+	_ = json.NewDecoder(os.Stdin).Decode(&request)
+	response := Response{
+		IssuedBy:      "command",
+		Source:        "command",
+		AccessType:    "jit",
+		Issuer:        "command",
+		Subject:       request.Identity,
+		Owner:         request.Identity,
+		Scope:         request.Scope,
+		CredentialRef: "cmd:test-credential",
+		TargetBinding: request.TargetBinding,
+		RunBinding:    request.RunID,
+		JobBinding:    request.JobID,
+	}
+	_ = json.NewEncoder(os.Stdout).Encode(response)
 	os.Exit(0)
 }

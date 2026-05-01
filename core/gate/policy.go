@@ -45,6 +45,22 @@ var (
 		"delegation":       {},
 		"context_evidence": {},
 	}
+	allowedRequiredHighRiskFields = map[string]struct{}{
+		"agent_id":               {},
+		"agent_identity":         {},
+		"run_id":                 {},
+		"workflow_id":            {},
+		"repo":                   {},
+		"environment":            {},
+		"credential_ref":         {},
+		"credential_source":      {},
+		"credential_access_type": {},
+		"credential_issuer":      {},
+		"credential_ttl_seconds": {},
+		"approval_ref":           {},
+		"wrkr_inventory_ref":     {},
+		"agent_action_bom_ref":   {},
+	}
 	allowedRateLimitScopes = map[string]struct{}{
 		"tool":          {},
 		"identity":      {},
@@ -79,9 +95,10 @@ type ScriptPolicy struct {
 }
 
 type FailClosedPolicy struct {
-	Enabled        bool     `yaml:"enabled"`
-	RiskClasses    []string `yaml:"risk_classes"`
-	RequiredFields []string `yaml:"required_fields"`
+	Enabled                bool     `yaml:"enabled"`
+	RiskClasses            []string `yaml:"risk_classes"`
+	RequiredFields         []string `yaml:"required_fields"`
+	RequiredHighRiskFields []string `yaml:"required_high_risk_fields"`
 }
 
 type MCPTrustPolicy struct {
@@ -96,25 +113,40 @@ type MCPTrustPolicy struct {
 }
 
 type PolicyRule struct {
-	Name                        string          `yaml:"name"`
-	Priority                    int             `yaml:"priority"`
-	Effect                      string          `yaml:"effect"`
-	Action                      string          `yaml:"action"`
-	Match                       PolicyMatch     `yaml:"match"`
-	Endpoint                    EndpointPolicy  `yaml:"endpoint"`
-	ReasonCodes                 []string        `yaml:"reason_codes"`
-	Violations                  []string        `yaml:"violations"`
-	MinApprovals                int             `yaml:"min_approvals"`
-	RequireDistinctApprovers    bool            `yaml:"require_distinct_approvers"`
-	RequireContextEvidence      bool            `yaml:"require_context_evidence"`
-	RequiredContextEvidenceMode string          `yaml:"required_context_evidence_mode"`
-	MaxContextAgeSeconds        int64           `yaml:"max_context_age_seconds"`
-	RequireBrokerCredential     bool            `yaml:"require_broker_credential"`
-	BrokerReference             string          `yaml:"broker_reference"`
-	BrokerScopes                []string        `yaml:"broker_scopes"`
-	RateLimit                   RateLimitPolicy `yaml:"rate_limit"`
-	DestructiveBudget           RateLimitPolicy `yaml:"destructive_budget"`
-	Dataflow                    DataflowPolicy  `yaml:"dataflow"`
+	Name                           string          `yaml:"name"`
+	Priority                       int             `yaml:"priority"`
+	Effect                         string          `yaml:"effect"`
+	Action                         string          `yaml:"action"`
+	Match                          PolicyMatch     `yaml:"match"`
+	Endpoint                       EndpointPolicy  `yaml:"endpoint"`
+	ReasonCodes                    []string        `yaml:"reason_codes"`
+	Violations                     []string        `yaml:"violations"`
+	RequireDeclaredAgent           bool            `yaml:"require_declared_agent"`
+	AllowedAgentIDs                []string        `yaml:"allowed_agent_ids"`
+	DeniedAgentIDs                 []string        `yaml:"denied_agent_ids"`
+	RequiredAgentManifestDigest    string          `yaml:"required_agent_manifest_digest"`
+	AllowedAgentManifestPublishers []string        `yaml:"allowed_agent_manifest_publishers"`
+	AllowedAgentManifestSources    []string        `yaml:"allowed_agent_manifest_sources"`
+	RequiredAgentLifecycleStates   []string        `yaml:"required_agent_lifecycle_states"`
+	RequireAgentOwner              bool            `yaml:"require_agent_owner"`
+	RequireUnexpiredAgent          bool            `yaml:"require_unexpired_agent"`
+	BlockStandingCredentials       bool            `yaml:"block_standing_credentials"`
+	AllowedCredentialSources       []string        `yaml:"allowed_credential_sources"`
+	AllowedCredentialIssuers       []string        `yaml:"allowed_credential_issuers"`
+	AllowedCredentialAccessTypes   []string        `yaml:"allowed_credential_access_types"`
+	MaxCredentialTTLSeconds        int64           `yaml:"max_credential_ttl_seconds"`
+	RequireJITCredential           bool            `yaml:"require_jit_credential"`
+	MinApprovals                   int             `yaml:"min_approvals"`
+	RequireDistinctApprovers       bool            `yaml:"require_distinct_approvers"`
+	RequireContextEvidence         bool            `yaml:"require_context_evidence"`
+	RequiredContextEvidenceMode    string          `yaml:"required_context_evidence_mode"`
+	MaxContextAgeSeconds           int64           `yaml:"max_context_age_seconds"`
+	RequireBrokerCredential        bool            `yaml:"require_broker_credential"`
+	BrokerReference                string          `yaml:"broker_reference"`
+	BrokerScopes                   []string        `yaml:"broker_scopes"`
+	RateLimit                      RateLimitPolicy `yaml:"rate_limit"`
+	DestructiveBudget              RateLimitPolicy `yaml:"destructive_budget"`
+	Dataflow                       DataflowPolicy  `yaml:"dataflow"`
 }
 
 type RateLimitPolicy struct {
@@ -329,7 +361,10 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 
 	if shouldFailClosed(normalizedPolicy.FailClosed, normalizedIntent.Context.RiskClass) {
 		reasons, violations := evaluateFailClosedRequiredFields(normalizedPolicy.FailClosed.RequiredFields, normalizedIntent)
+		highRiskReasons, highRiskViolations := evaluateFailClosedRequiredHighRiskFields(normalizedPolicy.FailClosed.RequiredHighRiskFields, normalizedIntent)
 		endpointReasons, endpointViolations := evaluateFailClosedEndpointClasses(normalizedIntent)
+		reasons = mergeUniqueSorted(reasons, highRiskReasons)
+		violations = mergeUniqueSorted(violations, highRiskViolations)
 		reasons = mergeUniqueSorted(reasons, endpointReasons)
 		violations = mergeUniqueSorted(violations, endpointViolations)
 		if len(reasons) > 0 {
@@ -380,7 +415,7 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 		verdict := "allow"
 		matchedRuleNames := make([]string, 0, len(matchedRules))
 		for _, rule := range matchedRules {
-			evaluation := evaluateMatchedRule(rule, intent)
+			evaluation := evaluateMatchedRule(rule, intent, evaluationTime(opts))
 			evaluations = append(evaluations, evaluation)
 			matchedRuleNames = append(matchedRuleNames, evaluation.RuleName)
 			verdict = mostRestrictiveVerdict(verdict, evaluation.Effect)
@@ -456,7 +491,7 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 	}, nil
 }
 
-func evaluateMatchedRule(rule PolicyRule, intent schemagate.IntentRequest) matchedRuleEvaluation {
+func evaluateMatchedRule(rule PolicyRule, intent schemagate.IntentRequest, now time.Time) matchedRuleEvaluation {
 	effect := rule.Effect
 	reasons := uniqueSorted(rule.ReasonCodes)
 	violations := uniqueSorted(rule.Violations)
@@ -480,6 +515,18 @@ func evaluateMatchedRule(rule PolicyRule, intent schemagate.IntentRequest) match
 		effect = mostRestrictiveVerdict(effect, contextEffect)
 		reasons = mergeUniqueSorted(reasons, contextReasons)
 		violations = mergeUniqueSorted(violations, contextViolations)
+	}
+	agentTriggered, agentEffect, agentReasons, agentViolations := evaluateAgentIdentityConstraint(rule, intent, now)
+	if agentTriggered {
+		effect = mostRestrictiveVerdict(effect, agentEffect)
+		reasons = mergeUniqueSorted(reasons, agentReasons)
+		violations = mergeUniqueSorted(violations, agentViolations)
+	}
+	credentialTriggered, credentialEffect, credentialReasons, credentialViolations := evaluateCredentialConstraint(rule, intent)
+	if credentialTriggered {
+		effect = mostRestrictiveVerdict(effect, credentialEffect)
+		reasons = mergeUniqueSorted(reasons, credentialReasons)
+		violations = mergeUniqueSorted(violations, credentialViolations)
 	}
 	destructiveTarget := intentContainsDestructiveTarget(intent.Targets)
 	switch strings.ToLower(strings.TrimSpace(intent.Context.Phase)) {
@@ -822,6 +869,51 @@ func policyDigestPayload(policy Policy) map[string]any {
 		if rule.MinApprovals > 0 {
 			rulePayload["MinApprovals"] = rule.MinApprovals
 		}
+		if rule.RequireDeclaredAgent {
+			rulePayload["RequireDeclaredAgent"] = rule.RequireDeclaredAgent
+		}
+		if len(rule.AllowedAgentIDs) > 0 {
+			rulePayload["AllowedAgentIDs"] = rule.AllowedAgentIDs
+		}
+		if len(rule.DeniedAgentIDs) > 0 {
+			rulePayload["DeniedAgentIDs"] = rule.DeniedAgentIDs
+		}
+		if rule.RequiredAgentManifestDigest != "" {
+			rulePayload["RequiredAgentManifestDigest"] = rule.RequiredAgentManifestDigest
+		}
+		if len(rule.AllowedAgentManifestPublishers) > 0 {
+			rulePayload["AllowedAgentManifestPublishers"] = rule.AllowedAgentManifestPublishers
+		}
+		if len(rule.AllowedAgentManifestSources) > 0 {
+			rulePayload["AllowedAgentManifestSources"] = rule.AllowedAgentManifestSources
+		}
+		if len(rule.RequiredAgentLifecycleStates) > 0 {
+			rulePayload["RequiredAgentLifecycleStates"] = rule.RequiredAgentLifecycleStates
+		}
+		if rule.RequireAgentOwner {
+			rulePayload["RequireAgentOwner"] = rule.RequireAgentOwner
+		}
+		if rule.RequireUnexpiredAgent {
+			rulePayload["RequireUnexpiredAgent"] = rule.RequireUnexpiredAgent
+		}
+		if rule.BlockStandingCredentials {
+			rulePayload["BlockStandingCredentials"] = rule.BlockStandingCredentials
+		}
+		if len(rule.AllowedCredentialSources) > 0 {
+			rulePayload["AllowedCredentialSources"] = rule.AllowedCredentialSources
+		}
+		if len(rule.AllowedCredentialIssuers) > 0 {
+			rulePayload["AllowedCredentialIssuers"] = rule.AllowedCredentialIssuers
+		}
+		if len(rule.AllowedCredentialAccessTypes) > 0 {
+			rulePayload["AllowedCredentialAccessTypes"] = rule.AllowedCredentialAccessTypes
+		}
+		if rule.MaxCredentialTTLSeconds > 0 {
+			rulePayload["MaxCredentialTTLSeconds"] = rule.MaxCredentialTTLSeconds
+		}
+		if rule.RequireJITCredential {
+			rulePayload["RequireJITCredential"] = rule.RequireJITCredential
+		}
 		if rule.RequireDistinctApprovers {
 			rulePayload["RequireDistinctApprovers"] = rule.RequireDistinctApprovers
 		}
@@ -894,16 +986,20 @@ func policyDigestPayload(policy Policy) map[string]any {
 		rules = append(rules, rulePayload)
 	}
 
+	failClosedPayload := map[string]any{
+		"Enabled":        policy.FailClosed.Enabled,
+		"RiskClasses":    policy.FailClosed.RiskClasses,
+		"RequiredFields": policy.FailClosed.RequiredFields,
+	}
+	if len(policy.FailClosed.RequiredHighRiskFields) > 0 {
+		failClosedPayload["RequiredHighRiskFields"] = policy.FailClosed.RequiredHighRiskFields
+	}
 	payload := map[string]any{
 		"SchemaID":       policy.SchemaID,
 		"SchemaVersion":  policy.SchemaVersion,
 		"DefaultVerdict": policy.DefaultVerdict,
-		"FailClosed": map[string]any{
-			"Enabled":        policy.FailClosed.Enabled,
-			"RiskClasses":    policy.FailClosed.RiskClasses,
-			"RequiredFields": policy.FailClosed.RequiredFields,
-		},
-		"Rules": rules,
+		"FailClosed":     failClosedPayload,
+		"Rules":          rules,
 	}
 	if policy.Scripts.MaxSteps > 0 || policy.Scripts.RequireApprovalAbove > 0 || policy.Scripts.BlockMixedRisk {
 		payload["Scripts"] = map[string]any{
@@ -998,6 +1094,12 @@ func normalizePolicy(input Policy) (Policy, error) {
 	for _, field := range output.FailClosed.RequiredFields {
 		if _, ok := allowedRequiredFields[field]; !ok {
 			return Policy{}, fmt.Errorf("unsupported fail_closed required_field: %s", field)
+		}
+	}
+	output.FailClosed.RequiredHighRiskFields = normalizeStringListLower(output.FailClosed.RequiredHighRiskFields)
+	for _, field := range output.FailClosed.RequiredHighRiskFields {
+		if _, ok := allowedRequiredHighRiskFields[field]; !ok {
+			return Policy{}, fmt.Errorf("unsupported fail_closed required_high_risk_field: %s", field)
 		}
 	}
 	output.MCPTrust.SnapshotPath = strings.TrimSpace(output.MCPTrust.SnapshotPath)
@@ -1109,6 +1211,31 @@ func normalizePolicy(input Policy) (Policy, error) {
 		rule.Match.DelegationScopes = normalizeStringListLower(rule.Match.DelegationScopes)
 		if rule.Match.MaxDelegationDepth != nil && *rule.Match.MaxDelegationDepth < 0 {
 			return Policy{}, fmt.Errorf("max_delegation_depth must be >= 0 for %s", rule.Name)
+		}
+		rule.AllowedAgentIDs = normalizeStringList(rule.AllowedAgentIDs)
+		rule.DeniedAgentIDs = normalizeStringList(rule.DeniedAgentIDs)
+		rule.RequiredAgentManifestDigest = strings.ToLower(strings.TrimSpace(rule.RequiredAgentManifestDigest))
+		if rule.RequiredAgentManifestDigest != "" && !hexDigestPattern.MatchString(rule.RequiredAgentManifestDigest) {
+			return Policy{}, fmt.Errorf("required_agent_manifest_digest must be sha256 hex for %s", rule.Name)
+		}
+		rule.AllowedAgentManifestPublishers = normalizeStringListLower(rule.AllowedAgentManifestPublishers)
+		rule.AllowedAgentManifestSources = normalizeStringListLower(rule.AllowedAgentManifestSources)
+		rule.RequiredAgentLifecycleStates = normalizeStringListLower(rule.RequiredAgentLifecycleStates)
+		rule.AllowedCredentialSources = normalizeStringListLower(rule.AllowedCredentialSources)
+		for _, source := range rule.AllowedCredentialSources {
+			if _, ok := allowedCredentialSources[source]; !ok {
+				return Policy{}, fmt.Errorf("unsupported allowed_credential_source %q for %s", source, rule.Name)
+			}
+		}
+		rule.AllowedCredentialIssuers = normalizeStringList(rule.AllowedCredentialIssuers)
+		rule.AllowedCredentialAccessTypes = normalizeStringListLower(rule.AllowedCredentialAccessTypes)
+		for _, accessType := range rule.AllowedCredentialAccessTypes {
+			if _, ok := allowedCredentialAccessTypes[accessType]; !ok {
+				return Policy{}, fmt.Errorf("unsupported allowed_credential_access_type %q for %s", accessType, rule.Name)
+			}
+		}
+		if rule.MaxCredentialTTLSeconds < 0 {
+			return Policy{}, fmt.Errorf("max_credential_ttl_seconds must be >= 0 for %s", rule.Name)
 		}
 		rule.ReasonCodes = uniqueSorted(rule.ReasonCodes)
 		rule.Violations = uniqueSorted(rule.Violations)
@@ -1615,6 +1742,13 @@ func shouldFailClosed(policy FailClosedPolicy, riskClass string) bool {
 	return contains(policy.RiskClasses, strings.ToLower(strings.TrimSpace(riskClass)))
 }
 
+func evaluationTime(opts EvalOptions) time.Time {
+	if !opts.ContextEvidenceNow.IsZero() {
+		return opts.ContextEvidenceNow.UTC()
+	}
+	return time.Now().UTC()
+}
+
 func evaluateFailClosedRequiredFields(requiredFields []string, intent schemagate.IntentRequest) ([]string, []string) {
 	reasons := make([]string, 0, len(requiredFields))
 	violations := make([]string, 0, len(requiredFields))
@@ -1647,6 +1781,86 @@ func evaluateFailClosedRequiredFields(requiredFields []string, intent schemagate
 			if strings.TrimSpace(intent.Context.ContextSetDigest) == "" {
 				reasons = append(reasons, "context_evidence_missing")
 				violations = append(violations, "missing_context_evidence")
+			}
+		}
+	}
+	return uniqueSorted(reasons), uniqueSorted(violations)
+}
+
+func evaluateFailClosedRequiredHighRiskFields(requiredFields []string, intent schemagate.IntentRequest) ([]string, []string) {
+	reasons := make([]string, 0, len(requiredFields))
+	violations := make([]string, 0, len(requiredFields))
+	for _, field := range requiredFields {
+		switch field {
+		case "agent_id":
+			if strings.TrimSpace(intent.Context.AgentID) == "" {
+				reasons = append(reasons, "fail_closed_missing_agent_id")
+				violations = append(violations, "missing_agent_id")
+			}
+		case "agent_identity":
+			if intent.Context.AgentIdentity == nil {
+				reasons = append(reasons, "fail_closed_missing_agent_identity")
+				violations = append(violations, "missing_agent_identity")
+			}
+		case "run_id":
+			if strings.TrimSpace(intent.Context.RunID) == "" {
+				reasons = append(reasons, "fail_closed_missing_run_id")
+				violations = append(violations, "missing_run_id")
+			}
+		case "workflow_id":
+			if strings.TrimSpace(intent.Context.WorkflowID) == "" {
+				reasons = append(reasons, "fail_closed_missing_workflow_id")
+				violations = append(violations, "missing_workflow_id")
+			}
+		case "repo":
+			if strings.TrimSpace(intent.Context.Repo) == "" {
+				reasons = append(reasons, "fail_closed_missing_repo")
+				violations = append(violations, "missing_repo")
+			}
+		case "environment":
+			if strings.TrimSpace(intent.Context.Environment) == "" {
+				reasons = append(reasons, "fail_closed_missing_environment")
+				violations = append(violations, "missing_environment")
+			}
+		case "credential_ref":
+			if strings.TrimSpace(intent.Context.CredentialRef) == "" {
+				reasons = append(reasons, "fail_closed_missing_credential_ref")
+				violations = append(violations, "missing_credential_ref")
+			}
+		case "credential_source":
+			if strings.TrimSpace(intent.Context.CredentialSource) == "" {
+				reasons = append(reasons, "fail_closed_missing_credential_source")
+				violations = append(violations, "missing_credential_source")
+			}
+		case "credential_access_type":
+			if strings.TrimSpace(intent.Context.CredentialAccessType) == "" {
+				reasons = append(reasons, "fail_closed_missing_credential_access_type")
+				violations = append(violations, "missing_credential_access_type")
+			}
+		case "credential_issuer":
+			if strings.TrimSpace(intent.Context.CredentialIssuer) == "" {
+				reasons = append(reasons, "fail_closed_missing_credential_issuer")
+				violations = append(violations, "missing_credential_issuer")
+			}
+		case "credential_ttl_seconds":
+			if intent.Context.CredentialTTLSeconds <= 0 {
+				reasons = append(reasons, "fail_closed_missing_credential_ttl_seconds")
+				violations = append(violations, "missing_credential_ttl_seconds")
+			}
+		case "approval_ref":
+			if strings.TrimSpace(intent.Context.ApprovalRef) == "" {
+				reasons = append(reasons, "fail_closed_missing_approval_ref")
+				violations = append(violations, "missing_approval_ref")
+			}
+		case "wrkr_inventory_ref":
+			if strings.TrimSpace(intent.Context.WrkrInventoryRef) == "" {
+				reasons = append(reasons, "fail_closed_missing_wrkr_inventory_ref")
+				violations = append(violations, "missing_wrkr_inventory_ref")
+			}
+		case "agent_action_bom_ref":
+			if strings.TrimSpace(intent.Context.AgentActionBOMRef) == "" {
+				reasons = append(reasons, "fail_closed_missing_agent_action_bom_ref")
+				violations = append(violations, "missing_agent_action_bom_ref")
 			}
 		}
 	}

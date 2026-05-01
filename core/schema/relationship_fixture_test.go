@@ -54,15 +54,26 @@ func TestRelationshipFixturesValidateAgainstSchemas(t *testing.T) {
 			schema:  "schemas/v1/gate/approval_audit_record.schema.json",
 			fixture: "core/schema/testdata/gate_approval_audit_record_valid.json",
 		},
-		{
-			name:    "approval_audit_with_relationship",
-			schema:  "schemas/v1/gate/approval_audit_record.schema.json",
-			fixture: "core/schema/testdata/gate_approval_audit_record_relationship_valid.json",
-		},
-		{
-			name:    "delegation_audit_without_relationship",
-			schema:  "schemas/v1/gate/delegation_audit_record.schema.json",
-			fixture: "core/schema/testdata/gate_delegation_audit_record_valid.json",
+			{
+				name:    "approval_audit_with_relationship",
+				schema:  "schemas/v1/gate/approval_audit_record.schema.json",
+				fixture: "core/schema/testdata/gate_approval_audit_record_relationship_valid.json",
+			},
+			{
+				name:    "broker_request_valid",
+				schema:  "schemas/v1/gate/broker_request.schema.json",
+				fixture: "core/schema/testdata/gate_broker_request_valid.json",
+			},
+			{
+				name:      "broker_request_invalid",
+				schema:    "schemas/v1/gate/broker_request.schema.json",
+				fixture:   "core/schema/testdata/gate_broker_request_invalid.json",
+				shouldErr: true,
+			},
+			{
+				name:    "delegation_audit_without_relationship",
+				schema:  "schemas/v1/gate/delegation_audit_record.schema.json",
+				fixture: "core/schema/testdata/gate_delegation_audit_record_valid.json",
 		},
 		{
 			name:    "delegation_audit_with_relationship",

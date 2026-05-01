@@ -47,7 +47,16 @@ func (StubBroker) Issue(request Request) (Response, error) {
 	expiresAt := issuedAt.Add(5 * time.Minute)
 	return Response{
 		IssuedBy:      "stub",
+		Source:        "stub",
+		AccessType:    "jit",
+		Issuer:        "stub",
+		Subject:       request.Identity,
+		Owner:         request.Identity,
+		Scope:         normalizeScope(request.Scope),
 		CredentialRef: "stub:" + hex.EncodeToString(sum[:12]),
+		TargetBinding: request.TargetBinding,
+		RunBinding:    request.RunID,
+		JobBinding:    request.JobID,
 		IssuedAt:      issuedAt,
 		ExpiresAt:     expiresAt,
 		TTLSeconds:    int64((5 * time.Minute).Seconds()),
@@ -95,9 +104,54 @@ func (b EnvBroker) Issue(request Request) (Response, error) {
 			ttlSeconds = parsed
 		}
 	}
+	source := strings.ToLower(strings.TrimSpace(os.Getenv(envKey + "_SOURCE")))
+	if source == "" {
+		source = "env"
+	}
+	accessType := strings.ToLower(strings.TrimSpace(os.Getenv(envKey + "_ACCESS_TYPE")))
+	if accessType == "" {
+		accessType = "unknown"
+	}
+	issuer := strings.TrimSpace(os.Getenv(envKey + "_ISSUER"))
+	if issuer == "" {
+		issuer = "env"
+	}
+	subject := strings.TrimSpace(os.Getenv(envKey + "_SUBJECT"))
+	if subject == "" {
+		subject = request.Identity
+	}
+	owner := strings.TrimSpace(os.Getenv(envKey + "_OWNER"))
+	if owner == "" {
+		owner = request.Identity
+	}
+	targetBinding := strings.TrimSpace(os.Getenv(envKey + "_TARGET_BINDING"))
+	if targetBinding == "" {
+		targetBinding = request.TargetBinding
+	}
+	runBinding := strings.TrimSpace(os.Getenv(envKey + "_RUN_BINDING"))
+	if runBinding == "" {
+		runBinding = request.RunID
+	}
+	jobBinding := strings.TrimSpace(os.Getenv(envKey + "_JOB_BINDING"))
+	if jobBinding == "" {
+		jobBinding = request.JobID
+	}
+	scope := request.Scope
+	if raw := strings.TrimSpace(os.Getenv(envKey + "_SCOPE")); raw != "" {
+		scope = strings.Split(raw, ",")
+	}
 	return Response{
 		IssuedBy:      "env",
+		Source:        source,
+		AccessType:    accessType,
+		Issuer:        issuer,
+		Subject:       subject,
+		Owner:         owner,
+		Scope:         normalizeScope(scope),
 		CredentialRef: "env:" + envKey + ":" + hex.EncodeToString(sum[:8]),
+		TargetBinding: targetBinding,
+		RunBinding:    runBinding,
+		JobBinding:    jobBinding,
 		IssuedAt:      issuedAt,
 		ExpiresAt:     expiresAt,
 		TTLSeconds:    ttlSeconds,

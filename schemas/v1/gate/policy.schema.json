@@ -37,6 +37,28 @@
             "type": "string",
             "enum": ["targets", "arg_provenance", "endpoint_class", "delegation", "context_evidence"]
           }
+        },
+        "required_high_risk_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "agent_id",
+              "agent_identity",
+              "run_id",
+              "workflow_id",
+              "repo",
+              "environment",
+              "credential_ref",
+              "credential_source",
+              "credential_access_type",
+              "credential_issuer",
+              "credential_ttl_seconds",
+              "approval_ref",
+              "wrkr_inventory_ref",
+              "agent_action_bom_ref"
+            ]
+          }
         }
       },
       "additionalProperties": false
@@ -147,6 +169,48 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "require_declared_agent": { "type": "boolean" },
+          "allowed_agent_ids": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "denied_agent_ids": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "required_agent_manifest_digest": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$"
+          },
+          "allowed_agent_manifest_publishers": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "allowed_agent_manifest_sources": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "required_agent_lifecycle_states": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "require_agent_owner": { "type": "boolean" },
+          "require_unexpired_agent": { "type": "boolean" },
+          "block_standing_credentials": { "type": "boolean" },
+          "allowed_credential_sources": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "allowed_credential_issuers": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "allowed_credential_access_types": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "max_credential_ttl_seconds": { "type": "integer", "minimum": 0 },
+          "require_jit_credential": { "type": "boolean" },
           "min_approvals": { "type": "integer", "minimum": 1 },
           "require_distinct_approvers": { "type": "boolean" },
           "require_context_evidence": { "type": "boolean" },

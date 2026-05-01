@@ -157,6 +157,15 @@ def dispatch_tool(tool_call):
 
 This is the core contract across wrappers, middleware, sidecars, and MCP boundaries.
 
+For hardened high-risk execution paths, pass explicit execution context with the
+intent instead of relying on wrapper-local memory alone: `agent_id`,
+`run_id`, `workflow_id`, `repo`, `environment`, credential provenance, and
+broker receipt evidence are all now first-class authorization inputs. See
+[`docs/contracts/action_context.md`](docs/contracts/action_context.md),
+[`docs/contracts/agent_identity.md`](docs/contracts/agent_identity.md),
+[`docs/contracts/credential_provenance.md`](docs/contracts/credential_provenance.md),
+and [`docs/contracts/broker_receipt.md`](docs/contracts/broker_receipt.md).
+
 ## Runtime Integration Paths
 
 ### OpenAI Agents Reference Demo

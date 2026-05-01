@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 )
@@ -77,11 +78,35 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 			{ArgPath: "args.options", Source: "external", IntegrityDigest: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
 		},
 		Context: schemagate.IntentContext{
-			Identity:               " alice ",
-			Workspace:              `C:\repo\gait`,
-			RiskClass:              " HIGH ",
+			Identity:  " alice ",
+			Workspace: `C:\repo\gait`,
+			RiskClass: " HIGH ",
+			AgentID:   " agent.prod.writer ",
+			AgentIdentity: &schemagate.AgentIdentity{
+				LifecycleStates: []string{" active ", "approved", "active"},
+				Owner:           " platform-security ",
+				ManifestDigest:  strings.Repeat("B", 64),
+				Publisher:       " Acme ",
+				Source:          " Registry ",
+				IssuedAt:        time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+				ApprovedAt:      time.Date(2026, time.February, 5, 1, 0, 0, 0, time.UTC),
+				ExpiresAt:       time.Date(2026, time.February, 6, 0, 0, 0, 0, time.UTC),
+				Revoked:         false,
+			},
+			RunID:                  " run-123 ",
+			WorkflowID:             " wf-prod ",
+			Repo:                   " Clyra-AI/gait ",
+			Environment:            " production ",
 			SessionID:              " s1 ",
 			RequestID:              " req-1 ",
+			CredentialRef:          " env:GAIT_TOKEN_EXPORT:deadbeef ",
+			CredentialSource:       " GitHub_PAT ",
+			CredentialAccessType:   " Standing ",
+			CredentialIssuer:       " github.com ",
+			CredentialTTLSeconds:   600,
+			ApprovalRef:            " approval-1 ",
+			WrkrInventoryRef:       " wrkr:inventory:v1 ",
+			AgentActionBOMRef:      " bom:agent-action:v1 ",
 			EnvironmentFingerprint: " env:prod-us-east-1 ",
 			CredentialScopes: []string{
 				" tools.read ",
@@ -117,6 +142,21 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 	if normalized.Context.Identity != "alice" || normalized.Context.Workspace != "C:/repo/gait" || normalized.Context.RiskClass != "high" {
 		t.Fatalf("unexpected normalized context: %#v", normalized.Context)
 	}
+	if normalized.Context.AgentID != "agent.prod.writer" || normalized.Context.RunID != "run-123" || normalized.Context.WorkflowID != "wf-prod" {
+		t.Fatalf("unexpected normalized execution context ids: %#v", normalized.Context)
+	}
+	if normalized.Context.Repo != "Clyra-AI/gait" || normalized.Context.Environment != "production" {
+		t.Fatalf("unexpected normalized execution context location: %#v", normalized.Context)
+	}
+	if normalized.Context.AgentIdentity == nil {
+		t.Fatalf("expected normalized agent identity")
+	}
+	if normalized.Context.AgentIdentity.ManifestDigest != strings.Repeat("b", 64) {
+		t.Fatalf("expected lowercased manifest digest, got %#v", normalized.Context.AgentIdentity)
+	}
+	if normalized.Context.AgentIdentity.Source != "registry" {
+		t.Fatalf("expected normalized agent identity source, got %#v", normalized.Context.AgentIdentity)
+	}
 	if normalized.Context.Phase != "apply" {
 		t.Fatalf("expected default phase=apply, got %#v", normalized.Context)
 	}
@@ -128,6 +168,15 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 	}
 	if len(normalized.Context.CredentialScopes) != 2 || normalized.Context.CredentialScopes[0] != "tools.read" || normalized.Context.CredentialScopes[1] != "tools.write" {
 		t.Fatalf("unexpected normalized credential scopes: %#v", normalized.Context.CredentialScopes)
+	}
+	if normalized.Context.CredentialRef != "env:GAIT_TOKEN_EXPORT:deadbeef" || normalized.Context.CredentialSource != "github_pat" || normalized.Context.CredentialAccessType != "standing" {
+		t.Fatalf("unexpected normalized credential context: %#v", normalized.Context)
+	}
+	if normalized.Context.CredentialIssuer != "github.com" || normalized.Context.CredentialTTLSeconds != 600 {
+		t.Fatalf("unexpected normalized credential issuer/ttl: %#v", normalized.Context)
+	}
+	if normalized.Context.ApprovalRef != "approval-1" || normalized.Context.WrkrInventoryRef != "wrkr:inventory:v1" || normalized.Context.AgentActionBOMRef != "bom:agent-action:v1" {
+		t.Fatalf("unexpected normalized approval or evidence refs: %#v", normalized.Context)
 	}
 	if normalized.Context.AuthContext == nil {
 		t.Fatalf("expected normalized auth_context")
@@ -156,6 +205,171 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 	}
 	if normalized.ArgProvenance[0].IntegrityDigest != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("expected lowercased integrity digest, got %#v", normalized.ArgProvenance[0])
+	}
+}
+
+func TestIntentDigestChangesWhenHighRiskActionContextChanges(t *testing.T) {
+	base := schemagate.IntentRequest{
+		ToolName: "tool.write",
+		Args:     map[string]any{"path": "/tmp/out.txt"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:             "alice",
+			Workspace:            "/repo/gait",
+			RiskClass:            "high",
+			AgentID:              "agent.prod.writer",
+			RunID:                "run-1",
+			WorkflowID:           "wf-1",
+			Repo:                 "Clyra-AI/gait",
+			Environment:          "prod",
+			CredentialRef:        "env:GAIT_TOKEN_EXPORT:deadbeef",
+			CredentialSource:     "env",
+			CredentialAccessType: "standing",
+			CredentialIssuer:     "github.com",
+			CredentialTTLSeconds: 300,
+		},
+	}
+
+	first, err := IntentDigest(base)
+	if err != nil {
+		t.Fatalf("digest base intent: %v", err)
+	}
+	changed := base
+	changed.Context.RunID = "run-2"
+	second, err := IntentDigest(changed)
+	if err != nil {
+		t.Fatalf("digest changed intent: %v", err)
+	}
+	if first == second {
+		t.Fatalf("expected intent digest to change when bound execution context changes")
+	}
+}
+
+func TestNormalizeIntentRejectsRawCredentialMaterial(t *testing.T) {
+	intent := schemagate.IntentRequest{
+		ToolName: "tool.write",
+		Args: map[string]any{
+			"path":         "/tmp/out.txt",
+			"access_token": "ghp_1234567890abcdefghijklmnopqrstuvwxyz",
+		},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+		},
+	}
+	if _, err := NormalizeIntent(intent); err == nil {
+		t.Fatalf("expected raw credential material in args to fail normalization")
+	}
+
+	intent.Args = map[string]any{"path": "/tmp/out.txt"}
+	intent.Context.AuthContext = map[string]any{
+		"api_key": "sk-abcdefghijklmnopqrstuvwxyz123456",
+	}
+	if _, err := NormalizeIntent(intent); err == nil {
+		t.Fatalf("expected raw credential material in auth_context to fail normalization")
+	}
+}
+
+func TestNormalizeIntentRejectsInvalidCredentialContext(t *testing.T) {
+	base := schemagate.IntentRequest{
+		ToolName: "tool.write",
+		Args:     map[string]any{"path": "/tmp/out.txt"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+		},
+	}
+
+	invalidSource := base
+	invalidSource.Context.CredentialSource = "bad-source"
+	if _, err := NormalizeIntent(invalidSource); err == nil {
+		t.Fatalf("expected invalid credential source to fail normalization")
+	}
+
+	invalidAccessType := base
+	invalidAccessType.Context.CredentialAccessType = "bad-access"
+	if _, err := NormalizeIntent(invalidAccessType); err == nil {
+		t.Fatalf("expected invalid credential access type to fail normalization")
+	}
+
+	negativeTTL := base
+	negativeTTL.Context.CredentialTTLSeconds = -1
+	if _, err := NormalizeIntent(negativeTTL); err == nil {
+		t.Fatalf("expected negative credential ttl to fail normalization")
+	}
+}
+
+func TestNormalizeIntentAgentIdentityValidationErrors(t *testing.T) {
+	base := schemagate.IntentRequest{
+		ToolName: "tool.write",
+		Args:     map[string]any{"path": "/tmp/out.txt"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+			AgentIdentity: &schemagate.AgentIdentity{
+				LifecycleStates: []string{"approved", "active"},
+				Owner:           "platform-security",
+				ManifestDigest:  strings.Repeat("a", 64),
+				Publisher:       "acme",
+				Source:          "registry",
+				IssuedAt:        time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+				ApprovedAt:      time.Date(2026, time.February, 5, 1, 0, 0, 0, time.UTC),
+				ExpiresAt:       time.Date(2026, time.February, 6, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	invalidDigest := base
+	invalidDigest.Context.AgentIdentity = &schemagate.AgentIdentity{
+		ManifestDigest: "not-a-digest",
+	}
+	if _, err := NormalizeIntent(invalidDigest); err == nil {
+		t.Fatalf("expected invalid manifest digest to fail normalization")
+	}
+
+	invalidApprovalOrder := base
+	invalidApprovalOrder.Context.AgentIdentity = &schemagate.AgentIdentity{
+		ManifestDigest: strings.Repeat("a", 64),
+		IssuedAt:       time.Date(2026, time.February, 5, 1, 0, 0, 0, time.UTC),
+		ApprovedAt:     time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+	}
+	if _, err := NormalizeIntent(invalidApprovalOrder); err == nil {
+		t.Fatalf("expected approved_at before issued_at to fail normalization")
+	}
+}
+
+func TestCredentialMaterialHeuristics(t *testing.T) {
+	if !keySuggestsCredentialMaterial("access_token") {
+		t.Fatalf("expected access_token to look credential-shaped")
+	}
+	if keySuggestsCredentialMaterial("credential_ref") {
+		t.Fatalf("did not expect credential_ref to be treated as raw credential material")
+	}
+	if !looksLikeCredentialMaterialValue("ghp_1234567890abcdefghijklmnopqrstuvwxyz") {
+		t.Fatalf("expected GitHub PAT-like value to be treated as credential material")
+	}
+	if looksLikeCredentialMaterialValue("env:GAIT_EXPORT:deadbeef") {
+		t.Fatalf("did not expect reference-style value to be treated as raw credential material")
+	}
+	if looksLikeCredentialMaterialValue("short-token") {
+		t.Fatalf("did not expect short token-like value to be treated as raw credential material")
+	}
+	if !looksLikeCredentialMaterialValue("A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6") {
+		t.Fatalf("expected long mixed token-like value to be treated as raw credential material")
 	}
 }
 

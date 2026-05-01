@@ -18,21 +18,29 @@ import (
 )
 
 type EmitTraceOptions struct {
-	ProducerVersion       string
-	CorrelationID         string
-	ApprovalTokenRef      string
-	DelegationTokenRef    string
-	DelegationReasonCodes []string
-	LatencyMS             float64
-	ContextSource         string
-	CompositeRiskClass    string
-	StepVerdicts          []schemagate.TraceStepVerdict
-	PreApproved           bool
-	PatternID             string
-	RegistryReason        string
-	MCPTrust              *schemagate.MCPTrustDecision
-	SigningPrivateKey     ed25519.PrivateKey
-	TracePath             string
+	ProducerVersion            string
+	CorrelationID              string
+	ApprovalTokenRef           string
+	DelegationTokenRef         string
+	DelegationReasonCodes      []string
+	LatencyMS                  float64
+	ContextSource              string
+	CompositeRiskClass         string
+	StepVerdicts               []schemagate.TraceStepVerdict
+	PreApproved                bool
+	PatternID                  string
+	RegistryReason             string
+	BrokerCredentialRef        string
+	BrokerCredentialSource     string
+	BrokerCredentialAccessType string
+	BrokerCredentialIssuer     string
+	BrokerRequestDigest        string
+	BrokerTargetBinding        string
+	BrokerRunBinding           string
+	BrokerJobBinding           string
+	MCPTrust                   *schemagate.MCPTrustDecision
+	SigningPrivateKey          ed25519.PrivateKey
+	TracePath                  string
 }
 
 type EmitTraceResult struct {
@@ -81,36 +89,63 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 	}
 
 	trace := schemagate.TraceRecord{
-		SchemaID:            "gait.gate.trace",
-		SchemaVersion:       "1.0.0",
-		CreatedAt:           createdAt,
-		ObservedAt:          time.Now().UTC(),
-		ProducerVersion:     producerVersion,
-		TraceID:             computeTraceID(policyDigest, normalizedIntent.IntentDigest, verdict),
-		CorrelationID:       strings.TrimSpace(opts.CorrelationID),
-		ToolName:            normalizedIntent.ToolName,
-		ArgsDigest:          normalizedIntent.ArgsDigest,
-		IntentDigest:        normalizedIntent.IntentDigest,
-		PolicyDigest:        policyDigest,
-		PolicyID:            policyID,
-		PolicyVersion:       policyVersion,
-		Verdict:             verdict,
-		ContextSetDigest:    normalizedIntent.Context.ContextSetDigest,
-		ContextEvidenceMode: normalizedIntent.Context.ContextEvidenceMode,
-		ContextRefCount:     len(normalizedIntent.Context.ContextRefs),
-		ContextSource:       strings.TrimSpace(opts.ContextSource),
-		Script:              normalizedIntent.Script != nil,
-		ScriptHash:          normalizedIntent.ScriptHash,
-		CompositeRiskClass:  strings.ToLower(strings.TrimSpace(opts.CompositeRiskClass)),
-		StepVerdicts:        append([]schemagate.TraceStepVerdict(nil), opts.StepVerdicts...),
-		PreApproved:         opts.PreApproved,
-		PatternID:           strings.TrimSpace(opts.PatternID),
-		RegistryReason:      strings.TrimSpace(opts.RegistryReason),
-		Violations:          uniqueSorted(gateResult.Violations),
-		LatencyMS:           clampLatency(opts.LatencyMS),
-		ApprovalTokenRef:    strings.TrimSpace(opts.ApprovalTokenRef),
-		MCPTrust:            opts.MCPTrust,
-		SkillProvenance:     normalizedIntent.SkillProvenance,
+		SchemaID:                   "gait.gate.trace",
+		SchemaVersion:              "1.0.0",
+		CreatedAt:                  createdAt,
+		ObservedAt:                 time.Now().UTC(),
+		ProducerVersion:            producerVersion,
+		TraceID:                    computeTraceID(policyDigest, normalizedIntent.IntentDigest, verdict),
+		CorrelationID:              strings.TrimSpace(opts.CorrelationID),
+		ToolName:                   normalizedIntent.ToolName,
+		ArgsDigest:                 normalizedIntent.ArgsDigest,
+		IntentDigest:               normalizedIntent.IntentDigest,
+		PolicyDigest:               policyDigest,
+		AgentID:                    normalizedIntent.Context.AgentID,
+		AgentIdentity:              normalizedIntent.Context.AgentIdentity,
+		RunID:                      normalizedIntent.Context.RunID,
+		WorkflowID:                 normalizedIntent.Context.WorkflowID,
+		Repo:                       normalizedIntent.Context.Repo,
+		Environment:                normalizedIntent.Context.Environment,
+		CredentialRef:              normalizedIntent.Context.CredentialRef,
+		CredentialSource:           normalizedIntent.Context.CredentialSource,
+		CredentialAccessType:       normalizedIntent.Context.CredentialAccessType,
+		CredentialIssuer:           normalizedIntent.Context.CredentialIssuer,
+		CredentialSubject:          normalizedIntent.Context.CredentialSubject,
+		CredentialOwner:            normalizedIntent.Context.CredentialOwner,
+		CredentialTargetBinding:    normalizedIntent.Context.CredentialTargetBinding,
+		CredentialRunBinding:       normalizedIntent.Context.CredentialRunBinding,
+		CredentialJobBinding:       normalizedIntent.Context.CredentialJobBinding,
+		CredentialTTLSeconds:       normalizedIntent.Context.CredentialTTLSeconds,
+		BrokerCredentialRef:        strings.TrimSpace(opts.BrokerCredentialRef),
+		BrokerCredentialSource:     strings.ToLower(strings.TrimSpace(opts.BrokerCredentialSource)),
+		BrokerCredentialAccessType: strings.ToLower(strings.TrimSpace(opts.BrokerCredentialAccessType)),
+		BrokerCredentialIssuer:     strings.TrimSpace(opts.BrokerCredentialIssuer),
+		BrokerRequestDigest:        strings.ToLower(strings.TrimSpace(opts.BrokerRequestDigest)),
+		BrokerTargetBinding:        strings.TrimSpace(opts.BrokerTargetBinding),
+		BrokerRunBinding:           strings.TrimSpace(opts.BrokerRunBinding),
+		BrokerJobBinding:           strings.TrimSpace(opts.BrokerJobBinding),
+		ApprovalRef:                normalizedIntent.Context.ApprovalRef,
+		WrkrInventoryRef:           normalizedIntent.Context.WrkrInventoryRef,
+		AgentActionBOMRef:          normalizedIntent.Context.AgentActionBOMRef,
+		PolicyID:                   policyID,
+		PolicyVersion:              policyVersion,
+		Verdict:                    verdict,
+		ContextSetDigest:           normalizedIntent.Context.ContextSetDigest,
+		ContextEvidenceMode:        normalizedIntent.Context.ContextEvidenceMode,
+		ContextRefCount:            len(normalizedIntent.Context.ContextRefs),
+		ContextSource:              strings.TrimSpace(opts.ContextSource),
+		Script:                     normalizedIntent.Script != nil,
+		ScriptHash:                 normalizedIntent.ScriptHash,
+		CompositeRiskClass:         strings.ToLower(strings.TrimSpace(opts.CompositeRiskClass)),
+		StepVerdicts:               append([]schemagate.TraceStepVerdict(nil), opts.StepVerdicts...),
+		PreApproved:                opts.PreApproved,
+		PatternID:                  strings.TrimSpace(opts.PatternID),
+		RegistryReason:             strings.TrimSpace(opts.RegistryReason),
+		Violations:                 uniqueSorted(gateResult.Violations),
+		LatencyMS:                  clampLatency(opts.LatencyMS),
+		ApprovalTokenRef:           strings.TrimSpace(opts.ApprovalTokenRef),
+		MCPTrust:                   opts.MCPTrust,
+		SkillProvenance:            normalizedIntent.SkillProvenance,
 	}
 	trace.MatchedRuleIDs = matchedRuleIDsFromStepVerdicts(opts.StepVerdicts)
 	trace.Relationship = buildTraceRelationship(

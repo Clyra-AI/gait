@@ -1,0 +1,12 @@
+{
+  "tool_name": "tool.write",
+  "identity": "agent.prod.writer",
+  "workspace": "/repo/gait",
+  "session_id": "session-1",
+  "request_id": "request-1",
+  "run_id": "run-1",
+  "job_id": "job-1",
+  "reference": "egress",
+  "scope": ["export"],
+  "target_binding": "2fd27f1f221ceef0a0f2d28e4f7ef8d2f907f6bc36261531d5cb3b6b2f6a8c5a"
+}

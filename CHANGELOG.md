@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- _No unreleased entries yet._
+- [semver:minor] Added high-risk action context enforcement for `oss-prod` with deterministic missing-field reason codes and privacy-safe credential references.
+- [semver:minor] Added agent identity lifecycle policy controls for approved active agents, revocation, manifest digests, publishers, expiry, and owner requirements.
 
 ### Changed
 
@@ -16,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Durable job resume now preserves the originally bound identity and rejects attempts to resume with a different identity.
 - `gait version --json` now prefers clean release metadata for promoted install paths while keeping repo-local contributor builds on the explicit `0.0.0-dev` fallback.
 - Public onboarding/docs copy now treats LangChain as the official middleware lane and the OpenAI example as a reference boundary demo.
+
+### Security
+
+- [semver:minor] Added credential provenance policy controls that block standing or static credentials for high-risk actions and record privacy-safe credential evidence.
+- [semver:minor] Strengthened brokered JIT access validation with typed broker receipts, scope and TTL checks, and proof-ready credential evidence.
 
 ### Upgrade Notes
 
