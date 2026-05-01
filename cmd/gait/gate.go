@@ -708,12 +708,18 @@ func runGateEval(arguments []string) int {
 				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"broker_credential_missing"})
 				result.Violations = mergeUniqueSorted(result.Violations, []string{"broker_credential_missing"})
 			} else {
-				reasons, violations := gate.ValidateBrokerCredentialReceipt(policyRuleForMatchedRule(policy, outcome.MatchedRule), request, issued, gate.IntentBrokerBinding{
-					ExpectedCredentialRef: strings.TrimSpace(preparedIntent.Context.CredentialRef),
-					TargetBinding:         targetBinding,
-					RunBinding:            strings.TrimSpace(preparedIntent.Context.RunID),
-					JobBinding:            strings.TrimSpace(preparedIntent.Context.JobID),
-				})
+				reasons := []string{}
+				violations := []string{}
+				for _, rule := range policyRulesForMatchedRule(policy, outcome.MatchedRule) {
+					ruleReasons, ruleViolations := gate.ValidateBrokerCredentialReceipt(rule, request, issued, gate.IntentBrokerBinding{
+						ExpectedCredentialRef: strings.TrimSpace(preparedIntent.Context.CredentialRef),
+						TargetBinding:         targetBinding,
+						RunBinding:            strings.TrimSpace(preparedIntent.Context.RunID),
+						JobBinding:            strings.TrimSpace(preparedIntent.Context.JobID),
+					})
+					reasons = mergeUniqueSorted(reasons, ruleReasons)
+					violations = mergeUniqueSorted(violations, ruleViolations)
+				}
 				if len(reasons) > 0 {
 					result.Verdict = "block"
 					result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, reasons)
@@ -979,7 +985,7 @@ func gateIntentContainsDestructiveTarget(intent schemagate.IntentRequest) bool {
 	return gate.IntentContainsDestructiveTarget(intent.Targets)
 }
 
-func policyRuleForMatchedRule(policy gate.Policy, matchedRule string) gate.PolicyRule {
+func policyRulesForMatchedRule(policy gate.Policy, matchedRule string) []gate.PolicyRule {
 	names := map[string]struct{}{}
 	for _, name := range strings.Split(matchedRule, ",") {
 		trimmed := strings.TrimSpace(name)
@@ -987,17 +993,14 @@ func policyRuleForMatchedRule(policy gate.Policy, matchedRule string) gate.Polic
 			names[trimmed] = struct{}{}
 		}
 	}
-	merged := gate.PolicyRule{}
+	matchedRules := make([]gate.PolicyRule, 0, len(names))
 	for _, rule := range policy.Rules {
 		if _, ok := names[rule.Name]; !ok {
 			continue
 		}
-		merged.RequireJITCredential = merged.RequireJITCredential || rule.RequireJITCredential
-		if rule.MaxCredentialTTLSeconds > 0 && (merged.MaxCredentialTTLSeconds == 0 || rule.MaxCredentialTTLSeconds < merged.MaxCredentialTTLSeconds) {
-			merged.MaxCredentialTTLSeconds = rule.MaxCredentialTTLSeconds
-		}
+		matchedRules = append(matchedRules, rule)
 	}
-	return merged
+	return matchedRules
 }
 
 func buildPreApprovedOutcome(intent schemagate.IntentRequest, producerVersion string, match gate.ApprovedScriptMatch) (gate.EvalOutcome, error) {
