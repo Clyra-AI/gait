@@ -3629,6 +3629,75 @@ func TestGateEvalCommandBrokerCredentialRefMismatchBlocks(t *testing.T) {
 	}
 }
 
+func TestGateEvalCommandBrokerCredentialSourceMismatchBlocks(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	intent := schemagate.IntentRequest{
+		SchemaID:        "gait.gate.intent_request",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		ToolName:        "tool.write",
+		Args:            map[string]any{"path": "/tmp/out.txt"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt", Operation: "write", EndpointClass: "fs.write"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:             "alice",
+			Workspace:            "/tmp",
+			RiskClass:            "high",
+			CredentialRef:        "cmd:token",
+			CredentialSource:     "env",
+			CredentialAccessType: "jit",
+			CredentialIssuer:     "github.com",
+		},
+	}
+	intentPath := filepath.Join(workDir, "intent_expected_env_source.json")
+	rawIntent, err := json.MarshalIndent(intent, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal intent: %v", err)
+	}
+	mustWriteFile(t, intentPath, string(rawIntent)+"\n")
+
+	policyPath := filepath.Join(workDir, "policy_gate_broker_source.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: protected-write",
+		"    effect: allow",
+		"    require_broker_credential: true",
+		"    broker_reference: egress",
+		"    broker_scopes: [export]",
+		"    allowed_credential_sources: [env]",
+		"    require_jit_credential: true",
+		"    match:",
+		"      tool_names: [tool.write]",
+	}, "\n")+"\n")
+
+	brokerPath, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve test executable: %v", err)
+	}
+	t.Setenv("GAIT_TEST_GATE_CREDENTIAL_BROKER_HELPER", "1")
+
+	output := captureStdout(t, func() {
+		if code := runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--credential-broker", "command",
+			"--credential-command", brokerPath,
+			"--credential-command-args", "-test.run,TestGateEvalCredentialBrokerHelperProcess,--",
+			"--json",
+		}); code != exitPolicyBlocked {
+			t.Fatalf("runGateEval broker credential source mismatch expected %d", exitPolicyBlocked)
+		}
+	})
+	if !strings.Contains(output, "credential_source_disallowed") {
+		t.Fatalf("expected credential_source_disallowed in output, got: %s", output)
+	}
+}
+
 func TestGateEvalCredentialBrokerHelperProcess(t *testing.T) {
 	if os.Getenv("GAIT_TEST_GATE_CREDENTIAL_BROKER_HELPER") != "1" {
 		t.Skip("helper process")

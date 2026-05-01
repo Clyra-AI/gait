@@ -37,6 +37,51 @@ func TestValidateBrokerCredentialReceipt(t *testing.T) {
 	}
 }
 
+func TestValidateBrokerCredentialReceiptCredentialPolicyReasons(t *testing.T) {
+	request := credential.Request{
+		ToolName:      "tool.write",
+		Identity:      "alice",
+		RunID:         "run-1",
+		JobID:         "job-1",
+		Reference:     "egress",
+		Scope:         []string{"export"},
+		TargetBinding: "binding-1",
+	}
+	response := credential.Response{
+		IssuedBy:      "command",
+		Source:        "command",
+		AccessType:    "standing",
+		Issuer:        "command",
+		Scope:         []string{"export"},
+		CredentialRef: "cmd:token",
+		TargetBinding: "binding-1",
+		RunBinding:    "run-1",
+		JobBinding:    "job-1",
+		RequestDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		TTLSeconds:    60,
+	}
+	reasons, violations := ValidateBrokerCredentialReceipt(PolicyRule{
+		BlockStandingCredentials:     true,
+		AllowedCredentialSources:     []string{"env"},
+		AllowedCredentialIssuers:     []string{"github.com"},
+		AllowedCredentialAccessTypes: []string{"jit"},
+	}, request, response, IntentBrokerBinding{})
+	for _, reason := range []string{
+		"standing_credential_disallowed",
+		"credential_source_disallowed",
+		"credential_issuer_disallowed",
+		"credential_access_type_disallowed",
+		"broker_request_digest_mismatch",
+	} {
+		if !contains(reasons, reason) {
+			t.Fatalf("expected reason %q in %#v", reason, reasons)
+		}
+		if !contains(violations, reason) {
+			t.Fatalf("expected violation %q in %#v", reason, violations)
+		}
+	}
+}
+
 func TestValidateBrokerCredentialReceiptMismatchReasons(t *testing.T) {
 	request := credential.Request{
 		ToolName:      "tool.write",
@@ -61,8 +106,9 @@ func TestValidateBrokerCredentialReceiptMismatchReasons(t *testing.T) {
 		TTLSeconds:    7200,
 	}
 	reasons, violations := ValidateBrokerCredentialReceipt(PolicyRule{
-		RequireJITCredential:    true,
-		MaxCredentialTTLSeconds: 300,
+		RequireJITCredential:     true,
+		BlockStandingCredentials: true,
+		MaxCredentialTTLSeconds:  300,
 	}, request, response, IntentBrokerBinding{
 		ExpectedCredentialRef: "cmd:expected",
 		TargetBinding:         "binding-1",
@@ -74,6 +120,7 @@ func TestValidateBrokerCredentialReceiptMismatchReasons(t *testing.T) {
 		"broker_scope_mismatch",
 		"broker_ttl_exceeded",
 		"credential_not_jit",
+		"standing_credential_disallowed",
 		"broker_credential_ref_mismatch",
 		"broker_target_binding_mismatch",
 		"broker_run_binding_mismatch",
