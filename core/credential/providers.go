@@ -207,6 +207,20 @@ func (b CommandBroker) Issue(request Request) (Response, error) {
 	if err := json.Unmarshal(output, &response); err != nil {
 		return Response{}, fmt.Errorf("%w: command broker must return JSON response", ErrCredentialUnavailable)
 	}
+	// Preserve compatibility with legacy command brokers that only returned a
+	// credential_ref while keeping stricter receipt enforcement for other modes.
+	if len(response.Scope) == 0 && len(request.Scope) > 0 {
+		response.Scope = append([]string(nil), request.Scope...)
+	}
+	if response.TargetBinding == "" {
+		response.TargetBinding = request.TargetBinding
+	}
+	if response.RunBinding == "" {
+		response.RunBinding = request.RunID
+	}
+	if response.JobBinding == "" {
+		response.JobBinding = request.JobID
+	}
 	response.IssuedBy = strings.TrimSpace(response.IssuedBy)
 	response.CredentialRef = strings.TrimSpace(response.CredentialRef)
 	if response.IssuedBy == "" {
