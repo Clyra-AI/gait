@@ -82,6 +82,18 @@ func Issue(broker Broker, request Request) (Response, error) {
 	if response.Source == "" {
 		response.Source = broker.Name()
 	}
+	if len(response.Scope) == 0 && len(normalized.Scope) > 0 {
+		response.Scope = append([]string(nil), normalized.Scope...)
+	}
+	if response.TargetBinding == "" {
+		response.TargetBinding = normalized.TargetBinding
+	}
+	if response.RunBinding == "" {
+		response.RunBinding = normalized.RunID
+	}
+	if response.JobBinding == "" {
+		response.JobBinding = normalized.JobID
+	}
 	if response.CredentialRef == "" {
 		return Response{}, fmt.Errorf("broker returned empty credential reference")
 	}

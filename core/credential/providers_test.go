@@ -10,6 +10,23 @@ import (
 	"time"
 )
 
+type staticTestBroker struct {
+	name     string
+	response Response
+	err      error
+}
+
+func (b staticTestBroker) Name() string {
+	if b.name == "" {
+		return "static"
+	}
+	return b.name
+}
+
+func (b staticTestBroker) Issue(Request) (Response, error) {
+	return b.response, b.err
+}
+
 func TestStubBrokerIssueDeterministic(t *testing.T) {
 	request := Request{
 		ToolName:  "tool.write",
@@ -85,6 +102,35 @@ func TestCommandBrokerIssue(t *testing.T) {
 	}
 	if response.CredentialRef != "cmd:test-credential" {
 		t.Fatalf("unexpected command broker credential ref: %#v", response)
+	}
+}
+
+func TestIssueDefaultsCompatibilityFieldsFromRequest(t *testing.T) {
+	response, err := Issue(staticTestBroker{
+		name: "command",
+		response: Response{
+			IssuedBy:      "command",
+			CredentialRef: "cmd:no-ttl",
+		},
+	}, Request{
+		ToolName:      "tool.write",
+		Identity:      "alice",
+		RunID:         "run-1",
+		JobID:         "job-1",
+		Scope:         []string{"execute"},
+		TargetBinding: "binding-1",
+	})
+	if err != nil {
+		t.Fatalf("issue with compatibility broker: %v", err)
+	}
+	if strings.Join(response.Scope, ",") != "execute" {
+		t.Fatalf("expected scope to default from request, got %#v", response.Scope)
+	}
+	if response.TargetBinding != "binding-1" {
+		t.Fatalf("expected target binding to default from request, got %#v", response)
+	}
+	if response.RunBinding != "run-1" || response.JobBinding != "job-1" {
+		t.Fatalf("expected run/job binding to default from request, got %#v", response)
 	}
 }
 
