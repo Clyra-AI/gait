@@ -10,23 +10,6 @@ import (
 	"time"
 )
 
-type staticTestBroker struct {
-	name     string
-	response Response
-	err      error
-}
-
-func (b staticTestBroker) Name() string {
-	if b.name == "" {
-		return "static"
-	}
-	return b.name
-}
-
-func (b staticTestBroker) Issue(Request) (Response, error) {
-	return b.response, b.err
-}
-
 func TestStubBrokerIssueDeterministic(t *testing.T) {
 	request := Request{
 		ToolName:  "tool.write",
@@ -105,13 +88,16 @@ func TestCommandBrokerIssue(t *testing.T) {
 	}
 }
 
-func TestIssueDefaultsCompatibilityFieldsFromRequest(t *testing.T) {
-	response, err := Issue(staticTestBroker{
-		name: "command",
-		response: Response{
-			IssuedBy:      "command",
-			CredentialRef: "cmd:no-ttl",
-		},
+func TestCommandBrokerIssueDefaultsCompatibilityFieldsFromRequest(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable: %v", err)
+	}
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_HELPER", "1")
+	t.Setenv("GAIT_TEST_COMMAND_BROKER_OMIT_COMPAT", "1")
+	response, err := Issue(CommandBroker{
+		Command: executable,
+		Args:    []string{"-test.run", "TestCommandBrokerHelperProcess", "--"},
 	}, Request{
 		ToolName:      "tool.write",
 		Identity:      "alice",
@@ -434,6 +420,10 @@ func TestCommandBrokerHelperProcess(t *testing.T) {
 	}
 	if os.Getenv("GAIT_TEST_COMMAND_BROKER_PLAIN") == "1" {
 		fmt.Print("cmd:plain-ref")
+		os.Exit(0)
+	}
+	if os.Getenv("GAIT_TEST_COMMAND_BROKER_OMIT_COMPAT") == "1" {
+		fmt.Print(`{"issued_by":"command","credential_ref":"cmd:test-credential"}`)
 		os.Exit(0)
 	}
 	request := Request{}
