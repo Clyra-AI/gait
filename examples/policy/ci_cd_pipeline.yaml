@@ -1,0 +1,63 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+fail_closed:
+  enabled: true
+  risk_classes: [critical]
+  required_fields: [targets, arg_provenance]
+rules:
+  - name: allow-read-build-artifacts
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [artifact.read, artifact.download, artifact.list, tool.read]
+      risk_classes: [low, medium]
+    reason_codes: [safe_artifact_read]
+
+  - name: allow-staging-deploy
+    priority: 15
+    effect: allow
+    match:
+      tool_names: [deploy.apply, deploy.push]
+      risk_classes: [medium]
+      workspace_prefixes: [/ci/staging, /deploy/staging]
+    reason_codes: [staging_deploy_allowed]
+
+  - name: block-production-deploy
+    priority: 20
+    effect: block
+    match:
+      tool_names: [deploy.apply, deploy.push]
+      risk_classes: [critical]
+      workspace_prefixes: [/ci/production, /deploy/production]
+    reason_codes: [production_deploy_blocked_in_ci]
+    violations: [unauthorized_production_deploy]
+
+  - name: require-approval-secret-access
+    priority: 25
+    effect: require_approval
+    min_approvals: 1
+    match:
+      tool_names: [secret.read, vault.read, secret.rotate]
+      risk_classes: [high, critical]
+    reason_codes: [approval_required_for_secret_access]
+    violations: [secret_access_requires_approval]
+
+  - name: block-infrastructure-mutation
+    priority: 30
+    effect: block
+    match:
+      tool_names: [infra.destroy, infra.delete, db.drop, db.truncate]
+    reason_codes: [infrastructure_mutation_blocked]
+    violations: [destructive_infrastructure_operation]
+
+  - name: require-approval-infra-create
+    priority: 35
+    effect: require_approval
+    min_approvals: 2
+    require_distinct_approvers: true
+    match:
+      tool_names: [infra.create, infra.update]
+      risk_classes: [high, critical]
+    reason_codes: [approval_required_for_infrastructure_change]
+    violations: [infrastructure_change_requires_review]

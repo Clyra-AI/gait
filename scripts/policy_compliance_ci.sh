@@ -139,9 +139,15 @@ run_case "template-high-delete" "examples/policy/base_high_risk.yaml" "examples/
 run_case "template-high-tainted-egress" "examples/policy/base_high_risk.yaml" "examples/policy/intents/intent_tainted_egress.json" 3
 run_case "template-high-delegated-egress-valid" "examples/policy/base_high_risk.yaml" "examples/policy/intents/intent_delegated_egress_valid.json" 0
 run_case "template-high-delegated-egress-invalid" "examples/policy/base_high_risk.yaml" "examples/policy/intents/intent_delegated_egress_invalid.json" 3
+run_case "ci-cd-read-artifact" "examples/policy/ci_cd_pipeline.yaml" "examples/policy/intents/intent_ci_read_artifact.json" 0
+run_case "ci-cd-deploy-staging" "examples/policy/ci_cd_pipeline.yaml" "examples/policy/intents/intent_ci_deploy_staging.json" 0
+run_case "ci-cd-deploy-production" "examples/policy/ci_cd_pipeline.yaml" "examples/policy/intents/intent_ci_deploy_production.json" 3
+run_case "ci-cd-secret-access" "examples/policy/ci_cd_pipeline.yaml" "examples/policy/intents/intent_ci_secret_access.json" 4
+run_case "ci-cd-infra-destroy" "examples/policy/ci_cd_pipeline.yaml" "examples/policy/intents/intent_ci_infra_destroy.json" 3
 run_validate_case "validate-template-low" "examples/policy/base_low_risk.yaml" 0
 run_validate_case "validate-template-medium" "examples/policy/base_medium_risk.yaml" 0
 run_validate_case "validate-template-high" "examples/policy/base_high_risk.yaml" 0
+run_validate_case "validate-ci-cd-pipeline" "examples/policy/ci_cd_pipeline.yaml" 0
 
 invalid_policy_path="gait-out/policy_invalid.yaml"
 cat >"$invalid_policy_path" <<'EOF'
