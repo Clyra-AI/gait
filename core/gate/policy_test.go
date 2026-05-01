@@ -201,6 +201,14 @@ fail_closed:
 `,
 		},
 		{
+			name: "invalid_required_high_risk_field",
+			yaml: `
+fail_closed:
+  enabled: true
+  required_high_risk_fields: [agent_id, unknown]
+`,
+		},
+		{
 			name: "invalid_rate_limit_scope",
 			yaml: `
 rules:
@@ -391,6 +399,70 @@ fail_closed:
 	expectedReasons := []string{"fail_closed_missing_arg_provenance", "fail_closed_missing_targets"}
 	if !reflect.DeepEqual(result.ReasonCodes, expectedReasons) {
 		t.Fatalf("unexpected fail-closed reasons: got=%#v want=%#v", result.ReasonCodes, expectedReasons)
+	}
+}
+
+func TestEvaluatePolicyFailClosedForHighRiskMissingExecutionContext(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+fail_closed:
+  enabled: true
+  risk_classes: [high]
+  required_high_risk_fields: [agent_id, run_id, workflow_id, repo, environment, credential_ref, credential_source, credential_access_type, credential_issuer, credential_ttl_seconds, wrkr_inventory_ref, agent_action_bom_ref]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	base := baseIntent()
+	base.Context.RiskClass = "high"
+	base.Context.AgentID = "agent.prod.writer"
+	base.Context.RunID = "run-1"
+	base.Context.WorkflowID = "wf-1"
+	base.Context.Repo = "Clyra-AI/gait"
+	base.Context.Environment = "prod"
+	base.Context.CredentialRef = "env:GAIT_EXPORT:deadbeef"
+	base.Context.CredentialSource = "env"
+	base.Context.CredentialAccessType = "standing"
+	base.Context.CredentialIssuer = "github.com"
+	base.Context.CredentialTTLSeconds = 300
+	base.Context.WrkrInventoryRef = "wrkr:inventory:v1"
+	base.Context.AgentActionBOMRef = "bom:agent-action:v1"
+
+	tests := []struct {
+		name       string
+		mutate     func(*schemagate.IntentRequest)
+		wantReason string
+	}{
+		{name: "missing_agent_id", mutate: func(intent *schemagate.IntentRequest) { intent.Context.AgentID = "" }, wantReason: "fail_closed_missing_agent_id"},
+		{name: "missing_run_id", mutate: func(intent *schemagate.IntentRequest) { intent.Context.RunID = "" }, wantReason: "fail_closed_missing_run_id"},
+		{name: "missing_workflow_id", mutate: func(intent *schemagate.IntentRequest) { intent.Context.WorkflowID = "" }, wantReason: "fail_closed_missing_workflow_id"},
+		{name: "missing_repo", mutate: func(intent *schemagate.IntentRequest) { intent.Context.Repo = "" }, wantReason: "fail_closed_missing_repo"},
+		{name: "missing_environment", mutate: func(intent *schemagate.IntentRequest) { intent.Context.Environment = "" }, wantReason: "fail_closed_missing_environment"},
+		{name: "missing_credential_ref", mutate: func(intent *schemagate.IntentRequest) { intent.Context.CredentialRef = "" }, wantReason: "fail_closed_missing_credential_ref"},
+		{name: "missing_credential_source", mutate: func(intent *schemagate.IntentRequest) { intent.Context.CredentialSource = "" }, wantReason: "fail_closed_missing_credential_source"},
+		{name: "missing_credential_access_type", mutate: func(intent *schemagate.IntentRequest) { intent.Context.CredentialAccessType = "" }, wantReason: "fail_closed_missing_credential_access_type"},
+		{name: "missing_credential_issuer", mutate: func(intent *schemagate.IntentRequest) { intent.Context.CredentialIssuer = "" }, wantReason: "fail_closed_missing_credential_issuer"},
+		{name: "missing_credential_ttl_seconds", mutate: func(intent *schemagate.IntentRequest) { intent.Context.CredentialTTLSeconds = 0 }, wantReason: "fail_closed_missing_credential_ttl_seconds"},
+		{name: "missing_wrkr_inventory_ref", mutate: func(intent *schemagate.IntentRequest) { intent.Context.WrkrInventoryRef = "" }, wantReason: "fail_closed_missing_wrkr_inventory_ref"},
+		{name: "missing_agent_action_bom_ref", mutate: func(intent *schemagate.IntentRequest) { intent.Context.AgentActionBOMRef = "" }, wantReason: "fail_closed_missing_agent_action_bom_ref"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			intent := base
+			test.mutate(&intent)
+			result, evalErr := EvaluatePolicy(policy, intent, EvalOptions{})
+			if evalErr != nil {
+				t.Fatalf("evaluate policy: %v", evalErr)
+			}
+			if result.Verdict != "block" {
+				t.Fatalf("expected block verdict, got %#v", result)
+			}
+			if !contains(result.ReasonCodes, test.wantReason) {
+				t.Fatalf("expected reason code %q in %#v", test.wantReason, result.ReasonCodes)
+			}
+		})
 	}
 }
 
@@ -1491,6 +1563,33 @@ fail_closed:
 	}
 	if !contains(result.ReasonCodes, "fail_closed_missing_delegation") {
 		t.Fatalf("expected fail-closed delegation reason code, got %#v", result.ReasonCodes)
+	}
+}
+
+func TestEvaluateFailClosedRequiredHighRiskFields(t *testing.T) {
+	intent := baseIntent()
+	reasons, violations := evaluateFailClosedRequiredHighRiskFields([]string{"agent_id", "agent_identity", "approval_ref"}, intent)
+	if !reflect.DeepEqual(reasons, []string{
+		"fail_closed_missing_agent_id",
+		"fail_closed_missing_agent_identity",
+		"fail_closed_missing_approval_ref",
+	}) {
+		t.Fatalf("unexpected high-risk fail-closed reasons: %#v", reasons)
+	}
+	if !reflect.DeepEqual(violations, []string{
+		"missing_agent_id",
+		"missing_agent_identity",
+		"missing_approval_ref",
+	}) {
+		t.Fatalf("unexpected high-risk fail-closed violations: %#v", violations)
+	}
+
+	intent.Context.AgentID = "agent.prod.writer"
+	intent.Context.AgentIdentity = &schemagate.AgentIdentity{Owner: "platform-security"}
+	intent.Context.ApprovalRef = "approval-1"
+	reasons, violations = evaluateFailClosedRequiredHighRiskFields([]string{"agent_id", "agent_identity", "approval_ref"}, intent)
+	if len(reasons) != 0 || len(violations) != 0 {
+		t.Fatalf("expected no high-risk fail-closed gaps, got reasons=%#v violations=%#v", reasons, violations)
 	}
 }
 

@@ -18,18 +18,27 @@ const (
 )
 
 type BuildBrokerCredentialRecordOptions struct {
-	CreatedAt       time.Time
-	ProducerVersion string
-	TraceID         string
-	ToolName        string
-	Identity        string
-	Broker          string
-	Reference       string
-	Scope           []string
-	CredentialRef   string
-	IssuedAt        time.Time
-	ExpiresAt       time.Time
-	TTLSeconds      int64
+	CreatedAt            time.Time
+	ProducerVersion      string
+	TraceID              string
+	ToolName             string
+	Identity             string
+	Broker               string
+	Reference            string
+	CredentialSource     string
+	CredentialAccessType string
+	CredentialIssuer     string
+	CredentialSubject    string
+	CredentialOwner      string
+	Scope                []string
+	CredentialRef        string
+	TargetBinding        string
+	RunBinding           string
+	JobBinding           string
+	RequestDigest        string
+	IssuedAt             time.Time
+	ExpiresAt            time.Time
+	TTLSeconds           int64
 }
 
 func BuildBrokerCredentialRecord(opts BuildBrokerCredentialRecordOptions) schemagate.BrokerCredentialRecord {
@@ -43,20 +52,29 @@ func BuildBrokerCredentialRecord(opts BuildBrokerCredentialRecordOptions) schema
 	}
 
 	return schemagate.BrokerCredentialRecord{
-		SchemaID:        brokerCredentialSchemaID,
-		SchemaVersion:   brokerCredentialSchemaV1,
-		CreatedAt:       createdAt,
-		ProducerVersion: producerVersion,
-		TraceID:         strings.TrimSpace(opts.TraceID),
-		ToolName:        strings.TrimSpace(opts.ToolName),
-		Identity:        strings.TrimSpace(opts.Identity),
-		Broker:          strings.TrimSpace(opts.Broker),
-		Reference:       strings.TrimSpace(opts.Reference),
-		Scope:           uniqueSorted(opts.Scope),
-		CredentialRef:   strings.TrimSpace(opts.CredentialRef),
-		IssuedAt:        opts.IssuedAt.UTC(),
-		ExpiresAt:       opts.ExpiresAt.UTC(),
-		TTLSeconds:      opts.TTLSeconds,
+		SchemaID:             brokerCredentialSchemaID,
+		SchemaVersion:        brokerCredentialSchemaV1,
+		CreatedAt:            createdAt,
+		ProducerVersion:      producerVersion,
+		TraceID:              strings.TrimSpace(opts.TraceID),
+		ToolName:             strings.TrimSpace(opts.ToolName),
+		Identity:             strings.TrimSpace(opts.Identity),
+		Broker:               strings.TrimSpace(opts.Broker),
+		Reference:            strings.TrimSpace(opts.Reference),
+		CredentialSource:     strings.ToLower(strings.TrimSpace(opts.CredentialSource)),
+		CredentialAccessType: strings.ToLower(strings.TrimSpace(opts.CredentialAccessType)),
+		CredentialIssuer:     strings.TrimSpace(opts.CredentialIssuer),
+		CredentialSubject:    strings.TrimSpace(opts.CredentialSubject),
+		CredentialOwner:      strings.TrimSpace(opts.CredentialOwner),
+		Scope:                uniqueSorted(opts.Scope),
+		CredentialRef:        strings.TrimSpace(opts.CredentialRef),
+		TargetBinding:        strings.TrimSpace(opts.TargetBinding),
+		RunBinding:           strings.TrimSpace(opts.RunBinding),
+		JobBinding:           strings.TrimSpace(opts.JobBinding),
+		RequestDigest:        strings.ToLower(strings.TrimSpace(opts.RequestDigest)),
+		IssuedAt:             opts.IssuedAt.UTC(),
+		ExpiresAt:            opts.ExpiresAt.UTC(),
+		TTLSeconds:           opts.TTLSeconds,
 	}
 }
 

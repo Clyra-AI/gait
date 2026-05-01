@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/gate/broker_request.schema.json",
+  "title": "Broker Request",
+  "type": "object",
+  "required": ["tool_name", "identity"],
+  "properties": {
+    "tool_name": { "type": "string", "minLength": 1 },
+    "identity": { "type": "string", "minLength": 1 },
+    "workspace": { "type": "string" },
+    "session_id": { "type": "string" },
+    "request_id": { "type": "string" },
+    "run_id": { "type": "string" },
+    "job_id": { "type": "string" },
+    "reference": { "type": "string" },
+    "scope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "target_binding": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

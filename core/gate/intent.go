@@ -59,7 +59,30 @@ var (
 		"manual":      {},
 		"unknown":     {},
 	}
-	hexDigestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	allowedCredentialSources = map[string]struct{}{
+		"aws_iam_user":               {},
+		"aws_sts":                    {},
+		"azure_federated":            {},
+		"command":                    {},
+		"env":                        {},
+		"gcp_sts":                    {},
+		"github_oidc":                {},
+		"github_pat":                 {},
+		"kubernetes_service_account": {},
+		"stub":                       {},
+		"unknown":                    {},
+		"vault_dynamic":              {},
+	}
+	allowedCredentialAccessTypes = map[string]struct{}{
+		"cloud_admin": {},
+		"inherited":   {},
+		"jit":         {},
+		"standing":    {},
+		"static":      {},
+		"unknown":     {},
+	}
+	hexDigestPattern             = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	credentialMaterialKeyPattern = regexp.MustCompile(`(?i)(token|secret|api[_-]?key|access[_-]?key|password|credential)`)
 )
 
 type normalizedIntent struct {
@@ -191,6 +214,9 @@ func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
 	args, ok := normalizedValue.(map[string]any)
 	if !ok {
 		return normalizedIntent{}, fmt.Errorf("args must be a JSON object")
+	}
+	if err := rejectRawCredentialMaterial("args", args); err != nil {
+		return normalizedIntent{}, err
 	}
 
 	targetsInput := input.Targets
@@ -612,11 +638,30 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 	if err != nil {
 		return schemagate.IntentContext{}, err
 	}
+	agentIdentity, err := normalizeAgentIdentity(context.AgentIdentity)
+	if err != nil {
+		return schemagate.IntentContext{}, err
+	}
 	credentialScopes := normalizeCredentialScopes(context.CredentialScopes)
 	environmentFingerprint := strings.TrimSpace(context.EnvironmentFingerprint)
 	contextSetDigest := strings.ToLower(strings.TrimSpace(context.ContextSetDigest))
 	if contextSetDigest != "" && !hexDigestPattern.MatchString(contextSetDigest) {
 		return schemagate.IntentContext{}, fmt.Errorf("context.context_set_digest must be sha256 hex")
+	}
+	if context.CredentialTTLSeconds < 0 {
+		return schemagate.IntentContext{}, fmt.Errorf("context.credential_ttl_seconds must be >= 0")
+	}
+	credentialSource := strings.ToLower(strings.TrimSpace(context.CredentialSource))
+	if credentialSource != "" {
+		if _, ok := allowedCredentialSources[credentialSource]; !ok {
+			return schemagate.IntentContext{}, fmt.Errorf("context.credential_source is unsupported: %s", credentialSource)
+		}
+	}
+	credentialAccessType := strings.ToLower(strings.TrimSpace(context.CredentialAccessType))
+	if credentialAccessType != "" {
+		if _, ok := allowedCredentialAccessTypes[credentialAccessType]; !ok {
+			return schemagate.IntentContext{}, fmt.Errorf("context.credential_access_type is unsupported: %s", credentialAccessType)
+		}
 	}
 	contextEvidenceMode := strings.ToLower(strings.TrimSpace(context.ContextEvidenceMode))
 	if contextEvidenceMode != "" && contextEvidenceMode != "best_effort" && contextEvidenceMode != "required" {
@@ -632,19 +677,38 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 	contextRefs := normalizeContextRefs(context.ContextRefs)
 
 	return schemagate.IntentContext{
-		Identity:               identity,
-		Workspace:              filepath.ToSlash(strings.ReplaceAll(workspace, `\`, "/")),
-		RiskClass:              riskClass,
-		Phase:                  phase,
-		JobID:                  strings.TrimSpace(context.JobID),
-		SessionID:              strings.TrimSpace(context.SessionID),
-		RequestID:              strings.TrimSpace(context.RequestID),
-		AuthContext:            authContext,
-		CredentialScopes:       credentialScopes,
-		EnvironmentFingerprint: environmentFingerprint,
-		ContextSetDigest:       contextSetDigest,
-		ContextEvidenceMode:    contextEvidenceMode,
-		ContextRefs:            contextRefs,
+		Identity:                identity,
+		Workspace:               filepath.ToSlash(strings.ReplaceAll(workspace, `\`, "/")),
+		RiskClass:               riskClass,
+		Phase:                   phase,
+		AgentID:                 strings.TrimSpace(context.AgentID),
+		AgentIdentity:           agentIdentity,
+		RunID:                   strings.TrimSpace(context.RunID),
+		WorkflowID:              strings.TrimSpace(context.WorkflowID),
+		Repo:                    strings.TrimSpace(context.Repo),
+		Environment:             strings.TrimSpace(context.Environment),
+		JobID:                   strings.TrimSpace(context.JobID),
+		SessionID:               strings.TrimSpace(context.SessionID),
+		RequestID:               strings.TrimSpace(context.RequestID),
+		CredentialRef:           strings.TrimSpace(context.CredentialRef),
+		CredentialSource:        credentialSource,
+		CredentialAccessType:    credentialAccessType,
+		CredentialIssuer:        strings.TrimSpace(context.CredentialIssuer),
+		CredentialSubject:       strings.TrimSpace(context.CredentialSubject),
+		CredentialOwner:         strings.TrimSpace(context.CredentialOwner),
+		CredentialTargetBinding: strings.TrimSpace(context.CredentialTargetBinding),
+		CredentialRunBinding:    strings.TrimSpace(context.CredentialRunBinding),
+		CredentialJobBinding:    strings.TrimSpace(context.CredentialJobBinding),
+		CredentialTTLSeconds:    context.CredentialTTLSeconds,
+		ApprovalRef:             strings.TrimSpace(context.ApprovalRef),
+		WrkrInventoryRef:        strings.TrimSpace(context.WrkrInventoryRef),
+		AgentActionBOMRef:       strings.TrimSpace(context.AgentActionBOMRef),
+		AuthContext:             authContext,
+		CredentialScopes:        credentialScopes,
+		EnvironmentFingerprint:  environmentFingerprint,
+		ContextSetDigest:        contextSetDigest,
+		ContextEvidenceMode:     contextEvidenceMode,
+		ContextRefs:             contextRefs,
 	}, nil
 }
 
@@ -663,7 +727,45 @@ func normalizeContextAuth(authContext map[string]any) (map[string]any, error) {
 	if len(normalizedMap) == 0 {
 		return nil, nil
 	}
+	if err := rejectRawCredentialMaterial("context.auth_context", normalizedMap); err != nil {
+		return nil, err
+	}
 	return normalizedMap, nil
+}
+
+func normalizeAgentIdentity(input *schemagate.AgentIdentity) (*schemagate.AgentIdentity, error) {
+	if input == nil {
+		return nil, nil
+	}
+	manifestDigest := strings.ToLower(strings.TrimSpace(input.ManifestDigest))
+	if manifestDigest != "" && !hexDigestPattern.MatchString(manifestDigest) {
+		return nil, fmt.Errorf("context.agent_identity.manifest_digest must be sha256 hex")
+	}
+	issuedAt := input.IssuedAt.UTC()
+	approvedAt := input.ApprovedAt.UTC()
+	expiresAt := input.ExpiresAt.UTC()
+	if !issuedAt.IsZero() && !approvedAt.IsZero() && approvedAt.Before(issuedAt) {
+		return nil, fmt.Errorf("context.agent_identity.approved_at must be on or after issued_at")
+	}
+	if !expiresAt.IsZero() {
+		if !issuedAt.IsZero() && !expiresAt.After(issuedAt) {
+			return nil, fmt.Errorf("context.agent_identity.expires_at must be after issued_at")
+		}
+		if !approvedAt.IsZero() && !expiresAt.After(approvedAt) {
+			return nil, fmt.Errorf("context.agent_identity.expires_at must be after approved_at")
+		}
+	}
+	return &schemagate.AgentIdentity{
+		LifecycleStates: normalizeCredentialScopes(input.LifecycleStates),
+		Owner:           strings.TrimSpace(input.Owner),
+		ManifestDigest:  manifestDigest,
+		Publisher:       strings.TrimSpace(input.Publisher),
+		Source:          strings.ToLower(strings.TrimSpace(input.Source)),
+		IssuedAt:        issuedAt,
+		ApprovedAt:      approvedAt,
+		ExpiresAt:       expiresAt,
+		Revoked:         input.Revoked,
+	}, nil
 }
 
 func normalizeCredentialScopes(scopes []string) []string {
@@ -712,6 +814,99 @@ func normalizeContextRefs(refs []string) []string {
 	}
 	sort.Strings(normalized)
 	return normalized
+}
+
+func rejectRawCredentialMaterial(path string, value any) error {
+	switch typed := value.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			childPath := path + "." + key
+			if keySuggestsCredentialMaterial(key) {
+				if text, ok := typed[key].(string); ok && looksLikeCredentialMaterialValue(text) {
+					return fmt.Errorf("%s must not contain raw credential material; use credential references or digests instead", childPath)
+				}
+			}
+			if err := rejectRawCredentialMaterial(childPath, typed[key]); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for index, nested := range typed {
+			if err := rejectRawCredentialMaterial(fmt.Sprintf("%s[%d]", path, index), nested); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func keySuggestsCredentialMaterial(key string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	if normalized == "" {
+		return false
+	}
+	if strings.HasSuffix(normalized, "_ref") ||
+		strings.HasSuffix(normalized, "_refs") ||
+		strings.HasSuffix(normalized, "_digest") ||
+		strings.HasSuffix(normalized, "_digests") ||
+		strings.HasSuffix(normalized, "_hash") ||
+		strings.HasSuffix(normalized, "_issuer") ||
+		strings.HasSuffix(normalized, "_source") ||
+		strings.HasSuffix(normalized, "_type") ||
+		strings.HasSuffix(normalized, "_ttl") ||
+		strings.HasSuffix(normalized, "_ttl_seconds") ||
+		strings.HasSuffix(normalized, "_id") ||
+		strings.HasSuffix(normalized, "_ids") ||
+		strings.HasSuffix(normalized, "_name") ||
+		strings.HasSuffix(normalized, "_names") ||
+		strings.HasSuffix(normalized, "_scope") ||
+		strings.HasSuffix(normalized, "_scopes") {
+		return false
+	}
+	return credentialMaterialKeyPattern.MatchString(normalized)
+}
+
+func looksLikeCredentialMaterialValue(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	for _, prefix := range []string{"env:", "stub:", "cmd:", "ref:", "sha256:"} {
+		if strings.HasPrefix(lower, prefix) {
+			return false
+		}
+	}
+	if hexDigestPattern.MatchString(lower) {
+		return false
+	}
+	if strings.HasPrefix(trimmed, "ghp_") ||
+		strings.HasPrefix(trimmed, "gho_") ||
+		strings.HasPrefix(trimmed, "github_pat_") ||
+		strings.HasPrefix(trimmed, "sk-") ||
+		strings.HasPrefix(trimmed, "AKIA") ||
+		strings.HasPrefix(trimmed, "ASIA") {
+		return true
+	}
+	if len(trimmed) < 16 || strings.ContainsAny(trimmed, " \t\r\n") {
+		return false
+	}
+	hasAlpha := false
+	hasDigit := false
+	for _, r := range trimmed {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
+			hasAlpha = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		}
+	}
+	return hasAlpha && hasDigit
 }
 
 func normalizeDelegation(input *schemagate.IntentDelegation) (*schemagate.IntentDelegation, error) {
