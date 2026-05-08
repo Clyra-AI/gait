@@ -202,6 +202,7 @@ func TestRunPrefersInvokedBinaryAndReportsPATHCollision(t *testing.T) {
 	check := findCheck(result.Checks, "onboarding_binary")
 	if check == nil {
 		t.Fatalf("expected onboarding_binary check")
+		return
 	}
 	if check.Status != statusPass {
 		t.Fatalf("expected onboarding_binary pass, got %#v", check)
@@ -246,6 +247,7 @@ func TestRunFallsBackToWorkDirBinaryWhenPATHMissing(t *testing.T) {
 	check := findCheck(result.Checks, "onboarding_binary")
 	if check == nil {
 		t.Fatalf("expected onboarding_binary check")
+		return
 	}
 	if check.Status != statusPass {
 		t.Fatalf("expected onboarding_binary pass, got %#v", check)
