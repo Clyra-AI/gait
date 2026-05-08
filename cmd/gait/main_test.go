@@ -2958,6 +2958,7 @@ func TestRunDoctorJSONReportsInvokedBinaryPathWhenPATHDiffers(t *testing.T) {
 	}
 	if onboardingCheck == nil {
 		t.Fatalf("expected onboarding_binary check in output")
+		return
 	}
 	if !strings.Contains(onboardingCheck.Message, "invoked_path="+invokedBinary) {
 		t.Fatalf("expected invoked path in onboarding message, got %q", onboardingCheck.Message)

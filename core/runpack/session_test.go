@@ -1048,6 +1048,7 @@ func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
 	)
 	if eventRelationship == nil {
 		t.Fatalf("expected session event relationship")
+		return
 	}
 	if eventRelationship.ParentRef == nil || eventRelationship.ParentRef.Kind != "session" || eventRelationship.ParentRef.ID != "sess_demo" {
 		t.Fatalf("unexpected session parent_ref: %#v", eventRelationship.ParentRef)
@@ -1084,6 +1085,7 @@ func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
 	)
 	if checkpointRelationship == nil {
 		t.Fatalf("expected checkpoint relationship")
+		return
 	}
 	if checkpointRelationship.ParentRef == nil || checkpointRelationship.ParentRef.Kind != "session" {
 		t.Fatalf("unexpected checkpoint parent_ref: %#v", checkpointRelationship.ParentRef)
@@ -1102,6 +1104,7 @@ func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
 	)
 	if timelineRelationship == nil {
 		t.Fatalf("expected timeline relationship")
+		return
 	}
 	if timelineRelationship.ParentRef == nil || timelineRelationship.ParentRef.Kind != "run" {
 		t.Fatalf("unexpected timeline parent_ref: %#v", timelineRelationship.ParentRef)
@@ -1120,6 +1123,7 @@ func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
 	)
 	if checkpointTimelineRelationship == nil {
 		t.Fatalf("expected checkpoint timeline relationship")
+		return
 	}
 	foundEvidenceEmission := false
 	for _, edge := range checkpointTimelineRelationship.Edges {
