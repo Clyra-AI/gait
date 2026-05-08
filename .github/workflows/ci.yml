@@ -129,6 +129,7 @@ jobs:
           cache-dependency-path: ui/local/package-lock.json
       - name: Build local UI source
         run: |
+          bash scripts/check_ui_package_lock_integrity.sh
           cd ui/local
           npm ci
           npm run lint

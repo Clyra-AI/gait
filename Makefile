@@ -334,4 +334,5 @@ ui-sync:
 	bash scripts/ui_sync_assets.sh
 
 ui-deps-check:
+	bash scripts/check_ui_package_lock_integrity.sh
 	bash scripts/check_ui_deps_freshness.sh
