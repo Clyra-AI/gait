@@ -181,3 +181,31 @@ func TestKillSwitchHelpers(t *testing.T) {
 		t.Fatalf("unexpected applied kill switch outcome: %#v", applied)
 	}
 }
+
+func TestKillSwitchPrefixMatchesRootScopes(t *testing.T) {
+	intent := baseIntent()
+	intent.Context.Workspace = "/repo/service"
+	intent.Targets = []schemagate.IntentTarget{
+		{Kind: "path", Value: "/tmp/work/run.sh", EndpointClass: "proc.exec"},
+	}
+	if !killSwitchMatchesPathPrefixes([]string{"/"}, intent) {
+		t.Fatalf("expected root path prefix to match absolute path target")
+	}
+	if !killSwitchMatchesWorkspacePrefixes([]string{"/"}, intent) {
+		t.Fatalf("expected root workspace prefix to match absolute workspace")
+	}
+}
+
+func TestKillSwitchPrefixMatchesDriveLikeScopes(t *testing.T) {
+	intent := baseIntent()
+	intent.Context.Workspace = "C:/repo/service"
+	intent.Targets = []schemagate.IntentTarget{
+		{Kind: "path", Value: "C:/repo/run.ps1", EndpointClass: "proc.exec"},
+	}
+	if !killSwitchMatchesPathPrefixes([]string{"C:/"}, intent) {
+		t.Fatalf("expected drive-like path prefix to match absolute path target")
+	}
+	if !killSwitchMatchesWorkspacePrefixes([]string{"C:/"}, intent) {
+		t.Fatalf("expected drive-like workspace prefix to match absolute workspace")
+	}
+}
