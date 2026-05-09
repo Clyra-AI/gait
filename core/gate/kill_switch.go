@@ -361,7 +361,7 @@ func killSwitchMatchesPathPrefixes(prefixes []string, intent schemagate.IntentRe
 		}
 		pathValue := filepath.ToSlash(filepath.Clean(strings.TrimSpace(target.Value)))
 		for _, prefix := range prefixes {
-			if pathValue == prefix || strings.HasPrefix(pathValue, prefix+"/") {
+			if killSwitchPrefixMatches(pathValue, prefix) {
 				return true
 			}
 		}
@@ -372,11 +372,24 @@ func killSwitchMatchesPathPrefixes(prefixes []string, intent schemagate.IntentRe
 func killSwitchMatchesWorkspacePrefixes(prefixes []string, intent schemagate.IntentRequest) bool {
 	workspace := filepath.ToSlash(filepath.Clean(strings.TrimSpace(intent.Context.Workspace)))
 	for _, prefix := range prefixes {
-		if workspace == prefix || strings.HasPrefix(workspace, prefix+"/") {
+		if killSwitchPrefixMatches(workspace, prefix) {
 			return true
 		}
 	}
 	return false
+}
+
+func killSwitchPrefixMatches(value string, prefix string) bool {
+	if prefix == "" {
+		return false
+	}
+	if value == prefix {
+		return true
+	}
+	if strings.HasSuffix(prefix, "/") {
+		return strings.HasPrefix(value, prefix)
+	}
+	return strings.HasPrefix(value, prefix+"/")
 }
 
 func allIntentTargets(intent schemagate.IntentRequest) []schemagate.IntentTarget {
