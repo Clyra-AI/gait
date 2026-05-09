@@ -343,9 +343,18 @@ func TestVerifyAuthorizationPayloadContractsDirect(t *testing.T) {
 		t.Fatalf("verifyAuthorizationPayloadContracts expected success: %v", err)
 	}
 
-	delete(bundle.Files, filepath.ToSlash(filepath.Join("evidence", "trace.json")))
+	delete(bundle.Files, authorizationEvidenceArchivePath("trace.json"))
 	if err := verifyAuthorizationPayloadContracts(bundle, manifest); err == nil {
 		t.Fatalf("expected missing trace evidence to fail direct contract verification")
+	}
+}
+
+func TestAuthorizationEvidenceArchivePathCanonicalizesSeparators(t *testing.T) {
+	if got := authorizationEvidenceArchivePath("trace.json"); got != "evidence/trace.json" {
+		t.Fatalf("authorizationEvidenceArchivePath trace.json = %q", got)
+	}
+	if got := authorizationEvidenceArchivePath(`nested\trace.json`); got != "evidence/nested/trace.json" {
+		t.Fatalf("authorizationEvidenceArchivePath backslash path = %q", got)
 	}
 }
 

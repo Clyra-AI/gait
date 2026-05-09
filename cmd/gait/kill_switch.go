@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"strings"
 	"time"
@@ -223,7 +225,7 @@ func loadOrCreateKillSwitchState(statePath string, now time.Time) (schemagate.Ki
 	if err == nil {
 		return state, nil
 	}
-	if !os.IsNotExist(err) && !strings.Contains(err.Error(), "no such file or directory") {
+	if !errors.Is(err, fs.ErrNotExist) && !os.IsNotExist(err) && !strings.Contains(strings.ToLower(err.Error()), "no such file or directory") {
 		return schemagate.KillSwitchState{}, err
 	}
 	return gate.NewKillSwitchState(now, currentVersion()), nil

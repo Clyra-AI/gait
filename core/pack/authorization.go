@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -130,24 +131,24 @@ func normalizeAuthorizationLink(pathValue string, digestValue string, baseDir st
 		}
 		return "", "", nil
 	}
-	cleanedPath := filepath.Clean(trimmedPath)
-	if !filepath.IsLocal(cleanedPath) {
+	cleanedPath := canonicalAuthorizationRelativePath(trimmedPath)
+	if cleanedPath == "" || path.IsAbs(cleanedPath) || cleanedPath == "." || cleanedPath == ".." || strings.HasPrefix(cleanedPath, "../") {
 		return "", "", fmt.Errorf("authorization evidence path must be local relative: %s", trimmedPath)
 	}
-	resolvedPath := filepath.Join(baseDir, cleanedPath)
+	resolvedPath := filepath.Join(baseDir, filepath.FromSlash(cleanedPath))
 	// #nosec G304 -- explicit local evidence path input.
 	content, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		return "", "", fmt.Errorf("read authorization evidence %s: %w", trimmedPath, err)
 	}
-	computedDigest, err := digestAuthorizationEvidence(trimmedPath, content)
+	computedDigest, err := digestAuthorizationEvidence(cleanedPath, content)
 	if err != nil {
 		return "", "", err
 	}
 	if trimmedDigest != "" && trimmedDigest != computedDigest {
 		return "", "", fmt.Errorf("authorization evidence digest mismatch for %s", trimmedPath)
 	}
-	return filepath.ToSlash(cleanedPath), computedDigest, nil
+	return cleanedPath, computedDigest, nil
 }
 
 func authorizationBundleFiles(bundle schemagate.AuthorizationBundle, baseDir string) ([]zipx.File, error) {
@@ -175,7 +176,7 @@ func authorizationBundleFiles(bundle schemagate.AuthorizationBundle, baseDir str
 		if err != nil {
 			return nil, fmt.Errorf("read authorization evidence %s: %w", relativeName, err)
 		}
-		files = append(files, zipx.File{Path: filepath.Join("evidence", relativeName), Data: content, Mode: 0o644})
+		files = append(files, zipx.File{Path: authorizationEvidenceArchivePath(relativeName), Data: content, Mode: 0o644})
 	}
 	return files, nil
 }
@@ -223,7 +224,7 @@ func verifyAuthorizationPayloadContracts(bundle *openedZip, manifest schemapack.
 		if strings.TrimSpace(current.path) == "" {
 			continue
 		}
-		internalPath := filepath.Join("evidence", current.path)
+		internalPath := authorizationEvidenceArchivePath(current.path)
 		file, ok := bundle.Files[internalPath]
 		if !ok {
 			return fmt.Errorf("missing %s", internalPath)
@@ -248,6 +249,18 @@ func verifyAuthorizationPayloadContracts(bundle *openedZip, manifest schemapack.
 	}
 	_ = manifest
 	return nil
+}
+
+func authorizationEvidenceArchivePath(relativeName string) string {
+	return path.Join("evidence", canonicalAuthorizationRelativePath(relativeName))
+}
+
+func canonicalAuthorizationRelativePath(relativeName string) string {
+	normalized := strings.ReplaceAll(strings.TrimSpace(relativeName), "\\", "/")
+	if normalized == "" {
+		return ""
+	}
+	return path.Clean(normalized)
 }
 
 func digestAuthorizationEvidence(name string, payload []byte) (string, error) {
