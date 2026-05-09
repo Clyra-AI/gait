@@ -153,6 +153,41 @@ func TestRunPackLifecycleCommands(t *testing.T) {
 	}
 }
 
+func TestRunPackAuthorizationLifecycle(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	specPath := writeAuthorizationBundleFixtureForPackCLI(t, workDir, "allow")
+	buildCode, buildOut := runPackJSON(t, []string{
+		"build",
+		"--type", "authorization",
+		"--from", specPath,
+		"--json",
+	})
+	if buildCode != exitOK {
+		t.Fatalf("pack build authorization expected %d got %d output=%#v", exitOK, buildCode, buildOut)
+	}
+	if buildOut.Path == "" || buildOut.PackType != "authorization" {
+		t.Fatalf("unexpected authorization pack build output: %#v", buildOut)
+	}
+
+	verifyCode, verifyOut := runPackJSON(t, []string{"verify", buildOut.Path, "--json"})
+	if verifyCode != exitOK {
+		t.Fatalf("pack verify authorization expected %d got %d output=%#v", exitOK, verifyCode, verifyOut)
+	}
+	if verifyOut.Verify == nil || verifyOut.Verify.PackType != "authorization" {
+		t.Fatalf("unexpected authorization verify output: %#v", verifyOut)
+	}
+
+	inspectCode, inspectOut := runPackJSON(t, []string{"inspect", buildOut.Path, "--json"})
+	if inspectCode != exitOK {
+		t.Fatalf("pack inspect authorization expected %d got %d output=%#v", exitOK, inspectCode, inspectOut)
+	}
+	if inspectOut.Inspect == nil || inspectOut.Inspect.AuthorizationBundle == nil || inspectOut.Inspect.AuthorizationMeta == nil {
+		t.Fatalf("unexpected authorization inspect output: %#v", inspectOut)
+	}
+}
+
 func TestRunPackHelpAndErrorPaths(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
@@ -518,6 +553,57 @@ func writeVoiceCallRecordForPackCLI(t *testing.T, dir string, runpackPath string
 		t.Fatalf("write call record: %v", err)
 	}
 	return path
+}
+
+func writeAuthorizationBundleFixtureForPackCLI(t *testing.T, dir string, outcomeStatus string) string {
+	t.Helper()
+	writeAuthorizationFixtureJSONForPackCLI(t, filepath.Join(dir, "trace.json"), map[string]any{
+		"schema_id":        "gait.gate.trace",
+		"schema_version":   "1.0.0",
+		"created_at":       "2026-05-09T00:00:00Z",
+		"producer_version": "test",
+		"trace_id":         "trace-auth-demo",
+		"tool_name":        "tool.write",
+		"args_digest":      strings.Repeat("c", 64),
+		"intent_digest":    strings.Repeat("b", 64),
+		"policy_digest":    strings.Repeat("a", 64),
+		"verdict":          outcomeStatus,
+	})
+	writeAuthorizationFixtureJSONForPackCLI(t, filepath.Join(dir, "approval_audit.json"), map[string]any{"approved": outcomeStatus == "allow"})
+	writeAuthorizationFixtureJSONForPackCLI(t, filepath.Join(dir, "credential_evidence.json"), map[string]any{"credential_ref": "stub:1234"})
+	writeAuthorizationFixtureJSONForPackCLI(t, filepath.Join(dir, "outcome_receipt.json"), map[string]any{"status": outcomeStatus, "executed": outcomeStatus == "allow"})
+
+	bundle := map[string]any{
+		"schema_id":                "gait.gate.authorization_bundle",
+		"schema_version":           "1.0.0",
+		"created_at":               "2026-05-09T00:00:00Z",
+		"producer_version":         "test",
+		"trace_id":                 "trace-auth-demo",
+		"policy_digest":            strings.Repeat("a", 64),
+		"intent_digest":            strings.Repeat("b", 64),
+		"trace_path":               "trace.json",
+		"approval_audit_path":      "approval_audit.json",
+		"credential_evidence_path": "credential_evidence.json",
+		"outcome_path":             "outcome_receipt.json",
+		"outcome_status":           outcomeStatus,
+		"freeze_window":            map[string]any{"status": "inactive"},
+		"kill_switch":              map[string]any{"status": "inactive"},
+		"sandbox":                  map[string]any{"status": "valid", "evidence_digest": strings.Repeat("d", 64)},
+	}
+	specPath := filepath.Join(dir, "authorization_bundle.json")
+	writeAuthorizationFixtureJSONForPackCLI(t, specPath, bundle)
+	return specPath
+}
+
+func writeAuthorizationFixtureJSONForPackCLI(t *testing.T, path string, payload map[string]any) {
+	t.Helper()
+	raw, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal authorization fixture: %v", err)
+	}
+	if err := os.WriteFile(path, append(raw, '\n'), 0o600); err != nil {
+		t.Fatalf("write authorization fixture: %v", err)
+	}
 }
 
 func runPackJSON(t *testing.T, args []string) (int, packOutput) {

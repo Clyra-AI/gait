@@ -30,6 +30,7 @@ type mcpServeConfig struct {
 	DefaultAdapter           string
 	Profile                  string
 	JobRoot                  string
+	KillSwitchStatePath      string
 	AuthMode                 string
 	AuthToken                string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
 	TraceDir                 string
@@ -125,6 +126,7 @@ func runMCPServe(arguments []string) int {
 	var adapter string
 	var profile string
 	var jobRoot string
+	var killSwitchStatePath string
 	var authMode string
 	var authTokenEnv string
 	var traceDir string
@@ -156,6 +158,7 @@ func runMCPServe(arguments []string) int {
 	flagSet.StringVar(&adapter, "adapter", "mcp", "default adapter: mcp|openai|anthropic|langchain|claude_code")
 	flagSet.StringVar(&profile, "profile", "standard", "runtime profile: standard|oss-prod")
 	flagSet.StringVar(&jobRoot, "job-root", "./gait-out/jobs", "job runtime root for emergency stop preemption checks when context.job_id is present")
+	flagSet.StringVar(&killSwitchStatePath, "kill-switch-state", "", "path to generalized kill-switch state JSON")
 	flagSet.StringVar(&authMode, "auth-mode", "off", "serve auth mode: off|token")
 	flagSet.StringVar(&authTokenEnv, "auth-token-env", "", "env var containing bearer token for --auth-mode token")
 	flagSet.StringVar(&traceDir, "trace-dir", "./gait-out/mcp-serve/traces", "directory for emitted traces")
@@ -204,6 +207,7 @@ func runMCPServe(arguments []string) int {
 		DefaultAdapter:           strings.ToLower(strings.TrimSpace(adapter)),
 		Profile:                  strings.ToLower(strings.TrimSpace(profile)),
 		JobRoot:                  strings.TrimSpace(jobRoot),
+		KillSwitchStatePath:      strings.TrimSpace(killSwitchStatePath),
 		AuthMode:                 strings.ToLower(strings.TrimSpace(authMode)),
 		TraceDir:                 strings.TrimSpace(traceDir),
 		RunpackDir:               strings.TrimSpace(runpackDir),
@@ -462,6 +466,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 		Adapter:                     adapter,
 		Profile:                     config.Profile,
 		JobRoot:                     config.JobRoot,
+		KillSwitchStatePath:         config.KillSwitchStatePath,
 		RunID:                       input.RunID,
 		VerifiedContextEnvelope:     config.VerifiedContextEnvelope,
 		TracePath:                   tracePath,

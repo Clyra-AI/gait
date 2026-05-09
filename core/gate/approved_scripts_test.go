@@ -191,3 +191,69 @@ func TestReadApprovedScriptRegistryVariants(t *testing.T) {
 		t.Fatalf("unexpected legacy registry entries: %#v", entries)
 	}
 }
+
+func TestApprovedScriptMatchScopeAndExpiry(t *testing.T) {
+	nowUTC := time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)
+	intent := baseIntent()
+	intent.ToolName = "script"
+	intent.Context.RiskClass = "low"
+	intent.Context.Workspace = "/repo/gait"
+	intent.Script = &schemagate.IntentScript{
+		Steps: []schemagate.IntentScriptStep{
+			{
+				ToolName: "tool.write",
+				Args:     map[string]any{"path": "/tmp/out.txt"},
+				Targets: []schemagate.IntentTarget{
+					{Kind: "path", Value: "/tmp/out.txt", Operation: "write"},
+				},
+			},
+		},
+	}
+	normalized, err := NormalizeIntent(intent)
+	if err != nil {
+		t.Fatalf("normalize script intent: %v", err)
+	}
+
+	entry := schemagate.ApprovedScriptEntry{
+		SchemaID:         "gait.gate.approved_script_entry",
+		SchemaVersion:    "1.0.0",
+		CreatedAt:        nowUTC,
+		ProducerVersion:  "test",
+		PatternID:        "pattern_scope",
+		PolicyDigest:     strings.Repeat("a", 64),
+		ScriptHash:       normalized.ScriptHash,
+		ToolSequence:     []string{"tool.write"},
+		Scope:            []string{"risk:low", "tool:script", "workspace_prefix:/repo", "endpoint:fs.write"},
+		ApproverIdentity: "security-team",
+		ExpiresAt:        nowUTC.Add(24 * time.Hour),
+	}
+	match, err := MatchApprovedScript(normalized, entry.PolicyDigest, []schemagate.ApprovedScriptEntry{entry}, nowUTC)
+	if err != nil {
+		t.Fatalf("match approved script with scope: %v", err)
+	}
+	if !match.Matched {
+		t.Fatalf("expected scoped match, got %#v", match)
+	}
+
+	scopeMismatch := entry
+	scopeMismatch.PatternID = "pattern_scope_mismatch"
+	scopeMismatch.Scope = []string{"risk:high"}
+	match, err = MatchApprovedScript(normalized, scopeMismatch.PolicyDigest, []schemagate.ApprovedScriptEntry{scopeMismatch}, nowUTC)
+	if err != nil {
+		t.Fatalf("match approved script with scope mismatch: %v", err)
+	}
+	if match.Matched {
+		t.Fatalf("expected scope mismatch to prevent match, got %#v", match)
+	}
+
+	expiredEntry := entry
+	expiredEntry.PatternID = "pattern_expired"
+	expiredEntry.ExpiresAt = nowUTC.Add(-1 * time.Hour)
+	match, err = MatchApprovedScript(normalized, expiredEntry.PolicyDigest, []schemagate.ApprovedScriptEntry{expiredEntry}, nowUTC)
+	if err != nil {
+		t.Fatalf("match expired approved script: %v", err)
+	}
+	if match.Matched {
+		t.Fatalf("expected expired entry not to match, got %#v", match)
+	}
+}

@@ -1,6 +1,14 @@
 # Gait Security and Safety
 
 - Fail-closed by default for ambiguous high-risk policy outcomes.
+- High-risk baseline templates can require JIT-only credential provenance for covered write and deploy paths, allowing AWS STS, GitHub OIDC, and Vault-style dynamic credentials while blocking standing PATs, IAM users, inherited env credentials, and unknown provenance.
+- Gate freeze-window rules can deterministically block or approval-gate production-impacting actions using policy-owned IANA timezones and replayable `--evaluation-time` inputs.
+- Gate sandbox posture rules can block high-risk `proc.exec` when network, filesystem, timeout, env exposure, privilege mode, or sandbox evidence metadata is missing or too permissive.
+- Gate generalized kill-switch state can block matching agents, identities, tools, targets, paths, workspaces, and environments with fail-closed behavior when configured state is unavailable in strict profiles.
+- Gate explain JSON gives machine-readable missing-state and fail-closed status so blocked or undecidable outcomes are not mistaken for silent success.
+- Provider-style credential broker receipts normalize refs and metadata only; raw secret-bearing broker payloads are rejected.
+- Approved-script promotion remains bounded by signed digest, explicit scope, and expiry; stale or mismatched entries fall back to normal approval or block behavior.
+- Authorization bundles detect tampered linked evidence even when the outer pack structure is otherwise intact.
 - Out-of-band emergency stop preemption blocks post-stop dispatches and records signed proof events.
 - Structured intent model for policy decisions (not free-form prompt filtering).
 - Destructive paths support phase-aware plan/apply boundaries plus fail-closed destructive budgets.

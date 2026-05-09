@@ -74,6 +74,10 @@ var (
 		"block":            {},
 		"require_approval": {},
 	}
+	allowedFreezeWindowEffects = map[string]struct{}{
+		"block":            {},
+		"require_approval": {},
+	}
 )
 
 type Policy struct {
@@ -113,40 +117,69 @@ type MCPTrustPolicy struct {
 }
 
 type PolicyRule struct {
-	Name                           string          `yaml:"name"`
-	Priority                       int             `yaml:"priority"`
-	Effect                         string          `yaml:"effect"`
-	Action                         string          `yaml:"action"`
-	Match                          PolicyMatch     `yaml:"match"`
-	Endpoint                       EndpointPolicy  `yaml:"endpoint"`
-	ReasonCodes                    []string        `yaml:"reason_codes"`
-	Violations                     []string        `yaml:"violations"`
-	RequireDeclaredAgent           bool            `yaml:"require_declared_agent"`
-	AllowedAgentIDs                []string        `yaml:"allowed_agent_ids"`
-	DeniedAgentIDs                 []string        `yaml:"denied_agent_ids"`
-	RequiredAgentManifestDigest    string          `yaml:"required_agent_manifest_digest"`
-	AllowedAgentManifestPublishers []string        `yaml:"allowed_agent_manifest_publishers"`
-	AllowedAgentManifestSources    []string        `yaml:"allowed_agent_manifest_sources"`
-	RequiredAgentLifecycleStates   []string        `yaml:"required_agent_lifecycle_states"`
-	RequireAgentOwner              bool            `yaml:"require_agent_owner"`
-	RequireUnexpiredAgent          bool            `yaml:"require_unexpired_agent"`
-	BlockStandingCredentials       bool            `yaml:"block_standing_credentials"`
-	AllowedCredentialSources       []string        `yaml:"allowed_credential_sources"`
-	AllowedCredentialIssuers       []string        `yaml:"allowed_credential_issuers"`
-	AllowedCredentialAccessTypes   []string        `yaml:"allowed_credential_access_types"`
-	MaxCredentialTTLSeconds        int64           `yaml:"max_credential_ttl_seconds"`
-	RequireJITCredential           bool            `yaml:"require_jit_credential"`
-	MinApprovals                   int             `yaml:"min_approvals"`
-	RequireDistinctApprovers       bool            `yaml:"require_distinct_approvers"`
-	RequireContextEvidence         bool            `yaml:"require_context_evidence"`
-	RequiredContextEvidenceMode    string          `yaml:"required_context_evidence_mode"`
-	MaxContextAgeSeconds           int64           `yaml:"max_context_age_seconds"`
-	RequireBrokerCredential        bool            `yaml:"require_broker_credential"`
-	BrokerReference                string          `yaml:"broker_reference"`
-	BrokerScopes                   []string        `yaml:"broker_scopes"`
-	RateLimit                      RateLimitPolicy `yaml:"rate_limit"`
-	DestructiveBudget              RateLimitPolicy `yaml:"destructive_budget"`
-	Dataflow                       DataflowPolicy  `yaml:"dataflow"`
+	Name                           string             `yaml:"name"`
+	Priority                       int                `yaml:"priority"`
+	Effect                         string             `yaml:"effect"`
+	Action                         string             `yaml:"action"`
+	Match                          PolicyMatch        `yaml:"match"`
+	Endpoint                       EndpointPolicy     `yaml:"endpoint"`
+	ReasonCodes                    []string           `yaml:"reason_codes"`
+	Violations                     []string           `yaml:"violations"`
+	RequireDeclaredAgent           bool               `yaml:"require_declared_agent"`
+	AllowedAgentIDs                []string           `yaml:"allowed_agent_ids"`
+	DeniedAgentIDs                 []string           `yaml:"denied_agent_ids"`
+	RequiredAgentManifestDigest    string             `yaml:"required_agent_manifest_digest"`
+	AllowedAgentManifestPublishers []string           `yaml:"allowed_agent_manifest_publishers"`
+	AllowedAgentManifestSources    []string           `yaml:"allowed_agent_manifest_sources"`
+	RequiredAgentLifecycleStates   []string           `yaml:"required_agent_lifecycle_states"`
+	RequireAgentOwner              bool               `yaml:"require_agent_owner"`
+	RequireUnexpiredAgent          bool               `yaml:"require_unexpired_agent"`
+	BlockStandingCredentials       bool               `yaml:"block_standing_credentials"`
+	AllowedCredentialSources       []string           `yaml:"allowed_credential_sources"`
+	AllowedCredentialIssuers       []string           `yaml:"allowed_credential_issuers"`
+	AllowedCredentialAccessTypes   []string           `yaml:"allowed_credential_access_types"`
+	MaxCredentialTTLSeconds        int64              `yaml:"max_credential_ttl_seconds"`
+	RequireJITCredential           bool               `yaml:"require_jit_credential"`
+	MinApprovals                   int                `yaml:"min_approvals"`
+	RequireDistinctApprovers       bool               `yaml:"require_distinct_approvers"`
+	RequireContextEvidence         bool               `yaml:"require_context_evidence"`
+	RequiredContextEvidenceMode    string             `yaml:"required_context_evidence_mode"`
+	MaxContextAgeSeconds           int64              `yaml:"max_context_age_seconds"`
+	RequireBrokerCredential        bool               `yaml:"require_broker_credential"`
+	BrokerReference                string             `yaml:"broker_reference"`
+	BrokerScopes                   []string           `yaml:"broker_scopes"`
+	FreezeWindow                   FreezeWindowPolicy `yaml:"freeze_window"`
+	Sandbox                        SandboxPolicy      `yaml:"sandbox"`
+	RateLimit                      RateLimitPolicy    `yaml:"rate_limit"`
+	DestructiveBudget              RateLimitPolicy    `yaml:"destructive_budget"`
+	Dataflow                       DataflowPolicy     `yaml:"dataflow"`
+}
+
+type FreezeWindowPolicy struct {
+	Enabled      bool                `yaml:"enabled"`
+	Timezone     string              `yaml:"timezone"`
+	Effect       string              `yaml:"effect"`
+	Reason       string              `yaml:"reason"`
+	Environments []string            `yaml:"environments"`
+	RiskClasses  []string            `yaml:"risk_classes"`
+	Windows      []FreezeWindowRange `yaml:"windows"`
+}
+
+type FreezeWindowRange struct {
+	Name  string `yaml:"name"`
+	Start string `yaml:"start"`
+	End   string `yaml:"end"`
+}
+
+type SandboxPolicy struct {
+	Enabled                     bool     `yaml:"enabled"`
+	AllowedNetworkModes         []string `yaml:"allowed_network_modes"`
+	AllowedWritablePathPrefixes []string `yaml:"allowed_writable_path_prefixes"`
+	RequiredReadOnlyRoots       []string `yaml:"required_read_only_roots"`
+	AllowedEnvExposureModes     []string `yaml:"allowed_env_exposure_modes"`
+	MaxTimeoutSeconds           int64    `yaml:"max_timeout_seconds"`
+	AllowedFilesystemIsolations []string `yaml:"allowed_filesystem_isolations"`
+	AllowedUserModes            []string `yaml:"allowed_user_modes"`
 }
 
 type RateLimitPolicy struct {
@@ -221,7 +254,11 @@ type EvalOptions struct {
 	WrkrInventory           map[string]WrkrToolMetadata
 	WrkrSource              string
 	VerifiedContextEnvelope *schemacontext.Envelope
+	EvaluationTime          time.Time
 	ContextEvidenceNow      time.Time
+	KillSwitchState         *schemagate.KillSwitchState
+	KillSwitchStateError    error
+	RequireKillSwitchState  bool
 }
 
 type EvalOutcome struct {
@@ -247,6 +284,9 @@ type EvalOutcome struct {
 	PreApproved              bool
 	PatternID                string
 	RegistryReason           string
+	FreezeWindow             *schemagate.FreezeWindowDecision
+	Sandbox                  *schemagate.SandboxDecision
+	KillSwitch               *schemagate.KillSwitchDecision
 	MCPTrust                 *schemagate.MCPTrustDecision
 }
 
@@ -265,6 +305,8 @@ type matchedRuleEvaluation struct {
 	RateLimit                RateLimitPolicy
 	DestructiveBudget        RateLimitPolicy
 	DataflowTriggered        bool
+	FreezeWindow             *schemagate.FreezeWindowDecision
+	Sandbox                  *schemagate.SandboxDecision
 }
 
 func LoadPolicyFile(path string) (Policy, error) {
@@ -375,8 +417,26 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 		}
 	}
 
+	if opts.RequireKillSwitchState && opts.KillSwitchStateError != nil {
+		decision := &schemagate.KillSwitchDecision{
+			Status:      "unavailable",
+			ReasonCode:  "kill_switch_state_unavailable",
+			ReasonCodes: []string{"kill_switch_state_unavailable"},
+			EvaluatedAt: evaluationTime(opts),
+		}
+		return EvalOutcome{
+			Result:         buildGateResult(normalizedPolicy, normalizedIntent, opts, "block", decision.ReasonCodes, []string{"kill_switch_state_unavailable"}),
+			PreparedIntent: normalizedIntent,
+			KillSwitch:     decision,
+		}, nil
+	}
+
 	if normalizedIntent.Script != nil {
-		return evaluateScriptPolicyDetailed(normalizedPolicy, normalizedIntent, opts)
+		outcome, err := evaluateScriptPolicyDetailed(normalizedPolicy, normalizedIntent, opts)
+		if err != nil {
+			return EvalOutcome{}, err
+		}
+		return applyKillSwitchOutcome(outcome, opts), nil
 	}
 	enrichedIntent := normalizedIntent
 	contextApplied := ApplyWrkrContext(&enrichedIntent, enrichedIntent.ToolName, opts.WrkrInventory)
@@ -391,7 +451,7 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 	if contextApplied {
 		outcome.ContextSource = mergeContextSource(outcome.ContextSource, resolveWrkrSource(opts.WrkrSource))
 	}
-	return outcome, nil
+	return applyKillSwitchOutcome(outcome, opts), nil
 }
 
 func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (EvalOutcome, error) {
@@ -433,6 +493,8 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 		rateLimit := RateLimitPolicy{}
 		destructiveBudget := RateLimitPolicy{}
 		dataflowTriggered := false
+		var freezeWindow *schemagate.FreezeWindowDecision
+		var sandbox *schemagate.SandboxDecision
 		for _, evaluation := range evaluations {
 			if evaluation.Effect != verdict {
 				continue
@@ -451,6 +513,8 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 			rateLimit = mostRestrictiveRateLimitPolicy(rateLimit, evaluation.RateLimit)
 			destructiveBudget = mostRestrictiveRateLimitPolicy(destructiveBudget, evaluation.DestructiveBudget)
 			dataflowTriggered = dataflowTriggered || evaluation.DataflowTriggered
+			freezeWindow = pickFreezeWindowDecision(freezeWindow, evaluation.FreezeWindow)
+			sandbox = pickSandboxDecision(sandbox, evaluation.Sandbox)
 		}
 		if verdict != "require_approval" {
 			minApprovals = 0
@@ -470,6 +534,8 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 			RateLimit:                rateLimit,
 			DestructiveBudget:        destructiveBudget,
 			DataflowTriggered:        dataflowTriggered,
+			FreezeWindow:             freezeWindow,
+			Sandbox:                  sandbox,
 		}, nil
 	}
 
@@ -495,6 +561,8 @@ func evaluateMatchedRule(rule PolicyRule, intent schemagate.IntentRequest, now t
 	effect := rule.Effect
 	reasons := uniqueSorted(rule.ReasonCodes)
 	violations := uniqueSorted(rule.Violations)
+	var freezeWindow *schemagate.FreezeWindowDecision
+	var sandbox *schemagate.SandboxDecision
 	if len(reasons) == 0 {
 		reasons = []string{"matched_rule_" + sanitizeName(rule.Name)}
 	}
@@ -528,7 +596,28 @@ func evaluateMatchedRule(rule PolicyRule, intent schemagate.IntentRequest, now t
 		reasons = mergeUniqueSorted(reasons, credentialReasons)
 		violations = mergeUniqueSorted(violations, credentialViolations)
 	}
+	freezeWindowTriggered, freezeWindowEffect, freezeWindowReasons, freezeWindowViolations, freezeWindowDecision := evaluateFreezeWindowConstraint(rule, intent, now)
+	if freezeWindowDecision != nil {
+		freezeWindow = freezeWindowDecision
+	}
+	if freezeWindowTriggered {
+		effect = mostRestrictiveVerdict(effect, freezeWindowEffect)
+		reasons = mergeUniqueSorted(reasons, freezeWindowReasons)
+		violations = mergeUniqueSorted(violations, freezeWindowViolations)
+	}
+	sandboxTriggered, sandboxEffect, sandboxReasons, sandboxViolations, sandboxDecision := evaluateSandboxConstraint(rule, intent)
+	if sandboxDecision != nil {
+		sandbox = sandboxDecision
+	}
+	if sandboxTriggered {
+		effect = mostRestrictiveVerdict(effect, sandboxEffect)
+		reasons = mergeUniqueSorted(reasons, sandboxReasons)
+		violations = mergeUniqueSorted(violations, sandboxViolations)
+	}
 	destructiveTarget := intentContainsDestructiveTarget(intent.Targets)
+	if sandbox != nil && sandbox.Status == "valid" && targetsOnlyUseProcExec(intent.Targets) {
+		destructiveTarget = false
+	}
 	switch strings.ToLower(strings.TrimSpace(intent.Context.Phase)) {
 	case "plan":
 		if destructiveTarget {
@@ -561,6 +650,8 @@ func evaluateMatchedRule(rule PolicyRule, intent schemagate.IntentRequest, now t
 		RateLimit:                rule.RateLimit,
 		DestructiveBudget:        rule.DestructiveBudget,
 		DataflowTriggered:        dataflowTriggered,
+		FreezeWindow:             freezeWindow,
+		Sandbox:                  sandbox,
 	}
 }
 
@@ -581,6 +672,8 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 	brokerScopes := []string{}
 	brokerReference := ""
 	dataflowTriggered := false
+	var freezeWindow *schemagate.FreezeWindowDecision
+	var sandbox *schemagate.SandboxDecision
 	riskClasses := []string{}
 	aggregatedRateLimit := RateLimitPolicy{}
 	aggregatedDestructiveBudget := RateLimitPolicy{}
@@ -642,6 +735,8 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 		if stepOutcome.DataflowTriggered {
 			dataflowTriggered = true
 		}
+		freezeWindow = pickFreezeWindowDecision(freezeWindow, stepOutcome.FreezeWindow)
+		sandbox = pickSandboxDecision(sandbox, stepOutcome.Sandbox)
 		riskClasses = mergeUniqueSorted(riskClasses, []string{classifyScriptStepRisk(step.Targets)})
 		if contextApplied {
 			contextSource = mergeContextSource(contextSource, resolveWrkrSource(opts.WrkrSource))
@@ -697,6 +792,8 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 		CompositeRiskClass:       compositeRiskClass(riskClasses),
 		StepVerdicts:             stepVerdicts,
 		ContextSource:            contextSource,
+		FreezeWindow:             freezeWindow,
+		Sandbox:                  sandbox,
 	}, nil
 }
 
@@ -934,6 +1031,39 @@ func policyDigestPayload(policy Policy) map[string]any {
 		}
 		if len(rule.BrokerScopes) > 0 {
 			rulePayload["BrokerScopes"] = rule.BrokerScopes
+		}
+		if rule.FreezeWindow.Enabled {
+			freezeWindowPayload := map[string]any{
+				"Enabled":      rule.FreezeWindow.Enabled,
+				"Timezone":     rule.FreezeWindow.Timezone,
+				"Effect":       rule.FreezeWindow.Effect,
+				"Reason":       rule.FreezeWindow.Reason,
+				"Environments": rule.FreezeWindow.Environments,
+				"RiskClasses":  rule.FreezeWindow.RiskClasses,
+			}
+			windows := make([]any, 0, len(rule.FreezeWindow.Windows))
+			for _, window := range rule.FreezeWindow.Windows {
+				windows = append(windows, map[string]any{
+					"Name":  window.Name,
+					"Start": window.Start,
+					"End":   window.End,
+				})
+			}
+			freezeWindowPayload["Windows"] = windows
+			rulePayload["FreezeWindow"] = freezeWindowPayload
+		}
+		if rule.Sandbox.Enabled {
+			sandboxPayload := map[string]any{
+				"Enabled":                     rule.Sandbox.Enabled,
+				"AllowedNetworkModes":         rule.Sandbox.AllowedNetworkModes,
+				"AllowedWritablePathPrefixes": rule.Sandbox.AllowedWritablePathPrefixes,
+				"RequiredReadOnlyRoots":       rule.Sandbox.RequiredReadOnlyRoots,
+				"AllowedEnvExposureModes":     rule.Sandbox.AllowedEnvExposureModes,
+				"MaxTimeoutSeconds":           rule.Sandbox.MaxTimeoutSeconds,
+				"AllowedFilesystemIsolations": rule.Sandbox.AllowedFilesystemIsolations,
+				"AllowedUserModes":            rule.Sandbox.AllowedUserModes,
+			}
+			rulePayload["Sandbox"] = sandboxPayload
 		}
 		if rule.RateLimit.Requests > 0 {
 			rulePayload["RateLimit"] = map[string]any{
@@ -1257,6 +1387,95 @@ func normalizePolicy(input Policy) (Policy, error) {
 		}
 		rule.BrokerReference = strings.TrimSpace(rule.BrokerReference)
 		rule.BrokerScopes = normalizeStringListLower(rule.BrokerScopes)
+		rule.FreezeWindow.Timezone = strings.TrimSpace(rule.FreezeWindow.Timezone)
+		rule.FreezeWindow.Effect = strings.ToLower(strings.TrimSpace(rule.FreezeWindow.Effect))
+		rule.FreezeWindow.Reason = strings.TrimSpace(rule.FreezeWindow.Reason)
+		rule.FreezeWindow.Environments = normalizeStringListLower(rule.FreezeWindow.Environments)
+		rule.FreezeWindow.RiskClasses = normalizeStringListLower(rule.FreezeWindow.RiskClasses)
+		freezeWindowConfigured := rule.FreezeWindow.Enabled ||
+			rule.FreezeWindow.Timezone != "" ||
+			rule.FreezeWindow.Effect != "" ||
+			rule.FreezeWindow.Reason != "" ||
+			len(rule.FreezeWindow.Environments) > 0 ||
+			len(rule.FreezeWindow.RiskClasses) > 0 ||
+			len(rule.FreezeWindow.Windows) > 0
+		if freezeWindowConfigured {
+			rule.FreezeWindow.Enabled = true
+			if rule.FreezeWindow.Timezone == "" {
+				return Policy{}, fmt.Errorf("freeze_window.timezone is required for %s", rule.Name)
+			}
+			if rule.FreezeWindow.Effect == "" {
+				rule.FreezeWindow.Effect = "block"
+			}
+			if _, ok := allowedFreezeWindowEffects[rule.FreezeWindow.Effect]; !ok {
+				return Policy{}, fmt.Errorf("unsupported freeze_window.effect %q for %s", rule.FreezeWindow.Effect, rule.Name)
+			}
+			if len(rule.FreezeWindow.Windows) == 0 {
+				return Policy{}, fmt.Errorf("freeze_window.windows is required for %s", rule.Name)
+			}
+			normalizedWindows := make([]FreezeWindowRange, 0, len(rule.FreezeWindow.Windows))
+			for index, window := range rule.FreezeWindow.Windows {
+				window.Name = strings.TrimSpace(window.Name)
+				if window.Name == "" {
+					window.Name = fmt.Sprintf("window-%d", index+1)
+				}
+				window.Start = strings.TrimSpace(window.Start)
+				window.End = strings.TrimSpace(window.End)
+				if window.Start == "" || window.End == "" {
+					return Policy{}, fmt.Errorf("freeze_window window start and end are required for %s", rule.Name)
+				}
+				normalizedWindows = append(normalizedWindows, window)
+			}
+			rule.FreezeWindow.Windows = normalizedWindows
+		}
+		rule.Sandbox.AllowedNetworkModes = normalizeStringListLower(rule.Sandbox.AllowedNetworkModes)
+		for _, mode := range rule.Sandbox.AllowedNetworkModes {
+			if _, ok := allowedSandboxNetworkModes[mode]; !ok {
+				return Policy{}, fmt.Errorf("unsupported sandbox.allowed_network_mode %q for %s", mode, rule.Name)
+			}
+		}
+		allowedWritablePathPrefixes, err := normalizeSandboxPathList("sandbox.allowed_writable_path_prefixes", rule.Sandbox.AllowedWritablePathPrefixes)
+		if err != nil {
+			return Policy{}, fmt.Errorf("%s for %s", err.Error(), rule.Name)
+		}
+		rule.Sandbox.AllowedWritablePathPrefixes = allowedWritablePathPrefixes
+		requiredReadOnlyRoots, err := normalizeSandboxPathList("sandbox.required_read_only_roots", rule.Sandbox.RequiredReadOnlyRoots)
+		if err != nil {
+			return Policy{}, fmt.Errorf("%s for %s", err.Error(), rule.Name)
+		}
+		rule.Sandbox.RequiredReadOnlyRoots = requiredReadOnlyRoots
+		rule.Sandbox.AllowedEnvExposureModes = normalizeStringListLower(rule.Sandbox.AllowedEnvExposureModes)
+		for _, mode := range rule.Sandbox.AllowedEnvExposureModes {
+			if _, ok := allowedSandboxEnvExposureModes[mode]; !ok {
+				return Policy{}, fmt.Errorf("unsupported sandbox.allowed_env_exposure_mode %q for %s", mode, rule.Name)
+			}
+		}
+		rule.Sandbox.AllowedFilesystemIsolations = normalizeStringListLower(rule.Sandbox.AllowedFilesystemIsolations)
+		for _, isolation := range rule.Sandbox.AllowedFilesystemIsolations {
+			if _, ok := allowedSandboxFilesystemIsolations[isolation]; !ok {
+				return Policy{}, fmt.Errorf("unsupported sandbox.allowed_filesystem_isolation %q for %s", isolation, rule.Name)
+			}
+		}
+		rule.Sandbox.AllowedUserModes = normalizeStringListLower(rule.Sandbox.AllowedUserModes)
+		for _, mode := range rule.Sandbox.AllowedUserModes {
+			if _, ok := allowedSandboxUserModes[mode]; !ok {
+				return Policy{}, fmt.Errorf("unsupported sandbox.allowed_user_mode %q for %s", mode, rule.Name)
+			}
+		}
+		if rule.Sandbox.MaxTimeoutSeconds < 0 {
+			return Policy{}, fmt.Errorf("sandbox.max_timeout_seconds must be >= 0 for %s", rule.Name)
+		}
+		sandboxConfigured := rule.Sandbox.Enabled ||
+			len(rule.Sandbox.AllowedNetworkModes) > 0 ||
+			len(rule.Sandbox.AllowedWritablePathPrefixes) > 0 ||
+			len(rule.Sandbox.RequiredReadOnlyRoots) > 0 ||
+			len(rule.Sandbox.AllowedEnvExposureModes) > 0 ||
+			rule.Sandbox.MaxTimeoutSeconds > 0 ||
+			len(rule.Sandbox.AllowedFilesystemIsolations) > 0 ||
+			len(rule.Sandbox.AllowedUserModes) > 0
+		if sandboxConfigured {
+			rule.Sandbox.Enabled = true
+		}
 		if rule.RateLimit.Requests < 0 {
 			return Policy{}, fmt.Errorf("rate_limit.requests must be >= 0 for %s", rule.Name)
 		}
@@ -1743,10 +1962,28 @@ func shouldFailClosed(policy FailClosedPolicy, riskClass string) bool {
 }
 
 func evaluationTime(opts EvalOptions) time.Time {
+	if !opts.EvaluationTime.IsZero() {
+		return opts.EvaluationTime.UTC()
+	}
 	if !opts.ContextEvidenceNow.IsZero() {
 		return opts.ContextEvidenceNow.UTC()
 	}
 	return time.Now().UTC()
+}
+
+func applyKillSwitchOutcome(outcome EvalOutcome, opts EvalOptions) EvalOutcome {
+	if opts.KillSwitchState == nil {
+		return outcome
+	}
+	decision := MatchKillSwitch(*opts.KillSwitchState, outcome.PreparedIntent, evaluationTime(opts))
+	outcome.KillSwitch = decision
+	if decision == nil || decision.Status != "active" {
+		return outcome
+	}
+	outcome.Result.Verdict = "block"
+	outcome.Result.ReasonCodes = mergeUniqueSorted(outcome.Result.ReasonCodes, decision.ReasonCodes)
+	outcome.Result.Violations = mergeUniqueSorted(outcome.Result.Violations, []string{"kill_switch_active"})
+	return outcome
 }
 
 func evaluateFailClosedRequiredFields(requiredFields []string, intent schemagate.IntentRequest) ([]string, []string) {
@@ -2041,6 +2278,18 @@ func intentContainsDestructiveTarget(targets []schemagate.IntentTarget) bool {
 
 func IntentContainsDestructiveTarget(targets []schemagate.IntentTarget) bool {
 	return intentContainsDestructiveTarget(targets)
+}
+
+func targetsOnlyUseProcExec(targets []schemagate.IntentTarget) bool {
+	if len(targets) == 0 {
+		return false
+	}
+	for _, target := range targets {
+		if strings.ToLower(strings.TrimSpace(target.EndpointClass)) != "proc.exec" {
+			return false
+		}
+	}
+	return true
 }
 
 func matchesAnyPattern(value string, patterns []string) bool {

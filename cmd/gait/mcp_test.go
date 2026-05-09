@@ -129,6 +129,56 @@ func TestRunMCPProxyEmergencyStopPreemption(t *testing.T) {
 	}
 }
 
+func TestRunMCPProxyKillSwitchPreemption(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	callPath := filepath.Join(workDir, "call.json")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.write",
+  "args":{"path":"/tmp/out.txt"},
+  "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+  "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1"}
+}`)
+	statePath := filepath.Join(workDir, "kill_switch_state.json")
+	state := gate.NewKillSwitchState(time.Date(2026, time.May, 9, 12, 0, 0, 0, time.UTC), "test")
+	state.Entries = []schemagate.KillSwitchEntry{
+		{
+			EntryID:   "agent-stop",
+			Enabled:   true,
+			Identity:  "alice",
+			Reason:    "incident",
+			Actor:     "secops",
+			CreatedAt: time.Date(2026, time.May, 9, 12, 0, 0, 0, time.UTC),
+		},
+	}
+	if err := gate.WriteKillSwitchState(statePath, state); err != nil {
+		t.Fatalf("write kill switch state: %v", err)
+	}
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runMCPProxy([]string{
+			"--policy", policyPath,
+			"--call", callPath,
+			"--kill-switch-state", statePath,
+			"--json",
+		})
+	})
+	if code != exitPolicyBlocked {
+		t.Fatalf("expected kill switch preemption to block with %d, got %d (%s)", exitPolicyBlocked, code, raw)
+	}
+	var out mcpProxyOutput
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		t.Fatalf("decode proxy output: %v (%s)", err, raw)
+	}
+	if out.Verdict != "block" || !strings.Contains(strings.Join(out.ReasonCodes, ","), "kill_switch_identity_active") {
+		t.Fatalf("expected kill switch reason code, got %#v", out)
+	}
+}
+
 func TestEvaluateMCPEmergencyStopWithoutJobID(t *testing.T) {
 	reason, warnings := evaluateMCPEmergencyStop(mcp.ToolCall{
 		Name: "tool.write",

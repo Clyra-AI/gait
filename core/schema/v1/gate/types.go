@@ -66,6 +66,9 @@ type TraceRecord struct {
 	LatencyMS                  float64                            `json:"latency_ms,omitempty"`
 	ApprovalTokenRef           string                             `json:"approval_token_ref,omitempty"`
 	DelegationRef              *DelegationRef                     `json:"delegation_ref,omitempty"`
+	FreezeWindow               *FreezeWindowDecision              `json:"freeze_window,omitempty"`
+	Sandbox                    *SandboxDecision                   `json:"sandbox,omitempty"`
+	KillSwitch                 *KillSwitchDecision                `json:"kill_switch,omitempty"`
 	MCPTrust                   *MCPTrustDecision                  `json:"mcp_trust,omitempty"`
 	Relationship               *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
 	SkillProvenance            *SkillProvenance                   `json:"skill_provenance,omitempty"`
@@ -88,6 +91,76 @@ type MCPTrustDecision struct {
 	RegistryVerified bool      `json:"registry_verified,omitempty"`
 	PublisherAllowed bool      `json:"publisher_allowed,omitempty"`
 	ReasonCodes      []string  `json:"reason_codes,omitempty"`
+}
+
+type FreezeWindowDecision struct {
+	Status      string    `json:"status,omitempty"`
+	Effect      string    `json:"effect,omitempty"`
+	Timezone    string    `json:"timezone,omitempty"`
+	EvaluatedAt time.Time `json:"evaluated_at,omitempty"`
+	WindowName  string    `json:"window_name,omitempty"`
+	WindowStart time.Time `json:"window_start,omitempty"`
+	WindowEnd   time.Time `json:"window_end,omitempty"`
+	Reason      string    `json:"reason,omitempty"`
+	ReasonCode  string    `json:"reason_code,omitempty"`
+}
+
+type SandboxMetadata struct {
+	NetworkMode         string   `json:"network_mode,omitempty"`
+	WritablePaths       []string `json:"writable_paths,omitempty"`
+	ReadOnlyRoots       []string `json:"read_only_roots,omitempty"`
+	EnvExposureMode     string   `json:"env_exposure_mode,omitempty"`
+	TimeoutSeconds      int64    `json:"timeout_seconds,omitempty"`
+	FilesystemIsolation string   `json:"filesystem_isolation,omitempty"`
+	UserMode            string   `json:"user_mode,omitempty"`
+	EvidenceRef         string   `json:"evidence_ref,omitempty"`
+	EvidenceDigest      string   `json:"evidence_digest,omitempty"`
+}
+
+type SandboxDecision struct {
+	Status              string   `json:"status,omitempty"`
+	NetworkMode         string   `json:"network_mode,omitempty"`
+	EnvExposureMode     string   `json:"env_exposure_mode,omitempty"`
+	TimeoutSeconds      int64    `json:"timeout_seconds,omitempty"`
+	FilesystemIsolation string   `json:"filesystem_isolation,omitempty"`
+	UserMode            string   `json:"user_mode,omitempty"`
+	EvidenceRef         string   `json:"evidence_ref,omitempty"`
+	EvidenceDigest      string   `json:"evidence_digest,omitempty"`
+	ReasonCodes         []string `json:"reason_codes,omitempty"`
+}
+
+type KillSwitchState struct {
+	SchemaID        string            `json:"schema_id"`
+	SchemaVersion   string            `json:"schema_version"`
+	CreatedAt       time.Time         `json:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+	ProducerVersion string            `json:"producer_version"`
+	Entries         []KillSwitchEntry `json:"entries"`
+}
+
+type KillSwitchEntry struct {
+	EntryID           string    `json:"entry_id"`
+	Enabled           bool      `json:"enabled"`
+	AgentID           string    `json:"agent_id,omitempty"`
+	Identity          string    `json:"identity,omitempty"`
+	ToolName          string    `json:"tool_name,omitempty"`
+	TargetKind        string    `json:"target_kind,omitempty"`
+	TargetValue       string    `json:"target_value,omitempty"`
+	Environment       string    `json:"environment,omitempty"`
+	PathPrefixes      []string  `json:"path_prefixes,omitempty"`
+	WorkspacePrefixes []string  `json:"workspace_prefixes,omitempty"`
+	Reason            string    `json:"reason,omitempty"`
+	Actor             string    `json:"actor,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	ExpiresAt         time.Time `json:"expires_at,omitempty"`
+}
+
+type KillSwitchDecision struct {
+	Status          string    `json:"status,omitempty"`
+	ReasonCode      string    `json:"reason_code,omitempty"`
+	ReasonCodes     []string  `json:"reason_codes,omitempty"`
+	MatchedEntryIDs []string  `json:"matched_entry_ids,omitempty"`
+	EvaluatedAt     time.Time `json:"evaluated_at,omitempty"`
 }
 
 type TraceStepVerdict struct {
@@ -171,38 +244,39 @@ type AgentIdentity struct {
 }
 
 type IntentContext struct {
-	Identity                string         `json:"identity"`
-	Workspace               string         `json:"workspace"`
-	RiskClass               string         `json:"risk_class"`
-	Phase                   string         `json:"phase,omitempty"`
-	AgentID                 string         `json:"agent_id,omitempty"`
-	AgentIdentity           *AgentIdentity `json:"agent_identity,omitempty"`
-	RunID                   string         `json:"run_id,omitempty"`
-	WorkflowID              string         `json:"workflow_id,omitempty"`
-	Repo                    string         `json:"repo,omitempty"`
-	Environment             string         `json:"environment,omitempty"`
-	JobID                   string         `json:"job_id,omitempty"`
-	SessionID               string         `json:"session_id,omitempty"`
-	RequestID               string         `json:"request_id,omitempty"`
-	CredentialRef           string         `json:"credential_ref,omitempty"`
-	CredentialSource        string         `json:"credential_source,omitempty"`
-	CredentialAccessType    string         `json:"credential_access_type,omitempty"`
-	CredentialIssuer        string         `json:"credential_issuer,omitempty"`
-	CredentialSubject       string         `json:"credential_subject,omitempty"`
-	CredentialOwner         string         `json:"credential_owner,omitempty"`
-	CredentialTargetBinding string         `json:"credential_target_binding,omitempty"`
-	CredentialRunBinding    string         `json:"credential_run_binding,omitempty"`
-	CredentialJobBinding    string         `json:"credential_job_binding,omitempty"`
-	CredentialTTLSeconds    int64          `json:"credential_ttl_seconds,omitempty"`
-	ApprovalRef             string         `json:"approval_ref,omitempty"`
-	WrkrInventoryRef        string         `json:"wrkr_inventory_ref,omitempty"`
-	AgentActionBOMRef       string         `json:"agent_action_bom_ref,omitempty"`
-	AuthContext             map[string]any `json:"auth_context,omitempty"`
-	CredentialScopes        []string       `json:"credential_scopes,omitempty"`
-	EnvironmentFingerprint  string         `json:"environment_fingerprint,omitempty"`
-	ContextSetDigest        string         `json:"context_set_digest,omitempty"`
-	ContextEvidenceMode     string         `json:"context_evidence_mode,omitempty"`
-	ContextRefs             []string       `json:"context_refs,omitempty"`
+	Identity                string           `json:"identity"`
+	Workspace               string           `json:"workspace"`
+	RiskClass               string           `json:"risk_class"`
+	Phase                   string           `json:"phase,omitempty"`
+	AgentID                 string           `json:"agent_id,omitempty"`
+	AgentIdentity           *AgentIdentity   `json:"agent_identity,omitempty"`
+	RunID                   string           `json:"run_id,omitempty"`
+	WorkflowID              string           `json:"workflow_id,omitempty"`
+	Repo                    string           `json:"repo,omitempty"`
+	Environment             string           `json:"environment,omitempty"`
+	JobID                   string           `json:"job_id,omitempty"`
+	SessionID               string           `json:"session_id,omitempty"`
+	RequestID               string           `json:"request_id,omitempty"`
+	CredentialRef           string           `json:"credential_ref,omitempty"`
+	CredentialSource        string           `json:"credential_source,omitempty"`
+	CredentialAccessType    string           `json:"credential_access_type,omitempty"`
+	CredentialIssuer        string           `json:"credential_issuer,omitempty"`
+	CredentialSubject       string           `json:"credential_subject,omitempty"`
+	CredentialOwner         string           `json:"credential_owner,omitempty"`
+	CredentialTargetBinding string           `json:"credential_target_binding,omitempty"`
+	CredentialRunBinding    string           `json:"credential_run_binding,omitempty"`
+	CredentialJobBinding    string           `json:"credential_job_binding,omitempty"`
+	CredentialTTLSeconds    int64            `json:"credential_ttl_seconds,omitempty"`
+	ApprovalRef             string           `json:"approval_ref,omitempty"`
+	WrkrInventoryRef        string           `json:"wrkr_inventory_ref,omitempty"`
+	AgentActionBOMRef       string           `json:"agent_action_bom_ref,omitempty"`
+	AuthContext             map[string]any   `json:"auth_context,omitempty"`
+	Sandbox                 *SandboxMetadata `json:"sandbox,omitempty"`
+	CredentialScopes        []string         `json:"credential_scopes,omitempty"`
+	EnvironmentFingerprint  string           `json:"environment_fingerprint,omitempty"`
+	ContextSetDigest        string           `json:"context_set_digest,omitempty"`
+	ContextEvidenceMode     string           `json:"context_evidence_mode,omitempty"`
+	ContextRefs             []string         `json:"context_refs,omitempty"`
 }
 
 type IntentDelegation struct {
@@ -249,6 +323,58 @@ type GateResult struct {
 	Verdict         string    `json:"verdict"`
 	ReasonCodes     []string  `json:"reason_codes"`
 	Violations      []string  `json:"violations"`
+}
+
+type PolicyExplain struct {
+	OK                       bool                    `json:"ok"`
+	SchemaID                 string                  `json:"schema_id"`
+	SchemaVersion            string                  `json:"schema_version"`
+	CreatedAt                time.Time               `json:"created_at"`
+	ProducerVersion          string                  `json:"producer_version"`
+	Verdict                  string                  `json:"verdict"`
+	MatchedRule              string                  `json:"matched_rule,omitempty"`
+	MatchedRules             []PolicyExplainRule     `json:"matched_rules,omitempty"`
+	ReasonCodes              []string                `json:"reason_codes,omitempty"`
+	Violations               []string                `json:"violations,omitempty"`
+	MissingFields            []string                `json:"missing_fields,omitempty"`
+	FailClosedReasonCodes    []string                `json:"fail_closed_reason_codes,omitempty"`
+	ApprovalRequired         bool                    `json:"approval_required,omitempty"`
+	RequiredApprovals        int                     `json:"required_approvals,omitempty"`
+	ValidApprovals           int                     `json:"valid_approvals,omitempty"`
+	RequireBrokerCredential  bool                    `json:"require_broker_credential,omitempty"`
+	BrokerReference          string                  `json:"broker_reference,omitempty"`
+	BrokerScopes             []string                `json:"broker_scopes,omitempty"`
+	RequireDelegation        bool                    `json:"require_delegation,omitempty"`
+	RequiredDelegationScopes []string                `json:"required_delegation_scopes,omitempty"`
+	CredentialPosture        *PolicyCredentialState  `json:"credential_posture,omitempty"`
+	ContextEvidenceStatus    string                  `json:"context_evidence_status,omitempty"`
+	FreezeWindow             *FreezeWindowDecision   `json:"freeze_window,omitempty"`
+	KillSwitch               *KillSwitchDecision     `json:"kill_switch,omitempty"`
+	Sandbox                  *SandboxDecision        `json:"sandbox,omitempty"`
+	ProofRefs                *PolicyExplainProofRefs `json:"proof_refs,omitempty"`
+}
+
+type PolicyExplainRule struct {
+	Name     string `json:"name"`
+	Priority int    `json:"priority"`
+	Effect   string `json:"effect"`
+}
+
+type PolicyCredentialState struct {
+	Present       bool   `json:"present"`
+	Source        string `json:"source,omitempty"`
+	AccessType    string `json:"access_type,omitempty"`
+	Issuer        string `json:"issuer,omitempty"`
+	TTLSeconds    int64  `json:"ttl_seconds,omitempty"`
+	CredentialRef string `json:"credential_ref,omitempty"`
+}
+
+type PolicyExplainProofRefs struct {
+	TraceID                string `json:"trace_id,omitempty"`
+	TracePath              string `json:"trace_path,omitempty"`
+	ApprovalAuditPath      string `json:"approval_audit_path,omitempty"`
+	DelegationAuditPath    string `json:"delegation_audit_path,omitempty"`
+	CredentialEvidencePath string `json:"credential_evidence_path,omitempty"`
 }
 
 type ApprovalToken struct {
@@ -378,4 +504,30 @@ type ApprovedScriptEntry struct {
 	ApproverIdentity string     `json:"approver_identity"`
 	ExpiresAt        time.Time  `json:"expires_at"`
 	Signature        *Signature `json:"signature,omitempty"`
+}
+
+type AuthorizationBundle struct {
+	SchemaID                 string                `json:"schema_id"`
+	SchemaVersion            string                `json:"schema_version"`
+	CreatedAt                time.Time             `json:"created_at"`
+	ProducerVersion          string                `json:"producer_version"`
+	TraceID                  string                `json:"trace_id"`
+	PolicyDigest             string                `json:"policy_digest"`
+	IntentDigest             string                `json:"intent_digest"`
+	TracePath                string                `json:"trace_path,omitempty"`
+	TraceDigest              string                `json:"trace_digest,omitempty"`
+	ApprovalAuditPath        string                `json:"approval_audit_path,omitempty"`
+	ApprovalAuditDigest      string                `json:"approval_audit_digest,omitempty"`
+	CredentialEvidencePath   string                `json:"credential_evidence_path,omitempty"`
+	CredentialEvidenceDigest string                `json:"credential_evidence_digest,omitempty"`
+	DelegationAuditPath      string                `json:"delegation_audit_path,omitempty"`
+	DelegationAuditDigest    string                `json:"delegation_audit_digest,omitempty"`
+	ContextEvidencePath      string                `json:"context_evidence_path,omitempty"`
+	ContextEvidenceDigest    string                `json:"context_evidence_digest,omitempty"`
+	OutcomePath              string                `json:"outcome_path,omitempty"`
+	OutcomeDigest            string                `json:"outcome_digest,omitempty"`
+	OutcomeStatus            string                `json:"outcome_status,omitempty"`
+	FreezeWindow             *FreezeWindowDecision `json:"freeze_window,omitempty"`
+	KillSwitch               *KillSwitchDecision   `json:"kill_switch,omitempty"`
+	Sandbox                  *SandboxDecision      `json:"sandbox,omitempty"`
 }

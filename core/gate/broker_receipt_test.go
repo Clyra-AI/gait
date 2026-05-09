@@ -82,6 +82,99 @@ func TestValidateBrokerCredentialReceiptCredentialPolicyReasons(t *testing.T) {
 	}
 }
 
+func TestValidateBrokerCredentialReceiptProviderAllows(t *testing.T) {
+	request := credential.Request{
+		ToolName:      "tool.write",
+		Identity:      "alice",
+		RunID:         "run-1",
+		JobID:         "job-1",
+		Reference:     "highrisk-egress",
+		Scope:         []string{"write"},
+		TargetBinding: "binding-1",
+	}
+	requestDigest, err := credential.RequestDigest(request)
+	if err != nil {
+		t.Fatalf("request digest: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		response credential.Response
+	}{
+		{
+			name: "aws_sts_jit_allows",
+			response: credential.Response{
+				IssuedBy:      "stub",
+				Source:        "aws_sts",
+				AccessType:    "jit",
+				Issuer:        "sts.amazonaws.com",
+				Scope:         []string{"write"},
+				CredentialRef: "aws:sts:assumed-role/ci/1234567890",
+				TargetBinding: "binding-1",
+				RunBinding:    "run-1",
+				JobBinding:    "job-1",
+				RequestDigest: requestDigest,
+				TTLSeconds:    600,
+			},
+		},
+		{
+			name: "github_oidc_jit_allows",
+			response: credential.Response{
+				IssuedBy:      "stub",
+				Source:        "github_oidc",
+				AccessType:    "jit",
+				Issuer:        "token.actions.githubusercontent.com",
+				Scope:         []string{"write"},
+				CredentialRef: "github:oidc:run/123456",
+				TargetBinding: "binding-1",
+				RunBinding:    "run-1",
+				JobBinding:    "job-1",
+				RequestDigest: requestDigest,
+				TTLSeconds:    600,
+			},
+		},
+		{
+			name: "vault_dynamic_jit_allows",
+			response: credential.Response{
+				IssuedBy:      "stub",
+				Source:        "vault_dynamic",
+				AccessType:    "jit",
+				Issuer:        "vault.example",
+				Scope:         []string{"write"},
+				CredentialRef: "vault:database/creds/app",
+				TargetBinding: "binding-1",
+				RunBinding:    "run-1",
+				JobBinding:    "job-1",
+				RequestDigest: requestDigest,
+				TTLSeconds:    600,
+			},
+		},
+	}
+
+	policyRule := PolicyRule{
+		BlockStandingCredentials:     true,
+		AllowedCredentialSources:     []string{"aws_sts", "github_oidc", "vault_dynamic"},
+		AllowedCredentialIssuers:     []string{"sts.amazonaws.com", "token.actions.githubusercontent.com", "vault.example"},
+		AllowedCredentialAccessTypes: []string{"jit"},
+		MaxCredentialTTLSeconds:      900,
+		RequireJITCredential:         true,
+	}
+	intentBinding := IntentBrokerBinding{
+		ExpectedCredentialRef: "",
+		TargetBinding:         "binding-1",
+		RunBinding:            "run-1",
+		JobBinding:            "job-1",
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reasons, violations := ValidateBrokerCredentialReceipt(policyRule, request, test.response, intentBinding)
+			if len(reasons) != 0 || len(violations) != 0 {
+				t.Fatalf("expected valid provider receipt, got reasons=%#v violations=%#v", reasons, violations)
+			}
+		})
+	}
+}
+
 func TestValidateBrokerCredentialReceiptMismatchReasons(t *testing.T) {
 	request := credential.Request{
 		ToolName:      "tool.write",

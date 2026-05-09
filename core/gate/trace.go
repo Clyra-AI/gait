@@ -30,6 +30,9 @@ type EmitTraceOptions struct {
 	PreApproved                bool
 	PatternID                  string
 	RegistryReason             string
+	FreezeWindow               *schemagate.FreezeWindowDecision
+	Sandbox                    *schemagate.SandboxDecision
+	KillSwitch                 *schemagate.KillSwitchDecision
 	BrokerCredentialRef        string
 	BrokerCredentialSource     string
 	BrokerCredentialAccessType string
@@ -141,6 +144,9 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		PreApproved:                opts.PreApproved,
 		PatternID:                  strings.TrimSpace(opts.PatternID),
 		RegistryReason:             strings.TrimSpace(opts.RegistryReason),
+		FreezeWindow:               opts.FreezeWindow,
+		Sandbox:                    opts.Sandbox,
+		KillSwitch:                 opts.KillSwitch,
 		Violations:                 uniqueSorted(gateResult.Violations),
 		LatencyMS:                  clampLatency(opts.LatencyMS),
 		ApprovalTokenRef:           strings.TrimSpace(opts.ApprovalTokenRef),

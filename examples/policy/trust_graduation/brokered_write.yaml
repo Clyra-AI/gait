@@ -1,0 +1,24 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+rules:
+  - name: allow-read
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [tool.read]
+  - name: require-brokered-write
+    priority: 20
+    effect: require_approval
+    min_approvals: 1
+    require_broker_credential: true
+    broker_reference: staged-write
+    broker_scopes: [write]
+    block_standing_credentials: true
+    allowed_credential_sources: [aws_sts, github_oidc, vault_dynamic]
+    allowed_credential_issuers: [sts.amazonaws.com, token.actions.githubusercontent.com, vault.example]
+    allowed_credential_access_types: [jit]
+    max_credential_ttl_seconds: 900
+    require_jit_credential: true
+    match:
+      tool_names: [tool.write]

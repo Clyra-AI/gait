@@ -81,8 +81,29 @@ var (
 		"static":      {},
 		"unknown":     {},
 	}
+	allowedSandboxNetworkModes = map[string]struct{}{
+		"disabled":         {},
+		"egress_allowlist": {},
+		"full":             {},
+	}
+	allowedSandboxEnvExposureModes = map[string]struct{}{
+		"allowlist": {},
+		"full":      {},
+		"none":      {},
+	}
+	allowedSandboxFilesystemIsolations = map[string]struct{}{
+		"container": {},
+		"none":      {},
+		"workspace": {},
+	}
+	allowedSandboxUserModes = map[string]struct{}{
+		"default":      {},
+		"root":         {},
+		"unprivileged": {},
+	}
 	hexDigestPattern             = regexp.MustCompile(`^[a-f0-9]{64}$`)
 	credentialMaterialKeyPattern = regexp.MustCompile(`(?i)(token|secret|api[_-]?key|access[_-]?key|password|credential)`)
+	rawEnvAssignmentPattern      = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 )
 
 type normalizedIntent struct {
@@ -638,6 +659,10 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 	if err != nil {
 		return schemagate.IntentContext{}, err
 	}
+	sandboxMetadata, err := normalizeContextSandbox(context.Sandbox)
+	if err != nil {
+		return schemagate.IntentContext{}, err
+	}
 	agentIdentity, err := normalizeAgentIdentity(context.AgentIdentity)
 	if err != nil {
 		return schemagate.IntentContext{}, err
@@ -704,6 +729,7 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 		WrkrInventoryRef:        strings.TrimSpace(context.WrkrInventoryRef),
 		AgentActionBOMRef:       strings.TrimSpace(context.AgentActionBOMRef),
 		AuthContext:             authContext,
+		Sandbox:                 sandboxMetadata,
 		CredentialScopes:        credentialScopes,
 		EnvironmentFingerprint:  environmentFingerprint,
 		ContextSetDigest:        contextSetDigest,
@@ -731,6 +757,135 @@ func normalizeContextAuth(authContext map[string]any) (map[string]any, error) {
 		return nil, err
 	}
 	return normalizedMap, nil
+}
+
+func normalizeContextSandbox(input *schemagate.SandboxMetadata) (*schemagate.SandboxMetadata, error) {
+	if input == nil {
+		return nil, nil
+	}
+	networkMode := strings.ToLower(strings.TrimSpace(input.NetworkMode))
+	if networkMode != "" {
+		if _, ok := allowedSandboxNetworkModes[networkMode]; !ok {
+			return nil, fmt.Errorf("context.sandbox.network_mode is unsupported: %s", networkMode)
+		}
+	}
+	envExposureMode := strings.ToLower(strings.TrimSpace(input.EnvExposureMode))
+	if envExposureMode != "" {
+		if _, ok := allowedSandboxEnvExposureModes[envExposureMode]; !ok {
+			return nil, fmt.Errorf("context.sandbox.env_exposure_mode is unsupported: %s", envExposureMode)
+		}
+	}
+	filesystemIsolation := strings.ToLower(strings.TrimSpace(input.FilesystemIsolation))
+	if filesystemIsolation != "" {
+		if _, ok := allowedSandboxFilesystemIsolations[filesystemIsolation]; !ok {
+			return nil, fmt.Errorf("context.sandbox.filesystem_isolation is unsupported: %s", filesystemIsolation)
+		}
+	}
+	userMode := strings.ToLower(strings.TrimSpace(input.UserMode))
+	if userMode != "" {
+		if _, ok := allowedSandboxUserModes[userMode]; !ok {
+			return nil, fmt.Errorf("context.sandbox.user_mode is unsupported: %s", userMode)
+		}
+	}
+	if input.TimeoutSeconds < 0 {
+		return nil, fmt.Errorf("context.sandbox.timeout_seconds must be >= 0")
+	}
+
+	writablePaths, err := normalizeSandboxPathList("context.sandbox.writable_paths", input.WritablePaths)
+	if err != nil {
+		return nil, err
+	}
+	readOnlyRoots, err := normalizeSandboxPathList("context.sandbox.read_only_roots", input.ReadOnlyRoots)
+	if err != nil {
+		return nil, err
+	}
+
+	evidenceRef := strings.TrimSpace(input.EvidenceRef)
+	evidenceDigest := strings.ToLower(strings.TrimSpace(input.EvidenceDigest))
+	if evidenceDigest != "" && !hexDigestPattern.MatchString(evidenceDigest) {
+		return nil, fmt.Errorf("context.sandbox.evidence_digest must be sha256 hex")
+	}
+	if err := rejectSandboxString("context.sandbox.evidence_ref", evidenceRef); err != nil {
+		return nil, err
+	}
+
+	normalized := &schemagate.SandboxMetadata{
+		NetworkMode:         networkMode,
+		WritablePaths:       writablePaths,
+		ReadOnlyRoots:       readOnlyRoots,
+		EnvExposureMode:     envExposureMode,
+		TimeoutSeconds:      input.TimeoutSeconds,
+		FilesystemIsolation: filesystemIsolation,
+		UserMode:            userMode,
+		EvidenceRef:         evidenceRef,
+		EvidenceDigest:      evidenceDigest,
+	}
+	if isEmptySandboxMetadata(normalized) {
+		return nil, nil
+	}
+	return normalized, nil
+}
+
+func normalizeSandboxPathList(path string, values []string) ([]string, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	normalized := make([]string, 0, len(values))
+	for index, raw := range values {
+		value := filepath.ToSlash(filepath.Clean(strings.TrimSpace(raw)))
+		if value == "." || value == "" {
+			continue
+		}
+		if err := rejectSandboxString(fmt.Sprintf("%s[%d]", path, index), value); err != nil {
+			return nil, err
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	if len(normalized) == 0 {
+		return nil, nil
+	}
+	sort.Strings(normalized)
+	return normalized, nil
+}
+
+func rejectSandboxString(path, value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	if rawEnvAssignmentPattern.MatchString(trimmed) {
+		return fmt.Errorf("%s must not contain raw environment variable assignments", path)
+	}
+	lower := strings.ToLower(trimmed)
+	if strings.HasSuffix(path, ".evidence_ref") {
+		for _, prefix := range []string{"ref:", "receipt:", "proof:", "sandbox:", "sha256:"} {
+			if strings.HasPrefix(lower, prefix) {
+				return nil
+			}
+		}
+	}
+	if strings.HasSuffix(path, ".evidence_ref") && looksLikeCredentialMaterialValue(trimmed) {
+		return fmt.Errorf("%s must not contain secret-like sandbox material; use sandbox evidence refs or digests instead", path)
+	}
+	return nil
+}
+
+func isEmptySandboxMetadata(input *schemagate.SandboxMetadata) bool {
+	return input == nil ||
+		(input.NetworkMode == "" &&
+			len(input.WritablePaths) == 0 &&
+			len(input.ReadOnlyRoots) == 0 &&
+			input.EnvExposureMode == "" &&
+			input.TimeoutSeconds == 0 &&
+			input.FilesystemIsolation == "" &&
+			input.UserMode == "" &&
+			input.EvidenceRef == "" &&
+			input.EvidenceDigest == "")
 }
 
 func normalizeAgentIdentity(input *schemagate.AgentIdentity) (*schemagate.AgentIdentity, error) {
