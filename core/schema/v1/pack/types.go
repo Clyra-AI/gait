@@ -73,6 +73,18 @@ type CallPayload struct {
 	EnvironmentFingerprint string    `json:"environment_fingerprint,omitempty"`
 }
 
+type AuthorizationPayload struct {
+	SchemaID              string    `json:"schema_id"`
+	SchemaVersion         string    `json:"schema_version"`
+	CreatedAt             time.Time `json:"created_at"`
+	TraceID               string    `json:"trace_id"`
+	PolicyDigest          string    `json:"policy_digest"`
+	IntentDigest          string    `json:"intent_digest"`
+	OutcomeStatus         string    `json:"outcome_status,omitempty"`
+	LinkedEvidenceCount   int       `json:"linked_evidence_count"`
+	RequiredEvidenceCount int       `json:"required_evidence_count"`
+}
+
 type DiffSummary struct {
 	Changed                    bool     `json:"changed"`
 	AddedFiles                 []string `json:"added_files,omitempty"`

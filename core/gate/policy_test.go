@@ -1421,6 +1421,21 @@ rules:
     require_broker_credential: true
     broker_reference: egress
     broker_scopes: [export]
+    freeze_window:
+      timezone: America/Toronto
+      effect: block
+      windows:
+        - name: quarter-end
+          start: "2026-03-10T09:00:00"
+          end: "2026-03-10T12:00:00"
+    sandbox:
+      allowed_network_modes: [disabled]
+      allowed_writable_path_prefixes: [/tmp/safe]
+      required_read_only_roots: [/repo]
+      allowed_env_exposure_modes: [none]
+      max_timeout_seconds: 30
+      allowed_filesystem_isolations: [container]
+      allowed_user_modes: [unprivileged]
     rate_limit:
       requests: 2
       window: hour
@@ -1478,6 +1493,12 @@ rules:
 	}
 	if _, ok := ruleAny["BrokerScopes"]; !ok {
 		t.Fatalf("expected broker_scopes payload to be present: %#v", ruleAny)
+	}
+	if _, ok := ruleAny["FreezeWindow"]; !ok {
+		t.Fatalf("expected freeze_window payload to be present: %#v", ruleAny)
+	}
+	if _, ok := ruleAny["Sandbox"]; !ok {
+		t.Fatalf("expected sandbox payload to be present: %#v", ruleAny)
 	}
 	if _, ok := ruleAny["MinApprovals"]; !ok {
 		t.Fatalf("expected min_approvals payload to be present: %#v", ruleAny)

@@ -119,6 +119,17 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 					"tenant": " acme ",
 				},
 			},
+			Sandbox: &schemagate.SandboxMetadata{
+				NetworkMode:         " EGRESS_ALLOWLIST ",
+				WritablePaths:       []string{" /tmp/work ", "/tmp/work", "/var/tmp/cache "},
+				ReadOnlyRoots:       []string{" /repo ", "/repo", "/usr/share "},
+				EnvExposureMode:     " ALLOWLIST ",
+				TimeoutSeconds:      30,
+				FilesystemIsolation: " CONTAINER ",
+				UserMode:            " UNPRIVILEGED ",
+				EvidenceRef:         " sandbox:receipt:v1 ",
+				EvidenceDigest:      strings.Repeat("C", 64),
+			},
 		},
 	}
 
@@ -187,6 +198,32 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 	claims, ok := normalized.Context.AuthContext["claims"].(map[string]any)
 	if !ok || claims["tenant"] != "acme" {
 		t.Fatalf("unexpected normalized auth_context claims: %#v", normalized.Context.AuthContext["claims"])
+	}
+	if normalized.Context.Sandbox == nil {
+		t.Fatalf("expected normalized sandbox metadata")
+	}
+	if normalized.Context.Sandbox.NetworkMode != "egress_allowlist" ||
+		normalized.Context.Sandbox.EnvExposureMode != "allowlist" ||
+		normalized.Context.Sandbox.FilesystemIsolation != "container" ||
+		normalized.Context.Sandbox.UserMode != "unprivileged" {
+		t.Fatalf("unexpected normalized sandbox metadata: %#v", normalized.Context.Sandbox)
+	}
+	if normalized.Context.Sandbox.TimeoutSeconds != 30 {
+		t.Fatalf("unexpected normalized sandbox timeout: %#v", normalized.Context.Sandbox)
+	}
+	if len(normalized.Context.Sandbox.WritablePaths) != 2 ||
+		normalized.Context.Sandbox.WritablePaths[0] != "/tmp/work" ||
+		normalized.Context.Sandbox.WritablePaths[1] != "/var/tmp/cache" {
+		t.Fatalf("unexpected normalized sandbox writable paths: %#v", normalized.Context.Sandbox)
+	}
+	if len(normalized.Context.Sandbox.ReadOnlyRoots) != 2 ||
+		normalized.Context.Sandbox.ReadOnlyRoots[0] != "/repo" ||
+		normalized.Context.Sandbox.ReadOnlyRoots[1] != "/usr/share" {
+		t.Fatalf("unexpected normalized sandbox read-only roots: %#v", normalized.Context.Sandbox)
+	}
+	if normalized.Context.Sandbox.EvidenceRef != "sandbox:receipt:v1" ||
+		normalized.Context.Sandbox.EvidenceDigest != strings.Repeat("c", 64) {
+		t.Fatalf("unexpected normalized sandbox evidence: %#v", normalized.Context.Sandbox)
 	}
 	if len(normalized.Targets) != 2 {
 		t.Fatalf("expected de-duplicated targets, got %d", len(normalized.Targets))
@@ -274,6 +311,21 @@ func TestNormalizeIntentRejectsRawCredentialMaterial(t *testing.T) {
 	if _, err := NormalizeIntent(intent); err == nil {
 		t.Fatalf("expected raw credential material in auth_context to fail normalization")
 	}
+
+	intent.Context.AuthContext = nil
+	intent.Context.Sandbox = &schemagate.SandboxMetadata{
+		WritablePaths: []string{"API_TOKEN=supersecret"},
+	}
+	if _, err := NormalizeIntent(intent); err == nil {
+		t.Fatalf("expected raw environment assignments in sandbox metadata to fail normalization")
+	}
+
+	intent.Context.Sandbox = &schemagate.SandboxMetadata{
+		EvidenceRef: "ghp_1234567890abcdefghijklmnopqrstuvwxyz",
+	}
+	if _, err := NormalizeIntent(intent); err == nil {
+		t.Fatalf("expected secret-like sandbox evidence refs to fail normalization")
+	}
 }
 
 func TestNormalizeIntentRejectsInvalidCredentialContext(t *testing.T) {
@@ -306,6 +358,22 @@ func TestNormalizeIntentRejectsInvalidCredentialContext(t *testing.T) {
 	negativeTTL.Context.CredentialTTLSeconds = -1
 	if _, err := NormalizeIntent(negativeTTL); err == nil {
 		t.Fatalf("expected negative credential ttl to fail normalization")
+	}
+
+	invalidSandboxMode := base
+	invalidSandboxMode.Context.Sandbox = &schemagate.SandboxMetadata{
+		NetworkMode: "bad-mode",
+	}
+	if _, err := NormalizeIntent(invalidSandboxMode); err == nil {
+		t.Fatalf("expected invalid sandbox network mode to fail normalization")
+	}
+
+	negativeSandboxTimeout := base
+	negativeSandboxTimeout.Context.Sandbox = &schemagate.SandboxMetadata{
+		TimeoutSeconds: -1,
+	}
+	if _, err := NormalizeIntent(negativeSandboxTimeout); err == nil {
+		t.Fatalf("expected negative sandbox timeout to fail normalization")
 	}
 }
 

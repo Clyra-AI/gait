@@ -13,8 +13,8 @@ rules:
   - name: protect-high-risk-credential
     effect: allow
     block_standing_credentials: true
-    allowed_credential_sources: [github_pat, aws_sts, env]
-    allowed_credential_issuers: [github.com, sts.amazonaws.com]
+    allowed_credential_sources: [aws_sts, github_oidc, vault_dynamic]
+    allowed_credential_issuers: [sts.amazonaws.com, token.actions.githubusercontent.com, vault.example]
     allowed_credential_access_types: [jit]
     max_credential_ttl_seconds: 900
     require_jit_credential: true
@@ -27,10 +27,10 @@ rules:
 
 	base := baseIntent()
 	base.Context.RiskClass = "high"
-	base.Context.CredentialRef = "env:GAIT_EXPORT:deadbeef"
-	base.Context.CredentialSource = "github_pat"
+	base.Context.CredentialRef = "aws:sts:assumed-role/ci/1234567890"
+	base.Context.CredentialSource = "aws_sts"
 	base.Context.CredentialAccessType = "jit"
-	base.Context.CredentialIssuer = "github.com"
+	base.Context.CredentialIssuer = "sts.amazonaws.com"
 	base.Context.CredentialTTLSeconds = 600
 	base.Context.RunID = "run-1"
 	base.Context.JobID = "job-1"
@@ -54,19 +54,52 @@ rules:
 			wantVerdict: "allow",
 		},
 		{
+			name: "valid_github_oidc_allows",
+			mutate: func(intent *schemagate.IntentRequest) {
+				intent.Context.CredentialRef = "github:oidc:run/123456"
+				intent.Context.CredentialSource = "github_oidc"
+				intent.Context.CredentialIssuer = "token.actions.githubusercontent.com"
+			},
+			wantVerdict: "allow",
+		},
+		{
+			name: "valid_vault_dynamic_allows",
+			mutate: func(intent *schemagate.IntentRequest) {
+				intent.Context.CredentialRef = "vault:database/creds/app"
+				intent.Context.CredentialSource = "vault_dynamic"
+				intent.Context.CredentialIssuer = "vault.example"
+			},
+			wantVerdict: "allow",
+		},
+		{
 			name: "static_pat_blocks",
 			mutate: func(intent *schemagate.IntentRequest) {
+				intent.Context.CredentialRef = "env:GITHUB_PAT:deadbeef"
+				intent.Context.CredentialSource = "github_pat"
 				intent.Context.CredentialAccessType = "static"
+				intent.Context.CredentialIssuer = "github.com"
 			},
 			wantVerdict: "block",
 			wantReason:  "standing_credential_disallowed",
 		},
 		{
-			name: "cloud_admin_standing_blocks",
+			name: "aws_iam_user_cloud_admin_blocks",
 			mutate: func(intent *schemagate.IntentRequest) {
+				intent.Context.CredentialRef = "env:AWS_ACCESS_KEY_ID:deadbeef"
 				intent.Context.CredentialAccessType = "cloud_admin"
-				intent.Context.CredentialSource = "aws_sts"
-				intent.Context.CredentialIssuer = "sts.amazonaws.com"
+				intent.Context.CredentialSource = "aws_iam_user"
+				intent.Context.CredentialIssuer = "iam.amazonaws.com"
+			},
+			wantVerdict: "block",
+			wantReason:  "standing_credential_disallowed",
+		},
+		{
+			name: "inherited_env_credential_blocks",
+			mutate: func(intent *schemagate.IntentRequest) {
+				intent.Context.CredentialRef = "env:DEPLOY_TOKEN:deadbeef"
+				intent.Context.CredentialAccessType = "inherited"
+				intent.Context.CredentialSource = "env"
+				intent.Context.CredentialIssuer = "env"
 			},
 			wantVerdict: "block",
 			wantReason:  "standing_credential_disallowed",
@@ -74,10 +107,25 @@ rules:
 		{
 			name: "unknown_source_blocks",
 			mutate: func(intent *schemagate.IntentRequest) {
+				intent.Context.CredentialRef = "unknown:deadbeef"
 				intent.Context.CredentialSource = "unknown"
+				intent.Context.CredentialAccessType = "unknown"
+				intent.Context.CredentialIssuer = "unknown"
 			},
 			wantVerdict: "block",
 			wantReason:  "credential_source_disallowed",
+		},
+		{
+			name: "missing_credential_evidence_blocks",
+			mutate: func(intent *schemagate.IntentRequest) {
+				intent.Context.CredentialRef = ""
+				intent.Context.CredentialSource = ""
+				intent.Context.CredentialAccessType = ""
+				intent.Context.CredentialIssuer = ""
+				intent.Context.CredentialTTLSeconds = 0
+			},
+			wantVerdict: "block",
+			wantReason:  "credential_evidence_missing",
 		},
 		{
 			name: "ttl_exceeded_blocks",

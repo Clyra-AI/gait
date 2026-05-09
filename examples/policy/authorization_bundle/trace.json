@@ -1,0 +1,12 @@
+{
+  "schema_id": "gait.gate.trace",
+  "schema_version": "1.0.0",
+  "created_at": "2026-05-09T00:00:00Z",
+  "producer_version": "0.0.0-example",
+  "trace_id": "trace-auth-demo",
+  "tool_name": "tool.write",
+  "args_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "intent_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policy_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "verdict": "allow"
+}

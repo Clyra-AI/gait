@@ -55,6 +55,7 @@ gate:
   profile: " oss-prod "
   key_mode: " prod "
   private_key: " examples/scenarios/keys/approval_private.key "
+  kill_switch_state: " ./.gait/kill_switch_state.json "
   credential_broker: " stub "
   wrkr_inventory_path: " ./.gait/wrkr_inventory.json "
 mcp_serve:
@@ -85,6 +86,9 @@ retention:
 	}
 	if configuration.Gate.KeyMode != "prod" {
 		t.Fatalf("unexpected key_mode %q", configuration.Gate.KeyMode)
+	}
+	if configuration.Gate.KillSwitchState != "./.gait/kill_switch_state.json" {
+		t.Fatalf("unexpected kill_switch_state %q", configuration.Gate.KillSwitchState)
 	}
 	if configuration.Gate.CredentialBroker != "stub" {
 		t.Fatalf("unexpected credential_broker %q", configuration.Gate.CredentialBroker)

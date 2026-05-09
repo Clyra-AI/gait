@@ -49,6 +49,7 @@ type mcpProxyOutput struct {
 	PackID            string                             `json:"pack_id,omitempty"`
 	LogExport         string                             `json:"log_export,omitempty"`
 	OTelExport        string                             `json:"otel_export,omitempty"`
+	KillSwitch        *schemagate.KillSwitchDecision     `json:"kill_switch,omitempty"`
 	MCPTrust          *schemagate.MCPTrustDecision       `json:"mcp_trust,omitempty"`
 	Warnings          []string                           `json:"warnings,omitempty"`
 	Relationship      *schemacommon.RelationshipEnvelope `json:"relationship,omitempty"`
@@ -72,6 +73,7 @@ type mcpProxyEvalOptions struct {
 	Adapter                     string
 	Profile                     string
 	JobRoot                     string
+	KillSwitchStatePath         string
 	RunID                       string
 	ContextEnvelopePath         string
 	VerifiedContextEnvelope     *schemacontext.Envelope
@@ -116,21 +118,22 @@ func runMCPProxy(arguments []string) int {
 		return writeExplain("Decode an MCP or adapter-formatted tool call, evaluate policy deterministically, and emit a signed gate-compatible trace.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
-		"policy":           true,
-		"call":             true,
-		"context-envelope": true,
-		"adapter":          true,
-		"profile":          true,
-		"job-root":         true,
-		"trace-out":        true,
-		"run-id":           true,
-		"runpack-out":      true,
-		"pack-out":         true,
-		"export-log-out":   true,
-		"export-otel-out":  true,
-		"key-mode":         true,
-		"private-key":      true,
-		"private-key-env":  true,
+		"policy":            true,
+		"call":              true,
+		"context-envelope":  true,
+		"adapter":           true,
+		"profile":           true,
+		"job-root":          true,
+		"kill-switch-state": true,
+		"trace-out":         true,
+		"run-id":            true,
+		"runpack-out":       true,
+		"pack-out":          true,
+		"export-log-out":    true,
+		"export-otel-out":   true,
+		"key-mode":          true,
+		"private-key":       true,
+		"private-key-env":   true,
 	})
 	flagSet := flag.NewFlagSet("mcp-proxy", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -141,6 +144,7 @@ func runMCPProxy(arguments []string) int {
 	var adapter string
 	var profile string
 	var jobRoot string
+	var killSwitchStatePath string
 	var tracePath string
 	var runID string
 	var runpackOut string
@@ -159,6 +163,7 @@ func runMCPProxy(arguments []string) int {
 	flagSet.StringVar(&adapter, "adapter", "mcp", "adapter payload format: mcp|openai|anthropic|langchain|claude_code")
 	flagSet.StringVar(&profile, "profile", string(gateProfileStandard), "runtime profile: standard|oss-prod")
 	flagSet.StringVar(&jobRoot, "job-root", "./gait-out/jobs", "job runtime root for emergency stop preemption checks when context.job_id is present")
+	flagSet.StringVar(&killSwitchStatePath, "kill-switch-state", "", "path to generalized kill-switch state JSON")
 	flagSet.StringVar(&tracePath, "trace-out", "", "path to emitted trace JSON (default trace_<trace_id>.json)")
 	flagSet.StringVar(&runID, "run-id", "", "optional run_id override for proxy artifacts")
 	flagSet.StringVar(&runpackOut, "runpack-out", "", "optional path to emit a runpack zip for this proxy decision")
@@ -199,6 +204,7 @@ func runMCPProxy(arguments []string) int {
 		Adapter:                    adapter,
 		Profile:                    profile,
 		JobRoot:                    jobRoot,
+		KillSwitchStatePath:        killSwitchStatePath,
 		RunID:                      runID,
 		ContextEnvelopePath:        contextEnvelopePath,
 		TracePath:                  tracePath,
@@ -404,6 +410,20 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
+	if trimmedStatePath := strings.TrimSpace(options.KillSwitchStatePath); trimmedStatePath != "" {
+		state, loadErr := gate.LoadKillSwitchState(trimmedStatePath)
+		if loadErr != nil {
+			if mcpKillSwitchStateRequired(resolvedProfile, call.Context.RiskClass) {
+				evalOptions.RequireKillSwitchState = true
+				evalOptions.KillSwitchStateError = loadErr
+			} else {
+				return mcpProxyOutput{}, exitInvalidInput, loadErr
+			}
+		} else {
+			evalOptions.KillSwitchState = &state
+			evalOptions.RequireKillSwitchState = mcpKillSwitchStateRequired(resolvedProfile, call.Context.RiskClass)
+		}
+	}
 	if err := validateMCPBoundaryOAuthEvidence(call, resolvedProfile); err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
@@ -452,12 +472,29 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		PreApproved:        evalResult.Outcome.PreApproved,
 		PatternID:          evalResult.Outcome.PatternID,
 		RegistryReason:     evalResult.Outcome.RegistryReason,
+		KillSwitch:         evalResult.Outcome.KillSwitch,
 		MCPTrust:           evalResult.Trust,
 		SigningPrivateKey:  keyPair.Private,
 		TracePath:          resolvedTracePath,
 	})
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
+	}
+	if evalResult.Outcome.KillSwitch != nil && evalResult.Outcome.KillSwitch.Status == "active" && strings.TrimSpace(options.KillSwitchStatePath) != "" {
+		if err := gate.AppendKillSwitchJournal(gate.KillSwitchJournalPath(options.KillSwitchStatePath), gate.KillSwitchJournalRecord{
+			CreatedAt:       evalResult.Outcome.Result.CreatedAt,
+			ProducerVersion: currentVersion(),
+			Source:          "mcp_proxy",
+			TraceID:         traceResult.Trace.TraceID,
+			JobID:           evalResult.Intent.Context.JobID,
+			ToolName:        evalResult.Intent.ToolName,
+			AgentID:         evalResult.Intent.Context.AgentID,
+			Identity:        evalResult.Intent.Context.Identity,
+			ReasonCodes:     evalResult.Outcome.KillSwitch.ReasonCodes,
+			MatchedEntryIDs: evalResult.Outcome.KillSwitch.MatchedEntryIDs,
+		}); err != nil {
+			return mcpProxyOutput{}, exitInvalidInput, err
+		}
 	}
 	if resolvedProfile == gateProfileStandard && (strings.TrimSpace(call.Context.Identity) == "" || strings.TrimSpace(call.Context.Workspace) == "" || strings.TrimSpace(call.Context.SessionID) == "") {
 		warnings = append(warnings, "standard profile applied fallback intent context; use --profile oss-prod for strict context enforcement")
@@ -587,6 +624,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		PackID:            resolvedPackID,
 		LogExport:         resolvedLogExport,
 		OTelExport:        resolvedOTelExport,
+		KillSwitch:        evalResult.Outcome.KillSwitch,
 		MCPTrust:          evalResult.Trust,
 		Warnings:          warnings,
 		Relationship:      traceResult.Trace.Relationship,
@@ -613,6 +651,18 @@ func evaluateMCPEmergencyStop(call mcp.ToolCall, jobRoot string) (string, []stri
 		return "emergency_stop_preempted", []string{fmt.Sprintf("blocked_dispatch_record_failed=%v", recordErr)}
 	}
 	return "emergency_stop_preempted", nil
+}
+
+func mcpKillSwitchStateRequired(profile gateEvalProfile, riskClass string) bool {
+	if profile == gateProfileOSSProd {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(riskClass)) {
+	case "high", "critical":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateMCPBoundaryOAuthEvidence(call mcp.ToolCall, profile gateEvalProfile) error {
@@ -1014,16 +1064,16 @@ func writeMCPVerifyOutput(jsonOutput bool, output mcpVerifyOutput, exitCode int)
 
 func printMCPUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--kill-switch-state <state.json>] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--kill-switch-state <state.json>] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--context-envelope <context_envelope.json>] [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--context-envelope <context_envelope.json>] [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--kill-switch-state <state.json>] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
 }
 
 func printMCPProxyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--kill-switch-state <state.json>] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func printMCPVerifyUsage() {

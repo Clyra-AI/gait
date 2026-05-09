@@ -1,0 +1,24 @@
+{
+  "schema_id": "gait.gate.authorization_bundle",
+  "schema_version": "1.0.0",
+  "created_at": "2026-05-09T00:00:00Z",
+  "producer_version": "0.0.0-example",
+  "trace_id": "trace-auth-demo",
+  "policy_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "intent_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "trace_path": "trace.json",
+  "approval_audit_path": "approval_audit.json",
+  "credential_evidence_path": "credential_evidence.json",
+  "outcome_path": "outcome_receipt.json",
+  "outcome_status": "allow",
+  "freeze_window": {
+    "status": "inactive"
+  },
+  "kill_switch": {
+    "status": "inactive"
+  },
+  "sandbox": {
+    "status": "valid",
+    "evidence_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  }
+}

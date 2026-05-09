@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/gate/policy_explain.schema.json",
+  "title": "Gate Policy Explain",
+  "type": "object",
+  "required": [
+    "ok",
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "verdict"
+  ],
+  "properties": {
+    "ok": { "type": "boolean" },
+    "schema_id": { "type": "string", "const": "gait.gate.policy_explain" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "verdict": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] },
+    "matched_rule": { "type": "string" },
+    "matched_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "priority", "effect"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer" },
+          "effect": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "reason_codes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "violations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "missing_fields": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "fail_closed_reason_codes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "approval_required": { "type": "boolean" },
+    "required_approvals": { "type": "integer", "minimum": 0 },
+    "valid_approvals": { "type": "integer", "minimum": 0 },
+    "require_broker_credential": { "type": "boolean" },
+    "broker_reference": { "type": "string" },
+    "broker_scopes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "require_delegation": { "type": "boolean" },
+    "required_delegation_scopes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "credential_posture": {
+      "type": "object",
+      "required": ["present"],
+      "properties": {
+        "present": { "type": "boolean" },
+        "source": { "type": "string" },
+        "access_type": { "type": "string" },
+        "issuer": { "type": "string" },
+        "ttl_seconds": { "type": "integer", "minimum": 0 },
+        "credential_ref": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "context_evidence_status": { "type": "string", "enum": ["missing", "not_required", "present", "verified"] },
+    "freeze_window": { "$ref": "#/$defs/freeze_window_decision" },
+    "kill_switch": { "$ref": "#/$defs/kill_switch_decision" },
+    "sandbox": { "$ref": "#/$defs/sandbox_decision" },
+    "proof_refs": {
+      "type": "object",
+      "properties": {
+        "trace_id": { "type": "string" },
+        "trace_path": { "type": "string" },
+        "approval_audit_path": { "type": "string" },
+        "delegation_audit_path": { "type": "string" },
+        "credential_evidence_path": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "freeze_window_decision": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["active", "inactive", "invalid"] },
+        "effect": { "type": "string", "enum": ["block", "require_approval"] },
+        "timezone": { "type": "string", "minLength": 1 },
+        "evaluated_at": { "type": "string", "format": "date-time" },
+        "window_name": { "type": "string", "minLength": 1 },
+        "window_start": { "type": "string", "format": "date-time" },
+        "window_end": { "type": "string", "format": "date-time" },
+        "reason": { "type": "string", "minLength": 1 },
+        "reason_code": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "kill_switch_decision": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["active", "inactive", "unavailable"] },
+        "reason_code": { "type": "string", "minLength": 1 },
+        "reason_codes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "matched_entry_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "evaluated_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "sandbox_decision": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["disallowed", "invalid", "missing", "valid"] },
+        "network_mode": { "type": "string", "enum": ["disabled", "egress_allowlist", "full"] },
+        "env_exposure_mode": { "type": "string", "enum": ["allowlist", "full", "none"] },
+        "timeout_seconds": { "type": "integer", "minimum": 0 },
+        "filesystem_isolation": { "type": "string", "enum": ["container", "none", "workspace"] },
+        "user_mode": { "type": "string", "enum": ["default", "root", "unprivileged"] },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "evidence_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "reason_codes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

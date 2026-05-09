@@ -10,7 +10,7 @@
 - gait init --json
 - gait check --json
 - gait doctor --json
-- gait gate eval --policy <policy.yaml> --intent <intent.json> [--context-envelope <context_envelope.json>]
+- gait gate eval --policy <policy.yaml> --intent <intent.json> [--context-envelope <context_envelope.json>] [--evaluation-time <rfc3339>]
 - gait mcp serve --policy <policy.yaml> [--context-envelope <context_envelope.json>]
 - gait demo
 - gait demo --json
@@ -58,6 +58,14 @@
 
 ## Safety Model
 - Fail-closed by default for ambiguous high-risk policy outcomes.
+- High-risk baseline templates can require JIT-only credential provenance for covered write and deploy paths: AWS STS, GitHub OIDC, and Vault-style dynamic credentials allow; standing PATs, IAM users, inherited env credentials, and unknown provenance block with stable reason codes.
+- Gate freeze-window rules can deterministically block or approval-gate production-impacting actions using policy-owned IANA timezones and replayable `--evaluation-time <rfc3339>` inputs.
+- Gate sandbox posture rules can validate schema-backed metadata for high-risk `proc.exec` and generated-code execution without storing raw environment contents.
+- Gate generalized kill-switch state can block matching agents, identities, tools, targets, paths, workspaces, and environments while preserving job-level emergency stop behavior.
+- `gait gate eval --explain --json` returns schema-backed machine-readable decision explanations with deterministic rule and missing-field ordering.
+- Provider-style credential broker receipts for AWS STS, GitHub OIDC, Vault, GCP, Azure, and Okta/CyberArk flows normalize into the shared broker evidence contract without storing raw secrets.
+- Named trust-graduation rollout policies cover observe, dry-run, read-only allow, approval-gated write, brokered write, and blocked destructive stages with scope- and expiry-bound approved-script promotion.
+- `gait pack build --type authorization --from <authorization_bundle.json>` builds a named authorization proof bundle that `gait pack verify` can check offline.
 - Equal-priority rule overlaps resolve to the most restrictive verdict for that priority tier, not by rule name ordering.
 - `gait --help` is text-only and exits `0`; machine consumers should use `gait version --json`, `gait --version --json`, or `gait -v --json`.
 - `sdk/python` keeps repo-local dev metadata (`0.0.0.dev0`); release/install automation should use `gait version --json`.

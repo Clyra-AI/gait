@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - [semver:minor] Added high-risk action context enforcement for `oss-prod` with deterministic missing-field reason codes and privacy-safe credential references.
 - [semver:minor] Added agent identity lifecycle policy controls for approved active agents, revocation, manifest digests, publishers, expiry, and owner requirements.
+- [semver:minor] Added Gate freeze-window policy rules for deterministic production-impacting action blocks or approval gates.
+- [semver:minor] Added generalized kill switches for agents, identities, tools, targets, paths, workspaces, and environments with strict fail-closed state handling.
+- [semver:minor] Added schema-backed JSON policy explain output for deterministic machine-readable Gate decision explanations.
+- [semver:minor] Added first-class credential broker recipes and deterministic provider-style receipt stubs for common JIT systems.
+- [semver:minor] Added trust graduation templates and fixtures for staged Gate rollout from observe mode through brokered write and blocked destructive controls.
+- [semver:minor] Added an authorization proof bundle that links Gate decisions, approvals, credential evidence, policy state, sandbox posture, and action outcome for offline verification.
 
 ### Changed
 
@@ -20,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Security
 
+- [semver:minor] Tightened the high-risk baseline policy to block standing or static credentials and require scoped JIT brokered credentials for covered write, deploy, and destructive actions.
+- [semver:minor] Added sandbox metadata policy enforcement for high-risk `proc.exec` and generated-code actions.
 - [semver:minor] Added credential provenance policy controls that block standing or static credentials for high-risk actions and record privacy-safe credential evidence.
 - [semver:minor] Strengthened brokered JIT access validation with typed broker receipts, scope and TTL checks, and proof-ready credential evidence.
 

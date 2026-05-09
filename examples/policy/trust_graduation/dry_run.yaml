@@ -1,0 +1,14 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+rules:
+  - name: dry-run-write
+    priority: 10
+    effect: dry_run
+    match:
+      tool_names: [tool.write]
+  - name: allow-read
+    priority: 20
+    effect: allow
+    match:
+      tool_names: [tool.read]

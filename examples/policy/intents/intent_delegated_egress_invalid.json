@@ -40,6 +40,15 @@
     "identity": "agent.specialist",
     "workspace": "/tmp/workspace",
     "risk_class": "high",
-    "session_id": "sess_policy_invalid"
+    "session_id": "sess_policy_invalid",
+    "run_id": "run-policy-delegated-invalid",
+    "job_id": "job-policy-delegated-invalid",
+    "credential_ref": "aws:sts:assumed-role/ci/1234567890",
+    "credential_source": "aws_sts",
+    "credential_access_type": "jit",
+    "credential_issuer": "sts.amazonaws.com",
+    "credential_ttl_seconds": 600,
+    "credential_run_binding": "run-policy-delegated-invalid",
+    "credential_job_binding": "job-policy-delegated-invalid"
   }
 }

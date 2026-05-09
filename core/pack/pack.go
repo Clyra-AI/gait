@@ -22,6 +22,7 @@ import (
 	"github.com/Clyra-AI/gait/core/guard"
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/runpack"
+	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemaguard "github.com/Clyra-AI/gait/core/schema/v1/guard"
 	schemapack "github.com/Clyra-AI/gait/core/schema/v1/pack"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
@@ -44,9 +45,10 @@ var deterministicTimestamp = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.U
 type BuildType string
 
 const (
-	BuildTypeRun  BuildType = "run"
-	BuildTypeJob  BuildType = "job"
-	BuildTypeCall BuildType = "call"
+	BuildTypeRun           BuildType = "run"
+	BuildTypeJob           BuildType = "job"
+	BuildTypeCall          BuildType = "call"
+	BuildTypeAuthorization BuildType = "authorization"
 )
 
 type BuildRunOptions struct {
@@ -97,16 +99,18 @@ type VerifyResult struct {
 }
 
 type InspectResult struct {
-	PackID      string                  `json:"pack_id,omitempty"`
-	PackType    string                  `json:"pack_type,omitempty"`
-	SourceRef   string                  `json:"source_ref,omitempty"`
-	Manifest    *schemapack.Manifest    `json:"manifest,omitempty"`
-	RunPayload  *schemapack.RunPayload  `json:"run_payload,omitempty"`
-	JobPayload  *schemapack.JobPayload  `json:"job_payload,omitempty"`
-	CallPayload *schemapack.CallPayload `json:"call_payload,omitempty"`
-	RunLineage  *RunLineage             `json:"run_lineage,omitempty"`
-	JobLineage  *JobLineage             `json:"job_lineage,omitempty"`
-	LegacyType  string                  `json:"legacy_type,omitempty"`
+	PackID              string                           `json:"pack_id,omitempty"`
+	PackType            string                           `json:"pack_type,omitempty"`
+	SourceRef           string                           `json:"source_ref,omitempty"`
+	Manifest            *schemapack.Manifest             `json:"manifest,omitempty"`
+	RunPayload          *schemapack.RunPayload           `json:"run_payload,omitempty"`
+	JobPayload          *schemapack.JobPayload           `json:"job_payload,omitempty"`
+	CallPayload         *schemapack.CallPayload          `json:"call_payload,omitempty"`
+	AuthorizationBundle *schemagate.AuthorizationBundle  `json:"authorization_bundle,omitempty"`
+	AuthorizationMeta   *schemapack.AuthorizationPayload `json:"authorization_payload,omitempty"`
+	RunLineage          *RunLineage                      `json:"run_lineage,omitempty"`
+	JobLineage          *JobLineage                      `json:"job_lineage,omitempty"`
+	LegacyType          string                           `json:"legacy_type,omitempty"`
 }
 
 type DiffResult struct {
@@ -270,7 +274,7 @@ type buildPackOptions struct {
 }
 
 func buildPackWithFiles(options buildPackOptions) (BuildResult, error) {
-	if options.PackType != string(BuildTypeRun) && options.PackType != string(BuildTypeJob) && options.PackType != string(BuildTypeCall) {
+	if options.PackType != string(BuildTypeRun) && options.PackType != string(BuildTypeJob) && options.PackType != string(BuildTypeCall) && options.PackType != string(BuildTypeAuthorization) {
 		return BuildResult{}, fmt.Errorf("unsupported pack type: %s", options.PackType)
 	}
 	createdAt := deterministicTimestamp
@@ -738,6 +742,27 @@ func Inspect(path string) (InspectResult, error) {
 				}
 			}
 		}
+	case string(BuildTypeAuthorization):
+		if payloadFile, ok := bundle.Files["authorization_bundle.json"]; ok {
+			payloadBytes, readErr := readZipFile(payloadFile)
+			if readErr == nil {
+				var payload schemagate.AuthorizationBundle
+				if err := decodeStrictJSON(payloadBytes, &payload); err == nil {
+					result.AuthorizationBundle = &payload
+					result.AuthorizationMeta = &schemapack.AuthorizationPayload{
+						SchemaID:              "gait.pack.authorization",
+						SchemaVersion:         "1.0.0",
+						CreatedAt:             payload.CreatedAt,
+						TraceID:               payload.TraceID,
+						PolicyDigest:          payload.PolicyDigest,
+						IntentDigest:          payload.IntentDigest,
+						OutcomeStatus:         strings.TrimSpace(payload.OutcomeStatus),
+						LinkedEvidenceCount:   countAuthorizationLinkedEvidence(payload),
+						RequiredEvidenceCount: countAuthorizationRequiredEvidence(payload),
+					}
+				}
+			}
+		}
 	}
 	return result, nil
 }
@@ -906,7 +931,7 @@ func parsePackManifest(payload []byte) (schemapack.Manifest, error) {
 	if manifest.SchemaVersion != manifestSchemaVersion {
 		return schemapack.Manifest{}, fmt.Errorf("unsupported manifest schema_version: %s", manifest.SchemaVersion)
 	}
-	if manifest.PackType != string(BuildTypeRun) && manifest.PackType != string(BuildTypeJob) && manifest.PackType != string(BuildTypeCall) {
+	if manifest.PackType != string(BuildTypeRun) && manifest.PackType != string(BuildTypeJob) && manifest.PackType != string(BuildTypeCall) && manifest.PackType != string(BuildTypeAuthorization) {
 		return schemapack.Manifest{}, fmt.Errorf("invalid pack_type: %s", manifest.PackType)
 	}
 	if strings.TrimSpace(manifest.SourceRef) == "" {
@@ -1164,6 +1189,10 @@ func verifyPayloadContracts(bundle *openedZip, manifest schemapack.Manifest) err
 		}
 	case string(BuildTypeCall):
 		if err := verifyCallPayloadContracts(bundle, manifest); err != nil {
+			return err
+		}
+	case string(BuildTypeAuthorization):
+		if err := verifyAuthorizationPayloadContracts(bundle, manifest); err != nil {
 			return err
 		}
 	default:

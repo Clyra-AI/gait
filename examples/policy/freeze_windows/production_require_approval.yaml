@@ -1,0 +1,19 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+rules:
+  - name: allow-prod-deploy
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [tool.deploy]
+    freeze_window:
+      timezone: America/Toronto
+      effect: require_approval
+      reason: incident freeze
+      environments: [prod]
+      risk_classes: [high, critical]
+      windows:
+        - name: incident-freeze
+          start: "2026-03-10T09:00:00"
+          end: "2026-03-10T12:00:00"

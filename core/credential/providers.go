@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -201,6 +202,14 @@ func (b CommandBroker) Issue(request Request) (Response, error) {
 	trimmed := strings.TrimSpace(string(output))
 	if trimmed == "" {
 		return Response{}, fmt.Errorf("command broker returned empty output")
+	}
+
+	if strings.HasPrefix(trimmed, "{") {
+		if normalizedReceipt, normalizeErr := NormalizeProviderReceipt("", output, request); normalizeErr == nil {
+			return normalizedReceipt, nil
+		} else if !errors.Is(normalizeErr, errUnsupportedProviderReceipt) {
+			return Response{}, normalizeErr
+		}
 	}
 
 	response := Response{}

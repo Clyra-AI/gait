@@ -23,6 +23,15 @@
   "context": {
     "identity": "example-user",
     "workspace": "/tmp/workspace",
-    "risk_class": "high"
+    "risk_class": "high",
+    "run_id": "run-policy-write",
+    "job_id": "job-policy-write",
+    "credential_ref": "aws:sts:assumed-role/ci/1234567890",
+    "credential_source": "aws_sts",
+    "credential_access_type": "jit",
+    "credential_issuer": "sts.amazonaws.com",
+    "credential_ttl_seconds": 600,
+    "credential_run_binding": "run-policy-write",
+    "credential_job_binding": "job-policy-write"
   }
 }

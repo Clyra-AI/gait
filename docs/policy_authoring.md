@@ -142,9 +142,23 @@ Rules usually combine:
 Additional rule features are available when needed:
 
 - `endpoint` for path/domain and destructive endpoint controls
+- `freeze_window` for deterministic production change freezes with explicit
+  timezone and replayable evaluation times
+- `sandbox` for bounded `proc.exec` and generated-code execution posture
+  checks, including network mode, writable paths, env exposure mode, timeout,
+  filesystem isolation, user mode, and sandbox evidence refs/digests
+- external `kill-switch` state for additive emergency stop coverage across
+  matching agents, identities, tools, targets, paths, workspaces, and
+  environments
+- `gait gate eval --explain --json` for schema-backed machine-readable decision
+  explanations
 - `destructive_budget` and `rate_limit` for bounded execution
 - `require_context_evidence` for context-proof gating
 - `require_broker_credential` for broker-backed approval flows
+- credential provenance controls such as `block_standing_credentials`,
+  `allowed_credential_sources`, `allowed_credential_issuers`,
+  `allowed_credential_access_types`, `max_credential_ttl_seconds`, and
+  `require_jit_credential` for JIT-only high-risk paths
 - script-specific controls via `approved-script-registry` on `gait gate eval`
 
 ## Failure Semantics
@@ -201,6 +215,10 @@ gait keys verify --private-key ./gait-out/keys/prod_private.key --public-key ./g
 ## Example Policy Packs
 
 - baseline templates: `examples/policy/base_low_risk.yaml`, `examples/policy/base_medium_risk.yaml`, `examples/policy/base_high_risk.yaml`
+- credential provenance fixtures: `examples/policy/credentials/*`
+- freeze-window fixtures: `examples/policy/freeze_windows/*`
+- sandbox posture fixtures: `examples/policy/sandbox/*`
+- kill-switch fixtures: `examples/policy/kill_switch/*`
 - endpoint controls: `examples/policy/endpoint/*`
 - skill trust controls: `examples/policy/skills/*`
 - simple guard fixtures: `examples/policy-test/*`

@@ -1,0 +1,18 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+rules:
+  - name: allow-sandboxed-exec
+    priority: 10
+    effect: allow
+    sandbox:
+      allowed_network_modes: [disabled, egress_allowlist]
+      allowed_writable_path_prefixes: [/tmp/work, /var/tmp/cache]
+      required_read_only_roots: [/repo, /usr/share]
+      allowed_env_exposure_modes: [none, allowlist]
+      max_timeout_seconds: 60
+      allowed_filesystem_isolations: [workspace, container]
+      allowed_user_modes: [unprivileged]
+    match:
+      endpoint_classes: [proc.exec]
+      risk_classes: [high]

@@ -2323,7 +2323,7 @@ func TestPolicyInitScaffolds(t *testing.T) {
 	}
 
 	intentPath := filepath.Join(workDir, "intent_write.json")
-	writeIntentFixture(t, intentPath, "tool.write")
+	writeHighRiskCredentialIntentFixture(t, intentPath, "tool.write")
 	if code := runPolicyTest([]string{policyPath, intentPath, "--json"}); code != exitApprovalRequired {
 		t.Fatalf("generated policy should require approval for write: expected %d got %d", exitApprovalRequired, code)
 	}
@@ -2333,6 +2333,421 @@ func TestPolicyInitScaffolds(t *testing.T) {
 	}
 	if code := runPolicyInit([]string{"baseline_high_risk", "--out", policyPath, "--force", "--json"}); code != exitOK {
 		t.Fatalf("expected alias + force overwrite to succeed, got %d", code)
+	}
+}
+
+func TestPolicyInitHighRiskTemplateRequiresJITCredentialControls(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy-highrisk.yaml")
+	if code := runPolicyInit([]string{"baseline-highrisk", "--out", policyPath, "--json"}); code != exitOK {
+		t.Fatalf("runPolicyInit: expected %d got %d", exitOK, code)
+	}
+
+	loadedPolicy, err := gatecore.LoadPolicyFile(policyPath)
+	if err != nil {
+		t.Fatalf("load generated policy: %v", err)
+	}
+
+	expectedRules := map[string]struct {
+		BrokerReference string
+		BrokerScopes    []string
+	}{
+		"allow-delegated-egress-write": {
+			BrokerReference: "highrisk-egress",
+			BrokerScopes:    []string{"write"},
+		},
+		"require-approval-tool-write": {
+			BrokerReference: "highrisk-egress",
+			BrokerScopes:    []string{"write"},
+		},
+		"require-approval-tool-deploy": {
+			BrokerReference: "highrisk-deploy",
+			BrokerScopes:    []string{"deploy"},
+		},
+	}
+
+	expectedSources := []string{"aws_sts", "github_oidc", "vault_dynamic"}
+	expectedIssuers := []string{"sts.amazonaws.com", "token.actions.githubusercontent.com", "vault.example"}
+	expectedAccessTypes := []string{"jit"}
+	seen := map[string]bool{}
+	for _, rule := range loadedPolicy.Rules {
+		expectation, ok := expectedRules[rule.Name]
+		if !ok {
+			continue
+		}
+		seen[rule.Name] = true
+		if !rule.BlockStandingCredentials {
+			t.Fatalf("expected %s to block standing credentials", rule.Name)
+		}
+		if !rule.RequireJITCredential {
+			t.Fatalf("expected %s to require JIT credentials", rule.Name)
+		}
+		if rule.MaxCredentialTTLSeconds != 900 {
+			t.Fatalf("expected %s max_credential_ttl_seconds=900, got %d", rule.Name, rule.MaxCredentialTTLSeconds)
+		}
+		if !reflect.DeepEqual(rule.AllowedCredentialSources, expectedSources) {
+			t.Fatalf("unexpected %s sources: %#v", rule.Name, rule.AllowedCredentialSources)
+		}
+		if !reflect.DeepEqual(rule.AllowedCredentialIssuers, expectedIssuers) {
+			t.Fatalf("unexpected %s issuers: %#v", rule.Name, rule.AllowedCredentialIssuers)
+		}
+		if !reflect.DeepEqual(rule.AllowedCredentialAccessTypes, expectedAccessTypes) {
+			t.Fatalf("unexpected %s access types: %#v", rule.Name, rule.AllowedCredentialAccessTypes)
+		}
+		if expectation.BrokerReference != rule.BrokerReference {
+			t.Fatalf("unexpected %s broker reference: %q", rule.Name, rule.BrokerReference)
+		}
+		if !reflect.DeepEqual(rule.BrokerScopes, expectation.BrokerScopes) {
+			t.Fatalf("unexpected %s broker scopes: %#v", rule.Name, rule.BrokerScopes)
+		}
+	}
+
+	for ruleName := range expectedRules {
+		if !seen[ruleName] {
+			t.Fatalf("expected generated policy to contain %s", ruleName)
+		}
+	}
+}
+
+func TestPolicyTestBaseHighRiskCredentialFixtures(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	repoRoot := repoRootFromPackageDir(t)
+	policyPath := filepath.Join(repoRoot, "examples", "policy", "base_high_risk.yaml")
+	tests := []struct {
+		name            string
+		intentFile      string
+		wantExitCode    int
+		wantVerdict     string
+		wantMatchedRule string
+		wantReason      string
+	}{
+		{
+			name:            "aws_sts_allow",
+			intentFile:      "intent_aws_sts_allow.json",
+			wantExitCode:    exitOK,
+			wantVerdict:     "allow",
+			wantMatchedRule: "allow-delegated-egress-write",
+			wantReason:      "delegated_egress_write_allowed",
+		},
+		{
+			name:            "github_oidc_allow",
+			intentFile:      "intent_github_oidc_allow.json",
+			wantExitCode:    exitOK,
+			wantVerdict:     "allow",
+			wantMatchedRule: "allow-delegated-egress-write",
+			wantReason:      "delegated_egress_write_allowed",
+		},
+		{
+			name:            "vault_dynamic_allow",
+			intentFile:      "intent_vault_dynamic_allow.json",
+			wantExitCode:    exitOK,
+			wantVerdict:     "allow",
+			wantMatchedRule: "allow-delegated-egress-write",
+			wantReason:      "delegated_egress_write_allowed",
+		},
+		{
+			name:            "github_pat_static_block",
+			intentFile:      "intent_github_pat_static_block.json",
+			wantExitCode:    exitPolicyBlocked,
+			wantVerdict:     "block",
+			wantMatchedRule: "allow-delegated-egress-write",
+			wantReason:      "standing_credential_disallowed",
+		},
+		{
+			name:            "aws_iam_user_cloud_admin_block",
+			intentFile:      "intent_aws_iam_user_cloud_admin_block.json",
+			wantExitCode:    exitPolicyBlocked,
+			wantVerdict:     "block",
+			wantMatchedRule: "allow-delegated-egress-write",
+			wantReason:      "standing_credential_disallowed",
+		},
+		{
+			name:            "env_inherited_block",
+			intentFile:      "intent_env_inherited_block.json",
+			wantExitCode:    exitPolicyBlocked,
+			wantVerdict:     "block",
+			wantMatchedRule: "allow-delegated-egress-write",
+			wantReason:      "standing_credential_disallowed",
+		},
+		{
+			name:            "unknown_provenance_block",
+			intentFile:      "intent_unknown_provenance_block.json",
+			wantExitCode:    exitPolicyBlocked,
+			wantVerdict:     "block",
+			wantMatchedRule: "allow-delegated-egress-write",
+			wantReason:      "credential_source_disallowed",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			intentPath := filepath.Join(repoRoot, "examples", "policy", "credentials", test.intentFile)
+			var code int
+			raw := captureStdout(t, func() {
+				code = runPolicyTest([]string{
+					policyPath,
+					intentPath,
+					"--json",
+				})
+			})
+			if code != test.wantExitCode {
+				t.Fatalf("runPolicyTest expected %d got %d output=%s", test.wantExitCode, code, raw)
+			}
+
+			var output policyTestOutput
+			if err := json.Unmarshal([]byte(raw), &output); err != nil {
+				t.Fatalf("decode policy test output: %v", err)
+			}
+			if output.Verdict != test.wantVerdict {
+				t.Fatalf("unexpected verdict: %#v", output)
+			}
+			if output.MatchedRule != test.wantMatchedRule {
+				t.Fatalf("unexpected matched rule: %#v", output)
+			}
+			if !containsString(output.ReasonCodes, test.wantReason) {
+				t.Fatalf("expected reason %q in %#v", test.wantReason, output.ReasonCodes)
+			}
+		})
+	}
+}
+
+func TestRunGateEvalFreezeWindowEvaluationTime(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy_freeze.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: block",
+		"rules:",
+		"  - name: allow-prod-deploy",
+		"    priority: 10",
+		"    effect: allow",
+		"    match:",
+		"      tool_names: [tool.deploy]",
+		"    freeze_window:",
+		"      timezone: America/Toronto",
+		"      effect: block",
+		"      environments: [prod]",
+		"      risk_classes: [high]",
+		"      windows:",
+		"        - name: quarter-end",
+		"          start: \"2026-03-10T09:00:00\"",
+		"          end: \"2026-03-10T12:00:00\"",
+	}, "\n")+"\n")
+
+	intent := schemagate.IntentRequest{
+		SchemaID:        "gait.gate.intent_request",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.March, 10, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		ToolName:        "tool.deploy",
+		Args:            map[string]any{"host": "deploy.internal.example"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "host", Value: "deploy.internal.example", Operation: "deploy"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:    "alice",
+			Workspace:   "/tmp",
+			Environment: "prod",
+			RiskClass:   "high",
+		},
+	}
+	intentPath := filepath.Join(workDir, "intent_freeze.json")
+	rawIntent, err := json.MarshalIndent(intent, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal freeze intent: %v", err)
+	}
+	mustWriteFile(t, intentPath, string(rawIntent)+"\n")
+	tracePath := filepath.Join(workDir, "trace_freeze.json")
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--evaluation-time", "2026-03-10T14:30:00Z",
+			"--trace-out", tracePath,
+			"--json",
+		})
+	})
+	if code != exitPolicyBlocked {
+		t.Fatalf("runGateEval freeze window expected %d got %d (%s)", exitPolicyBlocked, code, raw)
+	}
+
+	var output gateEvalOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode freeze gate output: %v", err)
+	}
+	if output.Verdict != "block" || output.MatchedRule != "allow-prod-deploy" {
+		t.Fatalf("unexpected freeze gate output: %#v", output)
+	}
+	if !containsString(output.ReasonCodes, "freeze_window_active_block") {
+		t.Fatalf("expected freeze_window_active_block in %#v", output.ReasonCodes)
+	}
+	if output.FreezeWindow == nil || output.FreezeWindow.WindowName != "quarter-end" {
+		t.Fatalf("expected freeze window details in output, got %#v", output)
+	}
+	traceRecord, err := gatecore.ReadTraceRecord(tracePath)
+	if err != nil {
+		t.Fatalf("read freeze trace: %v", err)
+	}
+	if traceRecord.FreezeWindow == nil || traceRecord.FreezeWindow.WindowName != "quarter-end" {
+		t.Fatalf("expected freeze window details in trace, got %#v", traceRecord)
+	}
+}
+
+func TestRunGateEvalRejectsInvalidEvaluationTime(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: allow-deploy",
+		"    priority: 10",
+		"    effect: allow",
+		"    match:",
+		"      tool_names: [tool.deploy]",
+	}, "\n")+"\n")
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.deploy")
+
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--evaluation-time", "not-a-time",
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval invalid evaluation-time expected %d got %d", exitInvalidInput, code)
+	}
+}
+
+func TestRunGateEvalSandboxPolicyDecision(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy_sandbox.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: block",
+		"rules:",
+		"  - name: allow-sandboxed-exec",
+		"    priority: 10",
+		"    effect: allow",
+		"    sandbox:",
+		"      allowed_network_modes: [disabled, egress_allowlist]",
+		"      allowed_writable_path_prefixes: [/tmp/work, /var/tmp/cache]",
+		"      required_read_only_roots: [/repo, /usr/share]",
+		"      allowed_env_exposure_modes: [none, allowlist]",
+		"      max_timeout_seconds: 60",
+		"      allowed_filesystem_isolations: [workspace, container]",
+		"      allowed_user_modes: [unprivileged]",
+		"    match:",
+		"      endpoint_classes: [proc.exec]",
+		"      risk_classes: [high]",
+	}, "\n")+"\n")
+
+	tests := []struct {
+		name         string
+		sandbox      *schemagate.SandboxMetadata
+		wantExitCode int
+		wantVerdict  string
+		wantStatus   string
+		wantReason   string
+	}{
+		{
+			name: "valid_sandbox_allows",
+			sandbox: &schemagate.SandboxMetadata{
+				NetworkMode:         "egress_allowlist",
+				WritablePaths:       []string{"/tmp/work/tmp"},
+				ReadOnlyRoots:       []string{"/repo", "/usr/share"},
+				EnvExposureMode:     "allowlist",
+				TimeoutSeconds:      30,
+				FilesystemIsolation: "container",
+				UserMode:            "unprivileged",
+				EvidenceRef:         "sandbox:receipt:v1",
+				EvidenceDigest:      strings.Repeat("a", 64),
+			},
+			wantExitCode: exitOK,
+			wantVerdict:  "allow",
+			wantStatus:   "valid",
+		},
+		{
+			name:         "missing_sandbox_blocks",
+			sandbox:      nil,
+			wantExitCode: exitPolicyBlocked,
+			wantVerdict:  "block",
+			wantStatus:   "missing",
+			wantReason:   "sandbox_metadata_missing",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			intent := schemagate.IntentRequest{
+				SchemaID:        "gait.gate.intent_request",
+				SchemaVersion:   "1.0.0",
+				CreatedAt:       time.Date(2026, time.May, 9, 0, 0, 0, 0, time.UTC),
+				ProducerVersion: "test",
+				ToolName:        "tool.exec",
+				Args:            map[string]any{"path": "/tmp/work/run.sh"},
+				Targets: []schemagate.IntentTarget{
+					{Kind: "path", Value: "/tmp/work/run.sh", Operation: "execute", EndpointClass: "proc.exec"},
+				},
+				Context: schemagate.IntentContext{
+					Identity:  "alice",
+					Workspace: "/tmp",
+					RiskClass: "high",
+					Sandbox:   test.sandbox,
+				},
+			}
+			intentPath := filepath.Join(workDir, test.name+"_intent.json")
+			rawIntent, err := json.MarshalIndent(intent, "", "  ")
+			if err != nil {
+				t.Fatalf("marshal sandbox intent: %v", err)
+			}
+			mustWriteFile(t, intentPath, string(rawIntent)+"\n")
+			tracePath := filepath.Join(workDir, test.name+"_trace.json")
+
+			var code int
+			raw := captureStdout(t, func() {
+				code = runGateEval([]string{
+					"--policy", policyPath,
+					"--intent", intentPath,
+					"--trace-out", tracePath,
+					"--json",
+				})
+			})
+			if code != test.wantExitCode {
+				t.Fatalf("runGateEval sandbox expected %d got %d (%s)", test.wantExitCode, code, raw)
+			}
+
+			var output gateEvalOutput
+			if err := json.Unmarshal([]byte(raw), &output); err != nil {
+				t.Fatalf("decode sandbox gate output: %v", err)
+			}
+			if output.Verdict != test.wantVerdict {
+				t.Fatalf("unexpected sandbox verdict: %#v", output)
+			}
+			if output.Sandbox == nil || output.Sandbox.Status != test.wantStatus {
+				t.Fatalf("unexpected sandbox output: %#v", output)
+			}
+			if test.wantReason != "" && !containsString(output.ReasonCodes, test.wantReason) {
+				t.Fatalf("expected reason %q in %#v", test.wantReason, output.ReasonCodes)
+			}
+			traceRecord, err := gatecore.ReadTraceRecord(tracePath)
+			if err != nil {
+				t.Fatalf("read sandbox trace: %v", err)
+			}
+			if traceRecord.Sandbox == nil || traceRecord.Sandbox.Status != test.wantStatus {
+				t.Fatalf("unexpected sandbox trace: %#v", traceRecord)
+			}
+		})
 	}
 }
 
@@ -4378,6 +4793,47 @@ func writeIntentFixture(t *testing.T, path, toolName string) {
 	}
 	if err := os.WriteFile(path, append(raw, '\n'), 0o600); err != nil {
 		t.Fatalf("write intent: %v", err)
+	}
+}
+
+func writeHighRiskCredentialIntentFixture(t *testing.T, path, toolName string) {
+	t.Helper()
+	intent := schemagate.IntentRequest{
+		SchemaID:        "gait.gate.intent_request",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.May, 8, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		ToolName:        toolName,
+		Args: map[string]any{
+			"path": "/tmp/out.txt",
+		},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt", Operation: "write", EndpointClass: "fs.write"},
+		},
+		ArgProvenance: []schemagate.IntentArgProvenance{
+			{ArgPath: "$.path", Source: "user"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:             "alice",
+			Workspace:            "/tmp",
+			RiskClass:            "high",
+			RunID:                "run-highrisk-write",
+			JobID:                "job-highrisk-write",
+			CredentialRef:        "aws:sts:assumed-role/ci/1234567890",
+			CredentialSource:     "aws_sts",
+			CredentialAccessType: "jit",
+			CredentialIssuer:     "sts.amazonaws.com",
+			CredentialTTLSeconds: 600,
+			CredentialRunBinding: "run-highrisk-write",
+			CredentialJobBinding: "job-highrisk-write",
+		},
+	}
+	raw, err := json.MarshalIndent(intent, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal high-risk credential intent: %v", err)
+	}
+	if err := os.WriteFile(path, append(raw, '\n'), 0o600); err != nil {
+		t.Fatalf("write high-risk credential intent: %v", err)
 	}
 }
 

@@ -225,6 +225,69 @@
             "type": "array",
             "items": { "type": "string" }
           },
+          "freeze_window": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "timezone": { "type": "string", "minLength": 1 },
+              "effect": { "type": "string", "enum": ["block", "require_approval"] },
+              "reason": { "type": "string" },
+              "environments": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "risk_classes": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "windows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "start": { "type": "string", "minLength": 1 },
+                    "end": { "type": "string", "minLength": 1 }
+                  },
+                  "required": ["start", "end"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "sandbox": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "allowed_network_modes": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["disabled", "egress_allowlist", "full"] }
+              },
+              "allowed_writable_path_prefixes": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "required_read_only_roots": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "allowed_env_exposure_modes": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["none", "allowlist", "full"] }
+              },
+              "max_timeout_seconds": { "type": "integer", "minimum": 0 },
+              "allowed_filesystem_isolations": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["none", "workspace", "container"] }
+              },
+              "allowed_user_modes": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["default", "root", "unprivileged"] }
+              }
+            },
+            "additionalProperties": false
+          },
           "rate_limit": {
             "type": "object",
             "properties": {

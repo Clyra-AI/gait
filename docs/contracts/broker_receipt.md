@@ -41,6 +41,12 @@ Broker credential evidence records can carry:
 - job binding mismatch
 - TTL above policy
 
+The high-risk baseline templates pair receipt validation with JIT-only provider
+allowlists for covered write and deploy paths. Operator examples and fixtures
+use AWS STS, GitHub OIDC, and Vault-style dynamic credentials, while static
+PATs, IAM user credentials, inherited environment credentials, and unknown
+provenance remain blocked.
+
 These receipt details are emitted into the broker credential evidence JSON and
 referenced from the signed gate trace so later proof-bundle work can link the
 authorization decision to the brokered JIT credential evidence.

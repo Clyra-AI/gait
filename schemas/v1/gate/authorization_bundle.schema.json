@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/gate/authorization_bundle.schema.json",
+  "title": "Gate Authorization Bundle",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "trace_id",
+    "policy_digest",
+    "intent_digest"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.gate.authorization_bundle" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "trace_path": { "type": "string", "minLength": 1 },
+    "trace_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "approval_audit_path": { "type": "string", "minLength": 1 },
+    "approval_audit_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "credential_evidence_path": { "type": "string", "minLength": 1 },
+    "credential_evidence_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "delegation_audit_path": { "type": "string", "minLength": 1 },
+    "delegation_audit_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "context_evidence_path": { "type": "string", "minLength": 1 },
+    "context_evidence_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "outcome_path": { "type": "string", "minLength": 1 },
+    "outcome_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "outcome_status": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] },
+    "freeze_window": { "$ref": "policy_explain.schema.json#/$defs/freeze_window_decision" },
+    "kill_switch": { "$ref": "policy_explain.schema.json#/$defs/kill_switch_decision" },
+    "sandbox": { "$ref": "policy_explain.schema.json#/$defs/sandbox_decision" }
+  },
+  "additionalProperties": false
+}

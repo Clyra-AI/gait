@@ -86,7 +86,7 @@ func runPackBuild(arguments []string) int {
 	var jsonOutput bool
 	var helpFlag bool
 
-	flagSet.StringVar(&packType, "type", "run", "pack type: run|job|call")
+	flagSet.StringVar(&packType, "type", "run", "pack type: run|job|call|authorization")
 	flagSet.StringVar(&from, "from", "", "run_id|path for run packs; job_id|path for job packs")
 	flagSet.StringVar(&outPath, "out", "", "output path for pack_<id>.zip")
 	flagSet.StringVar(&jobRoot, "job-root", "./gait-out/jobs", "job runtime root (used for job_id sources)")
@@ -192,8 +192,19 @@ func runPackBuild(arguments []string) int {
 			return writePackOutput(jsonOutput, packOutput{OK: false, Operation: "build", Error: buildErr.Error()}, exitCodeForError(buildErr, exitInvalidInput))
 		}
 		return writePackOutput(jsonOutput, packOutput{OK: true, Operation: "build", Path: result.Path, PackID: result.Manifest.PackID, PackType: result.Manifest.PackType, SourceRef: result.Manifest.SourceRef, Warnings: warnings}, exitOK)
+	case string(pack.BuildTypeAuthorization):
+		result, buildErr := pack.BuildAuthorizationPack(pack.BuildAuthorizationOptions{
+			AuthorizationPath: strings.TrimSpace(from),
+			OutputPath:        strings.TrimSpace(outPath),
+			ProducerVersion:   currentVersion(),
+			SigningPrivateKey: keyPair.Private,
+		})
+		if buildErr != nil {
+			return writePackOutput(jsonOutput, packOutput{OK: false, Operation: "build", Error: buildErr.Error()}, exitCodeForError(buildErr, exitInvalidInput))
+		}
+		return writePackOutput(jsonOutput, packOutput{OK: true, Operation: "build", Path: result.Path, PackID: result.Manifest.PackID, PackType: result.Manifest.PackType, SourceRef: result.Manifest.SourceRef, Warnings: warnings}, exitOK)
 	default:
-		return writePackOutput(jsonOutput, packOutput{OK: false, Operation: "build", Error: "--type must be run, job, or call"}, exitInvalidInput)
+		return writePackOutput(jsonOutput, packOutput{OK: false, Operation: "build", Error: "--type must be run, job, call, or authorization"}, exitInvalidInput)
 	}
 }
 
@@ -504,7 +515,7 @@ func resolveJobSource(from string, defaultRoot string) (string, string, error) {
 
 func printPackUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait pack build --type <run|job|call> --from <run_id|path|job_id|job_path|call_record.json> [--out <pack.zip>] [--job-root ./gait-out/jobs] [--key-mode none|dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait pack build --type <run|job|call|authorization> --from <run_id|path|job_id|job_path|call_record.json|authorization_bundle.json> [--out <pack.zip>] [--job-root ./gait-out/jobs] [--key-mode none|dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait pack verify <pack.zip> [--profile standard|strict] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait pack inspect <pack.zip> [--json] [--explain]")
 	fmt.Println("  gait pack diff <left.zip> <right.zip> [--output <diff.json>] [--json] [--explain]")
@@ -513,7 +524,7 @@ func printPackUsage() {
 
 func printPackBuildUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait pack build --type <run|job|call> --from <run_id|path|job_id|job_path|call_record.json> [--out <pack.zip>] [--job-root ./gait-out/jobs] [--key-mode none|dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait pack build --type <run|job|call|authorization> --from <run_id|path|job_id|job_path|call_record.json|authorization_bundle.json> [--out <pack.zip>] [--job-root ./gait-out/jobs] [--key-mode none|dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func printPackVerifyUsage() {

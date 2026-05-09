@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/gate/kill_switch_state.schema.json",
+  "title": "Gate Kill Switch State",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "updated_at",
+    "producer_version",
+    "entries"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.gate.kill_switch_state" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["entry_id", "enabled", "created_at"],
+        "properties": {
+          "entry_id": { "type": "string", "minLength": 1 },
+          "enabled": { "type": "boolean" },
+          "agent_id": { "type": "string", "minLength": 1 },
+          "identity": { "type": "string", "minLength": 1 },
+          "tool_name": { "type": "string", "minLength": 1 },
+          "target_kind": { "type": "string", "minLength": 1 },
+          "target_value": { "type": "string", "minLength": 1 },
+          "environment": { "type": "string", "minLength": 1 },
+          "path_prefixes": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "workspace_prefixes": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "reason": { "type": "string" },
+          "actor": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "expires_at": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
