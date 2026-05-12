@@ -30,6 +30,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - [semver:minor] Added sandbox metadata policy enforcement for high-risk `proc.exec` and generated-code actions.
 - [semver:minor] Added credential provenance policy controls that block standing or static credentials for high-risk actions and record privacy-safe credential evidence.
 - [semver:minor] Strengthened brokered JIT access validation with typed broker receipts, scope and TTL checks, and proof-ready credential evidence.
+- [semver:patch] Fixed `oss-prod` policy evaluation so permissive default policies cannot allow unmatched tool calls at the Gate or MCP boundary.
+- [semver:patch] Fixed reference-mode runpack recording so raw intent arguments and raw result payloads are stripped after digesting unless raw capture is explicitly selected.
+
+### Fixed
+
+- [semver:patch] Aligned policy and runpack documentation with strict `oss-prod` defaults and reference-mode privacy behavior.
 
 ### Upgrade Notes
 

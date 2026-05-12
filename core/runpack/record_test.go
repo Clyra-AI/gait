@@ -334,7 +334,7 @@ func TestRecordRunInvalidIntent(test *testing.T) {
 			Args:       map[string]any{"bad": make(chan int)},
 		},
 	}
-	if _, err := RecordRun(RecordOptions{Run: run, Intents: intents}); err == nil {
+	if _, err := RecordRun(RecordOptions{Run: run, Intents: intents, CaptureMode: "raw"}); err == nil {
 		test.Fatalf("expected error for invalid intent args")
 	}
 }
@@ -409,6 +409,158 @@ func TestRecordRunNormalizesMissingDigestsFromNormalization(test *testing.T) {
 	}
 	if refsDecoded.Receipts[0].ContentDigest != resultsDecoded[0].ResultDigest {
 		test.Fatalf("expected content digest to match normalized result digest")
+	}
+}
+
+func TestRecordRunReferenceModeStripsRawPayloadsAfterDigestNormalization(test *testing.T) {
+	run := schemarunpack.Run{
+		RunID: "run_reference_strip",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	secretArg := "ghp_reference_secret_demo_1234567890"
+	secretResult := "sk-reference-result-demo-abcdef"
+	intents := []schemarunpack.IntentRecord{{
+		IntentID: "intent_1",
+		ToolName: "tool.write",
+		Args: map[string]any{
+			"path":   "/tmp/out.txt",
+			"secret": secretArg,
+		},
+	}}
+	results := []schemarunpack.ResultRecord{{
+		IntentID: "intent_1",
+		Status:   "ok",
+		Result: map[string]any{
+			"ok":     true,
+			"secret": secretResult,
+		},
+	}}
+	refs := schemarunpack.Refs{
+		Receipts: []schemarunpack.RefReceipt{{
+			RefID:         "trace_intent_1",
+			SourceType:    "gait.trace",
+			SourceLocator: "trace://trace_intent_1",
+			RetrievedAt:   time.Date(2026, time.February, 5, 0, 0, 1, 0, time.UTC),
+			RedactionMode: "reference",
+		}},
+	}
+	expectedArgsDigest, err := digestJSONValue(intents[0].Args)
+	if err != nil {
+		test.Fatalf("digest args: %v", err)
+	}
+	expectedResultDigest, err := digestJSONValue(results[0].Result)
+	if err != nil {
+		test.Fatalf("digest result: %v", err)
+	}
+
+	result, err := RecordRun(RecordOptions{
+		Run:         run,
+		Intents:     intents,
+		Results:     results,
+		Refs:        refs,
+		CaptureMode: "reference",
+	})
+	if err != nil {
+		test.Fatalf("record run: %v", err)
+	}
+	files := readZipFiles(test, result.ZipBytes)
+	if bytes.Contains(files["intents.jsonl"], []byte(secretArg)) {
+		test.Fatalf("expected stripped reference intents to omit raw secret payload")
+	}
+	if bytes.Contains(files["results.jsonl"], []byte(secretResult)) {
+		test.Fatalf("expected stripped reference results to omit raw secret payload")
+	}
+	if bytes.Contains(result.ZipBytes, []byte(secretArg)) || bytes.Contains(result.ZipBytes, []byte(secretResult)) {
+		test.Fatalf("expected reference zip bytes to omit raw secret payload strings")
+	}
+
+	intentsDecoded, err := decodeJSONL[schemarunpack.IntentRecord](files["intents.jsonl"])
+	if err != nil {
+		test.Fatalf("decode intents: %v", err)
+	}
+	if intentsDecoded[0].Args != nil {
+		test.Fatalf("expected reference-mode intents to strip raw args, got %#v", intentsDecoded[0].Args)
+	}
+	if intentsDecoded[0].ArgsDigest != expectedArgsDigest {
+		test.Fatalf("expected preserved args digest %q got %q", expectedArgsDigest, intentsDecoded[0].ArgsDigest)
+	}
+
+	resultsDecoded, err := decodeJSONL[schemarunpack.ResultRecord](files["results.jsonl"])
+	if err != nil {
+		test.Fatalf("decode results: %v", err)
+	}
+	if resultsDecoded[0].Result != nil {
+		test.Fatalf("expected reference-mode results to strip raw payloads, got %#v", resultsDecoded[0].Result)
+	}
+	if resultsDecoded[0].ResultDigest != expectedResultDigest {
+		test.Fatalf("expected preserved result digest %q got %q", expectedResultDigest, resultsDecoded[0].ResultDigest)
+	}
+
+	var refsDecoded schemarunpack.Refs
+	if err := json.Unmarshal(files["refs.json"], &refsDecoded); err != nil {
+		test.Fatalf("decode refs: %v", err)
+	}
+	if refsDecoded.Receipts[0].QueryDigest == "" || refsDecoded.Receipts[0].ContentDigest == "" {
+		test.Fatalf("expected normalized receipt digests, got %#v", refsDecoded.Receipts[0])
+	}
+	if refsDecoded.Receipts[0].ContentDigest != expectedResultDigest {
+		test.Fatalf("expected preserved content digest %q got %q", expectedResultDigest, refsDecoded.Receipts[0].ContentDigest)
+	}
+}
+
+func TestRecordRunRawModeRetainsRawPayloads(test *testing.T) {
+	run := schemarunpack.Run{
+		RunID: "run_raw_keep",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	intents := []schemarunpack.IntentRecord{{
+		IntentID: "intent_1",
+		ToolName: "tool.write",
+		Args: map[string]any{
+			"path":   "/tmp/out.txt",
+			"secret": "raw-intent-secret",
+		},
+	}}
+	results := []schemarunpack.ResultRecord{{
+		IntentID: "intent_1",
+		Status:   "ok",
+		Result: map[string]any{
+			"ok":     true,
+			"secret": "raw-result-secret",
+		},
+	}}
+
+	result, err := RecordRun(RecordOptions{
+		Run:         run,
+		Intents:     intents,
+		Results:     results,
+		CaptureMode: "raw",
+	})
+	if err != nil {
+		test.Fatalf("record run: %v", err)
+	}
+	files := readZipFiles(test, result.ZipBytes)
+
+	intentsDecoded, err := decodeJSONL[schemarunpack.IntentRecord](files["intents.jsonl"])
+	if err != nil {
+		test.Fatalf("decode intents: %v", err)
+	}
+	if intentsDecoded[0].Args == nil || intentsDecoded[0].Args["secret"] != "raw-intent-secret" {
+		test.Fatalf("expected raw-mode intent payload retention, got %#v", intentsDecoded[0].Args)
+	}
+
+	resultsDecoded, err := decodeJSONL[schemarunpack.ResultRecord](files["results.jsonl"])
+	if err != nil {
+		test.Fatalf("decode results: %v", err)
+	}
+	if resultsDecoded[0].Result == nil || resultsDecoded[0].Result["secret"] != "raw-result-secret" {
+		test.Fatalf("expected raw-mode result payload retention, got %#v", resultsDecoded[0].Result)
 	}
 }
 

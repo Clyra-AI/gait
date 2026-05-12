@@ -22,7 +22,10 @@
     "intent_id": { "type": "string" },
     "tool_name": { "type": "string" },
     "args_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
-    "args": { "type": "object" }
+    "args": {
+      "type": "object",
+      "description": "Raw intent arguments. Present only when capture_mode=raw; reference mode records args_digest and omits args."
+    }
   },
   "additionalProperties": false
 }

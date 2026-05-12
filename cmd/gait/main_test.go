@@ -3551,20 +3551,39 @@ func TestGateEvalOSSProdProfile(t *testing.T) {
 		t.Fatalf("runGateEval oss-prod dev key mode: expected %d got %d", exitInvalidInput, code)
 	}
 
-	if code := runGateEval([]string{
-		"--policy", allowPolicyPath,
-		"--intent", intentPath,
-		"--profile", "oss-prod",
-		"--key-mode", "prod",
-		"--private-key", privateKeyPath,
-		"--json",
-	}); code != exitOK {
-		t.Fatalf("runGateEval oss-prod allow: expected %d got %d", exitOK, code)
+	tracePath := filepath.Join(workDir, "trace_should_not_exist.json")
+	var allowCode int
+	allowRaw := captureStdout(t, func() {
+		allowCode = runGateEval([]string{
+			"--policy", allowPolicyPath,
+			"--intent", intentPath,
+			"--profile", "oss-prod",
+			"--trace-out", tracePath,
+			"--key-mode", "prod",
+			"--private-key", privateKeyPath,
+			"--json",
+		})
+	})
+	if allowCode != exitInvalidInput {
+		t.Fatalf("runGateEval oss-prod permissive default: expected %d got %d", exitInvalidInput, allowCode)
+	}
+	var allowOut gateEvalOutput
+	if err := json.Unmarshal([]byte(allowRaw), &allowOut); err != nil {
+		t.Fatalf("decode gate eval output: %v raw=%q", err, allowRaw)
+	}
+	if allowOut.OK || allowOut.Error != ossProdRejectDefaultAllowError {
+		t.Fatalf("unexpected gate eval output for permissive default: %#v", allowOut)
+	}
+	if allowOut.TracePath != "" {
+		t.Fatalf("expected no trace path for rejected permissive default, got %q", allowOut.TracePath)
+	}
+	if _, err := os.Stat(tracePath); !os.IsNotExist(err) {
+		t.Fatalf("expected no trace artifact for rejected permissive default, stat err=%v", err)
 	}
 
 	highRiskNoBrokerPolicyPath := filepath.Join(workDir, "policy_high_risk_no_broker.yaml")
 	mustWriteFile(t, highRiskNoBrokerPolicyPath, strings.Join([]string{
-		"default_verdict: allow",
+		"default_verdict: block",
 		"rules:",
 		"  - name: high-risk-allow",
 		"    effect: allow",
@@ -3584,7 +3603,7 @@ func TestGateEvalOSSProdProfile(t *testing.T) {
 
 	highRiskWithBrokerPolicyPath := filepath.Join(workDir, "policy_high_risk_with_broker.yaml")
 	mustWriteFile(t, highRiskWithBrokerPolicyPath, strings.Join([]string{
-		"default_verdict: allow",
+		"default_verdict: block",
 		"rules:",
 		"  - name: high-risk-allow",
 		"    effect: allow",
@@ -3616,7 +3635,7 @@ func TestGateEvalOSSProdProfile(t *testing.T) {
 
 	approvalPolicyPath := filepath.Join(workDir, "policy_approval.yaml")
 	mustWriteFile(t, approvalPolicyPath, strings.Join([]string{
-		"default_verdict: allow",
+		"default_verdict: block",
 		"rules:",
 		"  - name: needs-approval",
 		"    effect: require_approval",
@@ -3657,7 +3676,16 @@ func TestGateEvalProjectConfigDefaults(t *testing.T) {
 	privateKeyPath := filepath.Join(workDir, "private.key")
 	writePrivateKey(t, privateKeyPath)
 	policyPath := filepath.Join(workDir, "policy_allow.yaml")
-	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: block",
+		"rules:",
+		"  - name: allow-write",
+		"    effect: allow",
+		"    require_broker_credential: true",
+		"    match:",
+		"      tool_names: [tool.write]",
+		"      risk_classes: [high]",
+	}, "\n")+"\n")
 
 	if err := os.MkdirAll(filepath.Join(workDir, ".gait"), 0o750); err != nil {
 		t.Fatalf("mkdir .gait: %v", err)
@@ -3950,7 +3978,7 @@ func TestGateEvalOSSProdMissingHighRiskContextFieldBlocks(t *testing.T) {
 
 	policyPath := filepath.Join(workDir, "policy_highrisk_context.yaml")
 	mustWriteFile(t, policyPath, strings.Join([]string{
-		"default_verdict: allow",
+		"default_verdict: block",
 		"fail_closed:",
 		"  enabled: true",
 		"  risk_classes: [high]",

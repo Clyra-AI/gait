@@ -164,7 +164,7 @@ func TestRunGateEvalKillSwitchUnavailableFailClosedInOSSProd(t *testing.T) {
 
 	policyPath := filepath.Join(workDir, "policy.yaml")
 	mustWriteFile(t, policyPath, strings.Join([]string{
-		"default_verdict: allow",
+		"default_verdict: block",
 		"rules:",
 		"  - name: allow-exec",
 		"    effect: allow",

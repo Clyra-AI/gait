@@ -22,7 +22,10 @@
     "intent_id": { "type": "string" },
     "status": { "type": "string", "enum": ["ok", "error"] },
     "result_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
-    "result": { "type": "object" }
+    "result": {
+      "type": "object",
+      "description": "Raw result payload. Present only when capture_mode=raw; reference mode records result_digest and omits result."
+    }
   },
   "additionalProperties": false
 }

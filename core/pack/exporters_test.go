@@ -548,6 +548,7 @@ func createRunpackFixtureWithTelemetrySignals(t *testing.T, dir string) string {
 		Refs: schemarunpack.Refs{
 			RunID: "run_export_metrics",
 		},
+		CaptureMode: "raw",
 	})
 	if err != nil {
 		t.Fatalf("write runpack fixture: %v", err)

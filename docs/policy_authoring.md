@@ -104,6 +104,8 @@ Most policies start with these fields:
 - `mcp_trust`: optional local trust-snapshot contract for MCP server admission
 - `rules`: ordered rule list
 
+For `oss-prod`, `default_verdict: allow` is not valid. Strict profiles must use `block` or `require_approval` as the policy default and express allow paths with explicit rules.
+
 Example:
 
 ```yaml
@@ -227,7 +229,7 @@ gait keys verify --private-key ./gait-out/keys/prod_private.key --public-key ./g
 
 ### What happens if no rule matches a tool call?
 
-The default action applies. In fail-closed mode (`oss-prod` profile), the default is block. In standard mode, the default is configurable per policy.
+The policy default applies. In standard mode, that default remains configurable per policy. In `oss-prod`, permissive `default_verdict: allow` policies are rejected, so unmatched actions can only fall back to `block` or `require_approval`.
 
 ### Can I test a policy without affecting production?
 

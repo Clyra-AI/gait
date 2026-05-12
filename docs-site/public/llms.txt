@@ -40,6 +40,7 @@
 - Input: structured intent payload.
 - Rule: `verdict != allow` means no tool execution.
 - Fast proof (`gait doctor --json`, `gait demo`, `gait regress bootstrap`) is not the same thing as strict inline enforcement.
+- In `oss-prod`, policies with `default_verdict: allow` are rejected at `gait gate eval`, `gait mcp proxy`, and `gait mcp serve`; use `block` or `require_approval` plus explicit allow rules.
 - Context-required policies must receive `--context-envelope <context_envelope.json>` at that boundary; raw context digest/mode/age claims are not authoritative alone.
 - For `gait mcp serve`, same-host callers may use `call.context.context_envelope_path` only when the server explicitly enables `--allow-client-artifact-paths`.
 - Official LangChain lane: middleware with optional callback correlation, not a separate policy engine.
@@ -71,6 +72,7 @@
 - `sdk/python` keeps repo-local dev metadata (`0.0.0.dev0`); release/install automation should use `gait version --json`.
 - Machine-readable wrappers and SDKs use `gait demo --json`; the text form is human-facing only.
 - Python run-session capture delegates digest-bearing artifact fields to `gait run record` in Go; convert `set` values to JSON lists before calling the SDK.
+- `gait run record` defaults to `capture_mode=reference`: it digests raw args/results, emits refs and receipts, strips raw `intents[].args` and `results[].result`, and warns when explicit `--capture-mode raw` retention is selected.
 - `examples/integrations/claude_code/` is a reference adapter; hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.
 - `gait doctor --json` is install-safe in a clean writable directory: it returns the installed-binary lane with `status=pass|warn` and only adds repo-only checks in a Gait repo checkout.
 - High-risk `oss-prod` claims require the separate readiness gate: `gait doctor --production-readiness --json`.

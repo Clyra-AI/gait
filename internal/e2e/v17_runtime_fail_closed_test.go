@@ -69,7 +69,7 @@ func TestCLIV17FailClosedMatrix(t *testing.T) {
 
 	highRiskNoBrokerPolicy := filepath.Join(workDir, "policy_high_risk_no_broker.yaml")
 	if err := os.WriteFile(highRiskNoBrokerPolicy, []byte(strings.Join([]string{
-		"default_verdict: allow",
+		"default_verdict: block",
 		"rules:",
 		"  - name: high-risk-allow-without-broker",
 		"    effect: allow",
@@ -198,7 +198,7 @@ func TestCLIV17FailClosedMatrix(t *testing.T) {
 
 	highRiskWithBrokerPolicy := filepath.Join(workDir, "policy_high_risk_with_broker.yaml")
 	if err := os.WriteFile(highRiskWithBrokerPolicy, []byte(strings.Join([]string{
-		"default_verdict: allow",
+		"default_verdict: block",
 		"rules:",
 		"  - name: high-risk-allow-with-broker",
 		"    effect: allow",

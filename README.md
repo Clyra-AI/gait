@@ -111,6 +111,8 @@ gait check --json
 gait doctor --production-readiness --json
 ```
 
+In `oss-prod`, policies that set `default_verdict: allow` are rejected. Keep strict profiles on `block` or `require_approval`, then grant allow paths with explicit rules.
+
 Do not describe a deployment as hardened `oss-prod` until that readiness check returns `ok=true`.
 
 ## Why Gait
@@ -210,6 +212,8 @@ See [`examples/integrations/openai_agents/`](examples/integrations/openai_agents
 The official LangChain surface is middleware with optional callback correlation. Enforcement happens in `wrap_tool_call`; callbacks are additive only.
 
 `run_session(...)` and other Python run-capture helpers delegate digest completion to `gait run record` in Go rather than hashing artifact fields in Python. Normalize `set` values to JSON lists before calling the SDK; unsupported non-JSON values now fail deterministically instead of being coerced into digest-affecting output.
+
+`gait run record` defaults to `capture_mode=reference`: it computes `args_digest` and `result_digest`, keeps refs and receipts deterministic, and strips raw `intents[].args` and `results[].result` from the serialized runpack. Use `--capture-mode raw` only when you explicitly want sensitive payload retention; JSON output warns when raw capture is selected.
 
 ```bash
 (cd sdk/python && uv sync --extra langchain --extra dev)

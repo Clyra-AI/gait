@@ -5,8 +5,10 @@
 - Gate freeze-window rules can deterministically block or approval-gate production-impacting actions using policy-owned IANA timezones and replayable `--evaluation-time` inputs.
 - Gate sandbox posture rules can block high-risk `proc.exec` when network, filesystem, timeout, env exposure, privilege mode, or sandbox evidence metadata is missing or too permissive.
 - Gate generalized kill-switch state can block matching agents, identities, tools, targets, paths, workspaces, and environments with fail-closed behavior when configured state is unavailable in strict profiles.
+- `oss-prod` rejects policies that set `default_verdict: allow`; strict profiles must default to `block` or `require_approval` and use explicit allow rules.
 - Gate explain JSON gives machine-readable missing-state and fail-closed status so blocked or undecidable outcomes are not mistaken for silent success.
 - Provider-style credential broker receipts normalize refs and metadata only; raw secret-bearing broker payloads are rejected.
+- `gait run record` reference mode digests raw args/results and strips them from `intents.jsonl` and `results.jsonl`; raw payload retention is explicit via `--capture-mode raw` and is warned.
 - Approved-script promotion remains bounded by signed digest, explicit scope, and expiry; stale or mismatched entries fall back to normal approval or block behavior.
 - Authorization bundles detect tampered linked evidence even when the outer pack structure is otherwise intact.
 - Out-of-band emergency stop preemption blocks post-stop dispatches and records signed proof events.

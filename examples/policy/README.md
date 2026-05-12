@@ -88,6 +88,7 @@ Expected verdict matrix:
 High-risk note:
 
 - `base_high_risk.yaml` marks write actions with `require_broker_credential: true` for least-privilege brokering.
+- `oss-prod` rejects policies that set `default_verdict: allow`; keep strict profiles on `block` or `require_approval` and grant allow paths with explicit rules.
 - `base_high_risk.yaml` and `baseline-highrisk.yaml` accept scoped, time-bounded
   AWS STS, GitHub OIDC, and Vault-style dynamic credentials for covered
   high-risk write and deploy paths by default.
