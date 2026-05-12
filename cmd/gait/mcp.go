@@ -435,6 +435,9 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
+	if err := validatePolicyForGateProfile(policy, resolvedProfile); err != nil {
+		return mcpProxyOutput{}, exitInvalidInput, err
+	}
 
 	evalResult, err := mcp.EvaluateToolCallWithIntentOptions(policy, call, evalOptions, mcp.IntentOptions{
 		RequireExplicitContext: resolvedProfile == gateProfileOSSProd,

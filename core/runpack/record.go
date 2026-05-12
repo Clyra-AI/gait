@@ -68,6 +68,7 @@ func RecordRun(options RecordOptions) (RecordResult, error) {
 	if captureMode == "" {
 		captureMode = "reference"
 	}
+	intents, results = applyCaptureModePayloadPolicy(intents, results, captureMode)
 
 	runBytes, err := canonicalJSON(run)
 	if err != nil {
@@ -465,4 +466,21 @@ func digestJSONValue(value any) (string, error) {
 		return "", err
 	}
 	return jcs.DigestJCS(raw)
+}
+
+func applyCaptureModePayloadPolicy(
+	intents []schemarunpack.IntentRecord,
+	results []schemarunpack.ResultRecord,
+	captureMode string,
+) ([]schemarunpack.IntentRecord, []schemarunpack.ResultRecord) {
+	if !strings.EqualFold(strings.TrimSpace(captureMode), "reference") {
+		return intents, results
+	}
+	for index := range intents {
+		intents[index].Args = nil
+	}
+	for index := range results {
+		results[index].Result = nil
+	}
+	return intents, results
 }

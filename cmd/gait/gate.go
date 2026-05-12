@@ -14,6 +14,7 @@ import (
 
 	"github.com/Clyra-AI/gait/core/contextproof"
 	"github.com/Clyra-AI/gait/core/credential"
+	coreerrors "github.com/Clyra-AI/gait/core/errors"
 	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/projectconfig"
 	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
@@ -81,8 +82,9 @@ type gateEvalOutput struct {
 type gateEvalProfile string
 
 const (
-	gateProfileStandard gateEvalProfile = "standard"
-	gateProfileOSSProd  gateEvalProfile = "oss-prod"
+	gateProfileStandard            gateEvalProfile = "standard"
+	gateProfileOSSProd             gateEvalProfile = "oss-prod"
+	ossProdRejectDefaultAllowError                 = "oss-prod profile rejects policy default_verdict=allow; use default_verdict: block or require_approval"
 )
 
 func runGate(arguments []string) int {
@@ -266,6 +268,9 @@ func runGateEval(arguments []string) int {
 	policy, err := gate.LoadPolicyFile(policyPath)
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if err := validatePolicyForGateProfile(policy, resolvedProfile); err != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
 	}
 
 	intent, err := readIntentRequest(intentPath)
@@ -1353,6 +1358,22 @@ func parseGateEvalProfile(value string) (gateEvalProfile, error) {
 	default:
 		return "", fmt.Errorf("unsupported --profile value %q (expected standard or oss-prod)", value)
 	}
+}
+
+func validatePolicyForGateProfile(policy gate.Policy, profile gateEvalProfile) error {
+	if profile != gateProfileOSSProd {
+		return nil
+	}
+	if strings.EqualFold(strings.TrimSpace(policy.DefaultVerdict), "allow") {
+		return coreerrors.Wrap(
+			errors.New(ossProdRejectDefaultAllowError),
+			coreerrors.CategoryInvalidInput,
+			"invalid_input",
+			"check command usage and input schema",
+			false,
+		)
+	}
+	return nil
 }
 
 func joinCSV(values []string) string {

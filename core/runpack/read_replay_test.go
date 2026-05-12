@@ -490,6 +490,7 @@ func writeTestRunpackWithIntents(t *testing.T, runID string, intents []schemarun
 		Refs: schemarunpack.Refs{
 			RunID: runID,
 		},
+		CaptureMode: "raw",
 	})
 	if err != nil {
 		t.Fatalf("write runpack: %v", err)

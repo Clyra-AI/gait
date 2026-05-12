@@ -252,6 +252,8 @@ Producer obligations:
 - MUST generate byte-stable artifacts for identical inputs.
 - MUST use RFC 8785 (JCS) canonicalization for digest-bearing JSON.
 - MUST record `capture_mode` (`reference` default, `raw` explicit).
+- In `reference` capture, MUST compute digest-bearing fields before serialization and MUST omit raw `intents[].args` and `results[].result` from the emitted runpack.
+- In `raw` capture, MAY retain raw `intents[].args` and `results[].result`, but only when the caller explicitly selects raw capture.
 - SDK or wrapper helper inputs MAY omit digest-bearing fields only when a Go-authoritative normalization path computes them before artifact emission.
 
 Consumer obligations:
@@ -300,6 +302,7 @@ Consumer obligations:
   - `--context-envelope <path>`
   - `--context-evidence-mode best_effort|required`
   - `--unsafe-context-raw`
+  - `capture_mode=reference` strips raw intent/result payload objects after digesting; `capture_mode=raw` is explicit and operator-visible
   - additive normalization helpers may be used by thin SDK/wrapper lanes so Go computes digest-bearing record fields before runpack emission
 - `gait regress run`:
   - `--context-conformance`

@@ -19,7 +19,11 @@
     "created_at": { "type": "string", "format": "date-time" },
     "producer_version": { "type": "string" },
     "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
-    "capture_mode": { "type": "string", "enum": ["reference", "raw"] },
+    "capture_mode": {
+      "type": "string",
+      "enum": ["reference", "raw"],
+      "description": "reference stores digests and refs without raw intent/result payload objects; raw explicitly retains raw payloads."
+    },
     "files": {
       "type": "array",
       "items": {

@@ -48,6 +48,8 @@ For SDKs and wrappers, prefer the JSON form and treat the text form as human-fac
 
 `run_session(...)` and other Python run-capture helpers delegate digest-bearing artifact fields to `gait run record` in Go. Convert `set` values to JSON lists before calling the SDK; unsupported non-JSON payloads are rejected.
 
+`gait run record` defaults to `capture_mode=reference`: it computes digests, keeps receipts deterministic, and strips raw `intents[].args` and `results[].result` from the emitted runpack. Use `--capture-mode raw` only when you explicitly want sensitive payload retention.
+
 For binary discovery and install automation, use `gait version --json` (or `gait --version --json` / `gait -v --json`). `gait --help` is text-only and exits `0`.
 
 Context-required policies must pass `--context-envelope <context_envelope.json>` on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`; raw intent context claims are not authoritative by themselves.
@@ -79,6 +81,8 @@ curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/examples/config/
 gait check --json
 gait doctor --production-readiness --json
 ```
+
+In `oss-prod`, policies with `default_verdict: allow` are rejected. Use `block` or `require_approval` as the policy default, then grant allow paths with explicit rules.
 
 Do not treat `oss-prod` enforcement as production-ready until that doctor command reports `ok=true`.
 

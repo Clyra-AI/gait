@@ -950,6 +950,7 @@ func createVariantRunpackWithTool(t *testing.T, dir, runID, variant string, tool
 		Refs: schemarunpack.Refs{
 			RunID: runID,
 		},
+		CaptureMode: "raw",
 	})
 	if err != nil {
 		t.Fatalf("write variant runpack: %v", err)

@@ -491,6 +491,7 @@ func createRunpack(t *testing.T, dir, runID string) string {
 		Refs: schemarunpack.Refs{
 			RunID: runID,
 		},
+		CaptureMode: "raw",
 	})
 	if err != nil {
 		t.Fatalf("write runpack: %v", err)

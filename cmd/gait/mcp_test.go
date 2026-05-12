@@ -610,7 +610,15 @@ func TestRunMCPProxyOSSProdRequiresExplicitContext(t *testing.T) {
 	writePrivateKey(t, privateKeyPath)
 
 	policyPath := filepath.Join(workDir, "policy.yaml")
-	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: block",
+		"rules:",
+		"  - name: allow-search",
+		"    effect: allow",
+		"    match:",
+		"      tool_names: [tool.search]",
+		"      risk_classes: [high]",
+	}, "\n")+"\n")
 
 	missingContextPath := filepath.Join(workDir, "missing_context.json")
 	mustWriteFile(t, missingContextPath, `{
@@ -647,7 +655,7 @@ func TestRunMCPProxyOSSProdRequiresExplicitContext(t *testing.T) {
 	}
 }
 
-func TestRunMCPProxyOSSProdOAuthEvidenceValidation(t *testing.T) {
+func TestRunMCPProxyOSSProdRejectsPermissiveDefaultPolicy(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
 
@@ -656,6 +664,69 @@ func TestRunMCPProxyOSSProdOAuthEvidenceValidation(t *testing.T) {
 
 	policyPath := filepath.Join(workDir, "policy.yaml")
 	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	callPath := filepath.Join(workDir, "call.json")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.write",
+  "args":{"path":"/tmp/out.txt"},
+  "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+  "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1"}
+}`)
+
+	tracePath := filepath.Join(workDir, "trace.json")
+	runpackPath := filepath.Join(workDir, "runpack.zip")
+	packPath := filepath.Join(workDir, "pack.zip")
+	var code int
+	raw := captureStdout(t, func() {
+		code = runMCPProxy([]string{
+			"--policy", policyPath,
+			"--call", callPath,
+			"--profile", "oss-prod",
+			"--trace-out", tracePath,
+			"--runpack-out", runpackPath,
+			"--pack-out", packPath,
+			"--key-mode", "prod",
+			"--private-key", privateKeyPath,
+			"--json",
+		})
+	})
+	if code != exitInvalidInput {
+		t.Fatalf("runMCPProxy oss-prod permissive default expected %d got %d raw=%s", exitInvalidInput, code, raw)
+	}
+	var output mcpProxyOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode mcp proxy output: %v raw=%q", err, raw)
+	}
+	if output.OK || output.Error != ossProdRejectDefaultAllowError {
+		t.Fatalf("unexpected mcp proxy output for permissive default: %#v", output)
+	}
+	if output.TracePath != "" || output.RunpackPath != "" || output.PackPath != "" {
+		t.Fatalf("expected no artifact paths for rejected permissive default, got %#v", output)
+	}
+	for _, path := range []string{tracePath, runpackPath, packPath} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("expected no artifact at %s, stat err=%v", path, err)
+		}
+	}
+}
+
+func TestRunMCPProxyOSSProdOAuthEvidenceValidation(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	privateKeyPath := filepath.Join(workDir, "trace_private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: block",
+		"rules:",
+		"  - name: allow-search",
+		"    effect: allow",
+		"    match:",
+		"      tool_names: [tool.search]",
+		"      risk_classes: [high]",
+	}, "\n")+"\n")
 
 	missingEvidencePath := filepath.Join(workDir, "oauth_missing_evidence.json")
 	mustWriteFile(t, missingEvidencePath, `{

@@ -336,6 +336,73 @@ func TestMCPServeHandlerRejectsMissingOAuthEvidenceInOSSProd(t *testing.T) {
 	}
 }
 
+func TestMCPServeHandlerRejectsPermissiveDefaultPolicyInOSSProd(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	privateKeyPath := filepath.Join(workDir, "trace_private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	traceDir := filepath.Join(workDir, "traces")
+	runpackDir := filepath.Join(workDir, "runpacks")
+	packDir := filepath.Join(workDir, "packs")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:     policyPath,
+		DefaultAdapter: "mcp",
+		Profile:        "oss-prod",
+		TraceDir:       traceDir,
+		RunpackDir:     runpackDir,
+		PackDir:        packDir,
+		KeyMode:        "prod",
+		PrivateKey:     privateKeyPath,
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "run_id":"run_mcp_server_reject",
+	  "emit_runpack":true,
+	  "emit_pack":true,
+	  "call":{
+	    "name":"tool.write",
+	    "args":{"path":"/tmp/out.txt"},
+	    "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
+	    "context":{
+	      "identity":"alice",
+	      "workspace":"/repo/gait",
+	      "risk_class":"high",
+	      "session_id":"sess-1"
+	    }
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d got %d body=%s", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error response: %v", err)
+	}
+	if payload["error"] != ossProdRejectDefaultAllowError {
+		t.Fatalf("unexpected error payload: %#v", payload)
+	}
+	for _, dir := range []string{traceDir, runpackDir, packDir} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatalf("read dir %s: %v", dir, err)
+		}
+		if len(entries) != 0 {
+			t.Fatalf("expected no emitted artifacts in %s, found %d", dir, len(entries))
+		}
+	}
+}
+
 func TestMCPServeHandlerEvaluateBlockVerdict(t *testing.T) {
 	workDir := t.TempDir()
 	policyPath := filepath.Join(workDir, "policy.yaml")

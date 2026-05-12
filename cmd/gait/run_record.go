@@ -42,6 +42,11 @@ type runRecordOutput struct {
 	Error           string   `json:"error,omitempty"`
 }
 
+const (
+	runRecordRawCaptureWarning     = "raw capture retains raw intent arguments and raw result payloads; handle runpack as sensitive evidence"
+	runRecordReferenceStripWarning = "reference capture stripped raw intent arguments and raw result payloads after digesting"
+)
+
 func runRecord(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Create a signed and verifiable runpack zip from normalized run, intent, result, and reference receipt records.")
@@ -221,6 +226,7 @@ func runRecord(arguments []string) int {
 			Error: "context evidence mode required but context_set_digest is missing",
 		}, exitInvalidInput)
 	}
+	captureWarnings := captureModeWarnings(recordInput, resolvedCaptureMode)
 	if signingRequested {
 		resolvedMode := strings.ToLower(strings.TrimSpace(keyMode))
 		if resolvedMode == "" {
@@ -279,7 +285,7 @@ func runRecord(arguments []string) int {
 		ManifestDigest:  result.Manifest.ManifestDigest,
 		SignatureStatus: signatureStatus,
 		SignatureKeyID:  signatureKeyID,
-		Warnings:        signingWarnings,
+		Warnings:        append(captureWarnings, signingWarnings...),
 		TicketFooter:    ticketFooter,
 	}, exitOK)
 }
@@ -347,4 +353,30 @@ func hasRawContextReceipts(receipts []schemarunpack.RefReceipt) bool {
 		}
 	}
 	return false
+}
+
+func captureModeWarnings(input runRecordInput, captureMode string) []string {
+	switch strings.ToLower(strings.TrimSpace(captureMode)) {
+	case "raw":
+		return []string{runRecordRawCaptureWarning}
+	case "reference":
+		if runRecordHasRawPayloads(input) {
+			return []string{runRecordReferenceStripWarning}
+		}
+	}
+	return nil
+}
+
+func runRecordHasRawPayloads(input runRecordInput) bool {
+	for _, intent := range input.Intents {
+		if len(intent.Args) > 0 {
+			return true
+		}
+	}
+	for _, result := range input.Results {
+		if len(result.Result) > 0 {
+			return true
+		}
+	}
+	return len(input.Normalization.IntentArgs) > 0 || len(input.Normalization.ResultPayloads) > 0
 }

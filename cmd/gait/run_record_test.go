@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	runpackcore "github.com/Clyra-AI/gait/core/runpack"
 	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 )
@@ -93,6 +94,84 @@ func TestRunRecordUnsafeContextRawGate(t *testing.T) {
 	}
 	if !withUnsafeOut.OK || withUnsafeOut.Bundle == "" {
 		t.Fatalf("expected successful run record output with bundle path, got %#v", withUnsafeOut)
+	}
+}
+
+func TestRunRecordCaptureModeWarningsAndArtifactPrivacy(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	input := runRecordInput{
+		Run: schemarunpack.Run{
+			RunID: "run_record_capture_privacy",
+		},
+		Intents: []schemarunpack.IntentRecord{{
+			IntentID: "intent_1",
+			ToolName: "tool.demo",
+			Args: map[string]any{
+				"path":   "/tmp/out.txt",
+				"secret": "reference-secret-arg",
+			},
+		}},
+		Results: []schemarunpack.ResultRecord{{
+			IntentID: "intent_1",
+			Status:   "ok",
+			Result: map[string]any{
+				"ok":     true,
+				"secret": "reference-secret-result",
+			},
+		}},
+		Refs: schemarunpack.Refs{
+			RunID: "run_record_capture_privacy",
+		},
+	}
+	inputPath := filepath.Join(workDir, "run_record_capture_privacy.json")
+	rawInput, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("marshal run record input: %v", err)
+	}
+	if err := os.WriteFile(inputPath, rawInput, 0o600); err != nil {
+		t.Fatalf("write run record input: %v", err)
+	}
+
+	referenceCode, referenceOut := runRecordJSON(t, []string{
+		"--input", inputPath,
+		"--out-dir", filepath.Join(workDir, "reference-out"),
+		"--capture-mode", "reference",
+		"--json",
+	})
+	if referenceCode != exitOK {
+		t.Fatalf("expected reference capture success, got %d output=%#v", referenceCode, referenceOut)
+	}
+	if !containsString(referenceOut.Warnings, runRecordReferenceStripWarning) {
+		t.Fatalf("expected reference strip warning, got %#v", referenceOut.Warnings)
+	}
+	referencePack, err := runpackcore.ReadRunpack(referenceOut.Bundle)
+	if err != nil {
+		t.Fatalf("read reference runpack: %v", err)
+	}
+	if referencePack.Intents[0].Args != nil || referencePack.Results[0].Result != nil {
+		t.Fatalf("expected stripped reference-mode payloads, got %#v %#v", referencePack.Intents[0].Args, referencePack.Results[0].Result)
+	}
+
+	rawCode, rawOut := runRecordJSON(t, []string{
+		"--input", inputPath,
+		"--out-dir", filepath.Join(workDir, "raw-out"),
+		"--capture-mode", "raw",
+		"--json",
+	})
+	if rawCode != exitOK {
+		t.Fatalf("expected raw capture success, got %d output=%#v", rawCode, rawOut)
+	}
+	if !containsString(rawOut.Warnings, runRecordRawCaptureWarning) {
+		t.Fatalf("expected raw capture warning, got %#v", rawOut.Warnings)
+	}
+	rawPack, err := runpackcore.ReadRunpack(rawOut.Bundle)
+	if err != nil {
+		t.Fatalf("read raw runpack: %v", err)
+	}
+	if rawPack.Intents[0].Args == nil || rawPack.Results[0].Result == nil {
+		t.Fatalf("expected retained raw-mode payloads, got %#v %#v", rawPack.Intents[0].Args, rawPack.Results[0].Result)
 	}
 }
 
