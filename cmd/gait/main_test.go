@@ -3836,7 +3836,7 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 		"    rate_limit:",
 		"      requests: 1",
 		"      scope: tool_identity",
-		"      window: minute",
+		"      window: hour",
 		"    match:",
 		"      tool_names: [tool.write]",
 	}, "\n")+"\n")
@@ -4150,7 +4150,7 @@ func TestGateEvalDestructiveBudgetAppliesToScriptTargets(t *testing.T) {
 		"    destructive_budget:",
 		"      requests: 1",
 		"      scope: tool_identity",
-		"      window: minute",
+		"      window: hour",
 		"    match:",
 		"      endpoint_classes: [fs.delete]",
 	}, "\n")+"\n")
