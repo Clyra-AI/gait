@@ -32,6 +32,7 @@ type GateDefaults struct {
 	ApprovalPublicKeyEnv   string `yaml:"approval_public_key_env"`
 	ApprovalPrivateKey     string `yaml:"approval_private_key"`
 	ApprovalPrivateKeyEnv  string `yaml:"approval_private_key_env"`
+	KillSwitchState        string `yaml:"kill_switch_state"`
 	RateLimitState         string `yaml:"rate_limit_state"`
 	CredentialBroker       string `yaml:"credential_broker"`
 	CredentialEnvPrefix    string `yaml:"credential_env_prefix"`
@@ -96,6 +97,7 @@ func (configuration *Config) normalize() {
 	configuration.Gate.ApprovalPublicKeyEnv = strings.TrimSpace(configuration.Gate.ApprovalPublicKeyEnv)
 	configuration.Gate.ApprovalPrivateKey = strings.TrimSpace(configuration.Gate.ApprovalPrivateKey)
 	configuration.Gate.ApprovalPrivateKeyEnv = strings.TrimSpace(configuration.Gate.ApprovalPrivateKeyEnv)
+	configuration.Gate.KillSwitchState = strings.TrimSpace(configuration.Gate.KillSwitchState)
 	configuration.Gate.RateLimitState = strings.TrimSpace(configuration.Gate.RateLimitState)
 	configuration.Gate.CredentialBroker = strings.TrimSpace(configuration.Gate.CredentialBroker)
 	configuration.Gate.CredentialEnvPrefix = strings.TrimSpace(configuration.Gate.CredentialEnvPrefix)

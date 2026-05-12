@@ -519,6 +519,43 @@ func TestRunApproveAndListScriptsHelpAndValidation(t *testing.T) {
 	}
 }
 
+func TestTrustGraduationPolicyFixtures(t *testing.T) {
+	repoRoot := repoRootFromPackageDir(t)
+	tests := []struct {
+		name         string
+		policyPath   string
+		intentPath   string
+		wantExitCode int
+	}{
+		{
+			name:         "read_only_allow_allows_read",
+			policyPath:   filepath.Join(repoRoot, "examples", "policy", "trust_graduation", "read_only_allow.yaml"),
+			intentPath:   filepath.Join(repoRoot, "examples", "policy", "intents", "intent_read.json"),
+			wantExitCode: exitOK,
+		},
+		{
+			name:         "approval_gated_write_requires_approval",
+			policyPath:   filepath.Join(repoRoot, "examples", "policy", "trust_graduation", "approval_gated_write.yaml"),
+			intentPath:   filepath.Join(repoRoot, "examples", "policy", "intents", "intent_write.json"),
+			wantExitCode: exitApprovalRequired,
+		},
+		{
+			name:         "blocked_destructive_blocks_delete",
+			policyPath:   filepath.Join(repoRoot, "examples", "policy", "trust_graduation", "blocked_destructive.yaml"),
+			intentPath:   filepath.Join(repoRoot, "examples", "policy", "intents", "intent_delete.json"),
+			wantExitCode: exitPolicyBlocked,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if code := runPolicyTest([]string{test.policyPath, test.intentPath, "--json"}); code != test.wantExitCode {
+				t.Fatalf("runPolicyTest expected %d got %d", test.wantExitCode, code)
+			}
+		})
+	}
+}
+
 func mustWriteScriptIntentFixture(t *testing.T, path string) {
 	t.Helper()
 	intent := scriptIntentFixture("high")

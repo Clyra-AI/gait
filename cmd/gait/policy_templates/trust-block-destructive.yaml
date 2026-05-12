@@ -1,0 +1,14 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: block
+rules:
+  - name: allow-read
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [tool.read]
+  - name: block-delete
+    priority: 20
+    effect: block
+    match:
+      tool_names: [tool.delete]

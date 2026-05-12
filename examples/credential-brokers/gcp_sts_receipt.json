@@ -1,0 +1,10 @@
+{
+  "provider": "gcp_sts",
+  "principal": "principal://iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/pool/subject/release-bot",
+  "scope": ["write"],
+  "issued_at": "2026-05-09T12:00:00Z",
+  "expires_at": "2026-05-09T12:10:00Z",
+  "target_binding": "binding-1",
+  "run_binding": "run-1",
+  "job_binding": "job-1"
+}

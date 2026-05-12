@@ -22,6 +22,15 @@ Default rollout sequence:
 2. `gait gate eval --policy <policy.yaml> --intent <intent.json> --simulate --json`
 3. `gait gate eval --policy <policy.yaml> --intent <intent.json> --json`
 
+Named stage examples live under `examples/policy/trust_graduation/`:
+
+- `observe.yaml`
+- `dry_run.yaml`
+- `read_only_allow.yaml`
+- `approval_gated_write.yaml`
+- `brokered_write.yaml`
+- `blocked_destructive.yaml`
+
 ## Stage 0: Fixture Baseline In CI
 
 Run deterministic policy fixture tests on every PR:
@@ -140,6 +149,14 @@ gait gate eval \
   --approved-script-public-key ./approval_public.key \
   --json
 ```
+
+Promotion guardrails:
+
+- keep promotion scoped with `--scope` values such as `risk:low` and
+  `workspace_prefix:/repo`
+- expired or scope-mismatched approved-script entries must fall back to normal
+  policy evaluation
+- brokered-write stages still require valid JIT credential evidence
 
 Rollout gate:
 

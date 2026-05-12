@@ -46,7 +46,7 @@ func NormalizeApprovedScriptEntry(input schemagate.ApprovedScriptEntry) (schemag
 	output.ScriptHash = strings.ToLower(strings.TrimSpace(output.ScriptHash))
 	output.ApproverIdentity = strings.TrimSpace(output.ApproverIdentity)
 	output.ToolSequence = normalizeStringListLower(output.ToolSequence)
-	output.Scope = normalizeStringList(output.Scope)
+	output.Scope = normalizeStringListLower(output.Scope)
 	output.CreatedAt = output.CreatedAt.UTC()
 	output.ExpiresAt = output.ExpiresAt.UTC()
 	if output.CreatedAt.IsZero() {
@@ -262,6 +262,9 @@ func MatchApprovedScript(intent schemagate.IntentRequest, policyDigest string, e
 		if !stringSliceEqual(normalizeStringListLower(entry.ToolSequence), sequence) {
 			continue
 		}
+		if !approvedScriptScopeMatches(normalized, entry.Scope) {
+			continue
+		}
 		return ApprovedScriptMatch{
 			Matched:   true,
 			PatternID: entry.PatternID,
@@ -292,6 +295,56 @@ func stringSliceEqual(left []string, right []string) bool {
 	}
 	for index := range left {
 		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func approvedScriptScopeMatches(intent schemagate.IntentRequest, scope []string) bool {
+	if len(scope) == 0 {
+		return true
+	}
+	for _, rawScope := range normalizeStringListLower(scope) {
+		switch {
+		case strings.HasPrefix(rawScope, "risk:"):
+			if strings.ToLower(strings.TrimSpace(intent.Context.RiskClass)) != strings.TrimPrefix(rawScope, "risk:") {
+				return false
+			}
+		case strings.HasPrefix(rawScope, "tool:"):
+			if strings.ToLower(strings.TrimSpace(intent.ToolName)) != strings.TrimPrefix(rawScope, "tool:") {
+				return false
+			}
+		case strings.HasPrefix(rawScope, "workspace_prefix:"):
+			prefix := strings.TrimPrefix(rawScope, "workspace_prefix:")
+			workspace := filepath.ToSlash(filepath.Clean(strings.TrimSpace(intent.Context.Workspace)))
+			if workspace != prefix && !strings.HasPrefix(workspace, prefix+"/") {
+				return false
+			}
+		case strings.HasPrefix(rawScope, "endpoint:"):
+			endpointClass := strings.TrimPrefix(rawScope, "endpoint:")
+			matched := false
+			if intent.Script != nil {
+				for _, step := range intent.Script.Steps {
+					for _, target := range step.Targets {
+						if strings.ToLower(strings.TrimSpace(target.EndpointClass)) == endpointClass {
+							matched = true
+							break
+						}
+					}
+				}
+			} else {
+				for _, target := range intent.Targets {
+					if strings.ToLower(strings.TrimSpace(target.EndpointClass)) == endpointClass {
+						matched = true
+						break
+					}
+				}
+			}
+			if !matched {
+				return false
+			}
+		default:
 			return false
 		}
 	}

@@ -1,0 +1,17 @@
+{
+  "schema_id": "gait.gate.kill_switch_state",
+  "schema_version": "1.0.0",
+  "created_at": "2026-05-09T12:00:00Z",
+  "updated_at": "2026-05-09T12:00:00Z",
+  "producer_version": "0.0.0-example",
+  "entries": [
+    {
+      "entry_id": "identity-stop",
+      "enabled": true,
+      "identity": "alice",
+      "reason": "incident freeze",
+      "actor": "secops",
+      "created_at": "2026-05-09T12:00:00Z"
+    }
+  ]
+}

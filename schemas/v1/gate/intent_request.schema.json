@@ -246,6 +246,42 @@
         "approval_ref": { "type": "string", "minLength": 1 },
         "wrkr_inventory_ref": { "type": "string", "minLength": 1 },
         "agent_action_bom_ref": { "type": "string", "minLength": 1 },
+        "sandbox": {
+          "type": "object",
+          "properties": {
+            "network_mode": {
+              "type": "string",
+              "enum": ["disabled", "egress_allowlist", "full"]
+            },
+            "writable_paths": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "read_only_roots": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "env_exposure_mode": {
+              "type": "string",
+              "enum": ["none", "allowlist", "full"]
+            },
+            "timeout_seconds": { "type": "integer", "minimum": 0 },
+            "filesystem_isolation": {
+              "type": "string",
+              "enum": ["none", "workspace", "container"]
+            },
+            "user_mode": {
+              "type": "string",
+              "enum": ["default", "root", "unprivileged"]
+            },
+            "evidence_ref": { "type": "string", "minLength": 1 },
+            "evidence_digest": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{64}$"
+            }
+          },
+          "additionalProperties": false
+        },
         "auth_context": {
           "type": "object",
           "additionalProperties": true

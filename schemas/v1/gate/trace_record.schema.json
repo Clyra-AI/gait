@@ -108,6 +108,56 @@
     "violations": { "type": "array", "items": { "type": "string" }, "default": [] },
     "latency_ms": { "type": "number" },
     "approval_token_ref": { "type": "string" },
+    "freeze_window": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["active", "inactive", "invalid"] },
+        "effect": { "type": "string", "enum": ["block", "require_approval"] },
+        "timezone": { "type": "string", "minLength": 1 },
+        "evaluated_at": { "type": "string", "format": "date-time" },
+        "window_name": { "type": "string", "minLength": 1 },
+        "window_start": { "type": "string", "format": "date-time" },
+        "window_end": { "type": "string", "format": "date-time" },
+        "reason": { "type": "string", "minLength": 1 },
+        "reason_code": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "sandbox": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["disallowed", "invalid", "missing", "valid"] },
+        "network_mode": { "type": "string", "enum": ["disabled", "egress_allowlist", "full"] },
+        "env_exposure_mode": { "type": "string", "enum": ["allowlist", "full", "none"] },
+        "timeout_seconds": { "type": "integer", "minimum": 0 },
+        "filesystem_isolation": { "type": "string", "enum": ["container", "none", "workspace"] },
+        "user_mode": { "type": "string", "enum": ["default", "root", "unprivileged"] },
+        "evidence_ref": { "type": "string", "minLength": 1 },
+        "evidence_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "reason_codes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "kill_switch": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["active", "inactive", "unavailable"] },
+        "reason_code": { "type": "string", "minLength": 1 },
+        "reason_codes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "matched_entry_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "evaluated_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
     "mcp_trust": {
       "type": "object",
       "properties": {

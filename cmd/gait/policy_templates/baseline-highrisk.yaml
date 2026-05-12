@@ -18,6 +18,14 @@ rules:
   - name: allow-delegated-egress-write
     priority: 15
     effect: allow
+    block_standing_credentials: true
+    allowed_credential_sources: [aws_sts, github_oidc, vault_dynamic]
+    allowed_credential_issuers: [sts.amazonaws.com, token.actions.githubusercontent.com, vault.example]
+    allowed_credential_access_types: [jit]
+    max_credential_ttl_seconds: 900
+    require_jit_credential: true
+    broker_reference: highrisk-egress
+    broker_scopes: [write]
     match:
       tool_names: [tool.write]
       risk_classes: [high, critical]
@@ -48,6 +56,12 @@ rules:
     effect: require_approval
     min_approvals: 2
     require_distinct_approvers: true
+    block_standing_credentials: true
+    allowed_credential_sources: [aws_sts, github_oidc, vault_dynamic]
+    allowed_credential_issuers: [sts.amazonaws.com, token.actions.githubusercontent.com, vault.example]
+    allowed_credential_access_types: [jit]
+    max_credential_ttl_seconds: 900
+    require_jit_credential: true
     require_broker_credential: true
     broker_reference: highrisk-egress
     broker_scopes: [write]
@@ -55,11 +69,31 @@ rules:
       tool_names: [tool.write]
     reason_codes: [approval_required_for_write]
     violations: [approval_required]
+  - name: require-approval-tool-deploy
+    priority: 20
+    effect: require_approval
+    min_approvals: 2
+    require_distinct_approvers: true
+    block_standing_credentials: true
+    allowed_credential_sources: [aws_sts, github_oidc, vault_dynamic]
+    allowed_credential_issuers: [sts.amazonaws.com, token.actions.githubusercontent.com, vault.example]
+    allowed_credential_access_types: [jit]
+    max_credential_ttl_seconds: 900
+    require_jit_credential: true
+    require_broker_credential: true
+    broker_reference: highrisk-deploy
+    broker_scopes: [deploy]
+    match:
+      tool_names: [tool.deploy]
+    reason_codes: [approval_required_for_deploy]
+    violations: [approval_required]
   - name: destructive-budget-guard
     priority: 18
     effect: require_approval
     match:
       risk_classes: [high, critical]
+      tool_annotations:
+        destructiveHint: true
     endpoint:
       enabled: true
       destructive_action: require_approval

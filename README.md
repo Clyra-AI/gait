@@ -165,6 +165,31 @@ broker receipt evidence are all now first-class authorization inputs. See
 [`docs/contracts/agent_identity.md`](docs/contracts/agent_identity.md),
 [`docs/contracts/credential_provenance.md`](docs/contracts/credential_provenance.md),
 and [`docs/contracts/broker_receipt.md`](docs/contracts/broker_receipt.md).
+The `baseline-highrisk` templates treat covered write and deploy paths as
+JIT-only by default: AWS STS, GitHub OIDC, and Vault-style dynamic credentials
+are accepted when scoped and time-bounded, while standing PATs, IAM users,
+inherited environment credentials, and unknown provenance block with explicit
+reason codes. Gate policies can also define deterministic freeze windows for
+production-impacting actions and replay them with
+`gait gate eval --evaluation-time <rfc3339> --json`.
+High-risk `proc.exec` and generated-code paths can now carry structured sandbox
+metadata so Gate can validate bounded network, filesystem, timeout, and
+privilege posture without ingesting raw environment contents.
+Gate can also apply schema-backed kill-switch state for emergency stop coverage
+across matching agents, identities, tools, targets, paths, workspaces, and
+environments.
+For machine consumers, `gait gate eval --explain --json` now returns a
+schema-backed explanation object instead of prose-only guidance.
+Provider-style JIT broker receipts for AWS STS, GitHub OIDC, Vault, GCP,
+Azure, and Okta/CyberArk-style flows can now normalize into the shared broker
+evidence contract with offline stub recipes under
+[`examples/credential-brokers/`](examples/credential-brokers/).
+For staged rollout, named trust-graduation policies now cover observe, dry-run,
+read-only allow, approval-gated write, brokered write, and blocked destructive
+phases under [`examples/policy/trust_graduation/`](examples/policy/trust_graduation/).
+Authorization evidence can now be packed as an `authorization` bundle through
+`gait pack build --type authorization --from <authorization_bundle.json>` and
+verified offline with `gait pack verify`.
 
 ## Runtime Integration Paths
 

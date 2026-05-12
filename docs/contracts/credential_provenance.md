@@ -41,6 +41,25 @@ Policy rules can enforce:
 - `max_credential_ttl_seconds`
 - `require_jit_credential`
 
+The high-risk baseline templates now use those fields to make covered write and
+deploy paths JIT-only by default:
+
+- accepted sources: `aws_sts`, `github_oidc`, `vault_dynamic`
+- accepted issuers: `sts.amazonaws.com`,
+  `token.actions.githubusercontent.com`, `vault.example`
+- accepted access type: `jit`
+- default TTL ceiling: `900` seconds
+
+Representative fixtures live under `examples/policy/credentials/` for:
+
+- AWS STS allow
+- GitHub OIDC allow
+- Vault dynamic allow
+- GitHub PAT/static block
+- AWS IAM user/cloud-admin block
+- inherited environment credential block
+- unknown provenance block
+
 Representative block reasons:
 
 - `standing_credential_disallowed`
