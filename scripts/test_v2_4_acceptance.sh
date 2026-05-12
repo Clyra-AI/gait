@@ -208,7 +208,10 @@ if [[ $BLOCKED_CODE -eq 0 ]]; then
   echo "expected replay with --real-tools only to fail" >&2
   exit 1
 fi
-GAIT_ALLOW_REAL_REPLAY=1 "$BIN_PATH" run replay "$WORK_DIR/gait-out/runpack_run_tck.zip" --real-tools --unsafe-real-tools --allow-tools echo --json > "$WORK_DIR/replay_real.json"
+
+mkdir -p "$WORK_DIR/gait-out-raw"
+"$BIN_PATH" run record --input "$WORK_DIR/run_record_input.json" --out-dir "$WORK_DIR/gait-out-raw" --capture-mode raw --key-mode dev --json > "$WORK_DIR/run_record_raw.json"
+GAIT_ALLOW_REAL_REPLAY=1 "$BIN_PATH" run replay "$WORK_DIR/gait-out-raw/runpack_run_tck.zip" --real-tools --unsafe-real-tools --allow-tools echo --json > "$WORK_DIR/replay_real.json"
 
 python3 - "$WORK_DIR/replay_real.json" <<'PY'
 import json
