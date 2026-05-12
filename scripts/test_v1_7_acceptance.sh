@@ -225,7 +225,7 @@ private_key_path="$WORK_DIR/trace_private.key"
 generate_private_key_file "$private_key_path"
 
 cat >"$WORK_DIR/high_risk_no_broker.yaml" <<'YAML'
-default_verdict: allow
+default_verdict: block
 rules:
   - name: high-risk-allow-without-broker
     effect: allow
@@ -277,7 +277,7 @@ if ! grep -q "require_broker_credential" "$WORK_DIR/fail_closed_missing_signals.
 fi
 
 cat >"$WORK_DIR/high_risk_with_broker.yaml" <<'YAML'
-default_verdict: allow
+default_verdict: block
 rules:
   - name: high-risk-allow-with-broker
     effect: allow
