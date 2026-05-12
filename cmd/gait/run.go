@@ -312,7 +312,7 @@ func printRunUsage() {
 func printReplayUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools --allow-tools <csv> --unsafe-real-tools-env <VAR>] [--explain]")
-	fmt.Println("  note: default mode replays recorded/stubbed results; real execution requires explicit unsafe controls.")
+	fmt.Println("  note: default mode replays recorded/stubbed results; real execution requires explicit unsafe controls and a raw-capture runpack.")
 }
 
 func runReduce(arguments []string) int {
