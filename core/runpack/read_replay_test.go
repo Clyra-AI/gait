@@ -296,6 +296,15 @@ func TestReplayRealRequiresAllowlist(t *testing.T) {
 	}
 }
 
+func TestReplayRealRejectsReferenceModeRunpack(t *testing.T) {
+	path := writeTestRunpackWithCaptureMode(t, "run_replay_real_reference", buildIntents("intent_1"), buildResults("intent_1"), "reference")
+	if _, err := ReplayReal(path, RealReplayOptions{AllowTools: []string{"tool.demo"}}); err == nil {
+		t.Fatalf("expected replay real to reject reference-mode runpacks")
+	} else if !strings.Contains(err.Error(), "capture_mode=raw") {
+		t.Fatalf("expected raw-capture guidance, got %v", err)
+	}
+}
+
 func TestReplayRealExecutesAllowedToolsAndKeepsRecordedFallback(t *testing.T) {
 	workDir := t.TempDir()
 	outputPath := filepath.Join(workDir, "out.txt")
@@ -474,6 +483,10 @@ func writeTestRunpack(t *testing.T, runID string, intents []schemarunpack.Intent
 }
 
 func writeTestRunpackWithIntents(t *testing.T, runID string, intents []schemarunpack.IntentRecord, results []schemarunpack.ResultRecord) string {
+	return writeTestRunpackWithCaptureMode(t, runID, intents, results, "raw")
+}
+
+func writeTestRunpackWithCaptureMode(t *testing.T, runID string, intents []schemarunpack.IntentRecord, results []schemarunpack.ResultRecord, captureMode string) string {
 	run := schemarunpack.Run{
 		RunID:     runID,
 		CreatedAt: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
@@ -490,7 +503,7 @@ func writeTestRunpackWithIntents(t *testing.T, runID string, intents []schemarun
 		Refs: schemarunpack.Refs{
 			RunID: runID,
 		},
-		CaptureMode: "raw",
+		CaptureMode: captureMode,
 	})
 	if err != nil {
 		t.Fatalf("write runpack: %v", err)

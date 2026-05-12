@@ -3840,8 +3840,26 @@ func TestRunReplayUnsafeRequiresAllowToolsAndEnv(t *testing.T) {
 	}
 
 	t.Setenv("GAIT_ALLOW_REAL_REPLAY", "1")
-	if code := runReplay([]string{"--json", "--real-tools", "--unsafe-real-tools", "--allow-tools", "tool.write", "run_demo"}); code != exitOK {
-		t.Fatalf("runReplay with env interlock: expected %d got %d", exitOK, code)
+	if code := runReplay([]string{"--json", "--real-tools", "--unsafe-real-tools", "--allow-tools", "tool.write", "run_demo"}); code != exitInvalidInput {
+		t.Fatalf("runReplay reference-mode guard: expected %d got %d", exitInvalidInput, code)
+	}
+
+	run, intents, results, refs, err := buildDemoRunpack()
+	if err != nil {
+		t.Fatalf("buildDemoRunpack: %v", err)
+	}
+	rawPath := filepath.Join(workDir, "runpack_run_demo_raw.zip")
+	if _, err := runpack.WriteRunpack(rawPath, runpack.RecordOptions{
+		Run:         run,
+		Intents:     intents,
+		Results:     results,
+		Refs:        refs,
+		CaptureMode: "raw",
+	}); err != nil {
+		t.Fatalf("write raw replay runpack: %v", err)
+	}
+	if code := runReplay([]string{"--json", "--real-tools", "--unsafe-real-tools", "--allow-tools", "tool.write", rawPath}); code != exitOK {
+		t.Fatalf("runReplay raw capture success: expected %d got %d", exitOK, code)
 	}
 }
 

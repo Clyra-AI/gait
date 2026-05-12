@@ -67,6 +67,9 @@ func replay(path string, mode ReplayMode, allowSet map[string]struct{}) (ReplayR
 	if err != nil {
 		return ReplayResult{}, err
 	}
+	if mode == ReplayModeReal && strings.EqualFold(strings.TrimSpace(pack.Manifest.CaptureMode), "reference") {
+		return ReplayResult{}, fmt.Errorf("real replay requires capture_mode=raw; reference-mode runpacks strip raw tool inputs")
+	}
 	seenIntents := make(map[string]struct{}, len(pack.Intents))
 	for _, intent := range pack.Intents {
 		if _, exists := seenIntents[intent.IntentID]; exists {
