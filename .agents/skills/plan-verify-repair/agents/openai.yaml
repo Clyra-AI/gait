@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Verify Repair"
+  short_description: "Verify plans and repair all gaps"
+  default_prompt: "Use $plan-verify-repair to verify implemented plans against source requirements, run all required tests, and repair every gap."
