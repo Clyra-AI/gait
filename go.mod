@@ -1,6 +1,6 @@
 module github.com/Clyra-AI/gait
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/Clyra-AI/proof v0.4.6
