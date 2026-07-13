@@ -18,9 +18,11 @@ PACKAGES=(next react react-dom typescript eslint-config-next)
 failed=0
 for pkg in "${PACKAGES[@]}"; do
   current="$(node -e "const p=require(process.argv[1]);const v=(p.dependencies&&p.dependencies[process.argv[2]])||(p.devDependencies&&p.devDependencies[process.argv[2]])||'';process.stdout.write(v);" "$PACKAGE_JSON" "$pkg")"
-  latest="$(npm view "$pkg" version)"
+  normalized_current="${current#^}"
+  normalized_current="${normalized_current#~}"
+  latest="$(node -e 'const {execSync}=require("node:child_process"); const [pkg, current] = process.argv.slice(1); const out = execSync(`npm view "${pkg}@^${current}" version --json`, {encoding: "utf8"}).trim(); const parsed = JSON.parse(out); process.stdout.write(Array.isArray(parsed) ? parsed[parsed.length - 1] : parsed);' "$pkg" "$normalized_current")"
   if [[ "$current" != "$latest" ]]; then
-    echo "stale dependency: $pkg current=$current latest=$latest"
+    echo "stale dependency: $pkg current=$current latest-compatible=$latest"
     failed=1
   else
     echo "ok: $pkg $current"
