@@ -448,13 +448,7 @@ func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 		return err
 	}
 	directory := filepath.Dir(abs)
-	if _, err := os.Stat(directory); err != nil {
-		return err
-	}
-	if directoryInfo, err := os.Lstat(directory); err != nil || directoryInfo.Mode()&os.ModeSymlink != 0 || !directoryInfo.IsDir() {
-		return errors.New("activation output directory must not be a symlink")
-	}
-	resolvedDirectory, err := filepath.EvalSymlinks(directory)
+	resolvedDirectory, err := validateOutputDirectory(directory)
 	if err != nil {
 		return err
 	}
@@ -525,6 +519,34 @@ func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 		return err
 	}
 	return nil
+}
+
+func validateOutputDirectory(directory string) (string, error) {
+	absolute, err := filepath.Abs(filepath.Clean(directory))
+	if err != nil {
+		return "", err
+	}
+	for current := absolute; ; current = filepath.Dir(current) {
+		info, err := os.Lstat(current)
+		if err != nil {
+			return "", err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return "", errors.New("activation output directory must not contain symlinks")
+		}
+		if !info.IsDir() {
+			return "", errors.New("activation output directory must be a directory")
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+	}
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", err
+	}
+	return resolved, nil
 }
 
 func ValidateArtifactBytes(raw []byte, options ValidationOptions) (Artifact, ValidationResult) {

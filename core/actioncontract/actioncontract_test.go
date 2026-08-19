@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -302,7 +303,7 @@ func TestWriteActivatedArtifactRefusesUnsafeTargets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := t.TempDir()
+	dir := outputWriterTempDir(t)
 	target := filepath.Join(dir, "activated.json")
 	if err := WriteActivatedArtifact(target, activated, false); err != nil {
 		t.Fatal(err)
@@ -312,6 +313,17 @@ func TestWriteActivatedArtifactRefusesUnsafeTargets(t *testing.T) {
 	}
 	if err := WriteActivatedArtifact(target, activated, true); err != nil {
 		t.Fatal(err)
+	}
+	nested := filepath.Join(dir, "nested", "deeper")
+	if err := os.MkdirAll(nested, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	nestedTarget := filepath.Join(nested, "activated.json")
+	if err := WriteActivatedArtifact(nestedTarget, activated, false); err != nil {
+		t.Fatalf("normal nested directory must remain usable: %v", err)
+	}
+	if _, err := os.Stat(nestedTarget); err != nil {
+		t.Fatalf("nested activation output missing: %v", err)
 	}
 	nonRegular := filepath.Join(dir, "non-regular")
 	if err := os.Mkdir(nonRegular, 0o700); err != nil {
@@ -327,6 +339,22 @@ func TestWriteActivatedArtifactRefusesUnsafeTargets(t *testing.T) {
 	if err := WriteActivatedArtifact(link, activated, true); err == nil {
 		t.Fatal("symlink output must be refused")
 	}
+	realParent := filepath.Join(dir, "real-parent", "sub")
+	if err := os.MkdirAll(realParent, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	aliasParent := filepath.Join(dir, "alias-parent")
+	if err := os.Symlink(filepath.Dir(realParent), aliasParent); err != nil {
+		t.Fatal(err)
+	}
+	ancestorTarget := filepath.Join(aliasParent, "sub", "ancestor.json")
+	if err := WriteActivatedArtifact(ancestorTarget, activated, false); err == nil {
+		t.Fatal("ancestor symlink output must be refused")
+	}
+	if _, err := os.Stat(filepath.Join(realParent, "ancestor.json")); !os.IsNotExist(err) {
+		t.Fatalf("ancestor symlink must not redirect output: %v", err)
+	}
+	assertNoActivationTempFiles(t, realParent)
 }
 
 func TestWriteActivatedArtifactInstallRacesAreFailClosedAndCleaned(t *testing.T) {
@@ -337,7 +365,7 @@ func TestWriteActivatedArtifactInstallRacesAreFailClosedAndCleaned(t *testing.T)
 	}
 
 	t.Run("concurrent creation refuses without overwrite", func(t *testing.T) {
-		dir := t.TempDir()
+		dir := outputWriterTempDir(t)
 		target := filepath.Join(dir, "activated.json")
 		err := writeActivatedArtifact(target, activated, false, func() {
 			if writeErr := os.WriteFile(target, []byte("raced"), 0o600); writeErr != nil {
@@ -351,7 +379,7 @@ func TestWriteActivatedArtifactInstallRacesAreFailClosedAndCleaned(t *testing.T)
 	})
 
 	t.Run("concurrent symlink creation refuses without overwrite", func(t *testing.T) {
-		dir := t.TempDir()
+		dir := outputWriterTempDir(t)
 		target := filepath.Join(dir, "activated.json")
 		outside := filepath.Join(t.TempDir(), "outside.json")
 		if writeErr := os.WriteFile(outside, []byte("outside"), 0o600); writeErr != nil {
@@ -369,7 +397,7 @@ func TestWriteActivatedArtifactInstallRacesAreFailClosedAndCleaned(t *testing.T)
 	})
 
 	t.Run("concurrent replacement refuses overwrite", func(t *testing.T) {
-		dir := t.TempDir()
+		dir := outputWriterTempDir(t)
 		target := filepath.Join(dir, "activated.json")
 		if err := WriteActivatedArtifact(target, activated, false); err != nil {
 			t.Fatal(err)
@@ -394,7 +422,7 @@ func TestWriteActivatedArtifactInstallRacesAreFailClosedAndCleaned(t *testing.T)
 	})
 
 	t.Run("concurrent symlink replacement refuses overwrite", func(t *testing.T) {
-		dir := t.TempDir()
+		dir := outputWriterTempDir(t)
 		target := filepath.Join(dir, "activated.json")
 		if err := WriteActivatedArtifact(target, activated, false); err != nil {
 			t.Fatal(err)
@@ -428,6 +456,21 @@ func assertNoActivationTempFiles(t *testing.T, dir string) {
 	if len(paths) != 0 {
 		t.Fatalf("temporary activation files leaked: %v", paths)
 	}
+}
+
+func outputWriterTempDir(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "darwin" {
+		if _, err := os.Stat("/private/tmp"); err == nil {
+			dir, err := os.MkdirTemp("/private/tmp", "gait-action-contract-test-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.RemoveAll(dir) })
+			return dir
+		}
+	}
+	return t.TempDir()
 }
 
 func fixturePath(t *testing.T, scenario string) string {
