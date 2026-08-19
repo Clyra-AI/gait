@@ -21,8 +21,17 @@ This matrix defines compatibility between producer and consumer surfaces.
 
 | Action Contract producer/consumer | Artifact schema | Contract schema | Compatibility behavior |
 | --- | --- | --- | --- |
-| Wrkr `proposed_action_contract` `v1.14.0` -> Gait | 1 | 3 | Gait validates one explicit report-only proposal; activation is a separate signed Gait artifact and new revisions require reactivation |
+| Wrkr `proposed_action_contract` `v1.14.0` -> Gait v1.4.0 | 1 | 3 | Gait validates one explicit report-only proposal; the committed activation compatibility pack covers valid scenarios with current-selection evidence; activations are separate signed artifacts and new revisions require reactivation |
 | Gait consumer receipt | 1 | n/a | Direct deterministic JSON receipt; `self_attestation=false`, no execution/effect claim |
+
+The activation compatibility pack under `testdata/action-contract-interop/v1/`
+is generated from exact Wrkr proposal bytes by
+`scripts/action_contract_fixture_generator --check`. Its six valid scenario
+activations are marked `development_signing: true`, use the labeled fixture-only
+seed documented by the manifest, and are rejected by default verification. The
+three intentionally invalid Wrkr scenarios remain represented with explicit
+non-activation reason codes. These fixtures prove byte/schema/signature
+compatibility, not production authority or execution approval.
 
 ## Stability Guarantees
 

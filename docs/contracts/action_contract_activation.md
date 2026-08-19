@@ -40,3 +40,20 @@ Production activation requires an explicit Ed25519 private-key source. The
 is rejected by normal verification. Verification always requires the actual
 bound proposal bytes. Activation output refuses existing files and symlinks
 by default; `--overwrite` explicitly replaces only an existing regular file.
+
+## Released compatibility fixtures
+
+The v1.4.0 compatibility pack is generated with:
+
+```bash
+go run ./scripts/action_contract_fixture_generator --check
+```
+
+It binds generated activation bytes to the exact Wrkr v1.14.0 proposal bytes,
+records raw and canonical digests, IDs, revisions, schema versions, and
+current-selection evidence in `activation-fixture-manifest.json`, and keeps the
+fixture public key under `testdata/`. The deterministic seed is test-only; no
+private key is committed or read by production/default activation. Generated
+activations carry `development_signing: true` and are non-authoritative by
+default. The pack is a compatibility/conformance fixture, not a production
+approval or execution authority source.

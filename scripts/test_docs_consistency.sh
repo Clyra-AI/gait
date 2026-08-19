@@ -93,8 +93,9 @@ for path in \
 done
 require_pattern "${REPO_ROOT}/docs/contracts/compatibility_matrix.md" "Wrkr.*v1\.14\.0.*-> Gait" "Action Contract producer version missing"
 require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "gait contract activate .*--valid-from <rfc3339>" "Action Contract activation validity flag missing"
-require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "artifact schema .1." "Action Contract artifact schema version missing"
-require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "contract schema .3." "Action Contract contract schema version missing"
+require_pattern "${REPO_ROOT}/cmd/gait/verify.go" "gait contract activate .*--valid-from <rfc3339>" "top-level CLI help must require Action Contract activation validity"
+require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "artifact schema \x601\x60(?:,|$)" "Action Contract artifact schema version missing or malformed"
+require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "contract schema \x603\x60(?:[.,]|$)" "Action Contract contract schema version missing or malformed"
 
 # Required onboarding sections.
 require_readme_intro_heading_near_top \
@@ -160,6 +161,7 @@ for route in \
   "https://clyra-ai.github.io/gait/docs/threat_model/" \
   "https://clyra-ai.github.io/gait/docs/contracts/pack_producer_kit/" \
   "https://clyra-ai.github.io/gait/docs/contracts/compatibility_matrix/" \
+  "https://clyra-ai.github.io/gait/docs/contracts/action_contract_activation/" \
   "https://clyra-ai.github.io/gait/llms.txt" \
   "https://clyra-ai.github.io/gait/llms-full.txt"; do
   require_pattern "${REPO_ROOT}/docs-site/public/sitemap.xml" "${route}" "required URL missing from sitemap.xml"
