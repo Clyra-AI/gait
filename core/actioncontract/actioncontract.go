@@ -455,6 +455,7 @@ func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 	targetPath := filepath.Join(resolvedDirectory, filepath.Base(abs))
 	initialInfo, err := os.Lstat(targetPath)
 	existed := err == nil
+	var initialDigest [sha256.Size]byte
 	if existed {
 		info := initialInfo
 		if info.Mode()&os.ModeSymlink != 0 {
@@ -465,6 +466,10 @@ func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 		}
 		if !overwrite {
 			return errors.New("activation output exists; pass --overwrite to replace it")
+		}
+		initialDigest, err = digestFile(targetPath)
+		if err != nil {
+			return err
 		}
 	} else if !os.IsNotExist(err) {
 		return err
@@ -502,6 +507,13 @@ func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 		if currentInfo.Mode()&os.ModeSymlink != 0 || !currentInfo.Mode().IsRegular() || !os.SameFile(initialInfo, currentInfo) {
 			return errors.New("activation output changed before overwrite")
 		}
+		currentDigest, err := digestFile(targetPath)
+		if err != nil {
+			return fmt.Errorf("activation output changed before overwrite: %w", err)
+		}
+		if currentDigest != initialDigest {
+			return errors.New("activation output changed before overwrite")
+		}
 		// #nosec G703 -- temporaryPath is created inside the validated output directory and targetPath is the checked regular file in that same directory.
 		if err := os.Rename(temporaryPath, targetPath); err != nil {
 			return err
@@ -521,6 +533,21 @@ func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 		return err
 	}
 	return nil
+}
+
+func digestFile(path string) ([sha256.Size]byte, error) {
+	file, err := os.Open(path) // #nosec G304 -- path is derived from the validated activation output directory.
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	defer file.Close()
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	var digest [sha256.Size]byte
+	copy(digest[:], hasher.Sum(nil))
+	return digest, nil
 }
 
 func validateOutputDirectory(directory string) (string, error) {
