@@ -24,6 +24,7 @@ Extended first-class surfaces:
 
 - Voice
 - Context Evidence
+- Action Contracts
 
 ## Start Here
 
@@ -67,6 +68,8 @@ Extended first-class surfaces:
 - PackSpec TCK: `docs/contracts/packspec_tck.md`
 - Pack producer kit: `docs/contracts/pack_producer_kit.md`
 - PackSpec compatibility matrix: `docs/contracts/compatibility_matrix.md`
+- Action Contract activation: `docs/contracts/action_contract_activation.md`
+- Action Contract schemas: `schemas/v1/action-contract/README.md`
 - Failure taxonomy and exit-code reference: `docs/failure_taxonomy_exit_codes.md`
 - Artifact graph: `docs/contracts/artifact_graph.md`
 - Intent+receipt conformance: `docs/contracts/intent_receipt_conformance.md`

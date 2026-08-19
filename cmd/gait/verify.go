@@ -698,7 +698,7 @@ func printUsage() {
 	fmt.Println("  gait registry verify --path <registry_pack.json> [--cache-dir <path>] [--json] [--explain]")
 	fmt.Println("  gait gateway ingest --source <kong|docker|mintmcp> --log-path <path> [--proof-out <policy_enforcement.jsonl>] [--json] [--explain]")
 	fmt.Println("  gait contract validate --proposal <artifact.json> [--evaluation-time <rfc3339>] [--json]")
-	fmt.Println("  gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> [--valid-from <rfc3339>] [--valid-until <rfc3339>] [--out <activated.json>] [--overwrite] [--json]")
+	fmt.Println("  gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> [--valid-until <rfc3339>] [--out <activated.json>] [--overwrite] [--json]")
 	fmt.Println("  gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> [--json]")
 	fmt.Println("  gait contract consume <artifact.json> [--selection <manifest.json>]")
 	fmt.Println("  gait migrate <artifact_path|run_id> [--out <path>] [--json] [--explain]")

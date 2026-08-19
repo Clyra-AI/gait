@@ -43,6 +43,8 @@ for path in \
   "${REPO_ROOT}/docs/durable_jobs.md" \
   "${REPO_ROOT}/docs/slo/runtime_slo.md" \
   "${REPO_ROOT}/docs/contracts/compatibility_matrix.md" \
+  "${REPO_ROOT}/docs/contracts/action_contract_activation.md" \
+  "${REPO_ROOT}/schemas/v1/action-contract/README.md" \
   "${REPO_ROOT}/docs/contracts/pack_producer_kit.md" \
   "${REPO_ROOT}/docs-site/src/lib/navigation.ts" \
   "${REPO_ROOT}/docs-site/src/app/docs/page.tsx" \
@@ -72,11 +74,28 @@ for path in \
   done
 done
 
-for cmd in "gait job" "gait pack" "gait gate eval" "gait regress" "gait doctor"; do
+for cmd in "gait job" "gait pack" "gait gate eval" "gait regress" "gait doctor" \
+  "gait contract validate" "gait contract activate" "gait contract verify" "gait contract consume"; do
   if ! rg -qi --fixed-strings "${cmd}" "${REPO_ROOT}/docs-site/public/llms.txt"; then
     fail "llms command surface missing '${cmd}'"
   fi
 done
+
+# Action Contract documentation, schema, and CLI surfaces must stay aligned.
+for path in \
+  "${REPO_ROOT}/README.md" \
+  "${REPO_ROOT}/docs/contracts/action_contract_activation.md" \
+  "${REPO_ROOT}/docs/contracts/compatibility_matrix.md" \
+  "${REPO_ROOT}/schemas/v1/action-contract/README.md" \
+  "${REPO_ROOT}/docs-site/public/llms.txt" \
+  "${REPO_ROOT}/docs-site/public/llm/contracts.md"; do
+  require_pattern "${path}" "proposed_action_contract" "Action Contract proposal term missing"
+done
+require_pattern "${REPO_ROOT}/docs/contracts/compatibility_matrix.md" "Wrkr.*v1\.14\.0.*-> Gait" "Action Contract producer version missing"
+require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "gait contract activate .*--valid-from <rfc3339>" "Action Contract activation validity flag missing"
+require_pattern "${REPO_ROOT}/cmd/gait/verify.go" "gait contract activate .*--valid-from <rfc3339>" "top-level CLI help must require Action Contract activation validity"
+require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "artifact schema \x601\x60(?:,|$)" "Action Contract artifact schema version missing or malformed"
+require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "contract schema \x603\x60(?:[.,]|$)" "Action Contract contract schema version missing or malformed"
 
 # Required onboarding sections.
 require_readme_intro_heading_near_top \
@@ -121,7 +140,8 @@ for route in \
   "/docs/failure_taxonomy_exit_codes" \
   "/docs/threat_model" \
   "/docs/contracts/pack_producer_kit" \
-  "/docs/contracts/compatibility_matrix"; do
+  "/docs/contracts/compatibility_matrix" \
+  "/docs/contracts/action_contract_activation"; do
   require_pattern "${REPO_ROOT}/docs-site/src/lib/navigation.ts" "${route}" "required docs route missing from side nav"
 done
 
@@ -129,7 +149,8 @@ for route in \
   "/docs/adopt_in_one_pr" \
   "/docs/durable_jobs" \
   "/docs/failure_taxonomy_exit_codes" \
-  "/docs/threat_model"; do
+  "/docs/threat_model" \
+  "/docs/contracts/action_contract_activation"; do
   require_pattern "${REPO_ROOT}/docs-site/src/app/docs/page.tsx" "${route}" "required docs route missing from docs home tracks"
 done
 
@@ -140,6 +161,7 @@ for route in \
   "https://clyra-ai.github.io/gait/docs/threat_model/" \
   "https://clyra-ai.github.io/gait/docs/contracts/pack_producer_kit/" \
   "https://clyra-ai.github.io/gait/docs/contracts/compatibility_matrix/" \
+  "https://clyra-ai.github.io/gait/docs/contracts/action_contract_activation/" \
   "https://clyra-ai.github.io/gait/llms.txt" \
   "https://clyra-ai.github.io/gait/llms-full.txt"; do
   require_pattern "${REPO_ROOT}/docs-site/public/sitemap.xml" "${route}" "required URL missing from sitemap.xml"

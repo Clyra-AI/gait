@@ -1,0 +1,44 @@
+{
+  "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+  "schema_version": "1",
+  "artifact_id": "gact-04aee49e20c9021c",
+  "contract_id": "pac-78931e17d6204821",
+  "contract_family_id": "pacf-4eb827fcc0c1ca88",
+  "revision": 1,
+  "producer": {
+    "name": "gait",
+    "artifact_schema_version": "1",
+    "contract_schema_version": "1"
+  },
+  "proposal": {
+    "artifact_id": "paca-8001527ad443d2d3",
+    "canonical_content_digest": "sha256:8001527ad443d2d388b19ad498327cff53011b3b96db9762929b484bf00a1625",
+    "contract_id": "pac-78931e17d6204821",
+    "contract_family_id": "pacf-4eb827fcc0c1ca88",
+    "revision": 1,
+    "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json",
+    "schema_version": "1",
+    "contract_schema_version": "3"
+  },
+  "policy_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "activating_principal": "principal:gait-fixture",
+  "authority_refs": [
+    "authority:gait-fixture"
+  ],
+  "target": "target:fixture",
+  "environment": "test",
+  "activation_mode": "context_only",
+  "validity": {
+    "not_before": "2026-07-19T00:00:00Z",
+    "not_after": "2027-07-19T00:00:00Z"
+  },
+  "explicit_exceptions": [],
+  "report_only": false,
+  "development_signing": true,
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+    "sig": "TRWua7tn/H4OpJ+7UH72Xdz2RhOcPdR6QAoHwNwOVK4qXwm0g6ERsPmgvVbRZUZH6B1WaH4TumDzo/LP9uIoAg==",
+    "signed_digest": "04aee49e20c9021c6a84f043dfde0f88bfc7ba5327ffeaf0a45698bfc98bb5c3"
+  }
+}
