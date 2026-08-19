@@ -38,6 +38,11 @@ USES_PATTERN = re.compile(
 )
 MAJOR_PATTERN = re.compile(r"^v(?P<major>[0-9]+)(?:[._-].*)?$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+APPROVED_IMMUTABLE_REFS: dict[str, frozenset[str]] = {
+    "actions/download-artifact": frozenset(
+        {"87c55149d96e628cc2ef7e6fc2aab372015aec85"}
+    ),
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -85,8 +90,22 @@ def scan_file(path: Path) -> list[Violation]:
             rule = RULES.get(action_name)
             if rule is None:
                 continue
-            if rule.immutable_sha and SHA_PATTERN.fullmatch(version_ref):
-                continue
+            if rule.immutable_sha:
+                if version_ref in APPROVED_IMMUTABLE_REFS.get(action_name, frozenset()):
+                    continue
+                if SHA_PATTERN.fullmatch(version_ref):
+                    violations.append(
+                        Violation(
+                            path=str(path),
+                            line=line_number,
+                            reference=reference,
+                            message=(
+                                f"unapproved commit SHA; require {action_name}@an approved "
+                                "v4 commit SHA"
+                            ),
+                        )
+                    )
+                    continue
             major = parse_major(version_ref)
             if major is None:
                 violations.append(

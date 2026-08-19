@@ -75,6 +75,7 @@ jobs:
       - uses: actions/setup-go@v5
       - uses: actions/setup-node@v4
       - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@0000000000000000000000000000000000000000
 EOF
 cat > "${WORK_DIR}/fail/docs/adopt_in_one_pr.md" <<'EOF'
 ```yaml
@@ -101,6 +102,7 @@ ${WORK_DIR}/fail/.github/workflows/core.yml:8: github/codeql-action/analyze@v3: 
 ${WORK_DIR}/fail/.github/workflows/core.yml:9: actions/setup-go@v5: deprecated major v5; require actions/setup-go@v6+
 ${WORK_DIR}/fail/.github/workflows/core.yml:10: actions/setup-node@v4: deprecated major v4; require actions/setup-node@v5+
 ${WORK_DIR}/fail/.github/workflows/core.yml:11: actions/download-artifact@v4: mutable ref; require actions/download-artifact@<40-character commit SHA>
+${WORK_DIR}/fail/.github/workflows/core.yml:12: actions/download-artifact@0000000000000000000000000000000000000000: unapproved commit SHA; require actions/download-artifact@an approved v4 commit SHA
 ${WORK_DIR}/fail/docs/adopt_in_one_pr.md:2: actions/checkout@v4: deprecated major v4; require actions/checkout@v5+
 EOF
 )"
