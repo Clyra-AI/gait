@@ -35,7 +35,7 @@
 - gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> --json
 - gait contract consume <artifact.json> --selection <manifest.json>
 - Action Contract input is one explicitly selected Wrkr `proposed_action_contract`; activation emits a distinct signed artifact and never claims execution or effects.
-- Runtime classification/readiness is pre-execution only: inference can preserve or raise action posture, required readiness evidence fails closed, and intended outcomes remain separate from observed effects.
+- Runtime classification/readiness is pre-execution only: inference can preserve or raise action posture, required readiness evidence fails closed, validator signatures bind the normalized typed claim digest, and intended outcomes remain separate from observed effects.
 - gait pack export <pack.zip> --otel-out <otel.jsonl>
 - gait run replay <run_id>
 - gait job submit --id <job_id> --policy <policy.yaml> --identity <id>

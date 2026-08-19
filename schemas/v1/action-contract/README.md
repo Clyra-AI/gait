@@ -32,4 +32,7 @@ intended outcome. Readiness statuses are per-precondition and fail closed for
 required missing, stale, inconclusive, self-attested, or non-policy-named
 validators; authoritative readiness additionally requires an explicit UTC
 evaluation time and a policy-bound public-key signature over the evidence
-digest. Boundary references remain separate from evidence references.
+digest. The signed digest is the exported JCS digest of the normalized typed
+precondition with verification metadata and derived status/reasons cleared;
+mutating any semantic claim invalidates it. Boundary references remain
+separate from evidence references.

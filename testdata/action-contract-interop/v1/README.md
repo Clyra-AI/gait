@@ -35,3 +35,5 @@ The manifest records the provisional Gait producer target `v1.5.0` and the
 runtime-readiness source commit for later release reconciliation. Runtime tests
 pin the complete manifest file set and SHA-256 values, then compare generated
 canonical JSON and full JSONL bytes, so editing the manifest cannot bless drift.
+Readiness signatures bind the normalized typed precondition claim digest, not a
+caller-selected digest detached from the claim fields.

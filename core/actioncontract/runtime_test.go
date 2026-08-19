@@ -22,10 +22,10 @@ import (
 var expectedRuntimeGoldenDigests = map[string]string{
 	"fixture-signing-key.public.b64": "sha256:4a09d7988c00029e6da1d966c512a6a515d421b5f05155d8c87e1b734e8480fa",
 	"runtime-action.json":            "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424",
-	"runtime-readiness.json":         "sha256:fb7e9d24f193ed6291a3c3511a83bc42eb5cbc1071107023de15a2703c0b579a",
-	"runtime-lifecycle-record.json":  "sha256:179095662ff95a070739c171f9535950d7b02c884290276f71199d8d142b46b3",
-	"runtime-lifecycle-chain.json":   "sha256:bbc93ad76726836ffd2a0fb215cd3ee43dda4b9740f9918e1672195d2fda22f1",
-	"runtime-lifecycle-chain.jsonl":  "sha256:1edb034104ca30fcdb4ec145384a625bf6580931384811d94cd10fa4c5338c51",
+	"runtime-readiness.json":         "sha256:be846bbf532ef768ae46a68bd410592fda6dc55a3e85e28fe74ac8ed64aa541c",
+	"runtime-lifecycle-record.json":  "sha256:076170542c3cad64f02175a9a68a8a8de3c4f469becfd2027769795a5ed2ba4c",
+	"runtime-lifecycle-chain.json":   "sha256:d5c75d1fc66b8f2289da429e8f03bb2e818469b30f42280e9662e5e138faba85",
+	"runtime-lifecycle-chain.jsonl":  "sha256:695840683e389d554245c07fb3cfae5f30ea2da506a597965185eedc89b5fed7",
 }
 
 func TestClassifyRuntimeActionIsMonotonicAndDeterministic(t *testing.T) {
@@ -188,12 +188,13 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 	action := ClassifyAction(ClassificationInput{ActionID: "runtime-golden-action", ActionClass: "read", CompositionRole: "source", DataClasses: []string{"internal"}, TargetTrustClass: "external", TransitionClass: "read", ExpectedOutcomeClass: "read", TargetRef: "target:golden"})
 	validatorPrivate, validatorPublic := testGoldenValidatorKey()
 	now := time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC)
-	evidenceDigest := "sha256:" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	readiness := EvaluateReadiness(ReadinessInput{Now: now, ContractID: "pac-runtime-golden", TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{{RequirementID: "runtime-p1", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:runtime-p1"}, EvidenceDigest: evidenceDigest, ValidatorSignature: signTestEvidence(validatorPrivate, evidenceDigest), ObservedResult: "pass", Environment: "production"}}})
+	evidence := signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "runtime-p1", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:runtime-p1"}, ObservedResult: "pass", Environment: "production"})
+	evidenceDigest := evidence.EvidenceDigest
+	readiness := EvaluateReadiness(ReadinessInput{Now: now, ContractID: "pac-runtime-golden", TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{evidence}})
 	seed := sha256.Sum256([]byte("runtime-golden-key"))
 	private := ed25519.NewKeyFromSeed(seed[:])
 	contractRef := proof.RelationshipRef{Kind: "action_contract", ID: "pac-runtime-golden", Digest: "sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SchemaID: ProposedContractSchemaID, SchemaVersion: ProposedContractVersion, SourceProduct: "gait"}
-	record, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: now, ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{{Kind: "precondition", ID: "runtime-p1", Digest: "sha256:" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}, Decision: &readiness, SigningPrivateKey: private})
+	record, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: now, ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{{Kind: "precondition", ID: "runtime-p1", Digest: evidenceDigest, SchemaID: RuntimeReadinessSchemaID, SchemaVersion: RuntimeActionSchemaVersion, SourceProduct: "gait"}}, Decision: &readiness, SigningPrivateKey: private})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +235,7 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 			t.Fatalf("lifecycle chain golden drift at %d: expected=(%q,%q,%q,%q,%q) actual=(%q,%q,%q,%q,%q)", i, expected.Kind, expected.RecordID, expected.SignedDigest, expected.KeyID, expected.Signature, actual.Kind, actual.RecordID, actual.Signature.SignedDigest, actual.Signature.KeyID, actual.Signature.Sig)
 		}
 	}
-	if snapshot, err := ReduceLifecycleChecked(chainRecords); err != nil || snapshot.CurrentStatus != "activated" {
+	if snapshot, err := ReduceVerifiedLifecycle(chainRecords, fixturePublic); err != nil || snapshot.CurrentStatus != "activated" {
 		t.Fatalf("golden lifecycle chain did not reduce: snapshot=%+v err=%v", snapshot, err)
 	}
 	fullRaw, err := os.ReadFile(filepath.Join(goldenRoot, "runtime-lifecycle-chain.jsonl"))
@@ -255,7 +256,7 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 	if len(fullRecords) != len(chainRecords) {
 		t.Fatalf("full lifecycle golden count mismatch: %d", len(fullRecords))
 	}
-	if snapshot, err := ReduceLifecycleChecked(fullRecords); err != nil || snapshot.CurrentStatus != "activated" {
+	if snapshot, err := ReduceVerifiedLifecycle(fullRecords, fixturePublic); err != nil || snapshot.CurrentStatus != "activated" {
 		t.Fatalf("full lifecycle golden reduction failed: snapshot=%+v err=%v", snapshot, err)
 	}
 }
@@ -288,7 +289,7 @@ func TestEvaluateReadinessFailsClosedForUntrustedWrkrAndJudge(t *testing.T) {
 	base := ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), TrustedValidatorRefs: []string{"policy-validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"policy-validator": validatorPublic}, Preconditions: []ReadinessPrecondition{
 		{RequirementID: "p1", Kind: "effect_contract", Required: true, Producer: "wrkr", ControlMode: ControlModeSelfAttested, FreshnessState: "fresh", ObservedResult: "pass"},
 		{RequirementID: "p2", Kind: "policy_digest", Required: true, Producer: "judge", ControlMode: ControlModeObserved, FreshnessState: "fresh", ObservedResult: "pass"},
-		{RequirementID: "p3", Kind: "sandbox", Required: true, Producer: "policy-validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedResult: "pass", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:p3"}, EvidenceDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ValidatorSignature: signTestEvidence(validatorPrivate, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), SandboxStatus: "clean"},
+		signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "p3", Kind: "sandbox", Required: true, Producer: "policy-validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedResult: "pass", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:p3"}, SandboxStatus: "clean"}),
 	}}
 	result := EvaluateReadiness(base)
 	if result.Ready || result.Status != ReadinessInconclusive {
@@ -313,8 +314,8 @@ func TestEvaluateReadinessStatusesAndBoundaryRefsRemainSeparate(t *testing.T) {
 	validatorPrivate, validatorPublic := testValidatorKey()
 	result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{
 		{RequirementID: "none", Kind: "approval", Required: false},
-		{RequirementID: "ok", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "current", ObservedResult: "verified", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ValidatorSignature: signTestEvidence(validatorPrivate, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), EvidenceRefs: []string{"evidence:1"}, BoundaryRefs: []string{"boundary:1"}, Environment: "production"},
-		{RequirementID: "bad", Kind: "target", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "expired", ObservedResult: "verified", ObservedAt: "2026-07-18T00:00:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ValidatorSignature: signTestEvidence(validatorPrivate, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), EvidenceRefs: []string{"boundary:wrong"}, Target: "prod"},
+		signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "ok", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "current", ObservedResult: "verified", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:1"}, BoundaryRefs: []string{"boundary:1"}, Environment: "production"}),
+		signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "bad", Kind: "target", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "expired", ObservedResult: "verified", ObservedAt: "2026-07-18T00:00:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"boundary:wrong"}, Target: "prod"}),
 	}})
 	if result.Status != ReadinessInconclusive || result.Ready {
 		t.Fatalf("expected stale required evidence to block: %#v", result)
@@ -327,6 +328,132 @@ func TestEvaluateReadinessStatusesAndBoundaryRefsRemainSeparate(t *testing.T) {
 	}
 	if result.Preconditions[1].BoundaryRefs[0] != "boundary:1" || result.Preconditions[1].EvidenceRefs[0] != "evidence:1" {
 		t.Fatalf("boundary/evidence refs were conflated: %#v", result.Preconditions[1])
+	}
+}
+
+func TestEvaluateReadinessBindsEverySemanticClaimField(t *testing.T) {
+	private, public := testValidatorKey()
+	base := signedTestPrecondition(private, ReadinessPrecondition{
+		RequirementID: "claim", Kind: "environment", Required: true,
+		Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh",
+		ObservedResult: "pass", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600,
+		EvidenceState: "verified", EvidenceRefs: []string{"evidence:claim"}, Environment: "production",
+	})
+	mutations := []struct {
+		name string
+		edit func(*ReadinessPrecondition)
+	}{
+		{name: "observed_result", edit: func(item *ReadinessPrecondition) { item.ObservedResult = "fail" }},
+		{name: "environment", edit: func(item *ReadinessPrecondition) { item.Environment = "staging" }},
+		{name: "target", edit: func(item *ReadinessPrecondition) { item.Target = "target:other" }},
+		{name: "freshness_time", edit: func(item *ReadinessPrecondition) { item.ObservedAt = "2026-07-19T00:31:00Z" }},
+		{name: "evidence_refs", edit: func(item *ReadinessPrecondition) { item.EvidenceRefs = []string{"evidence:other"} }},
+	}
+	for _, mutation := range mutations {
+		t.Run(mutation.name, func(t *testing.T) {
+			item := base
+			mutation.edit(&item)
+			result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": public}, Preconditions: []ReadinessPrecondition{item}})
+			if result.Ready || result.Preconditions[0].Status == ReadinessSatisfied {
+				t.Fatalf("mutated claim satisfied readiness: %#v", result)
+			}
+			if !containsStringValue(result.Preconditions[0].ReasonCodes, "evidence:claim_digest_mismatch") {
+				t.Fatalf("missing claim digest mismatch for %s: %#v", mutation.name, result.Preconditions[0].ReasonCodes)
+			}
+		})
+	}
+}
+
+func TestReadinessFromContractProjectsAuthorityAndCompensationRequirements(t *testing.T) {
+	now := time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name     string
+		contract map[string]any
+	}{
+		{
+			name: "authority_only",
+			contract: map[string]any{
+				"contract_id": "authority-only",
+				"authority_requirements": []any{map[string]any{
+					"requirement_id": "authority-1", "kind": "policy_authority", "required_constraint": "authority:present", "evidence_state": "unknown", "freshness_state": "unknown",
+				}},
+			},
+		},
+		{
+			name: "required_compensation",
+			contract: map[string]any{
+				"contract_id": "compensation-only",
+				"compensation_requirement": map[string]any{
+					"required": true, "kind": "rollback", "target": "target:production", "verification_required": true, "evidence_state": "unknown", "freshness_state": "unknown",
+				},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := ReadinessFromContract(test.contract, ReadinessInput{Now: now})
+			if result.Ready || result.Status != ReadinessInconclusive || len(result.Preconditions) == 0 {
+				t.Fatalf("required contract evidence was omitted or satisfied: %#v", result)
+			}
+		})
+	}
+}
+
+func TestEvaluateReadinessKindConstraintsAreBoundedAndCompared(t *testing.T) {
+	private, public := testValidatorKey()
+	base := ReadinessPrecondition{RequirementID: "kind", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedResult: "pass", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:kind"}}
+	for _, test := range []struct {
+		name   string
+		item   ReadinessPrecondition
+		reason string
+	}{
+		{name: "environment_constraint", item: func() ReadinessPrecondition {
+			item := base
+			item.Kind = "environment"
+			item.Environment = "staging"
+			item.RequiredConstraint = "environment:production"
+			return item
+		}(), reason: "environment:constraint_mismatch"},
+		{name: "target_constraint", item: func() ReadinessPrecondition {
+			item := base
+			item.Kind = "target"
+			item.Target = "target:other"
+			item.RequiredConstraint = "target:production"
+			return item
+		}(), reason: "target:constraint_mismatch"},
+		{name: "credential_enum", item: func() ReadinessPrecondition {
+			item := base
+			item.Kind = "credential_mode"
+			item.CredentialMode = "arbitrary"
+			return item
+		}(), reason: "credential:mode_missing"},
+		{name: "resource_budget", item: func() ReadinessPrecondition {
+			item := base
+			item.Kind = "resource_budget"
+			item.ResourceStatus = "clean"
+			item.TTLSeconds = 60
+			return item
+		}(), reason: "resource:budget_invalid"},
+		{name: "cleanup_state", item: func() ReadinessPrecondition {
+			item := base
+			item.Kind = "cleanup"
+			item.ResourceStatus = "partial"
+			return item
+		}(), reason: "resource:cleanup_incomplete"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			item := signedTestPrecondition(private, test.item)
+			result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": public}, Preconditions: []ReadinessPrecondition{item}})
+			if result.Ready || result.Preconditions[0].Status == ReadinessSatisfied || !containsStringValue(result.Preconditions[0].ReasonCodes, test.reason) {
+				t.Fatalf("kind constraint was not enforced: %#v", result)
+			}
+		})
+	}
+}
+
+func TestEvaluateReadinessEmptyInputIsNonAuthoritative(t *testing.T) {
+	result := EvaluateReadiness(ReadinessInput{})
+	if result.Ready || result.Status != ReadinessNotRequired {
+		t.Fatalf("empty readiness input became authoritative: %#v", result)
 	}
 }
 
@@ -390,7 +517,9 @@ func TestLifecycleRecordsSignAndReducePurely(t *testing.T) {
 	if _, err := ParseLifecycleRecord(duplicateRaw); err == nil {
 		t.Fatal("strict lifecycle parser accepted duplicate field")
 	}
-	second, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 0, 0, time.UTC), ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{{Kind: "precondition", ID: "p1", Digest: "sha256:" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}, Decision: &ReadinessResult{Ready: true, Status: ReadinessSatisfied}, SigningPrivateKey: private})
+	preconditionRef := proof.RelationshipRef{Kind: "precondition", ID: "p1", Digest: "sha256:" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	decisionPrecondition := ReadinessPrecondition{RequirementID: "p1", Kind: "environment", Required: true, ControlMode: ControlModeUnknown, Status: ReadinessSatisfied, EvidenceDigest: preconditionRef.Digest}
+	second, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 0, 0, time.UTC), ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{preconditionRef}, Decision: &ReadinessResult{Ready: true, Status: ReadinessSatisfied, Preconditions: []ReadinessPrecondition{decisionPrecondition}}, SigningPrivateKey: private})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -398,12 +527,40 @@ func TestLifecycleRecordsSignAndReducePurely(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot := ReduceLifecycle([]LifecycleRecord{first, request, second})
+	preconditionEvent, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecyclePreconditionEvaluated, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 0, 15, 0, time.UTC), ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{preconditionRef}, SigningPrivateKey: private})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := ReduceLifecycle([]LifecycleRecord{first, preconditionEvent, request, second})
 	if snapshot.CurrentStatus != "ready" || !snapshot.ProposalIngested || !snapshot.DecisionReady {
 		t.Fatalf("unexpected reduced lifecycle: %#v", snapshot)
 	}
 	if snapshot.Records[0].RecordID != first.RecordID {
 		t.Fatalf("reducer changed the validated input order")
+	}
+	decisionWithMissingEvaluation, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 30, 0, time.UTC), ContractRef: contractRef, Decision: &ReadinessResult{Ready: true, Status: ReadinessSatisfied, Preconditions: []ReadinessPrecondition{decisionPrecondition}}, SigningPrivateKey: private})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, decisionWithMissingEvaluation}); err == nil {
+		t.Fatal("decision with missing precondition evaluation accepted")
+	}
+	wrongPreconditionEvent, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecyclePreconditionEvaluated, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 0, 0, time.UTC), ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{{Kind: "precondition", ID: "other", Digest: decisionPrecondition.EvidenceDigest}}, SigningPrivateKey: private})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, wrongPreconditionEvent, decisionWithMissingEvaluation}); err == nil {
+		t.Fatal("decision with mismatched precondition evaluation accepted")
+	}
+	zeroPrecondition := second
+	decisionCopy := *zeroPrecondition.Decision
+	decisionCopy.Preconditions = nil
+	zeroPrecondition.Decision = &decisionCopy
+	if _, err := VerifyLifecycleRecord(zeroPrecondition, public); err == nil {
+		t.Fatal("verified lifecycle accepted zero-precondition ready decision")
+	}
+	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, zeroPrecondition}); err == nil {
+		t.Fatal("reducer accepted zero-precondition ready decision")
 	}
 	if snapshot := ReduceLifecycle([]LifecycleRecord{second, request, first}); snapshot.CurrentStatus != "invalid" || len(snapshot.ReasonCodes) != 1 || snapshot.ReasonCodes[0] != "lifecycle_input_reordered" {
 		t.Fatalf("reducer accepted reordered input: %#v", snapshot)
@@ -429,6 +586,18 @@ func TestLifecycleRecordsSignAndReducePurely(t *testing.T) {
 	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, request, noDecisionActivation}); err == nil {
 		t.Fatal("activation without a ready decision accepted")
 	}
+	rejected, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleRejected, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 0, 20, 0, time.UTC), ContractRef: contractRef, SigningPrivateKey: private})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, rejected, request}); err == nil {
+		t.Fatal("activation request after rejection accepted")
+	}
+	forged := first
+	forged.ReasonCodes = []string{"forged"}
+	if _, err := ReduceVerifiedLifecycle([]LifecycleRecord{forged}, public); err == nil {
+		t.Fatal("forged lifecycle record accepted by verified reducer")
+	}
 }
 
 func testValidatorKey() (ed25519.PrivateKey, ed25519.PublicKey) {
@@ -449,4 +618,14 @@ func signTestEvidence(private ed25519.PrivateKey, digest string) string {
 		panic(err)
 	}
 	return base64.StdEncoding.EncodeToString(ed25519.Sign(private, raw))
+}
+
+func signedTestPrecondition(private ed25519.PrivateKey, item ReadinessPrecondition) ReadinessPrecondition {
+	digest, err := CanonicalReadinessClaimDigest(item)
+	if err != nil {
+		panic(err)
+	}
+	item.EvidenceDigest = digest
+	item.ValidatorSignature = signTestEvidence(private, digest)
+	return item
 }

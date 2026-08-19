@@ -6,9 +6,9 @@
   "files": [
     {"path":"fixture-signing-key.public.b64","sha256":"sha256:4a09d7988c00029e6da1d966c512a6a515d421b5f05155d8c87e1b734e8480fa"},
     {"path":"runtime-action.json","sha256":"sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424"},
-    {"path":"runtime-readiness.json","sha256":"sha256:fb7e9d24f193ed6291a3c3511a83bc42eb5cbc1071107023de15a2703c0b579a"},
-    {"path":"runtime-lifecycle-record.json","sha256":"sha256:179095662ff95a070739c171f9535950d7b02c884290276f71199d8d142b46b3"},
-    {"path":"runtime-lifecycle-chain.json","sha256":"sha256:bbc93ad76726836ffd2a0fb215cd3ee43dda4b9740f9918e1672195d2fda22f1"},
-    {"path":"runtime-lifecycle-chain.jsonl","sha256":"sha256:1edb034104ca30fcdb4ec145384a625bf6580931384811d94cd10fa4c5338c51"}
+    {"path":"runtime-readiness.json","sha256":"sha256:be846bbf532ef768ae46a68bd410592fda6dc55a3e85e28fe74ac8ed64aa541c"},
+    {"path":"runtime-lifecycle-record.json","sha256":"sha256:076170542c3cad64f02175a9a68a8a8de3c4f469becfd2027769795a5ed2ba4c"},
+    {"path":"runtime-lifecycle-chain.json","sha256":"sha256:d5c75d1fc66b8f2289da429e8f03bb2e818469b30f42280e9662e5e138faba85"},
+    {"path":"runtime-lifecycle-chain.jsonl","sha256":"sha256:695840683e389d554245c07fb3cfae5f30ea2da506a597965185eedc89b5fed7"}
   ]
 }

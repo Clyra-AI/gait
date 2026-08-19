@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,5 +22,19 @@ func TestRuntimeReadinessCLIRequiresEvaluationTimeAndAuthoritativeKey(t *testing
 	})
 	if code != exitVerifyFailed || !strings.Contains(output, "validator") {
 		t.Fatalf("missing authoritative validator key must remain fail-closed: code=%d output=%s", code, output)
+	}
+	inputRoot, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputPath := filepath.Join(inputRoot, "empty-readiness.json")
+	if err := os.WriteFile(inputPath, []byte(`{"preconditions":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output, code = captureActionContractOutput(t, func() int {
+		return runActionContractReadiness([]string{"--input", inputPath, "--evaluation-time", "2026-07-19T01:00:00Z", "--json"})
+	})
+	if code != exitVerifyFailed || !strings.Contains(output, `"ready":false`) || !strings.Contains(output, `"status":"not_required"`) {
+		t.Fatalf("empty readiness input became authoritative: code=%d output=%s", code, output)
 	}
 }

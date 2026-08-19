@@ -65,9 +65,10 @@ be verified, digest-bound, timestamped, fresh within its max age, and carry
 non-empty evidence references. Wrkr declarations, judge/advisory, and
 self-attested results do not satisfy required checks. Proof v0.6.1
 digest-bound relationship refs and the correlation profile are retained on
-signed lifecycle records, which a pure reducer can reconstruct without an
-event store. Lifecycle records require proposal/activation/precondition refs
-where their event kind requires them and reducer order is fail-closed.
+signed lifecycle records. Callers should use the verified reducer, which
+checks every record signature before reconstructing state without an event
+store. Lifecycle records require proposal/activation/precondition refs where
+their event kind requires them and reducer order is fail-closed.
 
 ## Released compatibility fixtures
 

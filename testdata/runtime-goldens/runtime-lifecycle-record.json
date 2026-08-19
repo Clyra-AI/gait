@@ -1,7 +1,7 @@
 {
   "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
   "schema_version": "1",
-  "record_id": "gait-lr-64c3a844a653a8aa",
+  "record_id": "gait-lr-92966fccbd6e1fa8",
   "kind": "decision_ready",
   "occurred_at": "2026-07-19T01:00:00Z",
   "contract_ref": {
@@ -13,7 +13,7 @@
     "source_product": "gait"
   },
   "revision": 1,
-  "precondition_refs": [{"digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","id":"runtime-p1","kind":"precondition"}],
+  "precondition_refs": [{"digest":"sha256:b691756285b730ff4113723ffa1cff50969c8a60b8be7552ff74910944704d38","id":"runtime-p1","kind":"precondition","schema_id":"https://gait.dev/schemas/v1/runtime-readiness.schema.json","schema_version":"1","source_product":"gait"}],
   "decision": {
     "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
     "schema_version": "1",
@@ -28,8 +28,8 @@
       "observed_at": "2026-07-19T00:30:00Z",
       "max_age_seconds": 3600,
       "environment": "production",
-      "evidence_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "validator_signature": "cDhLc0ZYNiXGjJJoCrKg01QoMnYtrG+GIIdaoh2In6oZc6km0yjVB4H571UfL/3GGBgo+hqdXdAhyNJel8gQCQ==",
+      "evidence_digest": "sha256:b691756285b730ff4113723ffa1cff50969c8a60b8be7552ff74910944704d38",
+      "validator_signature": "QYXmQ3WhMUsH8pJXRBZnWK1l+oh/Pgv0mnk/q8uYFZjSpdaSQQYoHsfrZpZ74iPZBn3Rm0e6BRrSalJAl4afCw==",
       "producer": "validator",
       "evidence_state": "verified",
       "freshness_state": "fresh",
@@ -54,7 +54,7 @@
   "signature": {
     "alg": "ed25519",
     "key_id": "8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701",
-    "sig": "rITINFqzxJjsc9Pk+S13lTExqtmVYqFSzAxYkuJoyxTYaZPzDyY4mtRqCsbnuOmKDXQtsb8PVkQIeMjV1f4aBA==",
-    "signed_digest": "64c3a844a653a8aa5225ef554f81cf42d7c64276d23c22449e14d3e644f58064"
+    "sig": "GEKzWUrWqDYSa/ndCxx0AiATSp/a4Xzgek1h0j6XgD9ejo7bnsW5z+sHX1gSirI5biwMdjWesF+w2rN+olq8Dw==",
+    "signed_digest": "92966fccbd6e1fa8e99a52ccab8e6842e2b79a068cf2fa2f5b429e2def8b4d89"
   }
 }

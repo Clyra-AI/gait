@@ -684,10 +684,14 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 		} else if _, ok := trusted[item.Producer]; !ok {
 			item.ReasonCodes = append(item.ReasonCodes, "validator:not_policy_named")
 		}
+		claimDigest, claimDigestErr := CanonicalReadinessClaimDigest(item)
+		claimDigestMatches := claimDigestErr == nil && strings.TrimSpace(item.EvidenceDigest) == claimDigest
 		if item.ValidatorSignature == "" || item.EvidenceDigest == "" {
 			item.ReasonCodes = append(item.ReasonCodes, "evidence:authoritative_signature_missing")
 		} else if !validSHA256Digest(item.EvidenceDigest) {
 			item.ReasonCodes = append(item.ReasonCodes, "evidence:digest_invalid")
+		} else if claimDigestErr != nil || !claimDigestMatches {
+			item.ReasonCodes = append(item.ReasonCodes, "evidence:claim_digest_mismatch")
 		} else if key, ok := input.TrustedValidatorKeys[item.Producer]; !ok || len(key) != ed25519.PublicKeySize {
 			item.ReasonCodes = append(item.ReasonCodes, "validator:public_key_missing")
 		} else if !verifyEvidenceSignature(key, item.EvidenceDigest, item.ValidatorSignature) {
@@ -732,7 +736,7 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 			trustedProducer = false
 		}
 		fresh := item.FreshnessState == "fresh" || item.FreshnessState == "current"
-		qualifying := item.EvidenceState == "verified" && len(item.EvidenceRefs) > 0 && item.ValidatorSignature != "" && item.EvidenceDigest != "" && verifyEvidenceSignature(input.TrustedValidatorKeys[item.Producer], item.EvidenceDigest, item.ValidatorSignature)
+		qualifying := item.EvidenceState == "verified" && len(item.EvidenceRefs) > 0 && item.ValidatorSignature != "" && item.EvidenceDigest != "" && claimDigestMatches && verifyEvidenceSignature(input.TrustedValidatorKeys[item.Producer], item.EvidenceDigest, item.ValidatorSignature)
 		matchingConstraint := strings.TrimSpace(item.RequiredConstraint) != "" && strings.EqualFold(strings.TrimSpace(item.RequiredConstraint), strings.TrimSpace(item.ObservedResult))
 		if item.Status != ReadinessUnsatisfied && len(item.ReasonCodes) == 0 && trustedProducer && fresh && qualifying && (item.ControlMode == ControlModeEnforced || item.ControlMode == ControlModeObserved) && (isTrueResult(item.ObservedResult) || matchingConstraint) {
 			item.Status = ReadinessSatisfied
@@ -750,7 +754,11 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 	}
 	if requiredCount == 0 {
 		out.Status = ReadinessNotRequired
-		out.Ready = true
+		// Absence of required evidence is not an authorization. A caller must
+		// provide the typed contract projection (or a separately modeled,
+		// cryptographically verified no-preconditions attestation) before a
+		// readiness result can be authoritative.
+		out.Ready = false
 	} else if anyUnsatisfied {
 		out.Status = ReadinessUnsatisfied
 	} else if anyInconclusive {
@@ -810,31 +818,73 @@ func validateReadinessKind(item ReadinessPrecondition) []string {
 		if strings.TrimSpace(item.Environment) == "" {
 			reasons = append(reasons, "environment:missing")
 		}
+		if reason := requiredReadinessValue(item, item.Environment, "environment"); reason != "" {
+			reasons = append(reasons, reason)
+		}
 	case "target":
 		if strings.TrimSpace(item.Target) == "" {
 			reasons = append(reasons, "target:missing")
 		}
+		if reason := requiredReadinessValue(item, item.Target, "target"); reason != "" {
+			reasons = append(reasons, reason)
+		}
 	case "sandbox", "sandbox_control":
-		if normalize(item.SandboxStatus) != "clean" && normalize(item.SandboxStatus) != "isolated" {
+		if !containsStringValue([]string{"clean", "isolated"}, item.SandboxStatus) {
 			reasons = append(reasons, "sandbox:not_clean")
 		}
 	case "credential_mode", "credential":
-		if strings.TrimSpace(item.CredentialMode) == "" {
+		if !containsStringValue([]string{"ephemeral", "scoped", "standing_or_unknown"}, item.CredentialMode) {
 			reasons = append(reasons, "credential:mode_missing")
 		}
+		if reason := requiredReadinessValue(item, item.CredentialMode, "credential_mode"); reason != "" {
+			reasons = append(reasons, reason)
+		}
+	case "resource_budget":
+		if !containsStringValue([]string{"budget_ok", "within_budget"}, item.ResourceStatus) {
+			reasons = append(reasons, "resource:budget_invalid")
+		}
+		if item.TTLSeconds <= 0 {
+			reasons = append(reasons, "resource:ttl_missing")
+		}
+	case "cleanup", "resource_cleanup":
+		if !containsStringValue([]string{"clean", "completed"}, item.ResourceStatus) {
+			reasons = append(reasons, "resource:cleanup_incomplete")
+		}
 	case "resource", "resource_lifecycle":
-		if normalize(item.ResourceStatus) != "clean" {
+		if !containsStringValue([]string{"clean", "budget_ok", "within_budget", "released", "verified"}, item.ResourceStatus) {
 			reasons = append(reasons, "resource:not_clean")
 		}
 		if item.TTLSeconds <= 0 {
 			reasons = append(reasons, "resource:ttl_missing")
 		}
+		if reason := requiredReadinessValue(item, item.ResourceStatus, "resource"); reason != "" {
+			reasons = append(reasons, reason)
+		}
 	case "compensation", "compensation_contract":
-		if normalize(item.CompensationStatus) != "ready" && normalize(item.CompensationStatus) != "verified" {
+		if !containsStringValue([]string{"ready", "verified"}, item.CompensationStatus) {
 			reasons = append(reasons, "compensation:not_ready")
 		}
 	}
 	return reasons
+}
+
+func requiredReadinessValue(item ReadinessPrecondition, observed, kind string) string {
+	constraint := strings.TrimSpace(item.RequiredConstraint)
+	if constraint == "" {
+		return ""
+	}
+	parts := strings.SplitN(constraint, ":", 2)
+	expected := constraint
+	if len(parts) == 2 && normalize(parts[0]) == normalize(kind) {
+		expected = strings.TrimSpace(parts[1])
+	}
+	if expected == "" || normalize(expected) == "declared" || normalize(expected) == "required" || normalize(expected) == "bounded" {
+		return ""
+	}
+	if normalize(observed) != normalize(expected) {
+		return kind + ":constraint_mismatch"
+	}
+	return ""
 }
 
 func validSHA256Digest(value string) bool {
@@ -848,6 +898,66 @@ func validSHA256Digest(value string) bool {
 		}
 	}
 	return true
+}
+
+// CanonicalReadinessClaimDigest returns the JCS SHA-256 digest that an
+// authoritative validator must sign for a typed readiness precondition. The
+// digest and signature fields, along with derived status/reason fields, are
+// excluded so the signature binds the semantic claim rather than caller-
+// supplied verification metadata or evaluator output.
+func CanonicalReadinessClaimDigest(item ReadinessPrecondition) (string, error) {
+	item = normalizeReadinessClaim(item)
+	raw, err := json.Marshal(item)
+	if err != nil {
+		return "", err
+	}
+	digest, err := proofcanon.DigestJCS(raw)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(digest, "sha256:") {
+		return digest, nil
+	}
+	return "sha256:" + digest, nil
+}
+
+func normalizeReadinessClaim(item ReadinessPrecondition) ReadinessPrecondition {
+	item.RequirementID = strings.TrimSpace(item.RequirementID)
+	item.Kind = normalize(item.Kind)
+	item.RequiredConstraint = normalize(item.RequiredConstraint)
+	item.ContractRef = strings.TrimSpace(item.ContractRef)
+	item.ObservedValue = strings.TrimSpace(item.ObservedValue)
+	item.ObservedResult = normalize(item.ObservedResult)
+	item.ObservedAt = strings.TrimSpace(item.ObservedAt)
+	item.Environment = strings.TrimSpace(item.Environment)
+	item.Target = strings.TrimSpace(item.Target)
+	item.SandboxStatus = normalize(item.SandboxStatus)
+	item.CredentialMode = normalize(item.CredentialMode)
+	item.ResourceStatus = normalize(item.ResourceStatus)
+	item.CompensationStatus = normalize(item.CompensationStatus)
+	item.Producer = normalize(item.Producer)
+	item.AcceptableProducers = normalizeReadinessValues(item.AcceptableProducers)
+	item.EvidenceState = normalize(item.EvidenceState)
+	item.FreshnessState = normalize(item.FreshnessState)
+	item.EvidenceRefs = sortedUnique(item.EvidenceRefs)
+	item.BoundaryRefs = sortedUnique(item.BoundaryRefs)
+	item.ControlMode = ControlMode(normalize(string(item.ControlMode)))
+	if item.ControlMode == "" {
+		item.ControlMode = ControlModeUnknown
+	}
+	item.EvidenceDigest = ""
+	item.ValidatorSignature = ""
+	item.Status = ""
+	item.ReasonCodes = nil
+	return item
+}
+
+func normalizeReadinessValues(values []string) []string {
+	values = append([]string(nil), values...)
+	for i := range values {
+		values[i] = normalize(values[i])
+	}
+	return sortedUnique(values)
 }
 
 func verifyEvidenceSignature(publicKey ed25519.PublicKey, digest, encodedSignature string) bool {
@@ -877,20 +987,55 @@ func ReadinessFromContract(contract map[string]any, options ReadinessInput) Read
 	options.ContractID = stringField(contract, "contract_id")
 	options.Preconditions = nil
 	for _, raw := range objectArray(contract, "preconditions") {
-		contractRef := stringField(raw, "contract_ref")
-		if contractRef == "" {
-			contractRef = stringField(raw, "validation_contract_ref")
+		options.Preconditions = append(options.Preconditions, readinessPreconditionFromContract(raw, ""))
+	}
+	for _, raw := range objectArray(contract, "authority_requirements") {
+		item := readinessPreconditionFromContract(raw, "authority:"+stringField(raw, "kind"))
+		item.Producer = "authority"
+		options.Preconditions = append(options.Preconditions, item)
+	}
+	if credentialMode := stringField(contract, "required_credential_mode"); credentialMode != "" {
+		options.Preconditions = append(options.Preconditions, ReadinessPrecondition{RequirementID: "required_credential_mode", Kind: "credential_mode", Required: true, RequiredConstraint: "credential_mode:" + credentialMode})
+	}
+	for _, field := range []string{"confirmation_requirement", "approval_requirement"} {
+		if raw := objectValue(contract, field); raw != nil {
+			item := readinessPreconditionFromContract(raw, strings.TrimSuffix(field, "_requirement"))
+			options.Preconditions = append(options.Preconditions, item)
 		}
-		if contractRef == "" {
-			contractRef = stringField(raw, "effect_contract_ref")
-		}
-		item := ReadinessPrecondition{RequirementID: stringField(raw, "requirement_id"), Kind: stringField(raw, "kind"), Required: true, RequiredConstraint: stringField(raw, "required_constraint"), ContractRef: contractRef, ObservedValue: stringField(raw, "observed_value"), ObservedResult: stringField(raw, "observed_result"), ObservedAt: stringField(raw, "observed_at"), MaxAgeSeconds: int64Field(raw, "max_age_seconds"), TTLSeconds: int64Field(raw, "ttl_seconds"), Environment: stringField(raw, "environment"), Target: stringField(raw, "target"), SandboxStatus: stringField(raw, "sandbox_status"), CredentialMode: stringField(raw, "credential_mode"), ResourceStatus: stringField(raw, "resource_status"), CompensationStatus: stringField(raw, "compensation_status"), EvidenceDigest: stringField(raw, "evidence_digest"), ValidatorSignature: stringField(raw, "validator_signature"), Producer: stringField(raw, "producer"), AcceptableProducers: stringArray(raw, "acceptable_producers"), EvidenceState: stringField(raw, "evidence_state"), FreshnessState: stringField(raw, "freshness_state"), EvidenceRefs: stringArray(raw, "evidence_refs"), BoundaryRefs: stringArray(raw, "boundary_refs"), ControlMode: ControlMode(stringField(raw, "control_mode"))}
-		if value, ok := raw["required"].(bool); ok {
-			item.Required = value
-		}
+	}
+	if raw := objectValue(contract, "compensation_requirement"); raw != nil {
+		item := readinessPreconditionFromContract(raw, "compensation")
+		item.Target = stringField(raw, "target")
+		item.CompensationStatus = stringField(raw, "status")
 		options.Preconditions = append(options.Preconditions, item)
 	}
 	return EvaluateReadiness(options)
+}
+
+func readinessPreconditionFromContract(raw map[string]any, defaultKind string) ReadinessPrecondition {
+	contractRef := stringField(raw, "contract_ref")
+	if contractRef == "" {
+		contractRef = stringField(raw, "validation_contract_ref")
+	}
+	if contractRef == "" {
+		contractRef = stringField(raw, "effect_contract_ref")
+	}
+	item := ReadinessPrecondition{RequirementID: stringField(raw, "requirement_id"), Kind: stringField(raw, "kind"), Required: true, RequiredConstraint: stringField(raw, "required_constraint"), ContractRef: contractRef, ObservedValue: stringField(raw, "observed_value"), ObservedResult: stringField(raw, "observed_result"), ObservedAt: stringField(raw, "observed_at"), MaxAgeSeconds: int64Field(raw, "max_age_seconds"), TTLSeconds: int64Field(raw, "ttl_seconds"), Environment: stringField(raw, "environment"), Target: stringField(raw, "target"), SandboxStatus: stringField(raw, "sandbox_status"), CredentialMode: stringField(raw, "credential_mode"), ResourceStatus: stringField(raw, "resource_status"), CompensationStatus: stringField(raw, "compensation_status"), EvidenceDigest: stringField(raw, "evidence_digest"), ValidatorSignature: stringField(raw, "validator_signature"), Producer: stringField(raw, "producer"), AcceptableProducers: stringArray(raw, "acceptable_producers"), EvidenceState: stringField(raw, "evidence_state"), FreshnessState: stringField(raw, "freshness_state"), EvidenceRefs: stringArray(raw, "evidence_refs"), BoundaryRefs: stringArray(raw, "boundary_refs"), ControlMode: ControlMode(stringField(raw, "control_mode"))}
+	if item.Kind == "" {
+		item.Kind = defaultKind
+	}
+	if value, ok := raw["required"].(bool); ok {
+		item.Required = value
+	}
+	return item
+}
+
+func objectValue(object map[string]any, key string) map[string]any {
+	value, ok := object[key].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return value
 }
 
 // Lifecycle records are signed, digest-bound state transitions.  ReduceLifecycle
@@ -1117,6 +1262,9 @@ func validateLifecycleEvent(record LifecycleRecord) error {
 		if record.Decision == nil || !record.Decision.Ready {
 			return errors.New("lifecycle_decision_not_ready")
 		}
+		if len(record.Decision.Preconditions) == 0 {
+			return errors.New("lifecycle_decision_preconditions_required")
+		}
 	}
 	return nil
 }
@@ -1143,8 +1291,10 @@ func ReduceLifecycle(records []LifecycleRecord) LifecycleSnapshot {
 	return snapshot
 }
 
-// ReduceLifecycleChecked validates identity, timestamps, contract isolation,
-// duplicate IDs, and terminal ordering before applying the pure reduction.
+// ReduceLifecycleChecked validates structural identity, timestamps, contract
+// isolation, duplicate IDs, and terminal ordering before applying the pure
+// reduction. It does not verify signatures; use ReduceVerifiedLifecycle when
+// the result is used as authoritative lifecycle state.
 func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error) {
 	ordered := append([]LifecycleRecord(nil), records...)
 	seenIDs := map[string]struct{}{}
@@ -1195,12 +1345,13 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 	}
 	out := LifecycleSnapshot{Records: ordered}
 	evaluated := map[string]struct{}{}
+	evaluatedByID := map[string]string{}
 	terminal := false
 	proposalIngested := false
 	activationRequested := false
 	decisionReady := false
 	for _, record := range ordered {
-		if terminal && (record.Kind == LifecycleActivated || record.Kind == LifecycleActivationRequested) {
+		if terminal && (record.Kind == LifecycleActivated || record.Kind == LifecycleActivationRequested || record.Kind == LifecycleDecisionReady) {
 			return LifecycleSnapshot{}, errors.New("lifecycle_terminal_order_invalid")
 		}
 		switch record.Kind {
@@ -1211,11 +1362,17 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			if !proposalIngested {
 				return LifecycleSnapshot{}, errors.New("lifecycle_activation_without_proposal")
 			}
+			if out.Rejected {
+				return LifecycleSnapshot{}, errors.New("lifecycle_activation_after_rejection")
+			}
 			out.ActivationRequested = true
 			activationRequested = true
 		case LifecycleActivated:
 			if !proposalIngested || !activationRequested {
 				return LifecycleSnapshot{}, errors.New("lifecycle_activation_without_request")
+			}
+			if out.Rejected {
+				return LifecycleSnapshot{}, errors.New("lifecycle_activation_after_rejection")
 			}
 			if !decisionReady {
 				return LifecycleSnapshot{}, errors.New("lifecycle_activation_without_decision")
@@ -1225,6 +1382,7 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 		case LifecycleRejected:
 			out.Rejected = true
 			out.Activated = false
+			terminal = true
 		case LifecycleRevoked:
 			out.Revoked = true
 			out.Activated = false
@@ -1240,6 +1398,7 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 					evaluated[key] = struct{}{}
 					out.PreconditionsEvaluated++
 				}
+				evaluatedByID[ref.ID] = ref.Digest
 			}
 		case LifecycleDecisionReady:
 			if !proposalIngested {
@@ -1247,6 +1406,20 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			}
 			if record.Decision == nil || !record.Decision.Ready {
 				return LifecycleSnapshot{}, errors.New("lifecycle_decision_not_ready")
+			}
+			for _, precondition := range record.Decision.Preconditions {
+				if !precondition.Required || precondition.Status == ReadinessNotRequired {
+					continue
+				}
+				if precondition.Status != ReadinessSatisfied {
+					return LifecycleSnapshot{}, errors.New("lifecycle_decision_precondition_unsatisfied")
+				}
+				if precondition.RequirementID == "" || !validSHA256Digest(precondition.EvidenceDigest) {
+					return LifecycleSnapshot{}, errors.New("lifecycle_decision_precondition_digest_missing")
+				}
+				if digest, ok := evaluatedByID[precondition.RequirementID]; !ok || digest != precondition.EvidenceDigest {
+					return LifecycleSnapshot{}, errors.New("lifecycle_decision_precondition_not_evaluated")
+				}
 			}
 			out.DecisionReady = true
 			decisionReady = true
@@ -1271,6 +1444,25 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 	}
 	out.ReasonCodes = sortedUnique(out.ReasonCodes)
 	return out, nil
+}
+
+// ReduceVerifiedLifecycle verifies every record with the trusted public key
+// before applying the structural pure reducer. A failed verification is
+// authoritative failure and never falls back to structural reduction.
+func ReduceVerifiedLifecycle(records []LifecycleRecord, publicKey ed25519.PublicKey) (LifecycleSnapshot, error) {
+	if len(publicKey) != ed25519.PublicKeySize {
+		return LifecycleSnapshot{}, errors.New("lifecycle public key invalid")
+	}
+	for _, record := range records {
+		valid, err := VerifyLifecycleRecord(record, publicKey)
+		if err != nil || !valid {
+			if err != nil {
+				return LifecycleSnapshot{}, fmt.Errorf("lifecycle record verification failed: %w", err)
+			}
+			return LifecycleSnapshot{}, errors.New("lifecycle record verification failed")
+		}
+	}
+	return ReduceLifecycleChecked(records)
 }
 
 // ReduceLifecycleEvents is a compatibility alias with the event-oriented
