@@ -21,7 +21,7 @@ This matrix defines compatibility between producer and consumer surfaces.
 
 | Action Contract producer/consumer | Artifact schema | Contract schema | Compatibility behavior |
 | --- | --- | --- | --- |
-| Wrkr `v1.14.0` -> Gait | 1 | 3 | Gait validates one explicit report-only proposal; activation is a separate signed Gait artifact and new revisions require reactivation |
+| Wrkr `proposed_action_contract` `v1.14.0` -> Gait | 1 | 3 | Gait validates one explicit report-only proposal; activation is a separate signed Gait artifact and new revisions require reactivation |
 | Gait consumer receipt | 1 | n/a | Direct deterministic JSON receipt; `self_attestation=false`, no execution/effect claim |
 
 ## Stability Guarantees

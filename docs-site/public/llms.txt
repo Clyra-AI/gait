@@ -28,9 +28,10 @@
 - gait pack verify <pack.zip>
 - gait pack diff <left.zip> <right.zip>
 - gait contract validate --proposal <artifact.json> --json
-- gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --json
+- gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> --json
 - gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> --json
 - gait contract consume <artifact.json> --selection <manifest.json>
+- Action Contract input is one explicitly selected Wrkr `proposed_action_contract`; activation emits a distinct signed artifact and never claims execution or effects.
 - gait pack export <pack.zip> --otel-out <otel.jsonl>
 - gait run replay <run_id>
 - gait job submit --id <job_id> --policy <policy.yaml> --identity <id>

@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- _No unreleased entries yet._
+
+## [1.4.0] - 2026-08-19
+
+### Added
+
 - [semver:minor] Added explicit Wrkr Action Contract ingest, validation, current-selection binding, signed Gait activation, verification, and deterministic consumer receipts with versioned schemas and exact v1.14.0 fixtures.
 - [semver:minor] Added high-risk action context enforcement for `oss-prod` with deterministic missing-field reason codes and privacy-safe credential references.
 - [semver:minor] Added agent identity lifecycle policy controls for approved active agents, revocation, manifest digests, publishers, expiry, and owner requirements.
@@ -20,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- [semver:patch] Updated the pinned Proof dependency to `v0.6.1` for the Action Contract digest, schema, and signature primitives.
 - Gate intent normalization now treats omitted target `discovery_method` as `unknown` instead of empty so policies can deterministically match unknown/dynamic discovery paths.
 - Durable job resume now preserves the originally bound identity and rejects attempts to resume with a different identity.
 - `gait version --json` now prefers clean release metadata for promoted install paths while keeping repo-local contributor builds on the explicit `0.0.0-dev` fallback.
