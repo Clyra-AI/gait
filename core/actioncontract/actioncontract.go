@@ -502,6 +502,7 @@ func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 		if currentInfo.Mode()&os.ModeSymlink != 0 || !currentInfo.Mode().IsRegular() || !os.SameFile(initialInfo, currentInfo) {
 			return errors.New("activation output changed before overwrite")
 		}
+		// #nosec G703 -- temporaryPath is created inside the validated output directory and targetPath is the checked regular file in that same directory.
 		if err := os.Rename(temporaryPath, targetPath); err != nil {
 			return err
 		}
@@ -515,6 +516,7 @@ func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 		}
 		return err
 	}
+	// #nosec G703 -- temporaryPath is the file just created by os.CreateTemp in the validated output directory.
 	if err := os.Remove(temporaryPath); err != nil {
 		return err
 	}
