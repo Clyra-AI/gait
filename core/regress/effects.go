@@ -11,8 +11,8 @@ func (effectContractGrader) Name() string        { return "effect_contract" }
 func (effectContractGrader) Deterministic() bool { return true }
 
 func (effectContractGrader) Grade(ctx FixtureContext) (schemaregress.GraderResult, error) {
-	if ctx.Fixture.EffectSnapshotPath == "" || ctx.Fixture.EffectContractPath == "" {
-		return failResult("effect_contract", "effect_evidence_missing", map[string]any{"snapshot": ctx.Fixture.EffectSnapshotPath, "contract": ctx.Fixture.EffectContractPath}), nil
+	if ctx.Fixture.EffectSnapshotPath == "" || ctx.Fixture.EffectContractPath == "" || ctx.Fixture.EffectPublicKeyPath == "" {
+		return failResult("effect_contract", "effect_evidence_missing", map[string]any{"snapshot": ctx.Fixture.EffectSnapshotPath, "contract": ctx.Fixture.EffectContractPath, "trusted_public_key": ctx.Fixture.EffectPublicKeyPath}), nil
 	}
 	snapshot, err := effects.LoadSnapshot(ctx.Fixture.EffectSnapshotPath)
 	if err != nil {
@@ -22,8 +22,12 @@ func (effectContractGrader) Grade(ctx FixtureContext) (schemaregress.GraderResul
 	if err != nil {
 		return failResult("effect_contract", "effect_contract_read_failed", map[string]any{"error": err.Error()}), nil
 	}
-	result := effects.Grade(snapshot, contract)
-	details := map[string]any{"effect_result": result, "snapshot_path": ctx.Fixture.EffectSnapshotPath, "contract_path": ctx.Fixture.EffectContractPath}
+	publicKey, err := effects.LoadPublicKey(ctx.Fixture.EffectPublicKeyPath)
+	if err != nil {
+		return failResult("effect_contract", "effect_trusted_key_read_failed", map[string]any{"error": err.Error()}), nil
+	}
+	result := effects.GradeWithOptions(snapshot, contract, effects.GradeOptions{TrustedCollectorPublicKey: publicKey})
+	details := map[string]any{"effect_result": result, "snapshot_path": ctx.Fixture.EffectSnapshotPath, "contract_path": ctx.Fixture.EffectContractPath, "trusted_public_key": ctx.Fixture.EffectPublicKeyPath}
 	if result.Status == effects.GradePass {
 		return schemaregress.GraderResult{Name: "effect_contract", Status: regressStatusPass, ReasonCodes: result.ReasonCodes, Details: details}, nil
 	}

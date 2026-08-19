@@ -18,7 +18,7 @@ Gait is an offline-first runtime for AI agents that enforces policy at the tool 
 5. Doctor: `gait doctor`
 
 6. Action Contracts: `gait contract validate|classify|readiness|explain|activate|verify|consume` for explicit Wrkr proposal validation, deterministic pre-execution runtime classification/readiness, current-selection binding, signed Gait activation, and deterministic cross-product receipts.
-7. Effect Evidence: `gait effects grade` for bounded before/after `effect_snapshot` evidence and pure typed `effect_contract` predicates with deterministic pass/fail/inconclusive results.
+7. Effect Evidence: `gait effects grade --snapshot <effect_snapshot.json> --contract <effect_contract.json> --trusted-collector-key <public-key>` for bounded before/after `effect_snapshot` evidence and pure typed `effect_contract` predicates with deterministic pass/fail/inconclusive results. A trusted collector key is required for an authoritative pass; fixture-only provenance is explicit and non-production.
 
 Extended first-class surfaces:
 
@@ -77,6 +77,7 @@ The tool boundary is the exact call site where your runtime is about to execute 
 - Pack producer kit: https://clyra-ai.github.io/gait/docs/contracts/pack_producer_kit/
 - Compatibility matrix: https://clyra-ai.github.io/gait/docs/contracts/compatibility_matrix/
 - Action Contract activation: https://clyra-ai.github.io/gait/docs/contracts/action_contract_activation/
+- Effect evidence and contracts: https://clyra-ai.github.io/gait/docs/contracts/effects/
 
 ## LLM Files
 

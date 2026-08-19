@@ -1,0 +1,72 @@
+{
+  "schema_id": "https://gait.dev/schemas/v1/effects/effect-snapshot.schema.json",
+  "schema_version": "1.0.0",
+  "snapshot_id": "effect-snapshot:filesystem-fixture",
+  "resource_kind": "filesystem",
+  "selector": {
+    "resource": "filesystem.path",
+    "path": "/srv/example/data.json"
+  },
+  "before": {
+    "state": "present",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "count": 1,
+    "identity": "file:data.json",
+    "owner": "owner:fixture",
+    "ttl_seconds": 3600,
+    "observed_at": "2026-08-19T00:00:00Z",
+    "evidence_refs": [
+      "ref:before"
+    ]
+  },
+  "after": {
+    "state": "present",
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "count": 1,
+    "identity": "file:data.json",
+    "owner": "owner:fixture",
+    "ttl_seconds": 3600,
+    "observed_at": "2026-08-19T00:00:01Z",
+    "evidence_refs": [
+      "ref:after"
+    ]
+  },
+  "collector": {
+    "name": "fixture-collector",
+    "version": "1.0.0",
+    "mode": "deterministic"
+  },
+  "capture": {
+    "mode": "reference",
+    "source_ref": "capture:effects-fixture",
+    "captured_at": "2026-08-19T00:00:02Z"
+  },
+  "redaction": {
+    "mode": "reference_only"
+  },
+  "correlation": {
+    "action_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "proof_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "lifecycle_id": "lifecycle:fixture",
+    "proof_refs": [
+      "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    ]
+  },
+  "provenance": {
+    "mode": "fixture_test_only",
+    "public_key": "GgN9fpzJNhnjqt/u+VtkPwNnNFC4eTcdZ2XrouVWjpM=",
+    "signature": {
+      "alg": "ed25519",
+      "key_id": "39e72b22bc3e4c1a16487e0cfb65bb38ca38e06e6847f4802e5b554fb143adb2",
+      "sig": "47mF0JoqfY2OTLneWM3pFjM6E0ice7KDRCPYbgsCajrrPshAgqaGMIh465rIPywy0ORayCeLQMfbE/2eYG1lDg==",
+      "signed_digest": "d28978d8a1eebfa5a8ea28a3e5c67b0d04f890765f5278ccef80783128847043"
+    }
+  },
+  "completeness": "complete",
+  "enforcement": "verified",
+  "evidence_refs": [
+    "ref:before",
+    "ref:after"
+  ],
+  "canonical_content_digest": "sha256:d28978d8a1eebfa5a8ea28a3e5c67b0d04f890765f5278ccef80783128847043"
+}

@@ -85,14 +85,15 @@ type FixtureContext struct {
 }
 
 type fixtureSpec struct {
-	Name               string
-	RunID              string
-	FixtureDir         string
-	RunpackPath        string
-	EffectSnapshotPath string
-	EffectContractPath string
-	RunCreatedAt       time.Time
-	Meta               fixtureMeta
+	Name                string
+	RunID               string
+	FixtureDir          string
+	RunpackPath         string
+	EffectSnapshotPath  string
+	EffectContractPath  string
+	EffectPublicKeyPath string
+	RunCreatedAt        time.Time
+	Meta                fixtureMeta
 }
 
 func Run(opts RunOptions) (RunResult, error) {
@@ -302,16 +303,21 @@ func loadFixtureSpecs(cfg configFile, workDir string) ([]fixtureSpec, error) {
 		if pathErr != nil {
 			return nil, fmt.Errorf("invalid effect contract path for %s: %w", fixture.Name, pathErr)
 		}
+		effectPublicKeyPath, pathErr := resolveOptionalFixturePath(meta.EffectPublicKey, fixtureDir)
+		if pathErr != nil {
+			return nil, fmt.Errorf("invalid effect public key path for %s: %w", fixture.Name, pathErr)
+		}
 
 		specs = append(specs, fixtureSpec{
-			Name:               fixture.Name,
-			RunID:              meta.RunID,
-			FixtureDir:         fixtureDir,
-			RunpackPath:        runpackPath,
-			EffectSnapshotPath: effectSnapshotPath,
-			EffectContractPath: effectContractPath,
-			RunCreatedAt:       pack.Run.CreatedAt,
-			Meta:               meta,
+			Name:                fixture.Name,
+			RunID:               meta.RunID,
+			FixtureDir:          fixtureDir,
+			RunpackPath:         runpackPath,
+			EffectSnapshotPath:  effectSnapshotPath,
+			EffectContractPath:  effectContractPath,
+			EffectPublicKeyPath: effectPublicKeyPath,
+			RunCreatedAt:        pack.Run.CreatedAt,
+			Meta:                meta,
 		})
 	}
 	sort.Slice(specs, func(i, j int) bool {

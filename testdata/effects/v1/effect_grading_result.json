@@ -1,0 +1,37 @@
+{
+  "schema_id": "https://gait.dev/schemas/v1/effects/effect-grading-result.schema.json",
+  "schema_version": "1.0.0",
+  "contract_id": "effect-contract:filesystem-fixture",
+  "snapshot_id": "effect-snapshot:filesystem-fixture",
+  "status": "pass",
+  "evidence_status": "verified",
+  "reason_codes": [],
+  "evaluations": [
+    {
+      "id": "count",
+      "kind": "invariant",
+      "field": "count",
+      "status": "pass",
+      "observed": {
+        "after": 1,
+        "before": 1
+      }
+    },
+    {
+      "id": "identity",
+      "kind": "forbid",
+      "field": "after.identity",
+      "status": "pass",
+      "observed": "file:data.json",
+      "expected": "file:deleted"
+    },
+    {
+      "id": "owner",
+      "kind": "expect",
+      "field": "after.owner",
+      "status": "pass",
+      "observed": "owner:fixture",
+      "expected": "owner:fixture"
+    }
+  ]
+}

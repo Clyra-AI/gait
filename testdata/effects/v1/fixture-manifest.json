@@ -1,0 +1,47 @@
+{
+  "fixture_version": "1",
+  "producer": {
+    "name": "gait",
+    "version": "v1.5.0"
+  },
+  "schemas": {
+    "snapshot": "1.0.0",
+    "contract": "1.0.0",
+    "grade": "1.0.0"
+  },
+  "signing": {
+    "mode": "fixture_test_only",
+    "development_signing": true,
+    "non_authoritative": true,
+    "key_id": "39e72b22bc3e4c1a16487e0cfb65bb38ca38e06e6847f4802e5b554fb143adb2",
+    "public_key_path": "testdata/effects/v1/fixture_public_key.base64",
+    "public_key_sha256": "sha256:775471657681ba9adfb3dbb4ce0c2f69d61326b681282bd997165ed01692b89a",
+    "derivation": "sha256(gait-effects-fixture-producer-key-v1) as Ed25519 seed; never used by production/default grading"
+  },
+  "files": [
+    {
+      "path": "effect_snapshot.json",
+      "sha256": "sha256:c6dc2078fd36da68b57b6c63a335109115c8c041cba07f6dd76f3cae29931ef1",
+      "schema_id": "https://gait.dev/schemas/v1/effects/effect-snapshot.schema.json",
+      "schema_version": "1.0.0"
+    },
+    {
+      "path": "effect_contract.json",
+      "sha256": "sha256:84f893cc5214f71afe52f28f396ff3de0add98d8df02f9a4ade19e560d6fa6f7",
+      "schema_id": "https://gait.dev/schemas/v1/effects/effect-contract.schema.json",
+      "schema_version": "1.0.0"
+    },
+    {
+      "path": "effect_grading_result.json",
+      "sha256": "sha256:dfc41d9ef2d5854bd5a90c487b28092d38e95ccbcc8cbc05380fc4c08d1b1225",
+      "schema_id": "https://gait.dev/schemas/v1/effects/effect-grading-result.schema.json",
+      "schema_version": "1.0.0"
+    },
+    {
+      "path": "fixture_public_key.base64",
+      "sha256": "sha256:775471657681ba9adfb3dbb4ce0c2f69d61326b681282bd997165ed01692b89a",
+      "schema_id": "ed25519-public-key",
+      "schema_version": "1"
+    }
+  ]
+}

@@ -66,6 +66,7 @@ type fixtureMeta struct {
 	CheckpointIndex          int      `json:"checkpoint_index,omitempty"`
 	EffectSnapshot           string   `json:"effect_snapshot,omitempty"`
 	EffectContract           string   `json:"effect_contract,omitempty"`
+	EffectPublicKey          string   `json:"effect_public_key,omitempty"`
 }
 
 type configFile struct {

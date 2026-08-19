@@ -27,8 +27,6 @@ This matrix defines compatibility between producer and consumer surfaces.
 
 | Effect snapshot / contract / grade | 1.0.0 | 1.0.0 | Bounded before/after evidence with Proof JCS digests; pure `expect`/`forbid`/`invariant` grading is pass, fail, or inconclusive and never executes effects |
 
-| Effect snapshot / contract / grade | 1.0.0 | 1.0.0 | Bounded before/after evidence with Proof JCS digests; pure `expect`/`forbid`/`invariant` grading is pass, fail, or inconclusive and never executes effects |
-
 The activation compatibility pack under `testdata/action-contract-interop/v1/`
 is generated from exact Wrkr proposal bytes by
 `scripts/action_contract_fixture_generator --check`. Its six valid scenario

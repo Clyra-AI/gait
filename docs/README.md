@@ -73,7 +73,6 @@ Extended first-class surfaces:
 - Action Contract schemas: `schemas/v1/action-contract/README.md`
 - Effect evidence and contracts: `docs/contracts/effects.md`
 - Effect schemas: `schemas/v1/effects/README.md`
-- Effect evidence and contracts: `docs/contracts/effects.md`
 - Failure taxonomy and exit-code reference: `docs/failure_taxonomy_exit_codes.md`
 - Artifact graph: `docs/contracts/artifact_graph.md`
 - Intent+receipt conformance: `docs/contracts/intent_receipt_conformance.md`
