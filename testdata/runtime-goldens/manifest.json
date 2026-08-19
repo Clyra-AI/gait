@@ -1,7 +1,7 @@
 {
   "fixture_version": "1",
   "producer": {"name": "gait", "version": "v1.5.0"},
-  "source_commit": "a991d6e16197e889aadd99affb2bc8504bf3481a",
+  "source_commit": "89d5c12ff786d16be3b5bf3609cd52fbd831b7c1",
   "signing": {"mode":"fixture_only_deterministic_development_key","fixture_test_only":true,"development_signing":true,"non_authoritative":true,"key_id":"8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701","public_key_path":"fixture-signing-key.public.b64","derivation":"sha256(runtime-golden-key) as Ed25519 seed; never used by production/default lifecycle signing"},
   "files": [
     {"path":"fixture-signing-key.public.b64","sha256":"sha256:4a09d7988c00029e6da1d966c512a6a515d421b5f05155d8c87e1b734e8480fa"},
