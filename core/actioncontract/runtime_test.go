@@ -22,10 +22,10 @@ import (
 var expectedRuntimeGoldenDigests = map[string]string{
 	"fixture-signing-key.public.b64": "sha256:4a09d7988c00029e6da1d966c512a6a515d421b5f05155d8c87e1b734e8480fa",
 	"runtime-action.json":            "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424",
-	"runtime-readiness.json":         "sha256:be846bbf532ef768ae46a68bd410592fda6dc55a3e85e28fe74ac8ed64aa541c",
-	"runtime-lifecycle-record.json":  "sha256:076170542c3cad64f02175a9a68a8a8de3c4f469becfd2027769795a5ed2ba4c",
-	"runtime-lifecycle-chain.json":   "sha256:d5c75d1fc66b8f2289da429e8f03bb2e818469b30f42280e9662e5e138faba85",
-	"runtime-lifecycle-chain.jsonl":  "sha256:695840683e389d554245c07fb3cfae5f30ea2da506a597965185eedc89b5fed7",
+	"runtime-readiness.json":         "sha256:dfd922bb801f70160d0cd4228ddd561415fe7408a7dbe00a9f7f64034daa0a5e",
+	"runtime-lifecycle-record.json":  "sha256:e55807415365d0707183195ea9ae5e3be3b2016bd7e0d9292bf90d741eea9807",
+	"runtime-lifecycle-chain.json":   "sha256:ccefdb21dc1cd6a98128b80e69eb00cdff862cc58675047f54cff709a3aae679",
+	"runtime-lifecycle-chain.jsonl":  "sha256:103476492821953195214c41e91adf36acece65f038f17fa1a92b6bcd99ff908",
 }
 
 func TestClassifyRuntimeActionIsMonotonicAndDeterministic(t *testing.T) {
@@ -135,6 +135,20 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 			DevelopmentSigning bool   `json:"development_signing"`
 			NonAuthoritative   bool   `json:"non_authoritative"`
 		} `json:"signing"`
+		ProducerBindings struct {
+			WrkrVersion             string `json:"wrkr_version"`
+			GaitVersion             string `json:"gait_version"`
+			ScenarioID              string `json:"scenario_id"`
+			ProposalPath            string `json:"proposal_path"`
+			ProposalSHA256          string `json:"proposal_sha256"`
+			ProposalCanonicalDigest string `json:"proposal_canonical_digest"`
+			ProposalArtifactID      string `json:"proposal_artifact_id"`
+			ActivationPath          string `json:"activation_path"`
+			ActivationSHA256        string `json:"activation_sha256"`
+			ActivationArtifactID    string `json:"activation_artifact_id"`
+			ContractID              string `json:"contract_id"`
+			Revision                int    `json:"revision"`
+		} `json:"producer_bindings"`
 		Files []struct {
 			Path   string `json:"path"`
 			SHA256 string `json:"sha256"`
@@ -185,15 +199,45 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 			t.Fatalf("unmanifested runtime golden file: %s", entry.Name())
 		}
 	}
+	if manifest.ProducerBindings.WrkrVersion != "v1.14.0" || manifest.ProducerBindings.GaitVersion != "v1.4.0" || manifest.ProducerBindings.ScenarioID != "compensation" || manifest.ProducerBindings.ProposalPath != "testdata/action-contract-interop/v1/expected/compensation/pac-4b7f1402784256ce.json" || manifest.ProducerBindings.ProposalSHA256 != "sha256:bfb32cdce650b2ea969059ae0816df2637f7345e70b08a67d4c23684489bf154" || manifest.ProducerBindings.ProposalCanonicalDigest != "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf" || manifest.ProducerBindings.ProposalArtifactID != "paca-d3a371d51af5af30" || manifest.ProducerBindings.ActivationPath != "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json" || manifest.ProducerBindings.ActivationSHA256 != "sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f" || manifest.ProducerBindings.ActivationArtifactID != "gact-4aad73ff9f3c7e5a" || manifest.ProducerBindings.ContractID != "pac-4b7f1402784256ce" || manifest.ProducerBindings.Revision != 1 {
+		t.Fatalf("runtime producer binding provenance drift: %#v", manifest.ProducerBindings)
+	}
+	proposalRaw, err := os.ReadFile(filepath.Join("..", "..", manifest.ProducerBindings.ProposalPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposalSum := sha256.Sum256(proposalRaw)
+	if got := "sha256:" + hex.EncodeToString(proposalSum[:]); got != manifest.ProducerBindings.ProposalSHA256 {
+		t.Fatalf("released proposal bytes drifted: %s", got)
+	}
+	proposalArtifact, proposalValidation := ValidateArtifactBytes(proposalRaw, ValidationOptions{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC)})
+	if !proposalValidation.Valid || proposalArtifact.CanonicalContentDigest != manifest.ProducerBindings.ProposalCanonicalDigest || proposalArtifact.ArtifactID != manifest.ProducerBindings.ProposalArtifactID || proposalArtifact.ContractID != manifest.ProducerBindings.ContractID || proposalArtifact.Revision != manifest.ProducerBindings.Revision {
+		t.Fatalf("released proposal binding invalid: valid=%t reasons=%v artifact=%#v", proposalValidation.Valid, proposalValidation.Reasons, proposalArtifact)
+	}
+	activationRaw, err := os.ReadFile(filepath.Join("..", "..", manifest.ProducerBindings.ActivationPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	activationSum := sha256.Sum256(activationRaw)
+	if got := "sha256:" + hex.EncodeToString(activationSum[:]); got != manifest.ProducerBindings.ActivationSHA256 {
+		t.Fatalf("released activation bytes drifted: %s", got)
+	}
+	activationArtifact, err := ParseActivatedArtifact(activationRaw)
+	if err != nil || activationArtifact.ArtifactID != manifest.ProducerBindings.ActivationArtifactID || activationArtifact.ContractID != manifest.ProducerBindings.ContractID || activationArtifact.Revision != manifest.ProducerBindings.Revision {
+		t.Fatalf("released activation binding invalid: err=%v artifact=%#v", err, activationArtifact)
+	}
+	if valid, err := VerifyActivationWithOptions(activationArtifact, DevelopmentPublicKey(), VerificationOptions{AllowDevelopmentSigning: true, Proposal: &proposalArtifact, EvaluationTime: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC)}); err != nil || !valid {
+		t.Fatalf("released activation signature/proposal binding failed: valid=%t err=%v", valid, err)
+	}
 	action := ClassifyAction(ClassificationInput{ActionID: "runtime-golden-action", ActionClass: "read", CompositionRole: "source", DataClasses: []string{"internal"}, TargetTrustClass: "external", TransitionClass: "read", ExpectedOutcomeClass: "read", TargetRef: "target:golden"})
 	validatorPrivate, validatorPublic := testGoldenValidatorKey()
 	now := time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC)
 	evidence := signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "runtime-p1", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:runtime-p1"}, ObservedResult: "pass", Environment: "production"})
 	evidenceDigest := evidence.EvidenceDigest
-	readiness := EvaluateReadiness(ReadinessInput{Now: now, ContractID: "pac-runtime-golden", TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{evidence}})
+	readiness := EvaluateReadiness(ReadinessInput{Now: now, ContractID: manifest.ProducerBindings.ContractID, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{evidence}})
 	seed := sha256.Sum256([]byte("runtime-golden-key"))
 	private := ed25519.NewKeyFromSeed(seed[:])
-	contractRef := proof.RelationshipRef{Kind: "action_contract", ID: "pac-runtime-golden", Digest: "sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SchemaID: ProposedContractSchemaID, SchemaVersion: ProposedContractVersion, SourceProduct: "gait"}
+	contractRef := proof.RelationshipRef{Kind: "action_contract", ID: manifest.ProducerBindings.ContractID, Digest: manifest.ProducerBindings.ProposalCanonicalDigest, SchemaID: ProposedContractSchemaID, SchemaVersion: ProposedContractVersion, SourceProduct: "wrkr"}
 	record, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: now, ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{{Kind: "precondition", ID: "runtime-p1", Digest: evidenceDigest, SchemaID: RuntimeReadinessSchemaID, SchemaVersion: RuntimeActionSchemaVersion, SourceProduct: "gait"}}, Decision: &readiness, SigningPrivateKey: private})
 	if err != nil {
 		t.Fatal(err)
@@ -201,8 +245,8 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 	assertGoldenJSON(t, filepath.Join(goldenRoot, "runtime-action.json"), action)
 	assertGoldenJSON(t, filepath.Join(goldenRoot, "runtime-readiness.json"), readiness)
 	assertGoldenJSON(t, filepath.Join(goldenRoot, "runtime-lifecycle-record.json"), record)
-	proposalRef := proof.RelationshipRef{Kind: "action_contract", ID: "pac-runtime-golden", Digest: "sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SchemaID: ProposedContractSchemaID, SchemaVersion: ProposedContractVersion, SourceProduct: "gait"}
-	activationRef := proof.RelationshipRef{Kind: "activated_action_contract", ID: "gact-runtime-golden", Digest: "sha256:" + "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", SchemaID: ActivatedSchemaID, SchemaVersion: ActivatedSchemaVersion, SourceProduct: "gait"}
+	proposalRef := contractRef
+	activationRef := proof.RelationshipRef{Kind: "activated_action_contract", ID: manifest.ProducerBindings.ActivationArtifactID, Digest: manifest.ProducerBindings.ActivationSHA256, SchemaID: ActivatedSchemaID, SchemaVersion: ActivatedSchemaVersion, SourceProduct: ActivatedProducer}
 	preconditionRef := proof.RelationshipRef{Kind: "precondition", ID: "runtime-p1", Digest: evidenceDigest, SchemaID: RuntimeReadinessSchemaID, SchemaVersion: RuntimeActionSchemaVersion, SourceProduct: "gait"}
 	proposalEvent, _ := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleProposalIngested, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 0, 0, 0, time.UTC), ContractRef: proposalRef, ProposalRef: &proposalRef, SigningPrivateKey: private})
 	preconditionEvent, _ := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecyclePreconditionEvaluated, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 0, 30, 0, time.UTC), ContractRef: proposalRef, PreconditionRefs: []proof.RelationshipRef{preconditionRef}, SigningPrivateKey: private})
@@ -439,6 +483,16 @@ func TestEvaluateReadinessKindConstraintsAreBoundedAndCompared(t *testing.T) {
 			item.ResourceStatus = "partial"
 			return item
 		}(), reason: "resource:cleanup_incomplete"},
+		{name: "resource_ttl", item: func() ReadinessPrecondition {
+			item := base
+			item.Kind = "resource_ttl"
+			return item
+		}(), reason: "resource:ttl_missing"},
+		{name: "unknown_kind", item: func() ReadinessPrecondition {
+			item := base
+			item.Kind = "future_kind"
+			return item
+		}(), reason: "precondition:kind_unsupported"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			item := signedTestPrecondition(private, test.item)
@@ -531,6 +585,13 @@ func TestLifecycleRecordsSignAndReducePurely(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	conflictingPreconditionEvent, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecyclePreconditionEvaluated, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 0, 16, 0, time.UTC), ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{{Kind: "precondition", ID: "p1", Digest: "sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}, SigningPrivateKey: private})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, preconditionEvent, conflictingPreconditionEvent}); err == nil {
+		t.Fatal("conflicting precondition binding accepted")
+	}
 	snapshot := ReduceLifecycle([]LifecycleRecord{first, preconditionEvent, request, second})
 	if snapshot.CurrentStatus != "ready" || !snapshot.ProposalIngested || !snapshot.DecisionReady {
 		t.Fatalf("unexpected reduced lifecycle: %#v", snapshot)
@@ -578,7 +639,41 @@ func TestLifecycleRecordsSignAndReducePurely(t *testing.T) {
 	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, other}); err == nil {
 		t.Fatal("mixed lifecycle contracts accepted")
 	}
+	badCorrelation := first
+	badCorrelation.Correlation.ContentDigest = "sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	if _, err := VerifyLifecycleRecord(badCorrelation, public); err == nil {
+		t.Fatal("correlation content digest mismatch accepted")
+	}
+	badProposal := first
+	proposalMismatch := contractRef
+	proposalMismatch.Digest = "sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	badProposal.ProposalRef = &proposalMismatch
+	if _, err := VerifyLifecycleRecord(badProposal, public); err == nil {
+		t.Fatal("proposal reference identity mismatch accepted")
+	}
+	badProposalKind := first
+	proposalKindMismatch := contractRef
+	proposalKindMismatch.Kind = "other_contract"
+	badProposalKind.ProposalRef = &proposalKindMismatch
+	if _, err := VerifyLifecycleRecord(badProposalKind, public); err == nil {
+		t.Fatal("proposal reference kind mismatch accepted")
+	}
+	badCausal := first
+	badCausal.Correlation.CausalRef = &proof.RelationshipRef{Kind: "causal", ID: "causal:1", Digest: "sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+	if _, err := VerifyLifecycleRecord(badCausal, public); err == nil {
+		t.Fatal("causal reference identity mismatch accepted")
+	}
+	badEvent := first
+	badEvent.Correlation.EventRef = &proof.RelationshipRef{Kind: "event", ID: "event:1", Digest: "sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+	if _, err := VerifyLifecycleRecord(badEvent, public); err == nil {
+		t.Fatal("event reference identity mismatch accepted")
+	}
 	activationRef := proof.RelationshipRef{Kind: "activated_action_contract", ID: "gact-1", Digest: "sha256:" + "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", SchemaID: ActivatedSchemaID, SchemaVersion: ActivatedSchemaVersion, SourceProduct: "gait"}
+	wrongActivationRef := activationRef
+	wrongActivationRef.Kind = "activation"
+	if _, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleActivated, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 2, 0, 0, time.UTC), ContractRef: contractRef, ProposalRef: &contractRef, ActivationRef: &wrongActivationRef, SigningPrivateKey: private}); err == nil {
+		t.Fatal("activation reference identity mismatch accepted")
+	}
 	noDecisionActivation, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleActivated, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 2, 0, 0, time.UTC), ContractRef: contractRef, ProposalRef: &contractRef, ActivationRef: &activationRef, SigningPrivateKey: private})
 	if err != nil {
 		t.Fatal(err)

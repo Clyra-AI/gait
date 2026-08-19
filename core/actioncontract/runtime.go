@@ -813,6 +813,9 @@ func validateFreshness(item ReadinessPrecondition, now time.Time) string {
 
 func validateReadinessKind(item ReadinessPrecondition) []string {
 	reasons := []string{}
+	if _, supported := supportedReadinessKinds[item.Kind]; !supported {
+		return []string{"precondition:kind_unsupported"}
+	}
 	switch item.Kind {
 	case "environment":
 		if strings.TrimSpace(item.Environment) == "" {
@@ -860,12 +863,28 @@ func validateReadinessKind(item ReadinessPrecondition) []string {
 		if reason := requiredReadinessValue(item, item.ResourceStatus, "resource"); reason != "" {
 			reasons = append(reasons, reason)
 		}
+	case "resource_ttl":
+		if item.TTLSeconds <= 0 {
+			reasons = append(reasons, "resource:ttl_missing")
+		}
 	case "compensation", "compensation_contract":
 		if !containsStringValue([]string{"ready", "verified"}, item.CompensationStatus) {
 			reasons = append(reasons, "compensation:not_ready")
 		}
 	}
 	return reasons
+}
+
+var supportedReadinessKinds = map[string]struct{}{
+	"originating_intent": {}, "requester_identity": {}, "business_owner": {},
+	"affected_system_owner": {}, "permitted_agent_role": {}, "policy_authority": {},
+	"delegation_root": {}, "credential_subject_constraint": {}, "separation_of_duties": {},
+	"validation_contract": {}, "effect_contract": {}, "required_check": {}, "producer": {},
+	"freshness": {}, "environment": {}, "target": {}, "sandbox": {}, "sandbox_control": {},
+	"policy_digest": {}, "credential_mode": {}, "credential": {}, "expected_effect": {},
+	"forbidden_effect": {}, "confirmation": {}, "approval": {}, "compensation": {},
+	"compensation_contract": {}, "resource": {}, "resource_lifecycle": {}, "resource_budget": {},
+	"resource_ttl": {}, "cleanup": {}, "resource_cleanup": {},
 }
 
 func requiredReadinessValue(item ReadinessPrecondition, observed, kind string) string {
@@ -1223,21 +1242,63 @@ func validateLifecycleRefs(record LifecycleRecord) error {
 	if record.Correlation.BindingMode != proof.BindingModeDigestBound || record.Correlation.ContractRef == nil || !validLifecycleRef(*record.Correlation.ContractRef) {
 		return errors.New("lifecycle correlation must carry digest-bound contract reference")
 	}
-	if record.Correlation.ContractRef.Digest != record.ContractRef.Digest {
-		return errors.New("lifecycle correlation contract digest mismatch")
+	if !sameLifecycleRefIdentity(record.Correlation.ContractRef, &record.ContractRef) {
+		return errors.New("lifecycle correlation contract identity mismatch")
+	}
+	if !validSHA256Digest(record.Correlation.ContentDigest) || record.Correlation.ContentDigest != record.ContractRef.Digest {
+		return errors.New("lifecycle correlation content digest mismatch")
 	}
 	if record.ProposalRef != nil && !validLifecycleRef(*record.ProposalRef) {
 		return errors.New("lifecycle proposal reference must be digest-bound")
 	}
+	if record.ProposalRef != nil && !sameLifecycleRefIdentity(record.ProposalRef, &record.ContractRef) {
+		return errors.New("lifecycle proposal reference identity mismatch")
+	}
 	if record.ActivationRef != nil && !validLifecycleRef(*record.ActivationRef) {
 		return errors.New("lifecycle activation reference must be digest-bound")
+	}
+	if record.ActivationRef != nil && (record.ActivationRef.Kind != "activated_action_contract" || record.ActivationRef.SchemaID != ActivatedSchemaID || record.ActivationRef.SchemaVersion != ActivatedSchemaVersion || record.ActivationRef.SourceProduct != ActivatedProducer) {
+		return errors.New("lifecycle activation reference identity mismatch")
 	}
 	for _, ref := range record.PreconditionRefs {
 		if !validLifecycleRef(ref) {
 			return errors.New("lifecycle precondition reference must be digest-bound")
 		}
 	}
+	if record.Correlation.EventRef != nil {
+		expected := record.ActivationRef
+		if expected == nil {
+			expected = record.ProposalRef
+		}
+		if expected == nil || !sameLifecycleRefIdentity(record.Correlation.EventRef, expected) {
+			return errors.New("lifecycle correlation event reference identity mismatch")
+		}
+	}
+	if record.Correlation.CausalRef != nil {
+		if record.ProposalRef == nil || !sameLifecycleRefIdentity(record.Correlation.CausalRef, record.ProposalRef) {
+			return errors.New("lifecycle correlation causal reference identity mismatch")
+		}
+	}
 	return nil
+}
+
+func sameLifecycleRefIdentity(actual, expected *proof.RelationshipRef) bool {
+	if actual == nil || expected == nil || !validLifecycleRef(*actual) {
+		return false
+	}
+	if actual.Kind != expected.Kind || actual.ID != expected.ID || actual.Digest != expected.Digest {
+		return false
+	}
+	if actual.SchemaID != "" && actual.SchemaID != expected.SchemaID {
+		return false
+	}
+	if actual.SchemaVersion != "" && actual.SchemaVersion != expected.SchemaVersion {
+		return false
+	}
+	if actual.SourceProduct != "" && actual.SourceProduct != expected.SourceProduct {
+		return false
+	}
+	return true
 }
 
 func validateLifecycleEvent(record LifecycleRecord) error {
@@ -1397,6 +1458,9 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 				if _, exists := evaluated[key]; !exists {
 					evaluated[key] = struct{}{}
 					out.PreconditionsEvaluated++
+				}
+				if existing, exists := evaluatedByID[ref.ID]; exists && existing != ref.Digest {
+					return LifecycleSnapshot{}, errors.New("lifecycle_precondition_binding_conflict")
 				}
 				evaluatedByID[ref.ID] = ref.Digest
 			}

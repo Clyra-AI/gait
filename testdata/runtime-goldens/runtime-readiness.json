@@ -1,7 +1,7 @@
 {
   "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
   "schema_version": "1",
-  "contract_id": "pac-runtime-golden",
+  "contract_id": "pac-4b7f1402784256ce",
   "ready": true,
   "status": "satisfied",
   "preconditions": [{

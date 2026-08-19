@@ -1,14 +1,15 @@
 {
   "fixture_version": "1",
   "producer": {"name": "gait", "version": "v1.5.0"},
-  "source_commit": "89d5c12ff786d16be3b5bf3609cd52fbd831b7c1",
+  "source_commit": "fa530c6057e6b30f0c69abace3501ba5d94a3bfe",
+  "producer_bindings": {"wrkr_version":"v1.14.0","gait_version":"v1.4.0","scenario_id":"compensation","proposal_path":"testdata/action-contract-interop/v1/expected/compensation/pac-4b7f1402784256ce.json","proposal_sha256":"sha256:bfb32cdce650b2ea969059ae0816df2637f7345e70b08a67d4c23684489bf154","proposal_canonical_digest":"sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf","proposal_artifact_id":"paca-d3a371d51af5af30","activation_path":"testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json","activation_sha256":"sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f","activation_artifact_id":"gact-4aad73ff9f3c7e5a","contract_id":"pac-4b7f1402784256ce","revision":1},
   "signing": {"mode":"fixture_only_deterministic_development_key","fixture_test_only":true,"development_signing":true,"non_authoritative":true,"key_id":"8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701","public_key_path":"fixture-signing-key.public.b64","derivation":"sha256(runtime-golden-key) as Ed25519 seed; never used by production/default lifecycle signing"},
   "files": [
     {"path":"fixture-signing-key.public.b64","sha256":"sha256:4a09d7988c00029e6da1d966c512a6a515d421b5f05155d8c87e1b734e8480fa"},
     {"path":"runtime-action.json","sha256":"sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424"},
-    {"path":"runtime-readiness.json","sha256":"sha256:be846bbf532ef768ae46a68bd410592fda6dc55a3e85e28fe74ac8ed64aa541c"},
-    {"path":"runtime-lifecycle-record.json","sha256":"sha256:076170542c3cad64f02175a9a68a8a8de3c4f469becfd2027769795a5ed2ba4c"},
-    {"path":"runtime-lifecycle-chain.json","sha256":"sha256:d5c75d1fc66b8f2289da429e8f03bb2e818469b30f42280e9662e5e138faba85"},
-    {"path":"runtime-lifecycle-chain.jsonl","sha256":"sha256:695840683e389d554245c07fb3cfae5f30ea2da506a597965185eedc89b5fed7"}
+    {"path":"runtime-readiness.json","sha256":"sha256:dfd922bb801f70160d0cd4228ddd561415fe7408a7dbe00a9f7f64034daa0a5e"},
+    {"path":"runtime-lifecycle-record.json","sha256":"sha256:e55807415365d0707183195ea9ae5e3be3b2016bd7e0d9292bf90d741eea9807"},
+    {"path":"runtime-lifecycle-chain.json","sha256":"sha256:ccefdb21dc1cd6a98128b80e69eb00cdff862cc58675047f54cff709a3aae679"},
+    {"path":"runtime-lifecycle-chain.jsonl","sha256":"sha256:103476492821953195214c41e91adf36acece65f038f17fa1a92b6bcd99ff908"}
   ]
 }
