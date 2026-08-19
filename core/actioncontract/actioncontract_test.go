@@ -304,6 +304,24 @@ func TestVerifyActivationEnforcesValidityAtExplicitEvaluationTime(t *testing.T) 
 	}
 }
 
+func TestPublicArtifactAndKeyHelperBranches(t *testing.T) {
+	if got := (&ValidationError{}).Error(); got != "action contract validation failed" {
+		t.Fatalf("unexpected empty validation error: %q", got)
+	}
+	if got := (*ValidationError)(nil).Error(); got != "action contract validation failed" {
+		t.Fatalf("unexpected nil validation error: %q", got)
+	}
+	if _, _, err := ReadActivatedArtifact(""); err == nil {
+		t.Fatal("empty activation path accepted")
+	}
+	if _, _, err := ReadActivatedArtifact(filepath.Join(t.TempDir(), "missing.json")); err == nil {
+		t.Fatal("missing activation path accepted")
+	}
+	if encoded := EncodePrivateKey(mustKey(t)); encoded == "" {
+		t.Fatal("private key encoding is empty")
+	}
+}
+
 func TestSelectionEvidenceRejectsSymlinkOutsideRoot(t *testing.T) {
 	root := t.TempDir()
 	scenarioDir := filepath.Join(root, "scenario")
