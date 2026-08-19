@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
+  "title": "Gait Runtime Action Classification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "action_id", "action_class", "composition_role", "target_trust_class", "transition_class", "expected_outcome_class", "boundary"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/runtime-action.schema.json"},
+    "schema_version": {"const": "1"},
+    "action_id": {"type": "string", "minLength": 1},
+    "action_class": {"enum": ["read", "write", "deploy", "delete", "execute", "egress", "credential_access", "release", "resource"]},
+    "action_classes": {"type": "array", "items": {"enum": ["read", "write", "deploy", "delete", "execute", "egress", "credential_access", "release", "resource"]}},
+    "composition_role": {"enum": ["source", "transform", "sink", "internal_sink", "external_sink", "privileged_sink", "destructive_sink"]},
+    "data_classes": {"type": "array", "items": {"enum": ["public", "internal", "confidential", "sensitive", "pii", "phi", "secret", "credential", "code", "unknown", "unclassified"]}},
+    "target_trust_class": {"enum": ["unknown", "untrusted", "external", "internal", "trusted", "privileged", "production"]},
+    "transition_class": {"enum": ["none", "read", "write", "delete", "execute", "deploy", "egress", "credential", "delegate", "resource_lifecycle", "approval", "control"]},
+    "expected_outcome_class": {"enum": ["unknown", "none", "read", "write", "execute", "data_egress", "network_egress", "external_egress", "production_deploy", "production_mutation", "release", "release_publish", "resource_change"]},
+    "intended_outcome_class": {"type": "string"},
+    "resource_lifecycle_actions": {"type": "array", "items": {"enum": ["none", "create", "acquire", "reserve", "update", "delete", "release", "cleanup", "expire", "revoke", "rotate", "snapshot", "restore", "attach", "detach", "observe"]}},
+    "resource_actions": {"type": "array", "items": {"enum": ["none", "create", "acquire", "reserve", "update", "delete", "release", "cleanup", "expire", "revoke", "rotate", "snapshot", "restore", "attach", "detach", "observe"]}},
+    "risk_class": {"type": "string"},
+    "target_ref": {"type": "string"},
+    "boundary": {"$ref": "#/$defs/boundary"},
+    "stages": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"$ref": "#/$defs/stage"}},
+    "observed_effect": {"$ref": "#/$defs/effect"},
+    "inference_reasons": {"type": "array", "items": {"type": "string"}},
+    "classification_reasons": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "boundary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_trust_class", "target_trust_class", "transition_class"],
+      "properties": {
+        "source_trust_class": {"type": "string"}, "target_trust_class": {"type": "string"}, "transition_class": {"type": "string"},
+        "boundary_refs": {"type": "array", "items": {"type": "string"}}, "proof_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "stage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stage_id", "role", "target_trust_class", "transition_class", "expected_outcome_class"],
+      "properties": {
+        "stage_id": {"type": "string", "minLength": 1}, "role": {"type": "string"}, "action_classes": {"type": "array", "items": {"type": "string"}},
+        "data_classes": {"type": "array", "items": {"type": "string"}}, "target_trust_class": {"type": "string"}, "transition_class": {"type": "string"},
+        "expected_outcome_class": {"type": "string"}, "target_ref": {"type": "string"}, "boundary_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "effect": {
+      "type": "object", "additionalProperties": false, "required": ["status"],
+      "properties": {"status": {"enum": ["not_observed", "observed", "contradictory"]}, "effect_class": {"type": "string"}, "effect_refs": {"type": "array", "items": {"type": "string"}}, "observed_at": {"type": "string", "format": "date-time"}}
+    }
+  }
+}

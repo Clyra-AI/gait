@@ -18,3 +18,27 @@ is committed or read by production/default activation. Every generated
 activation is marked `development_signing: true` and is non-authoritative by
 default. These files prove compatibility with the Gait v1.4.0 artifact shape,
 not production approval or execution authority.
+
+The core action-contract tests also consume every released proposal in this
+pack through the runtime classification/readiness projection. Those checks
+assert deterministic action/boundary/outcome normalization, bounded stage
+topology, fail-closed readiness without trusted validators, and the invariant
+that intended outcomes never become observed effects.
+
+Exact runtime projection goldens are committed under `testdata/runtime-goldens/`
+for action classification, readiness, and signed lifecycle records. The
+ordered full-record lifecycle chain is accompanied by a digest manifest and
+fixture-only public signing key. Runtime tests parse and verify every record
+with that key before reduction; their canonical JSON is compared byte-for-byte
+after normalization.
+The manifest records the provisional Gait producer target `v1.5.0` and the
+runtime-readiness source commit for later release reconciliation. Runtime tests
+pin the complete manifest file set and SHA-256 values, then compare generated
+canonical JSON and full JSONL bytes, so editing the manifest cannot bless drift.
+Readiness signatures bind the normalized typed precondition claim digest, not a
+caller-selected digest detached from the claim fields.
+The lifecycle golden chain binds the released `compensation` scenario exactly:
+Wrkr `v1.14.0` proposal `pac-4b7f1402784256ce` with canonical digest
+`sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf`
+and Gait `v1.4.0` activation `gact-4aad73ff9f3c7e5a` with raw digest
+`sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f`.

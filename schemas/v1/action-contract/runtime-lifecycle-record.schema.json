@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+  "title": "Gait Runtime Lifecycle Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "record_id", "revision", "kind", "occurred_at", "contract_ref", "correlation", "signature"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json"}, "schema_version": {"const": "1"},
+    "record_id": {"type": "string", "pattern": "^gait-lr-[a-f0-9]{16}$"}, "revision": {"type": "integer", "minimum": 1}, "kind": {"enum": ["proposal_ingested", "activation_requested", "activated", "rejected", "revoked", "superseded", "precondition_evaluated", "decision_ready"]},
+    "occurred_at": {"type": "string", "format": "date-time"}, "contract_ref": {"$ref": "#/$defs/relationship_ref"},
+    "proposal_ref": {"$ref": "#/$defs/relationship_ref"}, "activation_ref": {"$ref": "#/$defs/relationship_ref"}, "precondition_refs": {"type": "array", "items": {"$ref": "#/$defs/relationship_ref"}},
+    "decision": {"$ref": "runtime-readiness.schema.json"}, "reason_codes": {"type": "array", "items": {"type": "string"}},
+    "correlation": {"$ref": "https://github.com/Clyra-AI/proof/schemas/v1/control-containment-telemetry-profile-v1.schema.json"}, "immutable_object": {}, "signature": {"$ref": "#/$defs/signature"}
+  },
+  "$defs": {
+    "relationship_ref": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "id", "digest"],
+      "properties": {"kind": {"type": "string", "minLength": 1}, "id": {"type": "string", "minLength": 1}, "digest": {"type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$"}, "schema_id": {"type": "string"}, "schema_version": {"type": "string"}, "source_product": {"type": "string"}}
+    },
+    "signature": {
+      "type": "object", "additionalProperties": false, "required": ["alg", "key_id", "sig", "signed_digest"],
+      "properties": {"alg": {"const": "ed25519"}, "key_id": {"type": "string", "minLength": 1}, "sig": {"type": "string", "minLength": 1}, "signed_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+    },
+    "event_requirements": {
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "proposal_ingested"}}}, "then": {"required": ["proposal_ref"]}},
+        {"if": {"properties": {"kind": {"const": "activation_requested"}}}, "then": {"required": ["proposal_ref"]}},
+        {"if": {"properties": {"kind": {"const": "activated"}}}, "then": {"required": ["proposal_ref", "activation_ref"]}},
+        {"if": {"properties": {"kind": {"const": "precondition_evaluated"}}}, "then": {"required": ["precondition_refs"]}},
+        {"if": {"properties": {"kind": {"const": "decision_ready"}}}, "then": {"required": ["decision"]}}
+      ]
+    }
+  },
+  "allOf": [{"$ref": "#/$defs/event_requirements"}]
+}
