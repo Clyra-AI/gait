@@ -313,12 +313,120 @@ func TestWriteActivatedArtifactRefusesUnsafeTargets(t *testing.T) {
 	if err := WriteActivatedArtifact(target, activated, true); err != nil {
 		t.Fatal(err)
 	}
+	nonRegular := filepath.Join(dir, "non-regular")
+	if err := os.Mkdir(nonRegular, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteActivatedArtifact(nonRegular, activated, true); err == nil {
+		t.Fatal("non-regular output must be refused")
+	}
 	link := filepath.Join(dir, "link.json")
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
 	if err := WriteActivatedArtifact(link, activated, true); err == nil {
 		t.Fatal("symlink output must be refused")
+	}
+}
+
+func TestWriteActivatedArtifactInstallRacesAreFailClosedAndCleaned(t *testing.T) {
+	proposal := fixtureArtifact(t, "customer-data-to-egress")
+	activated, _, err := Activate(proposal, ActivationOptions{PolicyDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", ActivatingPrincipal: "principal:owner", AuthorityRefs: []string{"approval:owner"}, Target: "target:deploy", Environment: "production", Mode: ActivationContextOnly, ValidFrom: "2026-07-19T00:00:00Z", SigningPrivateKey: mustKey(t), Selection: fixtureSelection(t, "customer-data-to-egress", proposal)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("concurrent creation refuses without overwrite", func(t *testing.T) {
+		dir := t.TempDir()
+		target := filepath.Join(dir, "activated.json")
+		err := writeActivatedArtifact(target, activated, false, func() {
+			if writeErr := os.WriteFile(target, []byte("raced"), 0o600); writeErr != nil {
+				t.Errorf("create raced target: %v", writeErr)
+			}
+		})
+		if err == nil || !strings.Contains(err.Error(), "appeared during install") {
+			t.Fatalf("concurrent target creation must fail closed: %v", err)
+		}
+		assertNoActivationTempFiles(t, dir)
+	})
+
+	t.Run("concurrent symlink creation refuses without overwrite", func(t *testing.T) {
+		dir := t.TempDir()
+		target := filepath.Join(dir, "activated.json")
+		outside := filepath.Join(t.TempDir(), "outside.json")
+		if writeErr := os.WriteFile(outside, []byte("outside"), 0o600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+		err := writeActivatedArtifact(target, activated, false, func() {
+			if linkErr := os.Symlink(outside, target); linkErr != nil {
+				t.Errorf("create raced symlink: %v", linkErr)
+			}
+		})
+		if err == nil || !strings.Contains(err.Error(), "appeared during install") {
+			t.Fatalf("concurrent symlink creation must fail closed: %v", err)
+		}
+		assertNoActivationTempFiles(t, dir)
+	})
+
+	t.Run("concurrent replacement refuses overwrite", func(t *testing.T) {
+		dir := t.TempDir()
+		target := filepath.Join(dir, "activated.json")
+		if err := WriteActivatedArtifact(target, activated, false); err != nil {
+			t.Fatal(err)
+		}
+		err := writeActivatedArtifact(target, activated, true, func() {
+			if removeErr := os.Remove(target); removeErr != nil {
+				t.Errorf("remove target before replacement race: %v", removeErr)
+				return
+			}
+			if writeErr := os.WriteFile(target, []byte("replacement"), 0o600); writeErr != nil {
+				t.Errorf("replace raced target: %v", writeErr)
+			}
+		})
+		if err == nil || !strings.Contains(err.Error(), "changed before overwrite") {
+			t.Fatalf("concurrent regular replacement must fail closed: %v", err)
+		}
+		got, readErr := os.ReadFile(target)
+		if readErr != nil || string(got) != "replacement" {
+			t.Fatalf("concurrent replacement must remain untouched: bytes=%q err=%v", got, readErr)
+		}
+		assertNoActivationTempFiles(t, dir)
+	})
+
+	t.Run("concurrent symlink replacement refuses overwrite", func(t *testing.T) {
+		dir := t.TempDir()
+		target := filepath.Join(dir, "activated.json")
+		if err := WriteActivatedArtifact(target, activated, false); err != nil {
+			t.Fatal(err)
+		}
+		outside := filepath.Join(t.TempDir(), "outside.json")
+		if err := os.WriteFile(outside, []byte("outside"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := writeActivatedArtifact(target, activated, true, func() {
+			if removeErr := os.Remove(target); removeErr != nil {
+				t.Errorf("remove target before symlink race: %v", removeErr)
+				return
+			}
+			if linkErr := os.Symlink(outside, target); linkErr != nil {
+				t.Errorf("create replacement symlink: %v", linkErr)
+			}
+		})
+		if err == nil || !strings.Contains(err.Error(), "changed before overwrite") {
+			t.Fatalf("concurrent symlink replacement must fail closed: %v", err)
+		}
+		assertNoActivationTempFiles(t, dir)
+	})
+}
+
+func assertNoActivationTempFiles(t *testing.T, dir string) {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join(dir, ".gait-activated-action-contract-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 0 {
+		t.Fatalf("temporary activation files leaked: %v", paths)
 	}
 }
 

@@ -435,6 +435,10 @@ func ReadActivatedArtifact(path string) (ActivatedArtifact, []byte, error) {
 // temporary file. Existing targets are refused unless overwrite is explicit;
 // symlink targets and symlinked parent directories are always rejected.
 func WriteActivatedArtifact(path string, artifact ActivatedArtifact, overwrite bool) error {
+	return writeActivatedArtifact(path, artifact, overwrite, nil)
+}
+
+func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite bool, beforeInstall func()) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return errors.New("activation output path is required")
@@ -454,7 +458,11 @@ func WriteActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 	if err != nil {
 		return err
 	}
-	if info, err := os.Lstat(abs); err == nil {
+	targetPath := filepath.Join(resolvedDirectory, filepath.Base(abs))
+	initialInfo, err := os.Lstat(targetPath)
+	existed := err == nil
+	if existed {
+		info := initialInfo
 		if info.Mode()&os.ModeSymlink != 0 {
 			return errors.New("activation output must not be a symlink")
 		}
@@ -489,7 +497,31 @@ func WriteActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 	if err := temporary.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(temporaryPath, filepath.Join(resolvedDirectory, filepath.Base(abs))); err != nil {
+	if beforeInstall != nil {
+		beforeInstall()
+	}
+	if existed {
+		currentInfo, err := os.Lstat(targetPath)
+		if err != nil {
+			return fmt.Errorf("activation output changed before overwrite: %w", err)
+		}
+		if currentInfo.Mode()&os.ModeSymlink != 0 || !currentInfo.Mode().IsRegular() || !os.SameFile(initialInfo, currentInfo) {
+			return errors.New("activation output changed before overwrite")
+		}
+		if err := os.Rename(temporaryPath, targetPath); err != nil {
+			return err
+		}
+		return nil
+	}
+	// A hard link is the portable exclusive-install primitive: it succeeds
+	// only when the target is still absent and never follows a symlink.
+	if err := os.Link(temporaryPath, targetPath); err != nil {
+		if os.IsExist(err) {
+			return errors.New("activation output appeared during install")
+		}
+		return err
+	}
+	if err := os.Remove(temporaryPath); err != nil {
 		return err
 	}
 	return nil
