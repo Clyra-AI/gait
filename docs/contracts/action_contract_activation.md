@@ -6,12 +6,14 @@ create policy, approve an action, execute an effect, or claim an effect.
 
 ```text
 gait contract validate --proposal proposal.json --json
-gait contract activate --proposal proposal.json \
+gait contract activate --proposal proposal.json --selection fixture-manifest.json \
   --policy-digest sha256:<64 hex> --principal principal:owner \
   --authority-ref approval:owner --target target:deploy \
-  --environment production --mode context_only \
+  --environment production --mode context_only --private-key gait-private.key \
   --valid-from 2026-07-19T00:00:00Z --json
-gait contract consume proposal.json
+gait contract verify --activation activated.json --proposal proposal.json \
+  --public-key gait-public.key --json
+gait contract consume proposal.json --selection fixture-manifest.json
 ```
 
 Validation checks the Wrkr envelope and v3 contract schema/producer, identity
@@ -29,4 +31,10 @@ explicit exceptions. A new Wrkr revision must be activated again.
 The conformance consumer (`gait contract consume <artifact>`) emits a direct,
 deterministic JSON receipt. `status: pass` means the selected bytes were
 consumed; `self_attestation` is always `false`, and execution/effect claims
-are always false. Semantic readiness is reported separately.
+are always false. Semantic readiness is reported separately. Consume requires
+the local current-selection manifest beside fixture artifacts (or an explicit
+`--selection` path), and activation requires an explicit selection manifest.
+Production activation requires an explicit Ed25519 private-key source. The
+`--allow-development-signing` flag is test-only, requires `environment`
+`development` or `test`, and records `development_signing: true`; such output
+is rejected by normal verification.

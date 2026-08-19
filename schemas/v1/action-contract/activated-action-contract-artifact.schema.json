@@ -8,7 +8,7 @@
     "schema_id", "schema_version", "artifact_id", "contract_id", "contract_family_id",
     "revision", "producer", "proposal", "policy_digest", "activating_principal",
     "authority_refs", "target", "environment", "activation_mode", "validity",
-    "explicit_exceptions", "report_only", "signature"
+    "explicit_exceptions", "report_only", "development_signing", "signature"
   ],
   "properties": {
     "schema_id": {"const": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json"},
@@ -48,6 +48,7 @@
     },
     "explicit_exceptions": {"type": "array", "items": {"type": "string"}},
     "report_only": {"const": false},
+    "development_signing": {"type": "boolean"},
     "signature": {
       "type": "object", "additionalProperties": false, "required": ["alg", "key_id", "sig", "signed_digest"],
       "properties": {"alg": {"const": "ed25519"}, "key_id": {"type": "string"}, "sig": {"type": "string"}, "signed_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -23,13 +24,15 @@ import (
 
 	proofcanon "github.com/Clyra-AI/proof/canon"
 	proofsign "github.com/Clyra-AI/proof/signing"
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 const (
-	ProposedSchemaID        = "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json"
-	ProposedSchemaVersion   = "1"
-	ProposedContractVersion = "3"
-	ProposedProducer        = "wrkr"
+	ProposedSchemaID         = "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json"
+	ProposedContractSchemaID = "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json"
+	ProposedSchemaVersion    = "1"
+	ProposedContractVersion  = "3"
+	ProposedProducer         = "wrkr"
 
 	ActivatedSchemaID        = "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json"
 	ActivatedSchemaVersion   = "1"
@@ -69,6 +72,15 @@ const (
 	ReasonSelectionRequired            = "explicit_selection_required"
 	ReasonAmbiguousSelection           = "ambiguous_selection"
 	ReasonAuthorizationRequired        = "authorization_required"
+	ReasonSchemaValidationFailed       = "schema_validation_failed"
+	ReasonSigningKeyRequired           = "signing_key_required"
+	ReasonDevelopmentSigningForbidden  = "development_signing_forbidden"
+	ReasonDevelopmentSigningUnverified = "development_signing_unverified"
+	ReasonSelectionEvidenceRequired    = "selection_evidence_required"
+	ReasonSelectionMismatch            = "selection_mismatch"
+	ReasonSelectionNotCurrent          = "selection_not_current"
+	ReasonSelectionAmbiguous           = "selection_ambiguous"
+	ReasonBindingMismatch              = "proposal_binding_mismatch"
 )
 
 var (
@@ -119,6 +131,7 @@ type ValidationOptions struct {
 	ExpectedContractID  string
 	ExpectedFamilyID    string
 	ExpectedRevision    int
+	SchemaRoot          string
 }
 
 type SupportedConstraintSummary struct {
@@ -134,6 +147,19 @@ type ValidationResult struct {
 	Artifact               *Artifact                  `json:"artifact,omitempty"`
 	CanonicalContentDigest string                     `json:"canonical_content_digest,omitempty"`
 	SupportedConstraints   SupportedConstraintSummary `json:"supported_constraints"`
+}
+
+// SelectionEvidence is the Gait-owned current-selection record required
+// before activation or consumer handoff. It binds one explicit artifact to
+// the family/revision currently selected by the caller.
+type SelectionEvidence struct {
+	ArtifactID             string `json:"artifact_id"`
+	ArtifactSHA256         string `json:"artifact_sha256"`
+	CanonicalContentDigest string `json:"canonical_content_digest"`
+	ContractID             string `json:"contract_id"`
+	ContractFamilyID       string `json:"contract_family_id"`
+	Revision               int    `json:"revision"`
+	Current                bool   `json:"current"`
 }
 
 // ValidationError is stable and machine-readable. Error() is intentionally
@@ -175,8 +201,135 @@ func sortedStrings(values []string) []string {
 	return out
 }
 
-// ParseArtifact parses one standalone artifact and rejects trailing JSON.
+func rejectDuplicateJSONKeys(raw []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var walk func() error
+	walk = func() error {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		switch delimiter := token.(type) {
+		case json.Delim:
+			switch delimiter {
+			case '{':
+				seen := map[string]struct{}{}
+				for decoder.More() {
+					keyToken, err := decoder.Token()
+					if err != nil {
+						return err
+					}
+					key, ok := keyToken.(string)
+					if !ok {
+						return errors.New("object key is not a string")
+					}
+					if _, exists := seen[key]; exists {
+						return fmt.Errorf("duplicate JSON object key %q", key)
+					}
+					seen[key] = struct{}{}
+					if err := walk(); err != nil {
+						return err
+					}
+				}
+				_, err = decoder.Token()
+				return err
+			case '[':
+				for decoder.More() {
+					if err := walk(); err != nil {
+						return err
+					}
+				}
+				_, err = decoder.Token()
+				return err
+			default:
+				return fmt.Errorf("unexpected JSON delimiter %q", delimiter)
+			}
+		default:
+			return nil
+		}
+	}
+	if err := walk(); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("trailing JSON value")
+		}
+		return err
+	}
+	return nil
+}
+
+func findSchemaRoot(explicit string) (string, error) {
+	if strings.TrimSpace(explicit) != "" {
+		root := filepath.Clean(explicit)
+		if _, err := os.Stat(filepath.Join(root, "proposed-action-contract-artifact.schema.json")); err != nil {
+			return "", fmt.Errorf("action contract schema root: %w", err)
+		}
+		return root, nil
+	}
+	directory, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		candidate := filepath.Join(directory, "schemas", "v1", "action-contract")
+		if _, err := os.Stat(filepath.Join(candidate, "proposed-action-contract-artifact.schema.json")); err == nil {
+			return candidate, nil
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			break
+		}
+		directory = parent
+	}
+	return "", errors.New("checked-in action contract schemas are unavailable")
+}
+
+func validateSchema(raw []byte, schemaFile, schemaRoot string) error {
+	root, err := findSchemaRoot(schemaRoot)
+	if err != nil {
+		return err
+	}
+	compiler := jsonschema.NewCompiler()
+	resources := map[string]string{
+		ProposedSchemaID:         "proposed-action-contract-artifact.schema.json",
+		ProposedContractSchemaID: "proposed-action-contract-v3.schema.json",
+		ActivatedSchemaID:        "activated-action-contract-artifact.schema.json",
+	}
+	for uri, filename := range resources {
+		payload, err := os.ReadFile(filepath.Join(root, filename))
+		if err != nil {
+			return err
+		}
+		if err := compiler.AddResource(uri, bytes.NewReader(payload)); err != nil {
+			return err
+		}
+	}
+	compiled, err := compiler.Compile(schemaFile)
+	if err != nil {
+		return err
+	}
+	var document any
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&document); err != nil {
+		return err
+	}
+	if err := compiled.Validate(document); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ParseArtifact parses one standalone artifact, rejects duplicate keys and
+// trailing JSON, and preserves JSON numbers for JCS digest verification.
 func ParseArtifact(raw []byte) (Artifact, error) {
+	if err := rejectDuplicateJSONKeys(raw); err != nil {
+		return Artifact{}, &ValidationError{Reasons: []string{ReasonMalformedArtifact}}
+	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
 		return Artifact{}, &ValidationError{Reasons: []string{ReasonMalformedArtifact}}
@@ -269,11 +422,161 @@ func ReadArtifact(path string) (Artifact, []byte, error) {
 	return artifact, raw, err
 }
 
+func ParseActivatedArtifact(raw []byte) (ActivatedArtifact, error) {
+	if err := rejectDuplicateJSONKeys(raw); err != nil {
+		return ActivatedArtifact{}, &ValidationError{Reasons: []string{ReasonMalformedArtifact}}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var artifact ActivatedArtifact
+	if err := decoder.Decode(&artifact); err != nil {
+		return ActivatedArtifact{}, &ValidationError{Reasons: []string{ReasonMalformedArtifact}}
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return ActivatedArtifact{}, &ValidationError{Reasons: []string{ReasonMalformedArtifact}}
+	}
+	return artifact, nil
+}
+
+func ReadActivatedArtifact(path string) (ActivatedArtifact, []byte, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ActivatedArtifact{}, nil, &ValidationError{Reasons: []string{ReasonSelectionRequired}}
+	}
+	raw, err := os.ReadFile(path) // #nosec G304 -- explicit operator-selected artifact path.
+	if err != nil {
+		return ActivatedArtifact{}, nil, err
+	}
+	artifact, err := ParseActivatedArtifact(raw)
+	return artifact, raw, err
+}
+
+func ValidateArtifactBytes(raw []byte, options ValidationOptions) (Artifact, ValidationResult) {
+	artifact, err := ParseArtifact(raw)
+	if err != nil {
+		return Artifact{}, ValidationResult{Valid: false, Reasons: []string{ReasonMalformedArtifact}}
+	}
+	if err := validateSchema(raw, ProposedSchemaID, options.SchemaRoot); err != nil {
+		return artifact, ValidationResult{Valid: false, Artifact: &artifact, Reasons: []string{ReasonSchemaValidationFailed}}
+	}
+	result := ValidateArtifact(artifact, options)
+	return artifact, result
+}
+
+type selectionManifest struct {
+	FixtureVersion string `json:"fixture_version"`
+	Producer       struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	} `json:"producer"`
+	Schemas struct {
+		Artifact string `json:"artifact"`
+		Contract string `json:"contract"`
+	} `json:"schemas"`
+	Scenarios []struct {
+		ScenarioID             string `json:"scenario_id"`
+		ArtifactPath           string `json:"artifact_path"`
+		ArtifactSHA256         string `json:"artifact_sha256"`
+		ArtifactID             string `json:"artifact_id"`
+		CanonicalContentDigest string `json:"canonical_content_digest"`
+		ContractID             string `json:"contract_id"`
+		ContractFamilyID       string `json:"contract_family_id"`
+		Revision               int    `json:"revision"`
+		Current                bool   `json:"current"`
+	} `json:"scenarios"`
+}
+
+func validateSelectionEvidence(selection SelectionEvidence, artifact Artifact, raw []byte) error {
+	if !selection.Current {
+		return &ValidationError{Reasons: []string{ReasonSelectionNotCurrent}}
+	}
+	if selection.ArtifactID != artifact.ArtifactID || selection.ArtifactSHA256 != RawDigest(raw) || selection.CanonicalContentDigest != artifact.CanonicalContentDigest || selection.ContractID != artifact.ContractID || selection.ContractFamilyID != artifact.ContractFamilyID || selection.Revision != artifact.Revision {
+		return &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
+	return nil
+}
+
+func LoadSelectionEvidence(path, artifactPath string, artifact Artifact, raw []byte) (SelectionEvidence, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionEvidenceRequired}}
+	}
+	selectionRaw, err := os.ReadFile(path) // #nosec G304 -- explicit operator-selected selection evidence.
+	if err != nil {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionEvidenceRequired}}
+	}
+	if err := rejectDuplicateJSONKeys(selectionRaw); err != nil {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonMalformedArtifact}}
+	}
+	var manifest selectionManifest
+	if err := json.Unmarshal(selectionRaw, &manifest); err != nil {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonMalformedArtifact}}
+	}
+	if manifest.FixtureVersion != "1" || manifest.Producer.Name != ProposedProducer || manifest.Producer.Version != "v1.14.0" || manifest.Schemas.Artifact != ProposedSchemaVersion || manifest.Schemas.Contract != ProposedContractVersion {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
+	selectionAbs, err := filepath.Abs(path)
+	if err != nil {
+		return SelectionEvidence{}, err
+	}
+	selectionRoot := filepath.Dir(selectionAbs)
+	artifactAbs, err := filepath.Abs(artifactPath)
+	if err != nil {
+		return SelectionEvidence{}, err
+	}
+	artifactResolved, err := filepath.EvalSymlinks(artifactAbs)
+	if err != nil {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
+	var selected SelectionEvidence
+	found := 0
+	maxRevisionByFamily := map[string]int{}
+	for _, scenario := range manifest.Scenarios {
+		if scenario.Revision > maxRevisionByFamily[scenario.ContractFamilyID] {
+			maxRevisionByFamily[scenario.ContractFamilyID] = scenario.Revision
+		}
+		candidate := filepath.Clean(filepath.Join(selectionRoot, filepath.FromSlash(scenario.ArtifactPath)))
+		relative, err := filepath.Rel(selectionRoot, candidate)
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+		}
+		candidateAbs, err := filepath.Abs(candidate)
+		if err != nil || candidateAbs != artifactAbs {
+			continue
+		}
+		candidateResolved, err := filepath.EvalSymlinks(candidateAbs)
+		if err != nil || candidateResolved != artifactResolved {
+			return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+		}
+		found++
+		selected = SelectionEvidence{ArtifactID: scenario.ArtifactID, ArtifactSHA256: scenario.ArtifactSHA256, CanonicalContentDigest: scenario.CanonicalContentDigest, ContractID: scenario.ContractID, ContractFamilyID: scenario.ContractFamilyID, Revision: scenario.Revision, Current: scenario.Current}
+	}
+	if found == 0 {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionEvidenceRequired}}
+	}
+	if found > 1 {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionAmbiguous}}
+	}
+	if maxRevisionByFamily[selected.ContractFamilyID] > selected.Revision {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionNotCurrent}}
+	}
+	if err := validateSelectionEvidence(selected, artifact, raw); err != nil {
+		return SelectionEvidence{}, err
+	}
+	return selected, nil
+}
+
 // ValidateArtifact validates an explicit Wrkr v3 proposal and its JCS
 // envelope digest. It does not activate or infer authority.
 func ValidateArtifact(artifact Artifact, options ValidationOptions) ValidationResult {
 	result := ValidationResult{Artifact: &artifact}
 	add := func(reason string) { addReason(&result.Reasons, reason) }
+	if encoded, err := json.Marshal(artifact); err != nil {
+		add(ReasonSchemaValidationFailed)
+	} else if err := validateSchema(encoded, ProposedSchemaID, options.SchemaRoot); err != nil {
+		add(ReasonSchemaValidationFailed)
+	}
 	if artifact.SchemaID != ProposedSchemaID || artifact.SchemaVersion != ProposedSchemaVersion {
 		add(ReasonUnsupportedArtifactSchema)
 	}
@@ -634,17 +937,19 @@ const (
 )
 
 type ActivationOptions struct {
-	PolicyDigest        string
-	ActivatingPrincipal string
-	AuthorityRefs       []string
-	Target              string
-	Environment         string
-	Mode                ActivationMode
-	ValidFrom           string
-	ValidUntil          string
-	ExplicitExceptions  []string
-	SigningPrivateKey   ed25519.PrivateKey
-	EvaluationTime      time.Time
+	PolicyDigest            string
+	ActivatingPrincipal     string
+	AuthorityRefs           []string
+	Target                  string
+	Environment             string
+	Mode                    ActivationMode
+	ValidFrom               string
+	ValidUntil              string
+	ExplicitExceptions      []string
+	SigningPrivateKey       ed25519.PrivateKey
+	AllowDevelopmentSigning bool
+	Selection               *SelectionEvidence
+	EvaluationTime          time.Time
 }
 
 type ActivationProposalRef struct {
@@ -681,6 +986,7 @@ type ActivatedArtifact struct {
 	Validity            Validity              `json:"validity"`
 	ExplicitExceptions  []string              `json:"explicit_exceptions"`
 	ReportOnly          bool                  `json:"report_only"`
+	DevelopmentSigning  bool                  `json:"development_signing"`
 	Signature           proofsign.Signature   `json:"signature"`
 }
 
@@ -689,12 +995,25 @@ type ActivationResult struct {
 	Validation ValidationResult  `json:"validation"`
 }
 
+type VerificationOptions struct {
+	AllowDevelopmentSigning bool
+	Proposal                *Artifact
+}
+
 // Activate validates one proposal and emits a deterministic signed activation
 // object. No approval, authority, execution, or effect state is generated.
 func Activate(artifact Artifact, options ActivationOptions) (ActivatedArtifact, ValidationResult, error) {
 	validation := ValidateArtifact(artifact, ValidationOptions{Now: options.EvaluationTime})
 	reasons := append([]string(nil), validation.Reasons...)
 	add := func(reason string) { addReason(&reasons, reason) }
+	if options.Selection == nil {
+		add(ReasonSelectionEvidenceRequired)
+	} else if options.Selection.ArtifactID != artifact.ArtifactID || options.Selection.CanonicalContentDigest != artifact.CanonicalContentDigest || options.Selection.ContractID != artifact.ContractID || options.Selection.ContractFamilyID != artifact.ContractFamilyID || options.Selection.Revision != artifact.Revision || !options.Selection.Current {
+		add(ReasonSelectionMismatch)
+		if !options.Selection.Current {
+			add(ReasonSelectionNotCurrent)
+		}
+	}
 	switch options.Mode {
 	case ActivationContextOnly, ActivationEnforceFloor, ActivationRequired:
 	default:
@@ -715,20 +1034,32 @@ func Activate(artifact Artifact, options ActivationOptions) (ActivatedArtifact, 
 	if strings.TrimSpace(options.Environment) == "" {
 		add(ReasonEnvironmentMissing)
 	}
+	if options.AllowDevelopmentSigning && options.Environment != "development" && options.Environment != "test" {
+		add(ReasonDevelopmentSigningForbidden)
+	}
 	validity := Validity{NotBefore: strings.TrimSpace(options.ValidFrom), NotAfter: strings.TrimSpace(options.ValidUntil)}
+	var notBefore, notAfter time.Time
 	if validity.NotBefore == "" {
 		add(ReasonValidityInvalid)
 	} else {
-		if _, err := time.Parse(time.RFC3339, validity.NotBefore); err != nil {
+		parsed, err := time.Parse(time.RFC3339, validity.NotBefore)
+		if err != nil {
 			add(ReasonValidityInvalid)
+		} else {
+			notBefore = parsed
+			validity.NotBefore = parsed.UTC().Format(time.RFC3339Nano)
 		}
 	}
 	if validity.NotAfter != "" {
-		if _, err := time.Parse(time.RFC3339, validity.NotAfter); err != nil {
+		parsed, err := time.Parse(time.RFC3339, validity.NotAfter)
+		if err != nil {
 			add(ReasonValidityInvalid)
+		} else {
+			notAfter = parsed
+			validity.NotAfter = parsed.UTC().Format(time.RFC3339Nano)
 		}
 	}
-	if validity.NotBefore != "" && validity.NotAfter != "" && validity.NotAfter < validity.NotBefore {
+	if !notBefore.IsZero() && !notAfter.IsZero() && !notAfter.After(notBefore) {
 		add(ReasonValidityInvalid)
 	}
 	if options.Mode != ActivationContextOnly && len(validation.Reasons) > 0 {
@@ -740,13 +1071,18 @@ func Activate(artifact Artifact, options ActivationOptions) (ActivatedArtifact, 
 	}
 
 	privateKey := options.SigningPrivateKey
+	developmentSigning := false
 	if len(privateKey) == 0 {
+		if !options.AllowDevelopmentSigning {
+			return ActivatedArtifact{}, validation, &ValidationError{Reasons: []string{ReasonSigningKeyRequired}}
+		}
 		privateKey = deterministicDevelopmentKey()
+		developmentSigning = true
 	}
 	if len(privateKey) != ed25519.PrivateKeySize {
 		return ActivatedArtifact{}, validation, fmt.Errorf("signing private key must be %d bytes", ed25519.PrivateKeySize)
 	}
-	activated := ActivatedArtifact{SchemaID: ActivatedSchemaID, SchemaVersion: ActivatedSchemaVersion, ContractID: artifact.ContractID, ContractFamilyID: artifact.ContractFamilyID, Revision: artifact.Revision, Producer: ProducerMetadata{Name: ActivatedProducer, ArtifactSchemaVersion: ActivatedSchemaVersion, ContractSchemaVersion: ActivatedContractVersion}, Proposal: ActivationProposalRef{ArtifactID: artifact.ArtifactID, CanonicalContentDigest: artifact.CanonicalContentDigest, ContractID: artifact.ContractID, ContractFamilyID: artifact.ContractFamilyID, Revision: artifact.Revision, SchemaID: artifact.SchemaID, SchemaVersion: artifact.SchemaVersion, ContractSchemaVersion: artifact.Producer.ContractSchemaVersion}, PolicyDigest: strings.TrimSpace(options.PolicyDigest), ActivatingPrincipal: strings.TrimSpace(options.ActivatingPrincipal), AuthorityRefs: sortedStrings(append([]string(nil), options.AuthorityRefs...)), Target: strings.TrimSpace(options.Target), Environment: strings.TrimSpace(options.Environment), ActivationMode: options.Mode, Validity: validity, ExplicitExceptions: sortedStrings(append([]string(nil), options.ExplicitExceptions...)), ReportOnly: false}
+	activated := ActivatedArtifact{SchemaID: ActivatedSchemaID, SchemaVersion: ActivatedSchemaVersion, ContractID: artifact.ContractID, ContractFamilyID: artifact.ContractFamilyID, Revision: artifact.Revision, Producer: ProducerMetadata{Name: ActivatedProducer, ArtifactSchemaVersion: ActivatedSchemaVersion, ContractSchemaVersion: ActivatedContractVersion}, Proposal: ActivationProposalRef{ArtifactID: artifact.ArtifactID, CanonicalContentDigest: artifact.CanonicalContentDigest, ContractID: artifact.ContractID, ContractFamilyID: artifact.ContractFamilyID, Revision: artifact.Revision, SchemaID: artifact.SchemaID, SchemaVersion: artifact.SchemaVersion, ContractSchemaVersion: artifact.Producer.ContractSchemaVersion}, PolicyDigest: strings.TrimSpace(options.PolicyDigest), ActivatingPrincipal: strings.TrimSpace(options.ActivatingPrincipal), AuthorityRefs: sortedStrings(append([]string(nil), options.AuthorityRefs...)), Target: strings.TrimSpace(options.Target), Environment: strings.TrimSpace(options.Environment), ActivationMode: options.Mode, Validity: validity, ExplicitExceptions: sortedStrings(append([]string(nil), options.ExplicitExceptions...)), ReportOnly: false, DevelopmentSigning: developmentSigning}
 	digest, err := activatedSignableDigest(activated)
 	if err != nil {
 		return ActivatedArtifact{}, validation, err
@@ -757,6 +1093,11 @@ func Activate(artifact Artifact, options ActivationOptions) (ActivatedArtifact, 
 	}
 	activated.Signature = signature
 	activated.ArtifactID = "gact-" + strings.TrimPrefix(digest, "sha256:")[:16]
+	if encoded, err := json.Marshal(activated); err != nil {
+		return ActivatedArtifact{}, validation, err
+	} else if err := validateSchema(encoded, ActivatedSchemaID, ""); err != nil {
+		return ActivatedArtifact{}, validation, fmt.Errorf("activated artifact schema validation: %w", err)
+	}
 	return activated, validation, nil
 }
 
@@ -778,11 +1119,36 @@ func deterministicDevelopmentKey() ed25519.PrivateKey {
 
 // VerifyActivation checks the signed object against a supplied public key.
 func VerifyActivation(artifact ActivatedArtifact, publicKey ed25519.PublicKey) (bool, error) {
+	return VerifyActivationWithOptions(artifact, publicKey, VerificationOptions{})
+}
+
+func VerifyActivationWithOptions(artifact ActivatedArtifact, publicKey ed25519.PublicKey, options VerificationOptions) (bool, error) {
+	encoded, err := json.Marshal(artifact)
+	if err != nil {
+		return false, err
+	}
+	if err := validateSchema(encoded, ActivatedSchemaID, ""); err != nil {
+		return false, &ValidationError{Reasons: []string{ReasonSchemaValidationFailed}}
+	}
 	if artifact.SchemaID != ActivatedSchemaID || artifact.SchemaVersion != ActivatedSchemaVersion || artifact.Producer.Name != ActivatedProducer {
 		return false, &ValidationError{Reasons: []string{ReasonUnsupportedArtifactSchema}}
 	}
 	if artifact.ReportOnly {
 		return false, &ValidationError{Reasons: []string{ReasonReportOnlyRequired}}
+	}
+	if artifact.DevelopmentSigning && !options.AllowDevelopmentSigning {
+		return false, &ValidationError{Reasons: []string{ReasonDevelopmentSigningUnverified}}
+	}
+	if artifact.Proposal.SchemaID != ProposedSchemaID || artifact.Proposal.SchemaVersion != ProposedSchemaVersion || artifact.Proposal.ContractSchemaVersion != ProposedContractVersion || artifact.Proposal.ArtifactID == "" || artifact.Proposal.CanonicalContentDigest == "" || artifact.Proposal.ContractID != artifact.ContractID || artifact.Proposal.ContractFamilyID != artifact.ContractFamilyID || artifact.Proposal.Revision != artifact.Revision {
+		return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
+	}
+	if options.Proposal != nil {
+		if validation := ValidateArtifact(*options.Proposal, ValidationOptions{}); !validation.Valid {
+			return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
+		}
+		if artifact.Proposal.ArtifactID != options.Proposal.ArtifactID || artifact.Proposal.CanonicalContentDigest != options.Proposal.CanonicalContentDigest || artifact.Proposal.ContractID != options.Proposal.ContractID || artifact.Proposal.ContractFamilyID != options.Proposal.ContractFamilyID || artifact.Proposal.Revision != options.Proposal.Revision || artifact.Proposal.ContractSchemaVersion != options.Proposal.Producer.ContractSchemaVersion {
+			return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
+		}
 	}
 	digest, err := activatedSignableDigest(artifact)
 	if err != nil {
