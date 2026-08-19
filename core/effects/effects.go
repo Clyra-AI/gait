@@ -556,12 +556,17 @@ func fieldValue(snapshot Snapshot, field string) (any, bool) {
 		if parts[0] == "after" {
 			observation = snapshot.After
 		}
+		switch parts[1] {
+		case "state":
+			if observation.State == ObservationUnknown {
+				return nil, false
+			}
+			return observation.State, true
+		}
 		if observation.State != ObservationPresent {
 			return nil, false
 		}
 		switch parts[1] {
-		case "state":
-			return observation.State, true
 		case "digest":
 			return nonEmptyValue(observation.Digest)
 		case "count":

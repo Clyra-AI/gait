@@ -164,6 +164,21 @@ func TestEffectGradeIsInconclusiveForPartialRedactedOrUnknownEvidence(t *testing
 	}
 }
 
+func TestEffectStatePredicateCanAssertDeletionButNotUnknownState(t *testing.T) {
+	snapshot := validSnapshot(t)
+	contract := Contract{SchemaID: ContractSchemaID, SchemaVersion: SchemaVersion, ContractID: "contract:deletion", Name: "deletion", Predicates: []Predicate{{ID: "deleted", Kind: PredicateExpect, Field: "after.state", Operator: "equals", Expected: ObservationAbsent}}}
+	snapshot.After.State = ObservationAbsent
+	refreshSnapshot(t, &snapshot)
+	if result := testGrade(snapshot, contract); result.Status != GradePass {
+		t.Fatalf("absent state was not authoritative: %+v", result)
+	}
+	snapshot.After.State = ObservationUnknown
+	refreshSnapshot(t, &snapshot)
+	if result := testGrade(snapshot, contract); result.Status != GradeInconclusive || !hasGradeReason(result, ReasonPredicateInconclusive) {
+		t.Fatalf("unknown state was authoritative: %+v", result)
+	}
+}
+
 func TestEffectContractValidationRejectsDuplicatesAndUnknownKinds(t *testing.T) {
 	contract := validContract()
 	contract.Predicates = append(contract.Predicates, contract.Predicates[0])
