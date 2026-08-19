@@ -1,6 +1,7 @@
 package actioncontract
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -104,5 +105,33 @@ func TestFixtureManifestPinsLocalReleasedArtifacts(t *testing.T) {
 		if artifact.ArtifactID != scenario.ArtifactID || artifact.ContractID != scenario.ContractID || artifact.ContractFamilyID != scenario.ContractFamilyID || artifact.Revision != scenario.Revision || artifact.CanonicalContentDigest != scenario.CanonicalContentDigest || !scenario.Current || contains(result.Reasons, ReasonSchemaValidationFailed) {
 			t.Fatalf("manifest identity mismatch for %s: artifact=%+v result=%+v", scenario.ArtifactPath, artifact, result)
 		}
+	}
+}
+
+func TestInteropFixturesPreserveLFBytes(t *testing.T) {
+	root := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1")
+	var checked int
+	err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".json") {
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(raw, []byte("\r\n")) {
+			t.Fatalf("interop fixture contains CRLF bytes: %s", path)
+		}
+		checked++
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checked == 0 {
+		t.Fatal("no interop JSON fixtures were checked")
 	}
 }
