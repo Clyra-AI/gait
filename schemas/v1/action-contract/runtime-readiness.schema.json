@@ -23,5 +23,6 @@
         "reason_codes": {"type": "array", "items": {"type": "string"}}
       }
     }
-  }
+  },
+  "allOf": [{"if": {"required": ["ready"], "properties": {"ready": {"const": true}}}, "then": {"required": ["contract_id", "policy_digest", "status", "preconditions"], "properties": {"status": {"const": "satisfied"}, "preconditions": {"contains": {"type": "object", "required": ["required", "status"], "properties": {"required": {"const": true}, "status": {"const": "satisfied"}}}}}}}]
 }

@@ -91,6 +91,53 @@ func TestValidateRuntimeActionRejectsUnsupportedShape(t *testing.T) {
 	}
 }
 
+func TestExplicitClassificationValuesCannotBeOverwrittenByInference(t *testing.T) {
+	base := ClassificationInput{ActionID: "explicit", ActionClass: ActionClassRead, ActionClasses: []string{ActionClassRead}, CompositionRole: "source", TargetTrustClass: "external", TransitionClass: "read", ExpectedOutcomeClass: "read", Hints: []string{"production deploy"}}
+	cases := []struct {
+		name string
+		edit func(*ClassificationInput)
+		want string
+	}{
+		{name: "action", edit: func(input *ClassificationInput) { input.ActionClass = "bogus" }, want: "action_class_explicit_unsupported:bogus"},
+		{name: "action list", edit: func(input *ClassificationInput) { input.ActionClasses = []string{"bogus"} }, want: "action_class_explicit_unsupported:bogus"},
+		{name: "transition", edit: func(input *ClassificationInput) { input.TransitionClass = "bogus" }, want: "transition_class_explicit_unsupported:bogus"},
+		{name: "outcome", edit: func(input *ClassificationInput) { input.ExpectedOutcomeClass = "bogus" }, want: "expected_outcome_class_explicit_unsupported:bogus"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			input := base
+			tc.edit(&input)
+			result := ClassifyRuntimeAction(input)
+			if result.Valid || !containsStringValue(result.ReasonCodes, tc.want) {
+				t.Fatalf("explicit invalid classification was overwritten: %#v", result)
+			}
+		})
+	}
+}
+
+func TestParseRuntimeActionStrictSchemaAndRoundTrip(t *testing.T) {
+	action := ClassifyAction(ClassificationInput{ActionID: "roundtrip", ActionClass: ActionClassRead, CompositionRole: "source", TargetTrustClass: "external", TransitionClass: "read", ExpectedOutcomeClass: "read"}).Action
+	raw, err := json.Marshal(action)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ParseRuntimeAction(raw)
+	if err != nil || parsed.ActionID != action.ActionID || parsed.ActionClass != action.ActionClass {
+		t.Fatalf("runtime artifact did not round-trip: parsed=%#v err=%v", parsed, err)
+	}
+	missingBoundary := []byte(`{"schema_id":"https://gait.dev/schemas/v1/runtime-action.schema.json","schema_version":"1","action_id":"roundtrip","action_class":"read","composition_role":"source","target_trust_class":"external","transition_class":"read","expected_outcome_class":"read"}`)
+	if _, err := ParseRuntimeAction(missingBoundary); err == nil {
+		t.Fatal("runtime artifact missing required boundary accepted")
+	}
+}
+
+func TestRuntimeReadinessSchemaRejectsAuthoritativeOptionalOnlyDecision(t *testing.T) {
+	raw := []byte(`{"schema_id":"https://gait.dev/schemas/v1/runtime-readiness.schema.json","schema_version":"1","contract_id":"contract-a","policy_digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","ready":true,"status":"satisfied","preconditions":[{"requirement_id":"optional","kind":"environment","required":false,"control_mode":"unknown","status":"not_required"}]}`)
+	if err := validateRuntimeSchema(raw, RuntimeReadinessSchemaID); err == nil {
+		t.Fatal("readiness schema accepted ready decision without required satisfied evidence")
+	}
+}
+
 func TestClassifyArtifactConsumesReleasedFixtureWithoutClaimingEffect(t *testing.T) {
 	path := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
 	raw, err := os.ReadFile(path)
@@ -606,6 +653,10 @@ func TestRuntimeStrictInputsRejectDuplicateUnknownAndUnsafePaths(t *testing.T) {
 	if err := os.WriteFile(inputPath, []byte(`{"action_id":"a"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	raw, err := ReadRuntimeInput(inputPath)
+	if err != nil || string(raw) != `{"action_id":"a"}` {
+		t.Fatalf("stable runtime input read failed: raw=%q err=%v", raw, err)
+	}
 	linkPath := filepath.Join(root, "link.json")
 	if err := os.Symlink(inputPath, linkPath); err != nil {
 		t.Fatal(err)
@@ -650,9 +701,14 @@ func TestLifecycleRecordsSignAndReducePurely(t *testing.T) {
 	}
 	preconditionRef := proof.RelationshipRef{Kind: "precondition", ID: "p1", Digest: "sha256:" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
 	decisionPrecondition := ReadinessPrecondition{RequirementID: "p1", Kind: "environment", Required: true, ControlMode: ControlModeUnknown, Status: ReadinessSatisfied, EvidenceDigest: preconditionRef.Digest}
-	second, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 0, 0, time.UTC), ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{preconditionRef}, Decision: &ReadinessResult{Ready: true, Status: ReadinessSatisfied, Preconditions: []ReadinessPrecondition{decisionPrecondition}}, SigningPrivateKey: private})
+	second, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 0, 0, time.UTC), ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{preconditionRef}, Decision: &ReadinessResult{ContractID: "pac-1", PolicyDigest: runtimeTestPolicyDigest, Ready: true, Status: ReadinessSatisfied, Preconditions: []ReadinessPrecondition{decisionPrecondition}}, SigningPrivateKey: private})
 	if err != nil {
 		t.Fatal(err)
+	}
+	badDecision := *second.Decision
+	badDecision.Preconditions = append(append([]ReadinessPrecondition(nil), badDecision.Preconditions...), ReadinessPrecondition{RequirementID: "bad", Kind: "environment", Required: true, Status: ReadinessUnsatisfied, ControlMode: ControlModeEnforced})
+	if _, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 1, 0, time.UTC), ContractRef: contractRef, PreconditionRefs: []proof.RelationshipRef{preconditionRef}, Decision: &badDecision, SigningPrivateKey: private}); err == nil {
+		t.Fatal("mixed satisfied/unsatisfied decision accepted")
 	}
 	request, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleActivationRequested, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 0, 30, 0, time.UTC), ContractRef: contractRef, ProposalRef: &contractRef, SigningPrivateKey: private})
 	if err != nil {
@@ -676,7 +732,7 @@ func TestLifecycleRecordsSignAndReducePurely(t *testing.T) {
 	if snapshot.Records[0].RecordID != first.RecordID {
 		t.Fatalf("reducer changed the validated input order")
 	}
-	decisionWithMissingEvaluation, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 30, 0, time.UTC), ContractRef: contractRef, Decision: &ReadinessResult{Ready: true, Status: ReadinessSatisfied, Preconditions: []ReadinessPrecondition{decisionPrecondition}}, SigningPrivateKey: private})
+	decisionWithMissingEvaluation, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleDecisionReady, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 1, 30, 0, time.UTC), ContractRef: contractRef, Decision: &ReadinessResult{ContractID: "pac-1", PolicyDigest: runtimeTestPolicyDigest, Ready: true, Status: ReadinessSatisfied, Preconditions: []ReadinessPrecondition{decisionPrecondition}}, SigningPrivateKey: private})
 	if err != nil {
 		t.Fatal(err)
 	}

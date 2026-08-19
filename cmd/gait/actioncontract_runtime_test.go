@@ -19,7 +19,12 @@ func TestRuntimeClassifyCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	actionPath := filepath.Join(root, "action.json")
-	if err := os.WriteFile(actionPath, []byte(`{"action_id":"cli-action","action_class":"read","composition_role":"source","target_trust_class":"external","transition_class":"read","expected_outcome_class":"read","target_ref":"target:cli"}`), 0o600); err != nil {
+	action := actioncontract.ClassifyAction(actioncontract.ClassificationInput{ActionID: "cli-action", ActionClass: "read", CompositionRole: "source", TargetTrustClass: "external", TransitionClass: "read", ExpectedOutcomeClass: "read", TargetRef: "target:cli"}).Action
+	actionRaw, err := json.Marshal(action)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(actionPath, actionRaw, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	proposalPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
@@ -28,7 +33,15 @@ func TestRuntimeClassifyCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	invalidPath := filepath.Join(root, "invalid.json")
-	if err := os.WriteFile(invalidPath, []byte(`{"action_id":"cli-action","action_class":"bogus","composition_role":"source","target_trust_class":"external","transition_class":"read","expected_outcome_class":"read"}`), 0o600); err != nil {
+	if err := os.WriteFile(invalidPath, []byte(`{"schema_id":"https://gait.dev/schemas/v1/runtime-action.schema.json","schema_version":"1","action_id":"cli-action","action_class":"bogus","composition_role":"source","target_trust_class":"external","transition_class":"read","expected_outcome_class":"read","boundary":{"source_trust_class":"","target_trust_class":"external","transition_class":"read"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	inputPath := filepath.Join(root, "input.json")
+	if err := os.WriteFile(inputPath, []byte(`{"schema_id":"https://gait.dev/schemas/v1/runtime-classification-input.schema.json","schema_version":"1","action_id":"cli-action","action_class":"bogus","composition_role":"source","target_trust_class":"external","transition_class":"read","expected_outcome_class":"read"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	goodInputPath := filepath.Join(root, "good-input.json")
+	if err := os.WriteFile(goodInputPath, []byte(`{"schema_id":"https://gait.dev/schemas/v1/runtime-classification-input.schema.json","schema_version":"1","action_id":"cli-input","action_class":"read","composition_role":"source","target_trust_class":"external","transition_class":"read","expected_outcome_class":"read"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cases := []struct {
@@ -39,12 +52,14 @@ func TestRuntimeClassifyCLI(t *testing.T) {
 	}{
 		{name: "action json", args: []string{"--action", actionPath, "--json"}, code: exitOK, want: `"operation":"classify"`},
 		{name: "action text", args: []string{"--action", actionPath}, code: exitOK, want: "contract classify: ok=true"},
+		{name: "raw input", args: []string{"--input", goodInputPath, "--json"}, code: exitOK, want: `"action_id":"cli-input"`},
 		{name: "proposal", args: []string{"--proposal", proposalPath, "--json"}, code: exitOK, want: `"expected_outcome_class":"data_egress"`},
 		{name: "help", args: []string{"--help"}, code: exitOK, want: "Usage: gait contract classify"},
 		{name: "missing selector", args: []string{"--json"}, code: exitInvalidInput, want: actioncontract.ReasonSelectionRequired},
 		{name: "parser error", args: []string{"--unknown"}, code: exitInvalidInput, want: "classify error"},
 		{name: "unknown field", args: []string{"--action", unknownPath, "--json"}, code: exitInvalidInput, want: actioncontract.ReasonMalformedArtifact},
-		{name: "invalid classification", args: []string{"--action", invalidPath, "--json"}, code: exitVerifyFailed, want: "action_class_unsupported"},
+		{name: "invalid schema", args: []string{"--action", invalidPath, "--json"}, code: exitInvalidInput, want: actioncontract.ReasonMalformedArtifact},
+		{name: "invalid raw input", args: []string{"--input", inputPath, "--json"}, code: exitInvalidInput, want: actioncontract.ReasonMalformedArtifact},
 		{name: "unreadable", args: []string{"--action", filepath.Join(root, "missing.json"), "--json"}, code: exitInvalidInput, want: "runtime_input_unreadable"},
 	}
 	for _, tc := range cases {
@@ -63,7 +78,12 @@ func TestRuntimeExplainCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	actionPath := filepath.Join(root, "action.json")
-	if err := os.WriteFile(actionPath, []byte(`{"action_id":"explain-action","action_class":"read","composition_role":"source","target_trust_class":"external","transition_class":"read","expected_outcome_class":"read"}`), 0o600); err != nil {
+	action := actioncontract.ClassifyAction(actioncontract.ClassificationInput{ActionID: "explain-action", ActionClass: "read", CompositionRole: "source", TargetTrustClass: "external", TransitionClass: "read", ExpectedOutcomeClass: "read"}).Action
+	actionRaw, err := json.Marshal(action)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(actionPath, actionRaw, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	badPath := filepath.Join(root, "bad.json")
@@ -81,6 +101,7 @@ func TestRuntimeExplainCLI(t *testing.T) {
 		{name: "parser error", args: []string{"--unknown"}, code: exitInvalidInput, want: "explain error"},
 		{name: "action json", args: []string{"--action", actionPath, "--json"}, code: exitOK, want: `"operation":"explain"`},
 		{name: "action text", args: []string{"--action", actionPath}, code: exitOK, want: "contract explain: ok=true"},
+		{name: "ambiguous inputs", args: []string{"--action", actionPath, "--input", actionPath, "--json"}, code: exitInvalidInput, want: actioncontract.ReasonAmbiguousSelection},
 		{name: "help", args: []string{"--help"}, code: exitOK, want: "Usage: gait contract explain"},
 		{name: "bad action", args: []string{"--action", badPath, "--json"}, code: exitInvalidInput, want: actioncontract.ReasonMalformedArtifact},
 		{name: "unreadable", args: []string{"--action", filepath.Join(root, "missing.json"), "--json"}, code: exitInvalidInput, want: "runtime_input_unreadable"},

@@ -56,6 +56,11 @@ Classification uses the released Wrkr action classes (`read`, `write`,
 and keeps resource lifecycle actions separate from `risk_class`. Inference can
 preserve or raise a supplied class, never lower it. Intended outcome and
 observed effect are separate fields; classification does not claim execution.
+The documented `--action` path accepts the strict versioned
+`runtime-action.schema.json` artifact emitted as `classification.action`.
+Heuristic raw input, when needed, uses the separate versioned
+`runtime-classification-input.schema.json` with `--input`; these selectors
+cannot be combined.
 
 Readiness evaluates typed preconditions with statuses `satisfied`,
 `unsatisfied`, `inconclusive`, and `not_required`. The CLI requires an explicit

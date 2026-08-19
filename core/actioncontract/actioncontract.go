@@ -280,6 +280,7 @@ func validateSchema(raw []byte, schemaFile, schemaRoot string) error {
 		ProposedContractSchemaID: "proposed-action-contract-v3.schema.json",
 		ActivatedSchemaID:        "activated-action-contract-artifact.schema.json",
 		RuntimeActionSchemaID:    "runtime-action.schema.json",
+		RuntimeClassificationInputSchemaID: "runtime-classification-input.schema.json",
 		RuntimeReadinessSchemaID: "runtime-readiness.schema.json",
 		RuntimeLifecycleSchemaID: "runtime-lifecycle-record.schema.json",
 		"https://github.com/Clyra-AI/proof/schemas/v1/control-containment-telemetry-profile-v1.schema.json": "control-containment-telemetry-profile-v1.schema.json",

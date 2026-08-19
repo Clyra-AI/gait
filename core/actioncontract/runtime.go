@@ -23,13 +23,15 @@ import (
 )
 
 const (
-	RuntimeActionSchemaID      = "https://gait.dev/schemas/v1/runtime-action.schema.json"
-	RuntimeActionSchemaVersion = "1"
-	RuntimeReadinessSchemaID   = "https://gait.dev/schemas/v1/runtime-readiness.schema.json"
-	RuntimeLifecycleSchemaID   = "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json"
-	RuntimeLifecycleVersion    = "1"
-	ProofCompatibilityVersion  = "0.6.1"
-	CorrelationProfileVersion  = "1.0"
+	RuntimeActionSchemaID              = "https://gait.dev/schemas/v1/runtime-action.schema.json"
+	RuntimeActionSchemaVersion         = "1"
+	RuntimeClassificationInputSchemaID = "https://gait.dev/schemas/v1/runtime-classification-input.schema.json"
+	RuntimeClassificationInputVersion  = "1"
+	RuntimeReadinessSchemaID           = "https://gait.dev/schemas/v1/runtime-readiness.schema.json"
+	RuntimeLifecycleSchemaID           = "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json"
+	RuntimeLifecycleVersion            = "1"
+	ProofCompatibilityVersion          = "0.6.1"
+	CorrelationProfileVersion          = "1.0"
 )
 
 // These values intentionally include the classes emitted by Wrkr's released
@@ -172,6 +174,8 @@ type ObservedEffect struct {
 // lowered by inference; inference may only preserve or raise the effective
 // action class/control posture.
 type ClassificationInput struct {
+	SchemaID                 string               `json:"schema_id"`
+	SchemaVersion            string               `json:"schema_version"`
 	ActionID                 string               `json:"action_id"`
 	ActionClass              string               `json:"action_class"`
 	ActionClasses            []string             `json:"action_classes"`
@@ -203,7 +207,27 @@ func ParseClassificationInput(raw []byte) (ClassificationInput, error) {
 	if err := DecodeStrictRuntimeJSON(raw, &input); err != nil {
 		return ClassificationInput{}, err
 	}
+	if err := validateRuntimeSchema(raw, RuntimeClassificationInputSchemaID); err != nil {
+		return ClassificationInput{}, errors.New("classification input schema invalid")
+	}
 	return input, nil
+}
+
+// ParseRuntimeAction parses the documented runtime-action artifact emitted as
+// the classification.action object. It is distinct from ClassificationInput,
+// which is the heuristic/raw-input surface used with --input.
+func ParseRuntimeAction(raw []byte) (RuntimeAction, error) {
+	if err := validateRuntimeSchema(raw, RuntimeActionSchemaID); err != nil {
+		return RuntimeAction{}, errors.New("runtime action schema invalid")
+	}
+	var action RuntimeAction
+	if err := DecodeStrictRuntimeJSON(raw, &action); err != nil {
+		return RuntimeAction{}, err
+	}
+	if reasons := ValidateRuntimeAction(action); len(reasons) > 0 {
+		return RuntimeAction{}, fmt.Errorf("runtime action schema invalid: %s", strings.Join(reasons, ","))
+	}
+	return action, nil
 }
 
 func ParseReadinessInput(raw []byte) (ReadinessInput, error) {
@@ -223,6 +247,7 @@ type OutcomeClassification = ObservedEffect
 // ClassifyRuntimeAction deterministically normalizes a runtime action.  It
 // does not inspect the network, run validators, or infer observed effects.
 func ClassifyRuntimeAction(input ClassificationInput) ClassificationResult {
+	explicitReasons := validateExplicitClassificationInput(input)
 	action := RuntimeAction{
 		SchemaID: RuntimeActionSchemaID, SchemaVersion: RuntimeActionSchemaVersion,
 		ActionID: strings.TrimSpace(input.ActionID), ActionClass: normalize(input.ActionClass),
@@ -285,12 +310,61 @@ func ClassifyRuntimeAction(input ClassificationInput) ClassificationResult {
 	for i := range action.Stages {
 		action.Stages[i] = normalizeStage(action.Stages[i])
 	}
-	reasons := ValidateRuntimeAction(action)
+	reasons := append(explicitReasons, ValidateRuntimeAction(action)...)
 	if stagesExceeded {
 		reasons = append(reasons, "stages_limit_exceeded")
 	}
 	action.ClassificationReasons = sortedUnique(append(action.ClassificationReasons, reasons...))
 	return ClassificationResult{Action: action, Valid: len(reasons) == 0, ReasonCodes: reasons}
+}
+
+func validateExplicitClassificationInput(input ClassificationInput) []string {
+	reasons := []string{}
+	if value := normalize(input.ActionClass); value != "" {
+		if _, ok := runtimeActionClasses[value]; !ok {
+			reasons = append(reasons, "action_class_explicit_unsupported:"+value)
+		}
+	}
+	for _, value := range input.ActionClasses {
+		value = normalize(value)
+		if value != "" {
+			if _, ok := runtimeActionClasses[value]; !ok {
+				reasons = append(reasons, "action_class_explicit_unsupported:"+value)
+			}
+		}
+	}
+	if value := normalize(input.CompositionRole); value != "" {
+		if _, ok := runtimeCompositionRoles[value]; !ok {
+			reasons = append(reasons, "composition_role_explicit_unsupported:"+value)
+		}
+	}
+	if value := normalize(input.TargetTrustClass); value != "" {
+		if _, ok := runtimeTrustClasses[value]; !ok {
+			reasons = append(reasons, "target_trust_class_explicit_unsupported:"+value)
+		}
+	}
+	if value := normalize(input.TransitionClass); value != "" {
+		if _, ok := runtimeTransitionClasses[value]; !ok {
+			reasons = append(reasons, "transition_class_explicit_unsupported:"+value)
+		}
+	}
+	for field, value := range map[string]string{"expected_outcome_class": input.ExpectedOutcomeClass, "intended_outcome_class": input.IntendedOutcomeClass} {
+		value = normalize(value)
+		if value != "" {
+			if _, ok := runtimeOutcomeClasses[value]; !ok {
+				reasons = append(reasons, field+"_explicit_unsupported:"+value)
+			}
+		}
+	}
+	for _, value := range input.DataClasses {
+		value = normalize(value)
+		if value != "" {
+			if _, ok := runtimeDataClasses[value]; !ok {
+				reasons = append(reasons, "data_class_explicit_unsupported:"+value)
+			}
+		}
+	}
+	return sortedUnique(reasons)
 }
 
 // ClassifyAction is the concise library entry point used by adapters.
@@ -1345,8 +1419,20 @@ func validateLifecycleEvent(record LifecycleRecord) error {
 		if record.Decision == nil || !record.Decision.Ready {
 			return errors.New("lifecycle_decision_not_ready")
 		}
-		if len(record.Decision.Preconditions) == 0 {
-			return errors.New("lifecycle_decision_preconditions_required")
+		if record.Decision.Status != ReadinessSatisfied {
+			return errors.New("lifecycle_decision_status_not_satisfied")
+		}
+		requiredCount := 0
+		for _, precondition := range record.Decision.Preconditions {
+			if precondition.Required {
+				requiredCount++
+				if precondition.Status != ReadinessSatisfied {
+					return errors.New("lifecycle_decision_precondition_unsatisfied")
+				}
+			}
+		}
+		if requiredCount == 0 {
+			return errors.New("lifecycle_decision_required_precondition_missing")
 		}
 	}
 	return nil

@@ -7,6 +7,8 @@ This directory defines the cross-product Action Contract boundary:
 - Gait consumer receipt schema `1`.
 - Gait runtime action classification schema `1`, readiness schema `1`, and
   signed lifecycle-record schema `1`.
+- Gait raw classification-input schema `1` is a separate heuristic input
+  surface; `--action` accepts only the schema-validated runtime-action artifact.
 - The lifecycle correlation field uses the versioned Proof control,
   containment, and telemetry correlation profile with digest-bound references.
 

@@ -43,8 +43,8 @@ func runActionContractClassify(arguments []string) int {
 	var proposalPath, actionPath, inputPath string
 	var jsonOutput, help bool
 	flags.StringVar(&proposalPath, "proposal", "", "explicit path to one proposed action contract artifact")
-	flags.StringVar(&actionPath, "action", "", "explicit path to one runtime action classification JSON")
-	flags.StringVar(&inputPath, "input", "", "alias for --action")
+	flags.StringVar(&actionPath, "action", "", "explicit path to one schema-validated runtime-action artifact")
+	flags.StringVar(&inputPath, "input", "", "explicit path to raw ClassificationInput JSON (heuristic input)")
 	flags.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flags.BoolVar(&help, "help", false, "show help")
 	if err := flags.Parse(arguments); err != nil {
@@ -54,9 +54,6 @@ func runActionContractClassify(arguments []string) int {
 		printActionContractClassifyUsage()
 		return exitOK
 	}
-	if inputPath != "" {
-		actionPath = inputPath
-	}
 	selected := 0
 	if strings.TrimSpace(proposalPath) != "" {
 		selected++
@@ -64,11 +61,14 @@ func runActionContractClassify(arguments []string) int {
 	if strings.TrimSpace(actionPath) != "" {
 		selected++
 	}
+	if strings.TrimSpace(inputPath) != "" {
+		selected++
+	}
 	if len(flags.Args()) > 0 {
 		if selected > 0 || len(flags.Args()) != 1 {
 			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "classify", Error: "exactly one input must be selected", ReasonCodes: []string{actioncontract.ReasonAmbiguousSelection}}, exitInvalidInput)
 		}
-		actionPath = flags.Args()[0]
+		inputPath = flags.Args()[0]
 		selected++
 	}
 	if selected != 1 {
@@ -85,14 +85,24 @@ func runActionContractClassify(arguments []string) int {
 			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "classify", Classification: &actioncontract.ClassificationResult{Valid: false, ReasonCodes: validation.Reasons}, Error: "proposal validation failed", ReasonCodes: validation.Reasons}, exitVerifyFailed)
 		}
 		result = actioncontract.ClassifyArtifact(artifact)
-	} else {
+	} else if actionPath != "" {
 		raw, err := actioncontract.ReadRuntimeInput(actionPath)
 		if err != nil {
 			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "classify", Error: "runtime input is unreadable", ReasonCodes: []string{"runtime_input_unreadable"}}, exitInvalidInput)
 		}
-		var input actioncontract.ClassificationInput
-		if err := actioncontract.DecodeStrictRuntimeJSON(raw, &input); err != nil {
+		action, err := actioncontract.ParseRuntimeAction(raw)
+		if err != nil {
 			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "classify", Error: "runtime action JSON is malformed", ReasonCodes: []string{actioncontract.ReasonMalformedArtifact}}, exitInvalidInput)
+		}
+		result = actioncontract.ClassificationResult{Action: action, Valid: true}
+	} else {
+		raw, err := actioncontract.ReadRuntimeInput(inputPath)
+		if err != nil {
+			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "classify", Error: "runtime input is unreadable", ReasonCodes: []string{"runtime_input_unreadable"}}, exitInvalidInput)
+		}
+		input, err := actioncontract.ParseClassificationInput(raw)
+		if err != nil {
+			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "classify", Error: "classification input JSON is malformed", ReasonCodes: []string{actioncontract.ReasonMalformedArtifact}}, exitInvalidInput)
 		}
 		result = actioncontract.ClassifyAction(input)
 	}
@@ -204,8 +214,8 @@ func runActionContractExplain(arguments []string) int {
 	var proposalPath, actionPath, inputPath string
 	var jsonOutput, help bool
 	flags.StringVar(&proposalPath, "proposal", "", "explicit path to one proposed action contract artifact")
-	flags.StringVar(&actionPath, "action", "", "explicit path to one runtime action classification JSON")
-	flags.StringVar(&inputPath, "input", "", "alias for --action")
+	flags.StringVar(&actionPath, "action", "", "explicit path to one schema-validated runtime-action artifact")
+	flags.StringVar(&inputPath, "input", "", "explicit path to raw ClassificationInput JSON (heuristic input)")
 	flags.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flags.BoolVar(&help, "help", false, "show help")
 	if err := flags.Parse(arguments); err != nil {
@@ -215,10 +225,23 @@ func runActionContractExplain(arguments []string) int {
 		printActionContractExplainUsage()
 		return exitOK
 	}
-	if inputPath != "" {
-		actionPath = inputPath
+	selected := 0
+	if strings.TrimSpace(proposalPath) != "" {
+		selected++
 	}
-	if proposalPath == "" && actionPath == "" && len(flags.Args()) == 0 {
+	if strings.TrimSpace(actionPath) != "" {
+		selected++
+	}
+	if strings.TrimSpace(inputPath) != "" {
+		selected++
+	}
+	if len(flags.Args()) > 0 {
+		selected += len(flags.Args())
+	}
+	if selected > 1 {
+		return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "explain", Error: "exactly one input must be selected", ReasonCodes: []string{actioncontract.ReasonAmbiguousSelection}}, exitInvalidInput)
+	}
+	if proposalPath == "" && actionPath == "" && inputPath == "" && len(flags.Args()) == 0 {
 		if jsonOutput {
 			return writeRuntimeOutput(true, actionContractRuntimeOutput{SchemaID: actioncontract.RuntimeActionSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, OK: true, Operation: "explain"}, exitOK)
 		}
@@ -229,19 +252,32 @@ func runActionContractExplain(arguments []string) int {
 		code := runActionContractExplainProposal(proposalPath, jsonOutput)
 		return code
 	}
-	if actionPath == "" && len(flags.Args()) == 1 {
-		actionPath = flags.Args()[0]
+	if actionPath == "" && inputPath == "" && len(flags.Args()) == 1 {
+		inputPath = flags.Args()[0]
 	}
-	if actionPath == "" {
+	if actionPath == "" && inputPath == "" {
 		return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "explain", Error: "one input must be selected", ReasonCodes: []string{actioncontract.ReasonSelectionRequired}}, exitInvalidInput)
 	}
-	raw, err := actioncontract.ReadRuntimeInput(actionPath)
+	if actionPath != "" {
+		raw, err := actioncontract.ReadRuntimeInput(actionPath)
+		if err != nil {
+			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "explain", Error: "runtime input is unreadable", ReasonCodes: []string{"runtime_input_unreadable"}}, exitInvalidInput)
+		}
+		action, parseErr := actioncontract.ParseRuntimeAction(raw)
+		if parseErr != nil {
+			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "explain", Error: "runtime action JSON is malformed", ReasonCodes: []string{actioncontract.ReasonMalformedArtifact}}, exitInvalidInput)
+		}
+		classification := actioncontract.ClassificationResult{Action: action, Valid: true}
+		out := actionContractRuntimeOutput{SchemaID: actioncontract.RuntimeActionSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, OK: true, Operation: "explain", Classification: &classification}
+		return writeRuntimeOutput(jsonOutput, out, exitOK)
+	}
+	raw, err := actioncontract.ReadRuntimeInput(inputPath)
 	if err != nil {
 		return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "explain", Error: "runtime input is unreadable", ReasonCodes: []string{"runtime_input_unreadable"}}, exitInvalidInput)
 	}
-	var input actioncontract.ClassificationInput
-	if err := actioncontract.DecodeStrictRuntimeJSON(raw, &input); err != nil {
-		return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "explain", Error: "runtime action JSON is malformed", ReasonCodes: []string{actioncontract.ReasonMalformedArtifact}}, exitInvalidInput)
+	input, err := actioncontract.ParseClassificationInput(raw)
+	if err != nil {
+		return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "explain", Error: "classification input JSON is malformed", ReasonCodes: []string{actioncontract.ReasonMalformedArtifact}}, exitInvalidInput)
 	}
 	classification := actioncontract.ClassifyAction(input)
 	out := actionContractRuntimeOutput{SchemaID: actioncontract.RuntimeActionSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, OK: classification.Valid, Operation: "explain", Classification: &classification, ReasonCodes: classification.ReasonCodes}
