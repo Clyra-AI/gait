@@ -155,8 +155,24 @@ func run(root string, check bool) error {
 		Current      bool   `json:"current"`
 	}{}, source.Scenarios...)
 	sort.Slice(scenarios, func(i, j int) bool { return scenarios[i].ScenarioID < scenarios[j].ScenarioID })
+	seenScenarioIDs := make(map[string]struct{}, len(scenarios))
 	for _, scenario := range scenarios {
-		proposalPath := filepath.Join(root, fixtureRootRel, "expected", filepath.FromSlash(scenario.ArtifactPath))
+		if _, seen := seenScenarioIDs[scenario.ScenarioID]; seen {
+			return fmt.Errorf("duplicate fixture scenario id: %s", scenario.ScenarioID)
+		}
+		seenScenarioIDs[scenario.ScenarioID] = struct{}{}
+		activationRel, err := activationRelativePath(scenario.ScenarioID)
+		if err != nil {
+			return err
+		}
+		proposalRoot := filepath.Join(root, fixtureRootRel, "expected")
+		proposalPath, err := safeFixturePath(proposalRoot, scenario.ArtifactPath)
+		if err != nil {
+			return fmt.Errorf("unsafe proposal path for %s: %w", scenario.ScenarioID, err)
+		}
+		if err := rejectSymlinkAncestors(proposalRoot, proposalPath); err != nil {
+			return fmt.Errorf("unsafe proposal path for %s: %w", scenario.ScenarioID, err)
+		}
 		artifact, raw, err := actioncontract.ReadArtifact(proposalPath)
 		if err != nil {
 			return fmt.Errorf("read %s: %w", scenario.ScenarioID, err)
@@ -197,8 +213,10 @@ func run(root string, check bool) error {
 			return err
 		}
 		encoded = append(encoded, '\n')
-		activationRel := filepath.ToSlash(filepath.Join(scenario.ScenarioID, activationName))
-		activationPath := filepath.Join(generatedRoot, filepath.FromSlash(activationRel))
+		activationPath, err := safeFixturePath(generatedRoot, activationRel)
+		if err != nil {
+			return err
+		}
 		if err := os.MkdirAll(filepath.Dir(activationPath), 0o755); err != nil { // #nosec G301 -- generated fixture directories contain public compatibility bytes only.
 			return err
 		}
@@ -225,21 +243,53 @@ func run(root string, check bool) error {
 	}
 
 	destination := filepath.Join(root, fixtureRootRel, "expected")
+	if err := reconcileActivationFiles(destination, result, check); err != nil {
+		return err
+	}
 	for _, scenario := range result.Scenarios {
 		if scenario.ActivationStatus != "activated" {
 			continue
 		}
-		if err := compareOrCopy(filepath.Join(generatedRoot, filepath.FromSlash(filepath.Join(scenario.ScenarioID, activationName))), filepath.Join(destination, filepath.FromSlash(filepath.Join(scenario.ScenarioID, activationName))), check); err != nil {
+		activationRel, err := activationRelativePath(scenario.ScenarioID)
+		if err != nil {
+			return err
+		}
+		generatedPath, err := safeFixturePath(generatedRoot, activationRel)
+		if err != nil {
+			return err
+		}
+		destinationPath, err := safeFixturePath(destination, activationRel)
+		if err != nil {
+			return err
+		}
+		if err := rejectSymlinkAncestors(destination, destinationPath); err != nil {
+			return err
+		}
+		if err := compareOrCopy(generatedPath, destinationPath, check); err != nil {
 			return err
 		}
 	}
-	return compareOrCopy(filepath.Join(generatedRoot, "activation-fixture-manifest.json"), filepath.Join(destination, "activation-fixture-manifest.json"), check)
+	manifestPath, err := safeFixturePath(destination, "activation-fixture-manifest.json")
+	if err != nil {
+		return err
+	}
+	if err := rejectSymlinkAncestors(destination, manifestPath); err != nil {
+		return err
+	}
+	return compareOrCopy(filepath.Join(generatedRoot, "activation-fixture-manifest.json"), manifestPath, check)
 }
 
 func compareOrCopy(source, destination string, check bool) error {
 	generated, err := os.ReadFile(source) // #nosec G304 -- source is generated inside the private temporary tree.
 	if err != nil {
 		return err
+	}
+	info, statErr := os.Lstat(destination) // #nosec G304 -- destination is fixed below the selected repository fixture root.
+	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+		return statErr
+	}
+	if statErr == nil && (info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular()) {
+		return fmt.Errorf("refusing non-regular fixture destination: %s", destination)
 	}
 	existing, readErr := os.ReadFile(destination) // #nosec G304 -- destination is fixed below the selected repository fixture root.
 	if check {
@@ -252,6 +302,155 @@ func compareOrCopy(source, destination string, check bool) error {
 		return err
 	}
 	return os.WriteFile(destination, generated, 0o644) // #nosec G306 -- generated fixture is intentionally public test data.
+}
+
+func activationRelativePath(scenarioID string) (string, error) {
+	if strings.TrimSpace(scenarioID) == "" || scenarioID == "." || scenarioID == ".." || strings.ContainsAny(scenarioID, `/\\`) {
+		return "", fmt.Errorf("unsafe activation scenario id: %q", scenarioID)
+	}
+	return filepath.Join(scenarioID, activationName), nil
+}
+
+func safeFixturePath(root, relative string) (string, error) {
+	if strings.ContainsRune(relative, 0) || filepath.IsAbs(relative) {
+		return "", fmt.Errorf("path escapes fixture root: %q", relative)
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	pathAbs, err := filepath.Abs(filepath.Join(rootAbs, filepath.FromSlash(relative)))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(rootAbs, pathAbs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path escapes fixture root: %q", relative)
+	}
+	return pathAbs, nil
+}
+
+func rejectSymlinkAncestors(root, target string) error {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	targetAbs, err := filepath.Abs(target)
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(rootAbs, targetAbs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path escapes fixture root: %s", target)
+	}
+	current := rootAbs
+	if info, statErr := os.Lstat(current); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("symlink fixture root: %s", root)
+	}
+	if rel == "." {
+		return nil
+	}
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		current = filepath.Join(current, part)
+		info, statErr := os.Lstat(current)
+		if os.IsNotExist(statErr) {
+			return nil
+		}
+		if statErr != nil {
+			return statErr
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("symlink in fixture path: %s", current)
+		}
+	}
+	return nil
+}
+
+func reconcileActivationFiles(expectedRoot string, manifest activationManifest, check bool) error {
+	expected := make(map[string]struct{})
+	for _, scenario := range manifest.Scenarios {
+		if scenario.ActivationStatus != "activated" {
+			continue
+		}
+		rel, err := activationRelativePath(scenario.ScenarioID)
+		if err != nil {
+			return err
+		}
+		if _, err := safeFixturePath(expectedRoot, rel); err != nil {
+			return err
+		}
+		expected[filepath.Clean(rel)] = struct{}{}
+	}
+	actual, err := collectActivationFiles(expectedRoot)
+	if err != nil {
+		return err
+	}
+	for _, rel := range actual {
+		if _, ok := expected[filepath.Clean(rel)]; ok {
+			continue
+		}
+		path, err := safeFixturePath(expectedRoot, rel)
+		if err != nil {
+			return err
+		}
+		if check {
+			return fmt.Errorf("obsolete activation fixture: %s", filepath.ToSlash(rel))
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return fmt.Errorf("refusing to remove non-regular activation fixture: %s", path)
+		}
+		if err := os.Remove(path); err != nil { // #nosec G304 -- path is a regular activation file below the pinned fixture root.
+			return err
+		}
+	}
+	return nil
+}
+
+func collectActivationFiles(expectedRoot string) ([]string, error) {
+	rootAbs, err := filepath.Abs(expectedRoot)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Lstat(rootAbs)
+	if err != nil {
+		return nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return nil, fmt.Errorf("invalid activation fixture root: %s", rootAbs)
+	}
+	var paths []string
+	err = filepath.WalkDir(rootAbs, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if path == rootAbs {
+			return nil
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing symlink in activation fixture root: %s", path)
+		}
+		if entry.Name() != activationName {
+			return nil
+		}
+		if !entry.Type().IsRegular() {
+			return fmt.Errorf("refusing non-regular activation fixture: %s", path)
+		}
+		rel, err := filepath.Rel(rootAbs, path)
+		if err != nil {
+			return err
+		}
+		paths = append(paths, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(paths)
+	return paths, nil
 }
 
 func fixedEvaluationTime() (t time.Time) {
