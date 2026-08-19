@@ -143,13 +143,24 @@ func captureActionContractOutput(t *testing.T, fn func() int) (string, int) {
 	}
 	original := os.Stdout
 	os.Stdout = writer
+	resultCh := make(chan struct {
+		payload []byte
+		err     error
+	}, 1)
+	go func() {
+		payload, readErr := io.ReadAll(reader)
+		resultCh <- struct {
+			payload []byte
+			err     error
+		}{payload: payload, err: readErr}
+	}()
 	code := fn()
 	_ = writer.Close()
 	os.Stdout = original
-	payload, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatal(err)
+	result := <-resultCh
+	if result.err != nil {
+		t.Fatal(result.err)
 	}
 	_ = reader.Close()
-	return string(payload), code
+	return string(result.payload), code
 }
