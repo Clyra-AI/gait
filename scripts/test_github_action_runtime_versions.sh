@@ -44,6 +44,7 @@ jobs:
       - uses: actions/setup-node@v5
       - uses: github/codeql-action/init@v4
       - uses: github/codeql-action/analyze@v4
+      - uses: actions/download-artifact@87c55149d96e628cc2ef7e6fc2aab372015aec85 # v4.1.3
 EOF
 cat > "${WORK_DIR}/pass/docs/adopt_in_one_pr.md" <<'EOF'
 ```yaml
@@ -73,6 +74,7 @@ jobs:
       - uses: github/codeql-action/analyze@v3
       - uses: actions/setup-go@v5
       - uses: actions/setup-node@v4
+      - uses: actions/download-artifact@v4
 EOF
 cat > "${WORK_DIR}/fail/docs/adopt_in_one_pr.md" <<'EOF'
 ```yaml
@@ -98,6 +100,7 @@ ${WORK_DIR}/fail/.github/workflows/core.yml:7: actions/checkout@v4: deprecated m
 ${WORK_DIR}/fail/.github/workflows/core.yml:8: github/codeql-action/analyze@v3: deprecated major v3; require github/codeql-action/analyze@v4+
 ${WORK_DIR}/fail/.github/workflows/core.yml:9: actions/setup-go@v5: deprecated major v5; require actions/setup-go@v6+
 ${WORK_DIR}/fail/.github/workflows/core.yml:10: actions/setup-node@v4: deprecated major v4; require actions/setup-node@v5+
+${WORK_DIR}/fail/.github/workflows/core.yml:11: actions/download-artifact@v4: mutable ref; require actions/download-artifact@<40-character commit SHA>
 ${WORK_DIR}/fail/docs/adopt_in_one_pr.md:2: actions/checkout@v4: deprecated major v4; require actions/checkout@v5+
 EOF
 )"

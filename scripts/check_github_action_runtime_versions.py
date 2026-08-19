@@ -12,6 +12,7 @@ from typing import Iterable
 @dataclass(frozen=True)
 class Rule:
     minimum_major: int
+    immutable_sha: bool = False
 
 
 @dataclass(frozen=True)
@@ -29,12 +30,14 @@ RULES: dict[str, Rule] = {
     "actions/setup-node": Rule(minimum_major=5),
     "github/codeql-action/init": Rule(minimum_major=4),
     "github/codeql-action/analyze": Rule(minimum_major=4),
+    "actions/download-artifact": Rule(minimum_major=4, immutable_sha=True),
 }
 
 USES_PATTERN = re.compile(
     r"uses:\s*['\"]?([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?@[^ \t\r\n#'\"]+)"
 )
 MAJOR_PATTERN = re.compile(r"^v(?P<major>[0-9]+)(?:[._-].*)?$")
+SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -82,6 +85,8 @@ def scan_file(path: Path) -> list[Violation]:
             rule = RULES.get(action_name)
             if rule is None:
                 continue
+            if rule.immutable_sha and SHA_PATTERN.fullmatch(version_ref):
+                continue
             major = parse_major(version_ref)
             if major is None:
                 violations.append(
@@ -92,6 +97,7 @@ def scan_file(path: Path) -> list[Violation]:
                         message=(
                             f"unsupported monitored ref format; require {action_name}@v"
                             f"{rule.minimum_major}+"
+                            + (" or a 40-character commit SHA" if rule.immutable_sha else "")
                         ),
                     )
                 )
@@ -105,6 +111,17 @@ def scan_file(path: Path) -> list[Violation]:
                         message=(
                             f"deprecated major v{major}; require {action_name}@v"
                             f"{rule.minimum_major}+"
+                        ),
+                    )
+                )
+            elif rule.immutable_sha:
+                violations.append(
+                    Violation(
+                        path=str(path),
+                        line=line_number,
+                        reference=reference,
+                        message=(
+                            f"mutable ref; require {action_name}@<40-character commit SHA>"
                         ),
                     )
                 )
