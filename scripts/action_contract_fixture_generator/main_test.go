@@ -132,6 +132,121 @@ func TestRunRejectsScenarioPathTraversalAndSymlinkActivation(t *testing.T) {
 	}
 }
 
+func TestFixturePathHelpersAndCopyRejectUnsafeDestinations(t *testing.T) {
+	root := t.TempDir()
+	expectedRoot := filepath.Join(root, "expected")
+	if err := os.MkdirAll(expectedRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := safeFixturePath(expectedRoot, "../escape"); err == nil {
+		t.Fatal("safeFixturePath accepted traversal")
+	}
+	if _, err := safeFixturePath(expectedRoot, filepath.Join(root, "absolute")); err == nil {
+		t.Fatal("safeFixturePath accepted an absolute path")
+	}
+	if err := rejectSymlinkAncestors(expectedRoot, filepath.Join(expectedRoot, "missing", "file")); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(root, "outside")
+	if err := os.WriteFile(outside, []byte("outside\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	symlinkRoot := filepath.Join(root, "symlink-root")
+	if err := os.Symlink(expectedRoot, symlinkRoot); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := rejectSymlinkAncestors(symlinkRoot, filepath.Join(symlinkRoot, "file")); err == nil {
+		t.Fatal("rejectSymlinkAncestors accepted a symlink root")
+	}
+
+	source := filepath.Join(root, "source.json")
+	if err := os.WriteFile(source, []byte("generated\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	regularDestination := filepath.Join(expectedRoot, "regular.json")
+	if err := compareOrCopy(source, regularDestination, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := compareOrCopy(source, regularDestination, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(expectedRoot, "directory"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := compareOrCopy(source, filepath.Join(expectedRoot, "directory"), false); err == nil {
+		t.Fatal("compareOrCopy accepted a directory destination")
+	}
+	stale := filepath.Join(expectedRoot, "stale.json")
+	if err := os.WriteFile(stale, []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := compareOrCopy(source, stale, true); err == nil {
+		t.Fatal("--check accepted stale fixture bytes")
+	}
+	if err := compareOrCopy(filepath.Join(root, "missing-source.json"), regularDestination, false); err == nil {
+		t.Fatal("compareOrCopy accepted a missing source")
+	}
+	symlinkDestination := filepath.Join(expectedRoot, "symlink.json")
+	if err := os.Symlink(outside, symlinkDestination); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := compareOrCopy(source, symlinkDestination, false); err == nil {
+		t.Fatal("compareOrCopy accepted a symlink destination")
+	}
+	if got, err := os.ReadFile(outside); err != nil || string(got) != "outside\n" {
+		t.Fatalf("outside file changed: %q %v", got, err)
+	}
+}
+
+func TestCollectActivationFilesRejectsInvalidRootAndNonRegularActivation(t *testing.T) {
+	root := t.TempDir()
+	if _, err := collectActivationFiles(filepath.Join(root, "missing")); err == nil {
+		t.Fatal("collectActivationFiles accepted a missing root")
+	}
+	fileRoot := filepath.Join(root, "file-root")
+	if err := os.WriteFile(fileRoot, []byte("not a directory\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := collectActivationFiles(fileRoot); err == nil {
+		t.Fatal("collectActivationFiles accepted a regular-file root")
+	}
+	fixtureRoot := filepath.Join(root, "fixture-root")
+	if err := os.MkdirAll(filepath.Join(fixtureRoot, "scenario"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(fixtureRoot, "scenario", activationName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := collectActivationFiles(fixtureRoot); err == nil {
+		t.Fatal("collectActivationFiles accepted a directory activation fixture")
+	}
+}
+
+func TestRunRejectsInvalidSourceManifestInputs(t *testing.T) {
+	if err := run(t.TempDir(), false); err == nil {
+		t.Fatal("run accepted a repository without the pinned source manifest")
+	}
+
+	root := copyFixtureRepo(t)
+	manifestPath := filepath.Join(root, manifestRel)
+	manifest := readJSON(t, manifestPath)
+	manifest["producer"].(map[string]any)["version"] = "v9.9.9"
+	writeJSON(t, manifestPath, manifest)
+	if err := run(root, false); err == nil {
+		t.Fatal("run accepted an unsupported source producer version")
+	}
+
+	root = copyFixtureRepo(t)
+	manifestPath = filepath.Join(root, manifestRel)
+	manifest = readJSON(t, manifestPath)
+	scenarios := manifest["scenarios"].([]any)
+	scenarios[1].(map[string]any)["scenario_id"] = scenarios[0].(map[string]any)["scenario_id"]
+	writeJSON(t, manifestPath, manifest)
+	if err := run(root, false); err == nil {
+		t.Fatal("run accepted duplicate source scenario IDs")
+	}
+}
+
 func copyFixtureRepo(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()

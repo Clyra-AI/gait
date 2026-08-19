@@ -97,6 +97,13 @@ require_pattern "${REPO_ROOT}/cmd/gait/verify.go" "gait contract activate .*--va
 require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "artifact schema \x601\x60(?:,|$)" "Action Contract artifact schema version missing or malformed"
 require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "contract schema \x603\x60(?:[.,]|$)" "Action Contract contract schema version missing or malformed"
 
+# Main and PR-fast CI must enforce the same Go package/aggregate coverage contract.
+for workflow in \
+  "${REPO_ROOT}/.github/workflows/ci.yml" \
+  "${REPO_ROOT}/.github/workflows/pr-fast.yml"; do
+  require_pattern "${workflow}" "scripts/test_go_coverage_contract\.sh 75 85" "Go coverage contract missing from workflow"
+done
+
 # Required onboarding sections.
 require_readme_intro_heading_near_top \
   "${REPO_ROOT}/README.md" \
