@@ -90,6 +90,49 @@ func TestValidationRejectsTamperedDigestAndVersion(t *testing.T) {
 	}
 }
 
+func TestValidateArtifactRejectsMalformedAndUnsupportedFields(t *testing.T) {
+	result := ValidateArtifact(Artifact{}, ValidationOptions{Now: mustTime("2026-07-19T00:00:00Z")})
+	for _, reason := range []string{ReasonSchemaValidationFailed, ReasonUnsupportedArtifactSchema, ReasonUnsupportedProducer, ReasonUnsupportedContractSchema, ReasonReportOnlyRequired, ReasonArtifactIdentityMismatch, ReasonMissingContractID, ReasonMissingFamilyID, ReasonRevisionInvalid, ReasonMissingSourceRefs, ReasonMissingCompositionRef, ReasonMissingEvidenceRefs, ReasonMalformedArtifact} {
+		if !contains(result.Reasons, reason) {
+			t.Fatalf("empty artifact missing %q: %+v", reason, result.Reasons)
+		}
+	}
+
+	artifact := fixtureArtifact(t, "customer-data-to-egress")
+	artifact.Revision = 2
+	artifact.ResolutionKey = "resolution:top"
+	artifact.Contract["contract_id"] = "pac-other"
+	artifact.Contract["contract_family_id"] = "pacf-other"
+	artifact.Contract["revision"] = 1
+	artifact.Contract["contract_version"] = "2"
+	artifact.Contract["contract_kind"] = "other"
+	artifact.Contract["report_only"] = false
+	artifact.Contract["composition_ref"] = "composition:missing"
+	artifact.Contract["resolution_key"] = "resolution:contract"
+	artifact.Contract["target_constraints"] = []any{map[string]any{"key": "unsupported"}}
+	artifact.Contract["preconditions"] = []any{map[string]any{"kind": "unsupported"}}
+	artifact.Contract["authority_requirements"] = []any{map[string]any{"kind": "unsupported"}}
+	artifact.Contract["expires_at"] = "not-a-time"
+	artifact.Contract["readiness_state"] = "blocked_by_contradiction"
+	artifact.Contract["authority_readiness_state"] = "blocked_by_contradiction"
+	result = ValidateArtifact(artifact, ValidationOptions{ExpectedContractID: "pac-expected", ExpectedFamilyID: "pacf-expected", ExpectedRevision: 3, Now: mustTime("2026-07-19T00:00:00Z")})
+	for _, reason := range []string{ReasonRevisionIdentityMismatch, ReasonContractIdentityMismatch, ReasonRevisionReactivationRequired, ReasonContractDigestMismatch, ReasonContradictoryProposal, ReasonMalformedArtifact} {
+		if !contains(result.Reasons, reason) {
+			t.Fatalf("mutated artifact missing %q: %+v", reason, result.Reasons)
+		}
+	}
+	unsupported := false
+	for _, reason := range result.Reasons {
+		if strings.HasPrefix(reason, ReasonUnsupportedConstraint+":") {
+			unsupported = true
+			break
+		}
+	}
+	if !unsupported {
+		t.Fatalf("unsupported constraint was not reported: %+v", result.Reasons)
+	}
+}
+
 func TestDuplicateJSONKeysAndNestedSchemaDriftReject(t *testing.T) {
 	path := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
 	raw, err := os.ReadFile(path)
