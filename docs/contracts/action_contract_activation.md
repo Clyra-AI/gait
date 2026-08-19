@@ -41,6 +41,29 @@ is rejected by normal verification. Verification always requires the actual
 bound proposal bytes. Activation output refuses existing files and symlinks
 by default; `--overwrite` explicitly replaces only an existing regular file.
 
+## Pre-execution runtime readiness
+
+Gait also exposes a deterministic runtime projection without executing a tool:
+
+```bash
+gait contract classify --proposal proposal.json --json
+gait contract readiness --proposal proposal.json --trusted-validators gait-policy-validator --json
+gait contract explain --proposal proposal.json --json
+```
+
+Classification uses the released Wrkr action classes (`read`, `write`,
+`deploy`, `delete`, `execute`, `egress`, `credential_access`, and `release`)
+and keeps resource lifecycle actions separate from `risk_class`. Inference can
+preserve or raise a supplied class, never lower it. Intended outcome and
+observed effect are separate fields; classification does not claim execution.
+
+Readiness evaluates typed preconditions with statuses `satisfied`,
+`unsatisfied`, `inconclusive`, and `not_required`. Only policy-named trusted
+validators can satisfy a required check; Wrkr declarations and judge or
+self-attested results do not. Proof v0.6.1 digest-bound relationship refs and
+the correlation profile are retained on signed lifecycle records, which a
+pure reducer can reconstruct without an event store.
+
 ## Released compatibility fixtures
 
 The v1.4.0 compatibility pack is generated with:

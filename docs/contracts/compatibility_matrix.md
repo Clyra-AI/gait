@@ -23,6 +23,7 @@ This matrix defines compatibility between producer and consumer surfaces.
 | --- | --- | --- | --- |
 | Wrkr `proposed_action_contract` `v1.14.0` -> Gait v1.4.0 | 1 | 3 | Gait validates one explicit report-only proposal; the committed activation compatibility pack covers valid scenarios with current-selection evidence; activations are separate signed artifacts and new revisions require reactivation |
 | Gait consumer receipt | 1 | n/a | Direct deterministic JSON receipt; `self_attestation=false`, no execution/effect claim |
+| Gait runtime classification/readiness/lifecycle | 1 | n/a | Additive pre-execution schemas; required readiness evidence is fail-closed, lifecycle records use Proof v0.6.1 relationship refs/correlation, and no surface claims execution/effect |
 
 The activation compatibility pack under `testdata/action-contract-interop/v1/`
 is generated from exact Wrkr proposal bytes by

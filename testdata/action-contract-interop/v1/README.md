@@ -18,3 +18,9 @@ is committed or read by production/default activation. Every generated
 activation is marked `development_signing: true` and is non-authoritative by
 default. These files prove compatibility with the Gait v1.4.0 artifact shape,
 not production approval or execution authority.
+
+The core action-contract tests also consume every released proposal in this
+pack through the runtime classification/readiness projection. Those checks
+assert deterministic action/boundary/outcome normalization, bounded stage
+topology, fail-closed readiness without trusted validators, and the invariant
+that intended outcomes never become observed effects.

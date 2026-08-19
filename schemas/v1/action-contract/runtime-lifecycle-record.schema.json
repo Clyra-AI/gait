@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+  "title": "Gait Runtime Lifecycle Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "record_id", "kind", "occurred_at", "contract_ref", "correlation", "signature"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json"}, "schema_version": {"const": "1"},
+    "record_id": {"type": "string", "pattern": "^gait-lr-[a-f0-9]{16}$"}, "kind": {"enum": ["proposal_ingested", "activation_requested", "activated", "rejected", "revoked", "superseded", "precondition_evaluated", "decision_ready"]},
+    "occurred_at": {"type": "string", "format": "date-time"}, "contract_ref": {"$ref": "#/$defs/relationship_ref"},
+    "proposal_ref": {"type": "object"}, "activation_ref": {"type": "object"}, "precondition_refs": {"type": "array", "items": {"type": "object"}},
+    "decision": {"$ref": "runtime-readiness.schema.json"}, "reason_codes": {"type": "array", "items": {"type": "string"}},
+    "correlation": {"type": "object"}, "immutable_object": {}, "signature": {"type": "object"}
+  },
+  "$defs": {
+    "relationship_ref": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "id"],
+      "properties": {"kind": {"type": "string", "minLength": 1}, "id": {"type": "string", "minLength": 1}, "digest": {"type": "string"}, "schema_id": {"type": "string"}, "schema_version": {"type": "string"}, "source_product": {"type": "string"}}
+    }
+  }
+}
