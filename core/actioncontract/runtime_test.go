@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -22,11 +23,13 @@ import (
 var expectedRuntimeGoldenDigests = map[string]string{
 	"fixture-signing-key.public.b64": "sha256:4a09d7988c00029e6da1d966c512a6a515d421b5f05155d8c87e1b734e8480fa",
 	"runtime-action.json":            "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424",
-	"runtime-readiness.json":         "sha256:dfd922bb801f70160d0cd4228ddd561415fe7408a7dbe00a9f7f64034daa0a5e",
-	"runtime-lifecycle-record.json":  "sha256:e55807415365d0707183195ea9ae5e3be3b2016bd7e0d9292bf90d741eea9807",
-	"runtime-lifecycle-chain.json":   "sha256:ccefdb21dc1cd6a98128b80e69eb00cdff862cc58675047f54cff709a3aae679",
-	"runtime-lifecycle-chain.jsonl":  "sha256:103476492821953195214c41e91adf36acece65f038f17fa1a92b6bcd99ff908",
+	"runtime-readiness.json":         "sha256:4e8f72e42ee658be485e53c0ff09b1d7c2b5cd9000542ecaa634d462f1ff4a7a",
+	"runtime-lifecycle-record.json":  "sha256:e33d10eb5efb3370c01eae8b3838419baa2700bd14662e15464992a72ccc1320",
+	"runtime-lifecycle-chain.json":   "sha256:d19451831bef61385a53f79b5cf903d4d5c32ad36c5f7bb3f3525e4de6cc8ab2",
+	"runtime-lifecycle-chain.jsonl":  "sha256:481bbc0c38b1cdabdbf3b80004fdd34f0b538df72ff49a9250cea7bc48c1b884",
 }
+
+const runtimeTestPolicyDigest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 func TestClassifyRuntimeActionIsMonotonicAndDeterministic(t *testing.T) {
 	input := ClassificationInput{
@@ -54,6 +57,37 @@ func TestClassifyRuntimeActionIsMonotonicAndDeterministic(t *testing.T) {
 	raised := ClassifyRuntimeAction(ClassificationInput{ActionID: "act-2", ActionClass: ActionClassRead, CompositionRole: "source", TargetTrustClass: "external", TransitionClass: "read", ExpectedOutcomeClass: "read", Hints: []string{"production deploy"}})
 	if !raised.Valid || raised.Action.ActionClass != ActionClassDeploy || raised.Action.ExpectedOutcomeClass != "production_deploy" || raised.Action.TargetTrustClass != "production" {
 		t.Fatalf("inference lowered a supplied classification: %#v", raised)
+	}
+}
+
+func TestRuntimeVocabularyExportsAndCompatibilityAliases(t *testing.T) {
+	for name, values := range map[string][]string{
+		"action": RuntimeActionClassVocabulary(), "role": RuntimeCompositionRoleVocabulary(), "data": RuntimeDataClassVocabulary(),
+		"trust": RuntimeTargetTrustClassVocabulary(), "transition": RuntimeTransitionClassVocabulary(), "outcome": RuntimeOutcomeClassVocabulary(), "resource": RuntimeResourceActionVocabulary(),
+	} {
+		if len(values) == 0 || !sort.StringsAreSorted(values) {
+			t.Fatalf("%s vocabulary is empty or unstable: %v", name, values)
+		}
+	}
+	if result := EvaluateContractReadiness(ReadinessInput{}); result.Ready {
+		t.Fatal("compatibility readiness helper made empty input authoritative")
+	}
+	if snapshot := ReduceLifecycleEvents(nil); snapshot.CurrentStatus != "unknown" {
+		t.Fatalf("compatibility lifecycle reducer changed empty state: %#v", snapshot)
+	}
+}
+
+func TestValidateRuntimeActionRejectsUnsupportedShape(t *testing.T) {
+	bad := RuntimeAction{
+		SchemaID: "bad", SchemaVersion: "0", ActionClass: "bad", CompositionRole: "bad", TargetTrustClass: "bad", TransitionClass: "bad", ExpectedOutcomeClass: "bad",
+		ActionClasses: []string{"bad"}, DataClasses: []string{"bad"}, ResourceLifecycleActions: []string{"bad"}, ResourceActions: []string{"bad"},
+		Stages: []RuntimeActionStage{{Role: "bad", TargetTrustClass: "bad", TransitionClass: "bad", ExpectedOutcome: "bad"}},
+	}
+	reasons := ValidateRuntimeAction(bad)
+	for _, want := range []string{"schema_unsupported", "action_id_missing", "action_class_unsupported", "composition_role_unsupported", "target_trust_class_unsupported", "transition_class_unsupported", "expected_outcome_class_unsupported", "data_class_unsupported:bad", "resource_action_unsupported:bad", "stage_0_id_missing"} {
+		if !containsStringValue(reasons, want) {
+			t.Fatalf("missing validation reason %q in %v", want, reasons)
+		}
 	}
 }
 
@@ -148,6 +182,7 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 			ActivationArtifactID    string `json:"activation_artifact_id"`
 			ContractID              string `json:"contract_id"`
 			Revision                int    `json:"revision"`
+			PolicyDigest            string `json:"policy_digest"`
 		} `json:"producer_bindings"`
 		Files []struct {
 			Path   string `json:"path"`
@@ -199,7 +234,7 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 			t.Fatalf("unmanifested runtime golden file: %s", entry.Name())
 		}
 	}
-	if manifest.ProducerBindings.WrkrVersion != "v1.14.0" || manifest.ProducerBindings.GaitVersion != "v1.4.0" || manifest.ProducerBindings.ScenarioID != "compensation" || manifest.ProducerBindings.ProposalPath != "testdata/action-contract-interop/v1/expected/compensation/pac-4b7f1402784256ce.json" || manifest.ProducerBindings.ProposalSHA256 != "sha256:bfb32cdce650b2ea969059ae0816df2637f7345e70b08a67d4c23684489bf154" || manifest.ProducerBindings.ProposalCanonicalDigest != "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf" || manifest.ProducerBindings.ProposalArtifactID != "paca-d3a371d51af5af30" || manifest.ProducerBindings.ActivationPath != "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json" || manifest.ProducerBindings.ActivationSHA256 != "sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f" || manifest.ProducerBindings.ActivationArtifactID != "gact-4aad73ff9f3c7e5a" || manifest.ProducerBindings.ContractID != "pac-4b7f1402784256ce" || manifest.ProducerBindings.Revision != 1 {
+	if manifest.ProducerBindings.WrkrVersion != "v1.14.0" || manifest.ProducerBindings.GaitVersion != "v1.4.0" || manifest.ProducerBindings.ScenarioID != "compensation" || manifest.ProducerBindings.ProposalPath != "testdata/action-contract-interop/v1/expected/compensation/pac-4b7f1402784256ce.json" || manifest.ProducerBindings.ProposalSHA256 != "sha256:bfb32cdce650b2ea969059ae0816df2637f7345e70b08a67d4c23684489bf154" || manifest.ProducerBindings.ProposalCanonicalDigest != "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf" || manifest.ProducerBindings.ProposalArtifactID != "paca-d3a371d51af5af30" || manifest.ProducerBindings.ActivationPath != "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json" || manifest.ProducerBindings.ActivationSHA256 != "sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f" || manifest.ProducerBindings.ActivationArtifactID != "gact-4aad73ff9f3c7e5a" || manifest.ProducerBindings.ContractID != "pac-4b7f1402784256ce" || manifest.ProducerBindings.Revision != 1 || manifest.ProducerBindings.PolicyDigest != runtimeTestPolicyDigest {
 		t.Fatalf("runtime producer binding provenance drift: %#v", manifest.ProducerBindings)
 	}
 	proposalRaw, err := os.ReadFile(filepath.Join("..", "..", manifest.ProducerBindings.ProposalPath))
@@ -226,15 +261,18 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 	if err != nil || activationArtifact.ArtifactID != manifest.ProducerBindings.ActivationArtifactID || activationArtifact.ContractID != manifest.ProducerBindings.ContractID || activationArtifact.Revision != manifest.ProducerBindings.Revision {
 		t.Fatalf("released activation binding invalid: err=%v artifact=%#v", err, activationArtifact)
 	}
+	if activationArtifact.PolicyDigest != manifest.ProducerBindings.PolicyDigest {
+		t.Fatalf("released activation policy digest drifted: got=%s want=%s", activationArtifact.PolicyDigest, manifest.ProducerBindings.PolicyDigest)
+	}
 	if valid, err := VerifyActivationWithOptions(activationArtifact, DevelopmentPublicKey(), VerificationOptions{AllowDevelopmentSigning: true, Proposal: &proposalArtifact, EvaluationTime: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC)}); err != nil || !valid {
 		t.Fatalf("released activation signature/proposal binding failed: valid=%t err=%v", valid, err)
 	}
 	action := ClassifyAction(ClassificationInput{ActionID: "runtime-golden-action", ActionClass: "read", CompositionRole: "source", DataClasses: []string{"internal"}, TargetTrustClass: "external", TransitionClass: "read", ExpectedOutcomeClass: "read", TargetRef: "target:golden"})
 	validatorPrivate, validatorPublic := testGoldenValidatorKey()
 	now := time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC)
-	evidence := signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "runtime-p1", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:runtime-p1"}, ObservedResult: "pass", Environment: "production"})
+	evidence := signedTestPreconditionForInput(validatorPrivate, ReadinessInput{ContractID: manifest.ProducerBindings.ContractID, PolicyDigest: runtimeTestPolicyDigest}, ReadinessPrecondition{RequirementID: "runtime-p1", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:runtime-p1"}, ObservedResult: "pass", Environment: "production"})
 	evidenceDigest := evidence.EvidenceDigest
-	readiness := EvaluateReadiness(ReadinessInput{Now: now, ContractID: manifest.ProducerBindings.ContractID, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{evidence}})
+	readiness := EvaluateReadiness(ReadinessInput{Now: now, ContractID: manifest.ProducerBindings.ContractID, PolicyDigest: runtimeTestPolicyDigest, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{evidence}})
 	seed := sha256.Sum256([]byte("runtime-golden-key"))
 	private := ed25519.NewKeyFromSeed(seed[:])
 	contractRef := proof.RelationshipRef{Kind: "action_contract", ID: manifest.ProducerBindings.ContractID, Digest: manifest.ProducerBindings.ProposalCanonicalDigest, SchemaID: ProposedContractSchemaID, SchemaVersion: ProposedContractVersion, SourceProduct: "wrkr"}
@@ -330,9 +368,9 @@ func assertGoldenJSON(t *testing.T, path string, value any) {
 
 func TestEvaluateReadinessFailsClosedForUntrustedWrkrAndJudge(t *testing.T) {
 	validatorPrivate, validatorPublic := testValidatorKey()
-	base := ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), TrustedValidatorRefs: []string{"policy-validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"policy-validator": validatorPublic}, Preconditions: []ReadinessPrecondition{
+	base := ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), ContractID: "test-contract", PolicyDigest: runtimeTestPolicyDigest, TrustedValidatorRefs: []string{"policy-validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"policy-validator": validatorPublic}, Preconditions: []ReadinessPrecondition{
 		{RequirementID: "p1", Kind: "effect_contract", Required: true, Producer: "wrkr", ControlMode: ControlModeSelfAttested, FreshnessState: "fresh", ObservedResult: "pass"},
-		{RequirementID: "p2", Kind: "policy_digest", Required: true, Producer: "judge", ControlMode: ControlModeObserved, FreshnessState: "fresh", ObservedResult: "pass"},
+		{RequirementID: "p2", Kind: "approval", Required: true, Producer: "judge", ControlMode: ControlModeObserved, FreshnessState: "fresh", ObservedResult: "pass"},
 		signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "p3", Kind: "sandbox", Required: true, Producer: "policy-validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedResult: "pass", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:p3"}, SandboxStatus: "clean"}),
 	}}
 	result := EvaluateReadiness(base)
@@ -356,7 +394,7 @@ func TestEvaluateReadinessFailsClosedForUntrustedWrkrAndJudge(t *testing.T) {
 
 func TestEvaluateReadinessStatusesAndBoundaryRefsRemainSeparate(t *testing.T) {
 	validatorPrivate, validatorPublic := testValidatorKey()
-	result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{
+	result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), ContractID: "test-contract", PolicyDigest: runtimeTestPolicyDigest, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []ReadinessPrecondition{
 		{RequirementID: "none", Kind: "approval", Required: false},
 		signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "ok", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "current", ObservedResult: "verified", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:1"}, BoundaryRefs: []string{"boundary:1"}, Environment: "production"}),
 		signedTestPrecondition(validatorPrivate, ReadinessPrecondition{RequirementID: "bad", Kind: "target", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "expired", ObservedResult: "verified", ObservedAt: "2026-07-18T00:00:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"boundary:wrong"}, Target: "prod"}),
@@ -397,7 +435,7 @@ func TestEvaluateReadinessBindsEverySemanticClaimField(t *testing.T) {
 		t.Run(mutation.name, func(t *testing.T) {
 			item := base
 			mutation.edit(&item)
-			result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": public}, Preconditions: []ReadinessPrecondition{item}})
+			result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), ContractID: "test-contract", PolicyDigest: runtimeTestPolicyDigest, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": public}, Preconditions: []ReadinessPrecondition{item}})
 			if result.Ready || result.Preconditions[0].Status == ReadinessSatisfied {
 				t.Fatalf("mutated claim satisfied readiness: %#v", result)
 			}
@@ -405,6 +443,45 @@ func TestEvaluateReadinessBindsEverySemanticClaimField(t *testing.T) {
 				t.Fatalf("missing claim digest mismatch for %s: %#v", mutation.name, result.Preconditions[0].ReasonCodes)
 			}
 		})
+	}
+}
+
+func TestEvaluateReadinessClaimsCannotReplayAcrossContractOrPolicy(t *testing.T) {
+	private, public := testValidatorKey()
+	item := signedTestPreconditionForInput(private, ReadinessInput{ContractID: "contract-a", PolicyDigest: runtimeTestPolicyDigest}, ReadinessPrecondition{
+		RequirementID: "replay", Kind: "environment", Required: true, Producer: "validator", ControlMode: ControlModeEnforced, FreshnessState: "fresh", ObservedResult: "pass", ObservedAt: "2026-07-19T00:30:00Z", MaxAgeSeconds: 3600, EvidenceState: "verified", EvidenceRefs: []string{"evidence:replay"}, Environment: "production",
+	})
+	base := ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), ContractID: "contract-a", PolicyDigest: runtimeTestPolicyDigest, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": public}, Preconditions: []ReadinessPrecondition{item}}
+	if result := EvaluateReadiness(base); !result.Ready {
+		t.Fatalf("bound claim should satisfy original identity: %#v", result)
+	}
+	for _, mutation := range []struct {
+		name   string
+		change func(*ReadinessInput)
+	}{
+		{name: "contract", change: func(input *ReadinessInput) { input.ContractID = "contract-b" }},
+		{name: "policy", change: func(input *ReadinessInput) {
+			input.PolicyDigest = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+		}},
+	} {
+		t.Run(mutation.name, func(t *testing.T) {
+			input := base
+			mutation.change(&input)
+			result := EvaluateReadiness(input)
+			if result.Ready || result.Preconditions[0].Status == ReadinessSatisfied || !containsStringValue(result.Preconditions[0].ReasonCodes, "evidence:claim_digest_mismatch") {
+				t.Fatalf("claim replay unexpectedly satisfied: %#v", result)
+			}
+		})
+	}
+}
+
+func TestCanonicalReadinessClaimDigestRequiresBoundIdentity(t *testing.T) {
+	item := ReadinessPrecondition{RequirementID: "claim", Kind: "environment", Required: true}
+	if _, err := CanonicalReadinessClaimDigest(ReadinessInput{PolicyDigest: runtimeTestPolicyDigest}, item); err == nil {
+		t.Fatal("claim digest accepted missing contract identity")
+	}
+	if _, err := CanonicalReadinessClaimDigest(ReadinessInput{ContractID: "contract-a"}, item); err == nil {
+		t.Fatal("claim digest accepted missing policy digest")
 	}
 }
 
@@ -496,7 +573,7 @@ func TestEvaluateReadinessKindConstraintsAreBoundedAndCompared(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			item := signedTestPrecondition(private, test.item)
-			result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": public}, Preconditions: []ReadinessPrecondition{item}})
+			result := EvaluateReadiness(ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 0, 0, time.UTC), ContractID: "test-contract", PolicyDigest: runtimeTestPolicyDigest, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": public}, Preconditions: []ReadinessPrecondition{item}})
 			if result.Ready || result.Preconditions[0].Status == ReadinessSatisfied || !containsStringValue(result.Preconditions[0].ReasonCodes, test.reason) {
 				t.Fatalf("kind constraint was not enforced: %#v", result)
 			}
@@ -688,6 +765,23 @@ func TestLifecycleRecordsSignAndReducePurely(t *testing.T) {
 	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, rejected, request}); err == nil {
 		t.Fatal("activation request after rejection accepted")
 	}
+	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, rejected, preconditionEvent}); err == nil {
+		t.Fatal("precondition evaluation after rejection accepted")
+	}
+	revoked, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleRevoked, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 0, 21, 0, time.UTC), ContractRef: contractRef, SigningPrivateKey: private})
+	if err != nil {
+		t.Fatal(err)
+	}
+	superseded, err := NewLifecycleRecord(LifecycleRecordOptions{Kind: LifecycleSuperseded, Revision: 1, OccurredAt: time.Date(2026, 7, 19, 0, 0, 22, 0, time.UTC), ContractRef: contractRef, SigningPrivateKey: private})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, revoked, superseded}); err == nil {
+		t.Fatal("supersession after revocation accepted")
+	}
+	if _, err := ReduceLifecycleChecked([]LifecycleRecord{first, rejected, revoked}); err == nil {
+		t.Fatal("revocation after rejection accepted")
+	}
 	forged := first
 	forged.ReasonCodes = []string{"forged"}
 	if _, err := ReduceVerifiedLifecycle([]LifecycleRecord{forged}, public); err == nil {
@@ -716,7 +810,11 @@ func signTestEvidence(private ed25519.PrivateKey, digest string) string {
 }
 
 func signedTestPrecondition(private ed25519.PrivateKey, item ReadinessPrecondition) ReadinessPrecondition {
-	digest, err := CanonicalReadinessClaimDigest(item)
+	return signedTestPreconditionForInput(private, ReadinessInput{ContractID: "test-contract", PolicyDigest: runtimeTestPolicyDigest}, item)
+}
+
+func signedTestPreconditionForInput(private ed25519.PrivateKey, input ReadinessInput, item ReadinessPrecondition) ReadinessPrecondition {
+	digest, err := CanonicalReadinessClaimDigest(input, item)
 	if err != nil {
 		panic(err)
 	}

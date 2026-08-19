@@ -192,6 +192,23 @@ gait contract verify --activation activated.json --proposal proposal.json --publ
 gait contract consume proposal.json --selection fixture-manifest.json
 ```
 
+For the pre-execution runtime projection, use deterministic classification and
+fail-closed readiness checks. Readiness requires an explicit UTC evaluation
+time, policy digest, policy-named validator producer(s), validator public
+key(s), and fresh digest-bound evidence; lifecycle records retain separate
+Proof correlation references. It never executes a tool or claims an observed
+effect:
+
+```bash
+gait contract classify --proposal proposal.json --json
+gait contract readiness --proposal proposal.json \
+  --policy-digest sha256:<64-hex> \
+  --trusted-validators gait-policy-validator \
+  --trusted-validator-key gait-policy-validator=validator.pub.b64 \
+  --evaluation-time 2026-07-19T12:00:00Z --json
+gait contract explain --proposal proposal.json --json
+```
+
 Proposals remain report-only evidence. Activation is a distinct signed
 `activated_action_contract` artifact binding the immutable proposal digest and
 revision, policy digest, principal/authority refs, target/environment, mode,

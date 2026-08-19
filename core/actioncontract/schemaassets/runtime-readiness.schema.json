@@ -7,7 +7,7 @@
   "required": ["schema_id", "schema_version", "ready", "status", "preconditions"],
   "properties": {
     "schema_id": {"const": "https://gait.dev/schemas/v1/runtime-readiness.schema.json"}, "schema_version": {"const": "1"},
-    "contract_id": {"type": "string"}, "ready": {"type": "boolean"}, "status": {"enum": ["satisfied", "unsatisfied", "inconclusive", "not_required"]},
+    "contract_id": {"type": "string"}, "policy_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}, "ready": {"type": "boolean"}, "status": {"enum": ["satisfied", "unsatisfied", "inconclusive", "not_required"]},
     "reason_codes": {"type": "array", "items": {"type": "string"}}, "preconditions": {"type": "array", "items": {"$ref": "#/$defs/precondition"}}
   },
   "$defs": {

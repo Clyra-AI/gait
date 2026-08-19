@@ -105,9 +105,9 @@ func runActionContractClassify(arguments []string) int {
 }
 
 func runActionContractReadiness(arguments []string) int {
-	arguments = reorderInterspersedFlags(arguments, map[string]bool{"proposal": true, "input": true, "trusted-validators": true, "trusted-validator": true, "trusted-validator-key": true, "evaluation-time": true})
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{"proposal": true, "input": true, "trusted-validators": true, "trusted-validator": true, "trusted-validator-key": true, "evaluation-time": true, "policy-digest": true})
 	flags := runtimeActionContractFlags("contract-readiness")
-	var proposalPath, inputPath, trustedCSV, evaluationTimeValue string
+	var proposalPath, inputPath, trustedCSV, evaluationTimeValue, policyDigest string
 	var trustedKeyFlags repeatStringFlag
 	var jsonOutput, help bool
 	flags.StringVar(&proposalPath, "proposal", "", "explicit path to one proposed action contract artifact")
@@ -115,6 +115,7 @@ func runActionContractReadiness(arguments []string) int {
 	flags.StringVar(&trustedCSV, "trusted-validators", "", "comma-separated policy-named trusted validator references")
 	flags.StringVar(&trustedCSV, "trusted-validator", "", "alias for --trusted-validators")
 	flags.StringVar(&evaluationTimeValue, "evaluation-time", "", "required fixed UTC RFC3339 evaluation time")
+	flags.StringVar(&policyDigest, "policy-digest", "", "policy digest bound into validator claims")
 	flags.Var(&trustedKeyFlags, "trusted-validator-key", "authoritative validator key as producer=public-key-path (repeatable)")
 	flags.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flags.BoolVar(&help, "help", false, "show help")
@@ -147,7 +148,7 @@ func runActionContractReadiness(arguments []string) int {
 		if !validation.Valid {
 			return writeRuntimeOutput(jsonOutput, actionContractRuntimeOutput{Operation: "readiness", Error: "proposal validation failed", ReasonCodes: validation.Reasons}, exitVerifyFailed)
 		}
-		result = actioncontract.ReadinessFromArtifact(artifact, actioncontract.ReadinessInput{Now: evaluationTime, TrustedValidatorRefs: trusted, TrustedValidatorKeys: trustedKeys})
+		result = actioncontract.ReadinessFromArtifact(artifact, actioncontract.ReadinessInput{Now: evaluationTime, PolicyDigest: policyDigest, TrustedValidatorRefs: trusted, TrustedValidatorKeys: trustedKeys})
 	} else {
 		raw, err := actioncontract.ReadRuntimeInput(inputPath)
 		if err != nil {
@@ -159,6 +160,9 @@ func runActionContractReadiness(arguments []string) int {
 		}
 		if len(trusted) > 0 {
 			input.TrustedValidatorRefs = trusted
+		}
+		if policyDigest != "" {
+			input.PolicyDigest = policyDigest
 		}
 		input.TrustedValidatorKeys = trustedKeys
 		input.Now = evaluationTime

@@ -482,7 +482,7 @@ func printActionContractUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait contract validate --proposal <artifact.json> [--evaluation-time <rfc3339>] [--json]")
 	fmt.Println("  gait contract classify (--proposal <artifact.json>|--action <runtime-action.json>) [--json]")
-	fmt.Println("  gait contract readiness --proposal <artifact.json> [--trusted-validators <csv>] [--trusted-validator-key producer=public-key-path ...] --evaluation-time <rfc3339> [--json]")
+	fmt.Println("  gait contract readiness --proposal <artifact.json> [--policy-digest sha256:<hex>] [--trusted-validators <csv>] [--trusted-validator-key producer=public-key-path ...] --evaluation-time <rfc3339> [--json]")
 	fmt.Println("  gait contract explain [--proposal <artifact.json>|--action <runtime-action.json>] [--json]")
 	fmt.Println("  gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> [--valid-until <rfc3339>] [--out <activated.json>] [--overwrite] [--json]")
 	fmt.Println("  gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> [--evaluation-time <rfc3339>] [--json]")
@@ -495,7 +495,7 @@ func printActionContractClassifyUsage() {
 	fmt.Println("Usage: gait contract classify (--proposal <artifact.json>|--action <runtime-action.json>) [--json]")
 }
 func printActionContractReadinessUsage() {
-	fmt.Println("Usage: gait contract readiness --proposal <artifact.json> [--trusted-validators <csv>] [--trusted-validator-key producer=public-key-path ...] --evaluation-time <rfc3339> [--json]")
+	fmt.Println("Usage: gait contract readiness --proposal <artifact.json> [--policy-digest sha256:<hex>] [--trusted-validators <csv>] [--trusted-validator-key producer=public-key-path ...] --evaluation-time <rfc3339> [--json]")
 }
 func printActionContractExplainUsage() {
 	fmt.Println("Usage: gait contract explain [--proposal <artifact.json>|--action <runtime-action.json>] [--json]")

@@ -47,7 +47,7 @@ Gait also exposes a deterministic runtime projection without executing a tool:
 
 ```bash
 gait contract classify --proposal proposal.json --json
-gait contract readiness --proposal proposal.json --trusted-validators gait-policy-validator --trusted-validator-key gait-policy-validator=validator.pub.b64 --evaluation-time 2026-07-19T12:00:00Z --json
+gait contract readiness --proposal proposal.json --policy-digest sha256:<64-hex> --trusted-validators gait-policy-validator --trusted-validator-key gait-policy-validator=validator.pub.b64 --evaluation-time 2026-07-19T12:00:00Z --json
 gait contract explain --proposal proposal.json --json
 ```
 

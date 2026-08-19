@@ -628,6 +628,7 @@ type ReadinessResult struct {
 	SchemaID      string                  `json:"schema_id"`
 	SchemaVersion string                  `json:"schema_version"`
 	ContractID    string                  `json:"contract_id,omitempty"`
+	PolicyDigest  string                  `json:"policy_digest,omitempty"`
 	Ready         bool                    `json:"ready"`
 	Status        ReadinessStatus         `json:"status"`
 	Preconditions []ReadinessPrecondition `json:"preconditions"`
@@ -642,7 +643,7 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 	for _, ref := range input.TrustedValidatorRefs {
 		trusted[normalize(ref)] = struct{}{}
 	}
-	out := ReadinessResult{SchemaID: RuntimeReadinessSchemaID, SchemaVersion: RuntimeActionSchemaVersion, ContractID: strings.TrimSpace(input.ContractID), Preconditions: make([]ReadinessPrecondition, len(input.Preconditions))}
+	out := ReadinessResult{SchemaID: RuntimeReadinessSchemaID, SchemaVersion: RuntimeActionSchemaVersion, ContractID: strings.TrimSpace(input.ContractID), PolicyDigest: strings.TrimSpace(input.PolicyDigest), Preconditions: make([]ReadinessPrecondition, len(input.Preconditions))}
 	anyUnsatisfied, anyInconclusive, requiredCount := false, false, 0
 	for i, item := range input.Preconditions {
 		item.RequirementID = strings.TrimSpace(item.RequirementID)
@@ -684,7 +685,14 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 		} else if _, ok := trusted[item.Producer]; !ok {
 			item.ReasonCodes = append(item.ReasonCodes, "validator:not_policy_named")
 		}
-		claimDigest, claimDigestErr := CanonicalReadinessClaimDigest(item)
+		claimIdentityValid := strings.TrimSpace(input.ContractID) != "" && validSHA256Digest(input.PolicyDigest)
+		if strings.TrimSpace(input.ContractID) == "" {
+			item.ReasonCodes = append(item.ReasonCodes, "claim:contract_identity_missing")
+		}
+		if !validSHA256Digest(input.PolicyDigest) {
+			item.ReasonCodes = append(item.ReasonCodes, "claim:policy_digest_missing")
+		}
+		claimDigest, claimDigestErr := CanonicalReadinessClaimDigest(input, item)
 		claimDigestMatches := claimDigestErr == nil && strings.TrimSpace(item.EvidenceDigest) == claimDigest
 		if item.ValidatorSignature == "" || item.EvidenceDigest == "" {
 			item.ReasonCodes = append(item.ReasonCodes, "evidence:authoritative_signature_missing")
@@ -736,7 +744,7 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 			trustedProducer = false
 		}
 		fresh := item.FreshnessState == "fresh" || item.FreshnessState == "current"
-		qualifying := item.EvidenceState == "verified" && len(item.EvidenceRefs) > 0 && item.ValidatorSignature != "" && item.EvidenceDigest != "" && claimDigestMatches && verifyEvidenceSignature(input.TrustedValidatorKeys[item.Producer], item.EvidenceDigest, item.ValidatorSignature)
+		qualifying := claimIdentityValid && item.EvidenceState == "verified" && len(item.EvidenceRefs) > 0 && item.ValidatorSignature != "" && item.EvidenceDigest != "" && claimDigestMatches && verifyEvidenceSignature(input.TrustedValidatorKeys[item.Producer], item.EvidenceDigest, item.ValidatorSignature)
 		matchingConstraint := strings.TrimSpace(item.RequiredConstraint) != "" && strings.EqualFold(strings.TrimSpace(item.RequiredConstraint), strings.TrimSpace(item.ObservedResult))
 		if item.Status != ReadinessUnsatisfied && len(item.ReasonCodes) == 0 && trustedProducer && fresh && qualifying && (item.ControlMode == ControlModeEnforced || item.ControlMode == ControlModeObserved) && (isTrueResult(item.ObservedResult) || matchingConstraint) {
 			item.Status = ReadinessSatisfied
@@ -919,14 +927,28 @@ func validSHA256Digest(value string) bool {
 	return true
 }
 
-// CanonicalReadinessClaimDigest returns the JCS SHA-256 digest that an
-// authoritative validator must sign for a typed readiness precondition. The
+// CanonicalReadinessClaimDigest binds a precondition to the contract and
+// policy identity under which it was evaluated. This prevents a valid
+// validator claim from being replayed for another contract or policy. The
 // digest and signature fields, along with derived status/reason fields, are
 // excluded so the signature binds the semantic claim rather than caller-
 // supplied verification metadata or evaluator output.
-func CanonicalReadinessClaimDigest(item ReadinessPrecondition) (string, error) {
+func CanonicalReadinessClaimDigest(input ReadinessInput, item ReadinessPrecondition) (string, error) {
+	if strings.TrimSpace(input.ContractID) == "" {
+		return "", errors.New("claim contract identity is required")
+	}
+	if !validSHA256Digest(input.PolicyDigest) {
+		return "", errors.New("claim policy digest is required")
+	}
 	item = normalizeReadinessClaim(item)
-	raw, err := json.Marshal(item)
+	envelope := struct {
+		ContractID   string                `json:"contract_id"`
+		PolicyDigest string                `json:"policy_digest"`
+		Precondition ReadinessPrecondition `json:"precondition"`
+	}{
+		ContractID: strings.TrimSpace(input.ContractID), PolicyDigest: strings.TrimSpace(input.PolicyDigest), Precondition: item,
+	}
+	raw, err := json.Marshal(envelope)
 	if err != nil {
 		return "", err
 	}
@@ -1412,7 +1434,7 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 	activationRequested := false
 	decisionReady := false
 	for _, record := range ordered {
-		if terminal && (record.Kind == LifecycleActivated || record.Kind == LifecycleActivationRequested || record.Kind == LifecycleDecisionReady) {
+		if terminal {
 			return LifecycleSnapshot{}, errors.New("lifecycle_terminal_order_invalid")
 		}
 		switch record.Kind {
