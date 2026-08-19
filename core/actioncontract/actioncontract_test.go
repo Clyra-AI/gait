@@ -198,7 +198,7 @@ func TestReadArtifactNeverScansRecommendations(t *testing.T) {
 }
 
 func TestEmbeddedSchemasRemainAlignedWithCheckedInSchemas(t *testing.T) {
-	for _, name := range []string{"activated-action-contract-artifact.schema.json", "proposed-action-contract-artifact.schema.json", "proposed-action-contract-v3.schema.json"} {
+	for _, name := range []string{"activated-action-contract-artifact.schema.json", "consumer-receipt.schema.json", "proposed-action-contract-artifact.schema.json", "proposed-action-contract-v3.schema.json"} {
 		embedded, err := schemaAssets.ReadFile("schemaassets/" + name)
 		if err != nil {
 			t.Fatal(err)

@@ -61,6 +61,10 @@ func runActionContract(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Validate explicitly selected Wrkr proposed Action Contract artifacts and create signed Gait activation artifacts at an explicit authority boundary.")
 	}
+	if len(arguments) == 1 && isTopLevelHelp(arguments[0]) {
+		printActionContractUsage()
+		return exitOK
+	}
 	if len(arguments) == 0 {
 		printActionContractUsage()
 		return exitInvalidInput

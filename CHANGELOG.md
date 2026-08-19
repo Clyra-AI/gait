@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- [semver:minor] Added explicit Wrkr Action Contract ingest, validation, current-selection binding, signed Gait activation, verification, and deterministic consumer receipts with versioned schemas and exact v1.14.0 fixtures.
 - [semver:minor] Added high-risk action context enforcement for `oss-prod` with deterministic missing-field reason codes and privacy-safe credential references.
 - [semver:minor] Added agent identity lifecycle policy controls for approved active agents, revocation, manifest digests, publishers, expiry, and owner requirements.
 - [semver:minor] Added Gate freeze-window policy rules for deterministic production-impacting action blocks or approval gates.

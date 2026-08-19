@@ -71,6 +71,18 @@ func TestActionContractVerifyCLIAndExitCodes(t *testing.T) {
 	}
 }
 
+func TestActionContractHelpParity(t *testing.T) {
+	output, code := captureActionContractOutput(t, func() int { return runActionContract([]string{"--help"}) })
+	if code != exitOK {
+		t.Fatalf("contract help exit=%d output=%s", code, output)
+	}
+	for _, line := range []string{"gait contract validate", "gait contract activate", "gait contract verify", "gait contract consume"} {
+		if !strings.Contains(output, line) {
+			t.Fatalf("contract help missing %q: %s", line, output)
+		}
+	}
+}
+
 func TestActionContractValidateRejectsMalformedEvaluationTime(t *testing.T) {
 	proposalPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
 	output, code := captureActionContractOutput(t, func() int {

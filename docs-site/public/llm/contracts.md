@@ -35,6 +35,7 @@ Stable OSS contracts include:
 - **Credential Broker Recipe Contract**: provider-style JIT receipts for AWS STS, GitHub OIDC, Vault, GCP, Azure, and Okta/CyberArk-style flows normalize into the shared broker response contract without storing raw secrets.
 - **Trust Graduation Contract**: named staged rollout policies can move from observe and dry-run through read-only allow, approval-gated write, brokered write, and blocked destructive defaults while approved-script promotion remains scope- and expiry-bound.
 - **Authorization Bundle Contract**: PackSpec now supports an `authorization` subtype that links a Gate trace to approval, credential, delegation, context, sandbox, and outcome evidence with offline verification through `gait pack verify`.
+- **Action Contract Boundary**: Gait validates one explicit Wrkr `proposed_action_contract` artifact (artifact schema `1`, contract schema `3`), binds activation to a current-selection manifest and explicit policy/principal/authority/key inputs, and emits a distinct signed `activated_action_contract` plus deterministic consumer receipt. Production signing requires an Ed25519 private key; development signing is test-only and marked. New Wrkr revisions require reactivation.
 - **Intent+Receipt Spec**: Structured tool-call intent with deterministic receipt generation.
 - **Endpoint Action Model**: Maps tool-call intent to policy-evaluated action outcomes.
 - Artifact schemas (`schemas/v1/*`)
@@ -57,4 +58,6 @@ References:
 - `docs/contracts/primitive_contract.md`
 - `docs/contracts/intent_receipt_spec.md`
 - `docs/contracts/endpoint_action_model.md`
+- `docs/contracts/action_contract_activation.md`
+- `schemas/v1/action-contract/README.md`
 - `docs/failure_taxonomy_exit_codes.md`

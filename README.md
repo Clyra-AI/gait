@@ -174,6 +174,30 @@ inherited environment credentials, and unknown provenance block with explicit
 reason codes. Gate policies can also define deterministic freeze windows for
 production-impacting actions and replay them with
 `gait gate eval --evaluation-time <rfc3339> --json`.
+
+### Proposed Action Contract boundary
+
+Gait can explicitly validate one Wrkr `proposed_action_contract` artifact and
+activate it only through a current-selection manifest and an explicit
+authority/key boundary:
+
+```bash
+gait contract validate --proposal proposal.json --json
+gait contract activate --proposal proposal.json --selection fixture-manifest.json \
+  --policy-digest sha256:<64-hex> --principal principal:owner \
+  --authority-ref approval:owner --target target:deploy \
+  --environment production --mode context_only --private-key gait-private.key \
+  --valid-from 2026-07-19T00:00:00Z --json
+gait contract verify --activation activated.json --proposal proposal.json --public-key gait-public.key --json
+gait contract consume proposal.json --selection fixture-manifest.json
+```
+
+Proposals remain report-only evidence. Activation is a distinct signed
+`activated_action_contract` artifact binding the immutable proposal digest and
+revision, policy digest, principal/authority refs, target/environment, mode,
+validity, and explicit exceptions. Production signing requires an explicit
+Ed25519 private key; development signing is test-only and marked in the
+artifact. See [`docs/contracts/action_contract_activation.md`](docs/contracts/action_contract_activation.md).
 High-risk `proc.exec` and generated-code paths can now carry structured sandbox
 metadata so Gate can validate bounded network, filesystem, timeout, and
 privilege posture without ingesting raw environment contents.
