@@ -96,6 +96,9 @@ const (
 	ReasonNonAuthoritative       = "effect_non_authoritative_provenance"
 	ReasonTrustedKeyMissing      = "effect_trusted_collector_key_missing"
 	ReasonTrustedKeyMismatch     = "effect_trusted_collector_key_mismatch"
+	ReasonCorrelationMissing     = "effect_correlation_missing"
+	ReasonCorrelationMismatch    = "effect_correlation_mismatch"
+	ReasonTemporalOrderInvalid   = "effect_temporal_order_invalid"
 )
 
 var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
@@ -217,8 +220,19 @@ type GradeResult struct {
 }
 
 type GradeOptions struct {
-	TrustedCollectorPublicKey  ed25519.PublicKey
+	TrustedCollectorPublicKey ed25519.PublicKey
+	// AllowFixtureTestProvenance is reserved for the committed fixture generator
+	// and package tests; the production CLI does not expose this bypass.
 	AllowFixtureTestProvenance bool
+	ExpectedCorrelation        *CorrelationExpectation
+}
+
+// CorrelationExpectation is the caller-owned identity binding for an effect
+// grade. At least one digest must be supplied before a pass is authoritative.
+type CorrelationExpectation struct {
+	ActionDigest     string
+	ActivationDigest string
+	ProofDigest      string
 }
 
 func (s Snapshot) CanonicalDigest() (string, error) {
@@ -286,10 +300,15 @@ func ValidateSnapshot(s Snapshot) ValidationResult {
 	if strings.TrimSpace(s.Collector.Name) == "" || strings.TrimSpace(s.Collector.Version) == "" || strings.TrimSpace(s.Collector.Mode) == "" {
 		reasons = append(reasons, ReasonCollectorMissing)
 	}
+	var beforeAt, afterAt, capturedAt time.Time
+	var beforeTimeOK, afterTimeOK, capturedTimeOK bool
 	if strings.TrimSpace(s.Capture.CapturedAt) == "" || strings.TrimSpace(s.Capture.Mode) == "" || (s.Capture.Mode != "reference" && s.Capture.Mode != "redacted" && s.Capture.Mode != "full") {
 		reasons = append(reasons, ReasonCaptureInvalid)
-	} else if _, err := time.Parse(time.RFC3339, s.Capture.CapturedAt); err != nil {
+	} else if parsed, err := time.Parse(time.RFC3339, s.Capture.CapturedAt); err != nil {
 		reasons = append(reasons, ReasonCaptureInvalid)
+	} else {
+		capturedAt = parsed
+		capturedTimeOK = true
 	}
 	if s.Redaction.Mode != "none" && s.Redaction.Mode != "reference_only" && s.Redaction.Mode != "redacted" {
 		reasons = append(reasons, ReasonRedactionInvalid)
@@ -315,6 +334,13 @@ func ValidateSnapshot(s Snapshot) ValidationResult {
 	} else if digest != s.CanonicalContentDigest {
 		reasons = append(reasons, ReasonDigestMismatch)
 	}
+	beforeAt, beforeTimeOK = parseEffectTime(s.Before.ObservedAt)
+	afterAt, afterTimeOK = parseEffectTime(s.After.ObservedAt)
+	if beforeTimeOK && afterTimeOK && capturedTimeOK {
+		if beforeAt.After(afterAt) || afterAt.After(capturedAt) {
+			reasons = append(reasons, ReasonTemporalOrderInvalid)
+		}
+	}
 	reasons = sortedReasons(reasons)
 	return ValidationResult{Valid: len(reasons) == 0, ReasonCodes: reasons}
 }
@@ -334,6 +360,11 @@ func validateObservation(reasons *[]string, o Observation) {
 	} else if _, err := time.Parse(time.RFC3339, o.ObservedAt); err != nil {
 		*reasons = append(*reasons, ReasonObservationInvalid)
 	}
+}
+
+func parseEffectTime(value string) (time.Time, bool) {
+	parsed, err := time.Parse(time.RFC3339, value)
+	return parsed, err == nil
 }
 
 func hasCorrelationDigest(c Correlation) bool {
@@ -423,6 +454,11 @@ func GradeWithOptions(snapshot Snapshot, contract Contract, options GradeOptions
 		result.ReasonCodes = append(result.ReasonCodes, ReasonTrustedKeyMismatch)
 		return finishGrade(result)
 	}
+	if reasons := verifyExpectedCorrelation(snapshot.Correlation, options.ExpectedCorrelation); len(reasons) > 0 {
+		result.Status = GradeInconclusive
+		result.ReasonCodes = append(result.ReasonCodes, reasons...)
+		return finishGrade(result)
+	}
 	if snapshot.Completeness != CompletenessComplete || snapshot.Enforcement == EnforcementPartial || snapshot.Enforcement == EnforcementUnknown {
 		result.Status = GradeInconclusive
 		result.ReasonCodes = append(result.ReasonCodes, ReasonEvidenceIncomplete)
@@ -458,6 +494,24 @@ func GradeWithOptions(snapshot Snapshot, contract Contract, options GradeOptions
 		result.Status = GradePass
 	}
 	return finishGrade(result)
+}
+
+func verifyExpectedCorrelation(actual Correlation, expected *CorrelationExpectation) []string {
+	if expected == nil || (expected.ActionDigest == "" && expected.ActivationDigest == "" && expected.ProofDigest == "") {
+		return []string{ReasonCorrelationMissing}
+	}
+	reasons := []string{}
+	for _, digest := range []string{expected.ActionDigest, expected.ActivationDigest, expected.ProofDigest} {
+		if digest != "" && !digestPattern.MatchString(digest) {
+			reasons = append(reasons, ReasonDigestInvalid)
+		}
+	}
+	if (expected.ActionDigest != "" && actual.ActionDigest != expected.ActionDigest) ||
+		(expected.ActivationDigest != "" && actual.ActivationDigest != expected.ActivationDigest) ||
+		(expected.ProofDigest != "" && actual.ProofDigest != expected.ProofDigest) {
+		reasons = append(reasons, ReasonCorrelationMismatch)
+	}
+	return sortedReasons(reasons)
 }
 
 func evaluatePredicate(snapshot Snapshot, predicate Predicate) PredicateEvaluation {

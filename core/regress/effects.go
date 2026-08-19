@@ -26,7 +26,12 @@ func (effectContractGrader) Grade(ctx FixtureContext) (schemaregress.GraderResul
 	if err != nil {
 		return failResult("effect_contract", "effect_trusted_key_read_failed", map[string]any{"error": err.Error()}), nil
 	}
-	result := effects.GradeWithOptions(snapshot, contract, effects.GradeOptions{TrustedCollectorPublicKey: publicKey})
+	result := effects.GradeWithOptions(snapshot, contract, effects.GradeOptions{
+		TrustedCollectorPublicKey: publicKey,
+		ExpectedCorrelation: &effects.CorrelationExpectation{
+			ActionDigest: ctx.Fixture.Meta.EffectExpectedActionDigest, ActivationDigest: ctx.Fixture.Meta.EffectExpectedActivationDigest, ProofDigest: ctx.Fixture.Meta.EffectExpectedProofDigest,
+		},
+	})
 	details := map[string]any{"effect_result": result, "snapshot_path": ctx.Fixture.EffectSnapshotPath, "contract_path": ctx.Fixture.EffectContractPath, "trusted_public_key": ctx.Fixture.EffectPublicKeyPath}
 	if result.Status == effects.GradePass {
 		return schemaregress.GraderResult{Name: "effect_contract", Status: regressStatusPass, ReasonCodes: result.ReasonCodes, Details: details}, nil

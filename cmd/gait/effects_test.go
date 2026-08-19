@@ -44,7 +44,7 @@ func TestEffectsGradeCLIJSONAndJUnit(t *testing.T) {
 	writeJSON(snapshotPath, snapshot)
 	writeJSON(contractPath, contract)
 	output, code := captureEffectsOutput(t, func() int {
-		return runEffectsGrade([]string{"--snapshot", snapshotPath, "--contract", contractPath, "--trusted-collector-key", publicPath, "--junit", junitPath, "--json"})
+		return runEffectsGrade([]string{"--snapshot", snapshotPath, "--contract", contractPath, "--trusted-collector-key", publicPath, "--expected-action-digest", snapshot.Correlation.ActionDigest, "--junit", junitPath, "--json"})
 	})
 	if code != exitOK || !strings.Contains(output, `"status":"pass"`) {
 		t.Fatalf("effects CLI pass: code=%d output=%s", code, output)
@@ -53,7 +53,7 @@ func TestEffectsGradeCLIJSONAndJUnit(t *testing.T) {
 		t.Fatalf("JUnit missing: %v %s", readErr, raw)
 	}
 	output, code = captureEffectsOutput(t, func() int {
-		return runEffectsGrade([]string{"--snapshot", filepath.Join(dir, "missing.json"), "--contract", contractPath, "--trusted-collector-key", publicPath, "--json"})
+		return runEffectsGrade([]string{"--snapshot", filepath.Join(dir, "missing.json"), "--contract", contractPath, "--trusted-collector-key", publicPath, "--expected-action-digest", snapshot.Correlation.ActionDigest, "--json"})
 	})
 	if code != exitInvalidInput || !strings.Contains(output, `"ok":false`) {
 		t.Fatalf("effects CLI invalid input: code=%d output=%s", code, output)
@@ -62,7 +62,7 @@ func TestEffectsGradeCLIJSONAndJUnit(t *testing.T) {
 
 func TestEffectsHelpRequiresTrustedKey(t *testing.T) {
 	output, code := captureEffectsOutput(t, func() int { return runEffects([]string{"--help"}) })
-	if code != exitOK || !strings.Contains(output, "--trusted-collector-key") || !strings.Contains(output, "--allow-fixture-test-provenance") {
+	if code != exitOK || !strings.Contains(output, "--trusted-collector-key") || !strings.Contains(output, "--expected-action-digest") || strings.Contains(output, "--allow-fixture-test-provenance") {
 		t.Fatalf("effects help drift: code=%d output=%s", code, output)
 	}
 }

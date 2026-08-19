@@ -15,6 +15,10 @@
     "predicate": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "kind", "field"],
+      "allOf": [
+        {"if": {"properties": {"kind": {"enum": ["expect", "forbid"]}}}, "then": {"properties": {"operator": {"enum": ["equals", "not_equals", "contains", "exists", "gte", "lte"]}}}},
+        {"if": {"properties": {"kind": {"const": "invariant"}}}, "then": {"properties": {"operator": {"const": "unchanged"}}}}
+      ],
       "properties": {
         "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
         "kind": {"enum": ["expect", "forbid", "invariant"]},

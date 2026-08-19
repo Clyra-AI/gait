@@ -108,7 +108,9 @@ require_pattern "${REPO_ROOT}/docs-site/public/llms-full.txt" "trusted-collector
 require_pattern "${REPO_ROOT}/schemas/v1/effects/effect_snapshot.schema.json" '"schema_version": \{"const": "1\.0\.0"\}' "Effect snapshot schema version missing"
 require_pattern "${REPO_ROOT}/schemas/v1/effects/effect_contract.schema.json" '"schema_version": \{"const": "1\.0\.0"\}' "Effect contract schema version missing"
 require_pattern "${REPO_ROOT}/cmd/gait/verify.go" "gait effects grade .*--trusted-collector-key" "effects trusted-key CLI help missing"
+require_pattern "${REPO_ROOT}/cmd/gait/verify.go" "gait effects grade .*--expected-action-digest" "effects expected-correlation CLI help missing"
 require_pattern "${REPO_ROOT}/docs/contracts/effects.md" "trusted collector public key" "effects trusted-key documentation missing"
+require_pattern "${REPO_ROOT}/docs/contracts/effects.md" "expected correlation digest" "effects expected-correlation documentation missing"
 
 # Main and PR-fast CI must enforce the same Go package/aggregate coverage contract.
 for workflow in \

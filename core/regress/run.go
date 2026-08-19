@@ -307,6 +307,20 @@ func loadFixtureSpecs(cfg configFile, workDir string) ([]fixtureSpec, error) {
 		if pathErr != nil {
 			return nil, fmt.Errorf("invalid effect public key path for %s: %w", fixture.Name, pathErr)
 		}
+		if meta.EffectSnapshot != "" || meta.EffectContract != "" || meta.EffectPublicKey != "" {
+			for label, value := range map[string]string{
+				"effect_expected_action_digest":     meta.EffectExpectedActionDigest,
+				"effect_expected_activation_digest": meta.EffectExpectedActivationDigest,
+				"effect_expected_proof_digest":      meta.EffectExpectedProofDigest,
+			} {
+				if value != "" && !effectDigestPattern.MatchString(value) {
+					return nil, fmt.Errorf("invalid %s for %s", label, fixture.Name)
+				}
+			}
+			if meta.EffectExpectedActionDigest == "" && meta.EffectExpectedActivationDigest == "" && meta.EffectExpectedProofDigest == "" {
+				return nil, fmt.Errorf("effect expected correlation digest is required for %s", fixture.Name)
+			}
+		}
 
 		specs = append(specs, fixtureSpec{
 			Name:                fixture.Name,

@@ -29,11 +29,14 @@ gait effects grade \
   --snapshot effect_snapshot.json \
   --contract effect_contract.json \
   --trusted-collector-key collector.pub \
+  --expected-action-digest sha256:<64-hex> \
   --junit effects.junit.xml --json
 ```
 
-The `--allow-fixture-test-provenance` switch is limited to explicit fixture
-lanes and never makes a production/default grading path authoritative.
+Authoritative grading also requires a caller-supplied expected action,
+activation, or Proof digest matching the signed snapshot correlation. Fixture
+test provenance is available only to library/test fixture lanes and is never
+accepted as production authority by the CLI.
 When configured on a regression fixture, the effects grader is included in the
 normal deterministic regress result and JUnit output. `inconclusive` maps to a
 fail-closed regression grader result while preserving the semantic status in
@@ -41,9 +44,12 @@ the details. Redacted or reference-only evidence remains reviewable and never
 claims an unobserved value.
 
 Fixture metadata binds all three local paths explicitly:
-`effect_snapshot`, `effect_contract`, and `effect_public_key`. A missing or
-escaping trusted-key path is a failed grader input, never an implicit
-self-verification fallback.
+`effect_snapshot`, `effect_contract`, and `effect_public_key`, plus at least
+one caller-owned expected correlation digest:
+`effect_expected_action_digest`, `effect_expected_activation_digest`, or
+`effect_expected_proof_digest`. A missing or escaping trusted-key path or
+expected digest is a failed grader input, never an implicit self-verification
+fallback.
 
 The committed `testdata/effects/v1` pack is labeled for the planned Gait
 `v1.5.0` effects compatibility line. Its `fixture_test_only` key and golden

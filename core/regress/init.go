@@ -27,8 +27,9 @@ const (
 )
 
 var (
-	fixtureNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
-	digestPattern      = regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
+	fixtureNamePattern  = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+	digestPattern       = regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
+	effectDigestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 )
 
 type InitOptions struct {
@@ -49,24 +50,27 @@ type InitResult struct {
 }
 
 type fixtureMeta struct {
-	SchemaID                 string   `json:"schema_id"`
-	SchemaVersion            string   `json:"schema_version"`
-	Name                     string   `json:"name"`
-	RunID                    string   `json:"run_id"`
-	Runpack                  string   `json:"runpack"`
-	ExpectedReplayExitCode   int      `json:"expected_replay_exit_code"`
-	ExpectedToolSequence     []string `json:"expected_tool_sequence,omitempty"`
-	ExpectedVerdictSequence  []string `json:"expected_verdict_sequence,omitempty"`
-	CandidateRunpack         string   `json:"candidate_runpack,omitempty"`
-	ContextConformance       string   `json:"context_conformance,omitempty"`
-	AllowContextRuntimeDrift bool     `json:"allow_context_runtime_drift,omitempty"`
-	ExpectedContextSetDigest string   `json:"expected_context_set_digest,omitempty"`
-	DiffAllowChangedFiles    []string `json:"diff_allow_changed_files,omitempty"`
-	SessionChain             string   `json:"session_chain,omitempty"`
-	CheckpointIndex          int      `json:"checkpoint_index,omitempty"`
-	EffectSnapshot           string   `json:"effect_snapshot,omitempty"`
-	EffectContract           string   `json:"effect_contract,omitempty"`
-	EffectPublicKey          string   `json:"effect_public_key,omitempty"`
+	SchemaID                       string   `json:"schema_id"`
+	SchemaVersion                  string   `json:"schema_version"`
+	Name                           string   `json:"name"`
+	RunID                          string   `json:"run_id"`
+	Runpack                        string   `json:"runpack"`
+	ExpectedReplayExitCode         int      `json:"expected_replay_exit_code"`
+	ExpectedToolSequence           []string `json:"expected_tool_sequence,omitempty"`
+	ExpectedVerdictSequence        []string `json:"expected_verdict_sequence,omitempty"`
+	CandidateRunpack               string   `json:"candidate_runpack,omitempty"`
+	ContextConformance             string   `json:"context_conformance,omitempty"`
+	AllowContextRuntimeDrift       bool     `json:"allow_context_runtime_drift,omitempty"`
+	ExpectedContextSetDigest       string   `json:"expected_context_set_digest,omitempty"`
+	DiffAllowChangedFiles          []string `json:"diff_allow_changed_files,omitempty"`
+	SessionChain                   string   `json:"session_chain,omitempty"`
+	CheckpointIndex                int      `json:"checkpoint_index,omitempty"`
+	EffectSnapshot                 string   `json:"effect_snapshot,omitempty"`
+	EffectContract                 string   `json:"effect_contract,omitempty"`
+	EffectPublicKey                string   `json:"effect_public_key,omitempty"`
+	EffectExpectedActionDigest     string   `json:"effect_expected_action_digest,omitempty"`
+	EffectExpectedActivationDigest string   `json:"effect_expected_activation_digest,omitempty"`
+	EffectExpectedProofDigest      string   `json:"effect_expected_proof_digest,omitempty"`
 }
 
 type configFile struct {

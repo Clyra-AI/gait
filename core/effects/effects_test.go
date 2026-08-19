@@ -112,6 +112,23 @@ func TestEffectContractGradesExpectForbidAndInvariantDeterministically(t *testin
 	}
 }
 
+func TestEffectGradeRequiresExpectedCorrelationAndRejectsMismatch(t *testing.T) {
+	snapshot := validSnapshot(t)
+	contract := validContract()
+	trusted := testPrivateKey().Public().(ed25519.PublicKey)
+	if result := GradeWithOptions(snapshot, contract, GradeOptions{TrustedCollectorPublicKey: trusted}); result.Status != GradeInconclusive || !hasGradeReason(result, ReasonCorrelationMissing) {
+		t.Fatalf("missing caller correlation was authoritative: %+v", result)
+	}
+	wrong := testDigest
+	if result := GradeWithOptions(snapshot, contract, GradeOptions{TrustedCollectorPublicKey: trusted, ExpectedCorrelation: &CorrelationExpectation{ActionDigest: wrong}}); result.Status != GradePass {
+		t.Fatalf("matching caller correlation did not pass: %+v", result)
+	}
+	wrong = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+	if result := GradeWithOptions(snapshot, contract, GradeOptions{TrustedCollectorPublicKey: trusted, ExpectedCorrelation: &CorrelationExpectation{ActionDigest: wrong}}); result.Status != GradeInconclusive || !hasGradeReason(result, ReasonCorrelationMismatch) {
+		t.Fatalf("mismatched caller correlation was authoritative: %+v", result)
+	}
+}
+
 func TestEffectGradeIsInconclusiveForPartialRedactedOrUnknownEvidence(t *testing.T) {
 	snapshot := validSnapshot(t)
 	contract := validContract()
@@ -205,6 +222,16 @@ func TestEffectSnapshotValidationRejectsMalformedFields(t *testing.T) {
 	snapshot.EvidenceRefs = nil
 	if result := ValidateSnapshot(snapshot); result.Valid || len(result.ReasonCodes) < 5 {
 		t.Fatalf("malformed snapshot reasons incomplete: %+v", result)
+	}
+}
+
+func TestEffectSnapshotValidationRejectsReversedTemporalOrder(t *testing.T) {
+	snapshot := validSnapshot(t)
+	snapshot.Before.ObservedAt = "2026-08-19T00:00:02Z"
+	snapshot.After.ObservedAt = "2026-08-19T00:00:01Z"
+	snapshot.Capture.CapturedAt = "2026-08-19T00:00:00Z"
+	if result := ValidateSnapshot(snapshot); result.Valid || !hasReason(result, ReasonTemporalOrderInvalid) {
+		t.Fatalf("reversed effect timestamps accepted: %+v", result)
 	}
 }
 
@@ -389,5 +416,5 @@ func testPrivateKey() ed25519.PrivateKey {
 }
 
 func testGrade(snapshot Snapshot, contract Contract) GradeResult {
-	return GradeWithOptions(snapshot, contract, GradeOptions{TrustedCollectorPublicKey: testPrivateKey().Public().(ed25519.PublicKey)})
+	return GradeWithOptions(snapshot, contract, GradeOptions{TrustedCollectorPublicKey: testPrivateKey().Public().(ed25519.PublicKey), ExpectedCorrelation: &CorrelationExpectation{ActionDigest: snapshot.Correlation.ActionDigest, ActivationDigest: snapshot.Correlation.ActivationDigest, ProofDigest: snapshot.Correlation.ProofDigest}})
 }

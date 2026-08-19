@@ -78,7 +78,7 @@ func run(repoRoot string, update bool) error {
 	}
 	contract := effects.Contract{SchemaID: effects.ContractSchemaID, SchemaVersion: effects.SchemaVersion, ContractID: "effect-contract:filesystem-fixture", Name: "filesystem lifecycle fixture", Predicates: []effects.Predicate{{ID: "owner", Kind: effects.PredicateExpect, Field: "after.owner", Operator: "equals", Expected: "owner:fixture"}, {ID: "count", Kind: effects.PredicateInvariant, Field: "count"}, {ID: "identity", Kind: effects.PredicateForbid, Field: "after.identity", Operator: "equals", Expected: "file:deleted"}}}
 	trusted := ed25519.NewKeyFromSeed(seed[:]).Public().(ed25519.PublicKey)
-	grade := effects.GradeWithOptions(snapshot, contract, effects.GradeOptions{TrustedCollectorPublicKey: trusted, AllowFixtureTestProvenance: true})
+	grade := effects.GradeWithOptions(snapshot, contract, effects.GradeOptions{TrustedCollectorPublicKey: trusted, AllowFixtureTestProvenance: true, ExpectedCorrelation: &effects.CorrelationExpectation{ActionDigest: snapshot.Correlation.ActionDigest, ActivationDigest: snapshot.Correlation.ActivationDigest, ProofDigest: snapshot.Correlation.ProofDigest}})
 	if grade.Status != effects.GradePass {
 		return fmt.Errorf("generated fixture does not pass: %+v", grade)
 	}
@@ -126,6 +126,15 @@ func run(repoRoot string, update bool) error {
 		}
 		if string(actual) != string(expected) {
 			return fmt.Errorf("fixture drift: %s (sha256 %s != %s)", name, rawDigest(actual), rawDigest(expected))
+		}
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if _, expected := files[entry.Name()]; !expected {
+			return fmt.Errorf("fixture orphan: %s", entry.Name())
 		}
 	}
 	return nil

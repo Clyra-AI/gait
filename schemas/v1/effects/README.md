@@ -15,5 +15,9 @@ explicit; grading never executes an external effect. Schema changes are
 additive within `1.0.0` and breaking changes require a major version.
 
 An effect snapshot carries Ed25519 collector provenance. Authoritative grading
-requires an externally configured trusted public key; the committed fixture
-pack uses `fixture_test_only` provenance and is never a production authority.
+requires an externally configured trusted public key and a caller-expected
+action, activation, or Proof digest matching the signed correlation. Snapshot
+times must satisfy `before <= after <= captured_at`; this is historical
+ordering, not a freshness or current-time authorization check. The committed
+fixture pack uses `fixture_test_only` provenance and is never a production
+authority.

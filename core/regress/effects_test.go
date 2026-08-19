@@ -41,7 +41,8 @@ func TestEffectContractGraderMapsPureStatusesToFailClosedRegressResults(t *testi
 	write(snapshotPath, snapshot)
 	write(contractPath, contract)
 	grader := effectContractGrader{}
-	result, err := grader.Grade(FixtureContext{Fixture: fixtureSpec{EffectSnapshotPath: snapshotPath, EffectContractPath: contractPath, EffectPublicKeyPath: publicPath}})
+	fixture := fixtureSpec{EffectSnapshotPath: snapshotPath, EffectContractPath: contractPath, EffectPublicKeyPath: publicPath, Meta: fixtureMeta{EffectExpectedActionDigest: snapshot.Correlation.ActionDigest}}
+	result, err := grader.Grade(FixtureContext{Fixture: fixture})
 	if err != nil || result.Status != regressStatusPass {
 		t.Fatalf("expected effect grader pass: result=%+v err=%v", result, err)
 	}
@@ -51,9 +52,14 @@ func TestEffectContractGraderMapsPureStatusesToFailClosedRegressResults(t *testi
 		t.Fatal(err)
 	}
 	write(snapshotPath, snapshot)
-	result, err = grader.Grade(FixtureContext{Fixture: fixtureSpec{EffectSnapshotPath: snapshotPath, EffectContractPath: contractPath, EffectPublicKeyPath: publicPath}})
+	result, err = grader.Grade(FixtureContext{Fixture: fixture})
 	if err != nil || result.Status != regressStatusFail || !containsReason(result.ReasonCodes, effects.ReasonPredicateInconclusive) {
 		t.Fatalf("inconclusive effect must fail closed: result=%+v err=%v", result, err)
+	}
+	fixture.Meta.EffectExpectedActionDigest = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+	result, err = grader.Grade(FixtureContext{Fixture: fixture})
+	if err != nil || result.Status != regressStatusFail || !containsReason(result.ReasonCodes, effects.ReasonCorrelationMismatch) {
+		t.Fatalf("mismatched effect correlation must fail closed: result=%+v err=%v", result, err)
 	}
 }
 

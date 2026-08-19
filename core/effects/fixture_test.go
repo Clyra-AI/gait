@@ -105,7 +105,7 @@ func TestCommittedEffectFixturePackHasNoDigestOrGradingDrift(t *testing.T) {
 	}
 	seed := sha256.Sum256([]byte("gait-effects-fixture-producer-key-v1"))
 	trusted := ed25519.NewKeyFromSeed(seed[:]).Public().(ed25519.PublicKey)
-	actual := GradeWithOptions(snapshot, contract, GradeOptions{TrustedCollectorPublicKey: trusted, AllowFixtureTestProvenance: true})
+	actual := GradeWithOptions(snapshot, contract, GradeOptions{TrustedCollectorPublicKey: trusted, AllowFixtureTestProvenance: true, ExpectedCorrelation: &CorrelationExpectation{ActionDigest: snapshot.Correlation.ActionDigest, ActivationDigest: snapshot.Correlation.ActivationDigest, ProofDigest: snapshot.Correlation.ProofDigest}})
 	if actual.Status != GradePass || actual.Status != expected.Status || actual.ContractID != expected.ContractID || actual.SnapshotID != expected.SnapshotID {
 		t.Fatalf("fixture grade drift: actual=%+v expected=%+v", actual, expected)
 	}

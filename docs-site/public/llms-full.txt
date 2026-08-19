@@ -18,7 +18,7 @@ Gait is an offline-first runtime for AI agents that enforces policy at the tool 
 5. Doctor: `gait doctor`
 
 6. Action Contracts: `gait contract validate|classify|readiness|explain|activate|verify|consume` for explicit Wrkr proposal validation, deterministic pre-execution runtime classification/readiness, current-selection binding, signed Gait activation, and deterministic cross-product receipts.
-7. Effect Evidence: `gait effects grade --snapshot <effect_snapshot.json> --contract <effect_contract.json> --trusted-collector-key <public-key>` for bounded before/after `effect_snapshot` evidence and pure typed `effect_contract` predicates with deterministic pass/fail/inconclusive results. A trusted collector key is required for an authoritative pass; fixture-only provenance is explicit and non-production.
+7. Effect Evidence: `gait effects grade --snapshot <effect_snapshot.json> --contract <effect_contract.json> --trusted-collector-key <public-key> --expected-action-digest sha256:<64-hex>` for bounded before/after `effect_snapshot` evidence and pure typed `effect_contract` predicates with deterministic pass/fail/inconclusive results. A trusted collector key and caller-expected correlation digest are required for an authoritative pass; fixture-only provenance is library/test-only and non-production.
 
 Extended first-class surfaces:
 

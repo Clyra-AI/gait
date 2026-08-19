@@ -4,7 +4,7 @@
   "title": "Gait Effect Snapshot",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "schema_version", "snapshot_id", "resource_kind", "selector", "before", "after", "collector", "capture", "redaction", "correlation", "provenance", "completeness", "enforcement", "canonical_content_digest"],
+  "required": ["schema_id", "schema_version", "snapshot_id", "resource_kind", "selector", "before", "after", "collector", "capture", "redaction", "correlation", "provenance", "completeness", "enforcement", "evidence_refs", "canonical_content_digest"],
   "properties": {
     "schema_id": {"const": "https://gait.dev/schemas/v1/effects/effect-snapshot.schema.json"},
     "schema_version": {"const": "1.0.0"},
@@ -50,7 +50,7 @@
         "activation_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
         "proof_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
         "run_id": {"type": "string"}, "lifecycle_id": {"type": "string"},
-        "proof_refs": {"type": "array", "items": {"type": "string"}}
+        "proof_refs": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}}
       },
       "anyOf": [{"required": ["action_digest"]}, {"required": ["activation_digest"]}, {"required": ["proof_digest"]}, {"required": ["proof_refs"]}]
     },
