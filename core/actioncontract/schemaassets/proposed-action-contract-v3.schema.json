@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+  "title": "Wrkr Proposed Action Contract v3",
+  "type": "object",
+  "required": [
+    "contract_id", "contract_family_id", "contract_content_digest", "contract_version",
+    "contract_kind", "composition_ref", "revision", "authority_requirements",
+    "authority_readiness_state", "preconditions", "confirmation_requirement",
+    "approval_requirement", "compensation_requirement", "maximum_delegation_depth", "report_only"
+  ],
+  "properties": {
+    "contract_id": {"type": "string"},
+    "contract_family_id": {"type": "string"},
+    "contract_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "contract_version": {"const": "3"},
+    "contract_kind": {"const": "proposed_action_contract"},
+    "composition_ref": {"type": "string"},
+    "resolution_key": {"type": "string"},
+    "revision": {"type": "integer", "minimum": 1},
+    "supersedes_ref": {"type": "string"},
+    "lifecycle_observations": {"type": "array", "items": {"$ref": "#/$defs/lifecycleObservation"}},
+    "allowed_transitions": {"type": "array", "items": {"$ref": "#/$defs/transition"}},
+    "prohibited_transitions": {"type": "array", "items": {"$ref": "#/$defs/transition"}},
+    "approval_required_transitions": {"type": "array", "items": {"$ref": "#/$defs/transition"}},
+    "target_constraints": {"type": "array", "items": {"$ref": "#/$defs/targetConstraint"}},
+    "required_credential_mode": {"type": "string", "enum": ["ephemeral", "scoped", "standing_or_unknown"]},
+    "maximum_delegation_depth": {"type": "integer", "minimum": 0},
+    "evidence_requirements": {"type": "array", "items": {"type": "string"}},
+    "acceptable_countersigners": {"type": "array", "items": {"type": "string"}},
+    "expected_outcome_class": {"type": "string"},
+    "compensation_required": {"type": "boolean"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "source_digests": {"type": "array", "items": {"type": "string"}},
+    "authority_requirements": {"type": "array", "items": {"$ref": "#/$defs/authorityRequirement"}},
+    "authority_readiness_state": {"type": "string", "enum": ["ready", "needs_evidence", "blocked_by_contradiction"]},
+    "preconditions": {"type": "array", "items": {"$ref": "#/$defs/precondition"}},
+    "confirmation_requirement": {"$ref": "#/$defs/confirmation"},
+    "approval_requirement": {"$ref": "#/$defs/approval"},
+    "compensation_requirement": {"$ref": "#/$defs/compensation"},
+    "report_only": {"const": true},
+    "readiness_state": {"type": "string", "enum": ["ready_for_report_only", "needs_evidence", "blocked_by_contradiction"]},
+    "reason_codes": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "evidenceState": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+    "freshnessState": {"type": "string", "enum": ["fresh", "stale", "expired", "unknown"]},
+    "transition": {
+      "type": "object", "required": ["transition_id", "from_stage_id", "to_stage_id"],
+      "properties": {"transition_id": {"type": "string"}, "from_stage_id": {"type": "string"}, "to_stage_id": {"type": "string"}, "from_role": {"type": "string"}, "to_role": {"type": "string"}, "reason": {"type": "string"}},
+      "additionalProperties": false
+    },
+    "targetConstraint": {
+      "type": "object", "required": ["key", "value"],
+      "properties": {"key": {"type": "string"}, "value": {"type": "string"}}, "additionalProperties": false
+    },
+    "authorityRequirement": {
+      "type": "object", "required": ["requirement_id", "kind", "required_constraint", "evidence_state", "freshness_state"],
+      "properties": {
+        "requirement_id": {"type": "string"}, "kind": {"type": "string", "enum": ["originating_intent", "requester_identity", "business_owner", "affected_system_owner", "permitted_agent_role", "policy_authority", "delegation_root", "credential_subject_constraint", "separation_of_duties"]},
+        "required_constraint": {"type": "string"}, "observed_value": {"type": "string"}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}
+      }, "additionalProperties": false
+    },
+    "precondition": {
+      "type": "object", "required": ["requirement_id", "kind", "required_constraint", "evidence_state", "freshness_state"],
+      "properties": {
+        "requirement_id": {"type": "string"}, "kind": {"type": "string", "enum": ["validation_contract", "effect_contract", "required_check", "producer", "freshness", "environment", "target", "sandbox", "policy_digest", "credential_mode", "expected_effect", "forbidden_effect"]},
+        "required_constraint": {"type": "string"}, "observed_value": {"type": "string"}, "observed_result": {"type": "string"}, "acceptable_producers": {"type": "array", "items": {"type": "string"}}, "max_age": {"type": "string"},
+        "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}
+      }, "additionalProperties": false
+    },
+    "confirmation": {
+      "type": "object", "required": ["mode", "required", "evidence_state", "freshness_state"],
+      "properties": {"mode": {"type": "string", "enum": ["explicit_confirmation", "not_required"]}, "required": {"type": "boolean"}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false
+    },
+    "approval": {
+      "type": "object", "required": ["required", "minimum_approvals", "scope_digest", "evidence_state", "freshness_state"],
+      "properties": {"required": {"type": "boolean"}, "approver_roles": {"type": "array", "items": {"type": "string"}}, "minimum_approvals": {"type": "integer", "minimum": 0}, "separation_of_duties": {"type": "array", "items": {"type": "string"}}, "scope_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}, "validity_window": {"type": "string"}, "reapproval_triggers": {"type": "array", "items": {"type": "string"}}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false
+    },
+    "compensation": {
+      "type": "object", "required": ["required", "kind", "verification_required", "evidence_state", "freshness_state"],
+      "properties": {"required": {"type": "boolean"}, "kind": {"type": "string", "enum": ["documented_recovery", "rollback", "restore", "irreversible_escalation", "not_required"]}, "procedure_ref": {"type": "string"}, "target": {"type": "string"}, "execution_window": {"type": "string"}, "verification_required": {"type": "boolean"}, "acceptable_producers": {"type": "array", "items": {"type": "string"}}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false
+    },
+    "lifecycleObservation": {
+      "type": "object", "required": ["observation_id", "kind", "producer", "evidence_state", "freshness_state"],
+      "properties": {"observation_id": {"type": "string"}, "kind": {"type": "string", "enum": ["proposal_creation", "gait_activation_request", "gait_activation_receipt", "gait_rejection", "supersession", "gait_execution", "gait_effect", "axym_verification"]}, "producer": {"type": "string"}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "observed_at": {"type": "string", "format": "date-time"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "action_contract_artifact_refs": {"type": "array", "items": {"type": "string"}}, "proof_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false
+    }
+  }
+}

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"embed"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -26,6 +27,12 @@ import (
 	proofsign "github.com/Clyra-AI/proof/signing"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
+
+// schemaAssets is package-owned and immutable at runtime. Validation never
+// searches the caller's working directory for schemas.
+//
+//go:embed schemaassets/*.json
+var schemaAssets embed.FS
 
 const (
 	ProposedSchemaID         = "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json"
@@ -81,6 +88,7 @@ const (
 	ReasonSelectionNotCurrent          = "selection_not_current"
 	ReasonSelectionAmbiguous           = "selection_ambiguous"
 	ReasonBindingMismatch              = "proposal_binding_mismatch"
+	ReasonEvaluationTimeInvalid        = "evaluation_time_invalid"
 )
 
 var (
@@ -262,37 +270,8 @@ func rejectDuplicateJSONKeys(raw []byte) error {
 	return nil
 }
 
-func findSchemaRoot(explicit string) (string, error) {
-	if strings.TrimSpace(explicit) != "" {
-		root := filepath.Clean(explicit)
-		if _, err := os.Stat(filepath.Join(root, "proposed-action-contract-artifact.schema.json")); err != nil {
-			return "", fmt.Errorf("action contract schema root: %w", err)
-		}
-		return root, nil
-	}
-	directory, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		candidate := filepath.Join(directory, "schemas", "v1", "action-contract")
-		if _, err := os.Stat(filepath.Join(candidate, "proposed-action-contract-artifact.schema.json")); err == nil {
-			return candidate, nil
-		}
-		parent := filepath.Dir(directory)
-		if parent == directory {
-			break
-		}
-		directory = parent
-	}
-	return "", errors.New("checked-in action contract schemas are unavailable")
-}
-
 func validateSchema(raw []byte, schemaFile, schemaRoot string) error {
-	root, err := findSchemaRoot(schemaRoot)
-	if err != nil {
-		return err
-	}
+	_ = schemaRoot // retained in ValidationOptions for source compatibility; assets are package-owned.
 	compiler := jsonschema.NewCompiler()
 	resources := map[string]string{
 		ProposedSchemaID:         "proposed-action-contract-artifact.schema.json",
@@ -300,7 +279,7 @@ func validateSchema(raw []byte, schemaFile, schemaRoot string) error {
 		ActivatedSchemaID:        "activated-action-contract-artifact.schema.json",
 	}
 	for uri, filename := range resources {
-		payload, err := os.ReadFile(filepath.Join(root, filename))
+		payload, err := schemaAssets.ReadFile("schemaassets/" + filename)
 		if err != nil {
 			return err
 		}
@@ -452,6 +431,70 @@ func ReadActivatedArtifact(path string) (ActivatedArtifact, []byte, error) {
 	return artifact, raw, err
 }
 
+// WriteActivatedArtifact writes deterministic bytes through a same-directory
+// temporary file. Existing targets are refused unless overwrite is explicit;
+// symlink targets and symlinked parent directories are always rejected.
+func WriteActivatedArtifact(path string, artifact ActivatedArtifact, overwrite bool) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return errors.New("activation output path is required")
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	directory := filepath.Dir(abs)
+	if _, err := os.Stat(directory); err != nil {
+		return err
+	}
+	if directoryInfo, err := os.Lstat(directory); err != nil || directoryInfo.Mode()&os.ModeSymlink != 0 || !directoryInfo.IsDir() {
+		return errors.New("activation output directory must not be a symlink")
+	}
+	resolvedDirectory, err := filepath.EvalSymlinks(directory)
+	if err != nil {
+		return err
+	}
+	if info, err := os.Lstat(abs); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("activation output must not be a symlink")
+		}
+		if !info.Mode().IsRegular() {
+			return errors.New("activation output must be a regular file")
+		}
+		if !overwrite {
+			return errors.New("activation output exists; pass --overwrite to replace it")
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	encoded, err := json.MarshalIndent(artifact, "", "  ")
+	if err != nil {
+		return err
+	}
+	encoded = append(encoded, '\n')
+	temporary, err := os.CreateTemp(resolvedDirectory, ".gait-activated-action-contract-*")
+	if err != nil {
+		return err
+	}
+	temporaryPath := temporary.Name()
+	defer func() { _ = os.Remove(temporaryPath) }()
+	if _, err := temporary.Write(encoded); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(temporaryPath, filepath.Join(resolvedDirectory, filepath.Base(abs))); err != nil {
+		return err
+	}
+	return nil
+}
+
 func ValidateArtifactBytes(raw []byte, options ValidationOptions) (Artifact, ValidationResult) {
 	artifact, err := ParseArtifact(raw)
 	if err != nil {
@@ -520,7 +563,17 @@ func LoadSelectionEvidence(path, artifactPath string, artifact Artifact, raw []b
 	if err != nil {
 		return SelectionEvidence{}, err
 	}
+	if selectionInfo, statErr := os.Lstat(selectionAbs); statErr != nil || selectionInfo.Mode()&os.ModeSymlink != 0 || !selectionInfo.Mode().IsRegular() {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
 	selectionRoot := filepath.Dir(selectionAbs)
+	if rootInfo, statErr := os.Lstat(selectionRoot); statErr != nil || rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
+	selectionRootResolved, err := filepath.EvalSymlinks(selectionRoot)
+	if err != nil {
+		return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
 	artifactAbs, err := filepath.Abs(artifactPath)
 	if err != nil {
 		return SelectionEvidence{}, err
@@ -545,8 +598,14 @@ func LoadSelectionEvidence(path, artifactPath string, artifact Artifact, raw []b
 		if err != nil || candidateAbs != artifactAbs {
 			continue
 		}
+		if err := rejectSelectionSymlinkPath(selectionRoot, candidateAbs); err != nil {
+			return SelectionEvidence{}, err
+		}
 		candidateResolved, err := filepath.EvalSymlinks(candidateAbs)
 		if err != nil || candidateResolved != artifactResolved {
+			return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+		}
+		if !selectionPathWithin(selectionRootResolved, candidateResolved) {
 			return SelectionEvidence{}, &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
 		}
 		found++
@@ -565,6 +624,41 @@ func LoadSelectionEvidence(path, artifactPath string, artifact Artifact, raw []b
 		return SelectionEvidence{}, err
 	}
 	return selected, nil
+}
+
+func selectionPathWithin(root, target string) bool {
+	relative, err := filepath.Rel(root, target)
+	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+func rejectSelectionSymlinkPath(root, target string) error {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
+	targetAbs, err := filepath.Abs(target)
+	if err != nil || !selectionPathWithin(rootAbs, targetAbs) {
+		return &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
+	relative, err := filepath.Rel(rootAbs, targetAbs)
+	if err != nil {
+		return &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+	}
+	current := rootAbs
+	for _, part := range strings.Split(relative, string(filepath.Separator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, statErr := os.Lstat(current)
+		if statErr != nil {
+			return &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return &ValidationError{Reasons: []string{ReasonSelectionMismatch}}
+		}
+	}
+	return nil
 }
 
 // ValidateArtifact validates an explicit Wrkr v3 proposal and its JCS
@@ -1117,12 +1211,20 @@ func deterministicDevelopmentKey() ed25519.PrivateKey {
 	return ed25519.NewKeyFromSeed(sum[:])
 }
 
-// VerifyActivation checks the signed object against a supplied public key.
-func VerifyActivation(artifact ActivatedArtifact, publicKey ed25519.PublicKey) (bool, error) {
-	return VerifyActivationWithOptions(artifact, publicKey, VerificationOptions{})
+// VerifyActivation checks the signed object against a supplied public key and
+// the actual bound proposal. A signature alone is not a full activation
+// verification result.
+func VerifyActivation(artifact ActivatedArtifact, publicKey ed25519.PublicKey, proposal Artifact) (bool, error) {
+	return VerifyActivationWithOptions(artifact, publicKey, VerificationOptions{Proposal: &proposal})
 }
 
 func VerifyActivationWithOptions(artifact ActivatedArtifact, publicKey ed25519.PublicKey, options VerificationOptions) (bool, error) {
+	if options.Proposal == nil {
+		return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
+	}
+	if len(publicKey) != ed25519.PublicKeySize {
+		return false, &ValidationError{Reasons: []string{ReasonSigningKeyRequired}}
+	}
 	encoded, err := json.Marshal(artifact)
 	if err != nil {
 		return false, err
@@ -1142,13 +1244,11 @@ func VerifyActivationWithOptions(artifact ActivatedArtifact, publicKey ed25519.P
 	if artifact.Proposal.SchemaID != ProposedSchemaID || artifact.Proposal.SchemaVersion != ProposedSchemaVersion || artifact.Proposal.ContractSchemaVersion != ProposedContractVersion || artifact.Proposal.ArtifactID == "" || artifact.Proposal.CanonicalContentDigest == "" || artifact.Proposal.ContractID != artifact.ContractID || artifact.Proposal.ContractFamilyID != artifact.ContractFamilyID || artifact.Proposal.Revision != artifact.Revision {
 		return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
 	}
-	if options.Proposal != nil {
-		if validation := ValidateArtifact(*options.Proposal, ValidationOptions{}); !validation.Valid {
-			return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
-		}
-		if artifact.Proposal.ArtifactID != options.Proposal.ArtifactID || artifact.Proposal.CanonicalContentDigest != options.Proposal.CanonicalContentDigest || artifact.Proposal.ContractID != options.Proposal.ContractID || artifact.Proposal.ContractFamilyID != options.Proposal.ContractFamilyID || artifact.Proposal.Revision != options.Proposal.Revision || artifact.Proposal.ContractSchemaVersion != options.Proposal.Producer.ContractSchemaVersion {
-			return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
-		}
+	if validation := ValidateArtifact(*options.Proposal, ValidationOptions{}); !validation.Valid {
+		return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
+	}
+	if artifact.Proposal.ArtifactID != options.Proposal.ArtifactID || artifact.Proposal.CanonicalContentDigest != options.Proposal.CanonicalContentDigest || artifact.Proposal.ContractID != options.Proposal.ContractID || artifact.Proposal.ContractFamilyID != options.Proposal.ContractFamilyID || artifact.Proposal.Revision != options.Proposal.Revision || artifact.Proposal.ContractSchemaVersion != options.Proposal.Producer.ContractSchemaVersion {
+		return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
 	}
 	digest, err := activatedSignableDigest(artifact)
 	if err != nil {

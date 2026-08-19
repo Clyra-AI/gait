@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/ed25519"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -121,7 +120,11 @@ func runActionContractValidate(arguments []string) int {
 	if err != nil {
 		return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "validate", Error: err.Error(), ReasonCodes: actionContractReasonCodes(err)}, exitInvalidInput)
 	}
-	_, validation := actioncontract.ValidateArtifactBytes(raw, actioncontract.ValidationOptions{Now: parseEvaluationTime(evaluationTime)})
+	evaluation, evaluationErr := parseEvaluationTime(evaluationTime)
+	if evaluationErr != nil {
+		return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "validate", Error: evaluationErr.Error(), ReasonCodes: []string{actioncontract.ReasonEvaluationTimeInvalid}}, exitInvalidInput)
+	}
+	_, validation := actioncontract.ValidateArtifactBytes(raw, actioncontract.ValidationOptions{Now: evaluation})
 	out := actionContractOutput{SchemaID: actioncontract.ProposedSchemaID, SchemaVersion: actioncontract.ProposedSchemaVersion, OK: validation.Valid, Operation: "validate", Proposal: &validation, ReasonCodes: validation.Reasons}
 	code := exitOK
 	if !validation.Valid {
@@ -134,7 +137,7 @@ func runActionContractActivate(arguments []string) int {
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{"proposal": true, "artifact": true, "from": true, "selection": true, "policy-digest": true, "principal": true, "activating-principal": true, "authority-refs": true, "authority-ref": true, "target": true, "environment": true, "mode": true, "valid-from": true, "valid-until": true, "exceptions": true, "exception": true, "out": true, "private-key": true, "private-key-env": true})
 	flags := actionContractFlags("contract-activate")
 	var proposalPath, selectionPath, policyDigest, principal, authorityCSV, authorityRef, target, environment, mode, validFrom, validUntil, exceptionsCSV, exception, outPath, privateKeyPath, privateKeyEnv string
-	var jsonOutput, help bool
+	var jsonOutput, help, overwrite bool
 	var allowDevelopmentSigning bool
 	flags.StringVar(&proposalPath, "proposal", "", "explicit path to one proposed_action_contract artifact")
 	flags.StringVar(&proposalPath, "artifact", "", "alias for --proposal")
@@ -155,6 +158,7 @@ func runActionContractActivate(arguments []string) int {
 	flags.StringVar(&outPath, "out", "", "optional activation artifact output path")
 	flags.StringVar(&privateKeyPath, "private-key", "", "base64 Ed25519 private key path")
 	flags.StringVar(&privateKeyEnv, "private-key-env", "", "environment variable containing base64 Ed25519 private key")
+	flags.BoolVar(&overwrite, "overwrite", false, "explicitly replace an existing regular activation output file; symlinks remain rejected")
 	flags.BoolVar(&allowDevelopmentSigning, "allow-development-signing", false, "TEST ONLY: use the deterministic development key and record development_signing=true (environment must be development or test)")
 	flags.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flags.BoolVar(&help, "help", false, "show help")
@@ -197,17 +201,12 @@ func runActionContractActivate(arguments []string) int {
 	if strings.TrimSpace(exception) != "" {
 		exceptions = append(exceptions, exception)
 	}
-	activated, validation, err := actioncontract.Activate(artifact, actioncontract.ActivationOptions{PolicyDigest: policyDigest, ActivatingPrincipal: principal, AuthorityRefs: authorityRefs, Target: target, Environment: environment, Mode: actioncontract.ActivationMode(strings.TrimSpace(mode)), ValidFrom: validFrom, ValidUntil: validUntil, ExplicitExceptions: exceptions, SigningPrivateKey: privateKey, AllowDevelopmentSigning: allowDevelopmentSigning, Selection: &selection, EvaluationTime: parseEvaluationTime("")})
+	activated, validation, err := actioncontract.Activate(artifact, actioncontract.ActivationOptions{PolicyDigest: policyDigest, ActivatingPrincipal: principal, AuthorityRefs: authorityRefs, Target: target, Environment: environment, Mode: actioncontract.ActivationMode(strings.TrimSpace(mode)), ValidFrom: validFrom, ValidUntil: validUntil, ExplicitExceptions: exceptions, SigningPrivateKey: privateKey, AllowDevelopmentSigning: allowDevelopmentSigning, Selection: &selection})
 	if err != nil {
 		return writeActionContractOutput(jsonOutput, actionContractOutput{SchemaID: actioncontract.ActivatedSchemaID, SchemaVersion: actioncontract.ActivatedSchemaVersion, Operation: "activate", Proposal: &validation, Error: err.Error(), ReasonCodes: actionContractReasonCodes(err)}, exitVerifyFailed)
 	}
 	if outPath != "" {
-		encoded, marshalErr := json.MarshalIndent(activated, "", "  ")
-		if marshalErr != nil {
-			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: marshalErr.Error()}, exitInternalFailure)
-		}
-		encoded = append(encoded, '\n')
-		if writeErr := os.WriteFile(outPath, encoded, 0o600); writeErr != nil {
+		if writeErr := actioncontract.WriteActivatedArtifact(outPath, activated, overwrite); writeErr != nil {
 			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: writeErr.Error()}, exitInternalFailure)
 		}
 	}
@@ -234,6 +233,9 @@ func runActionContractVerify(arguments []string) int {
 	if help {
 		printActionContractVerifyUsage()
 		return exitOK
+	}
+	if actionContractNamedFlagCount(arguments, "--activation", "--artifact") > 1 {
+		return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "verify", Error: "exactly one activation selector may be selected", ReasonCodes: []string{actioncontract.ReasonAmbiguousSelection}}, exitInvalidInput)
 	}
 	if len(flags.Args()) > 0 {
 		if activationPath != "" || len(flags.Args()) != 1 {
@@ -373,12 +375,11 @@ func errorString(err error, fallback string) string {
 	return err.Error()
 }
 
-func parseEvaluationTime(value string) (result time.Time) {
+func parseEvaluationTime(value string) (time.Time, error) {
 	if strings.TrimSpace(value) == "" {
-		return result
+		return time.Time{}, nil
 	}
-	result, _ = time.Parse(time.RFC3339, strings.TrimSpace(value))
-	return result
+	return time.Parse(time.RFC3339, strings.TrimSpace(value))
 }
 
 func parseActionContractCSV(value string) []string {
@@ -393,10 +394,17 @@ func parseActionContractCSV(value string) []string {
 }
 
 func actionContractSelectionFlagCount(arguments []string) int {
+	return actionContractNamedFlagCount(arguments, "--proposal", "--artifact", "--from")
+}
+
+func actionContractNamedFlagCount(arguments []string, names ...string) int {
 	count := 0
 	for _, argument := range arguments {
-		if argument == "--proposal" || strings.HasPrefix(argument, "--proposal=") || argument == "--artifact" || strings.HasPrefix(argument, "--artifact=") || argument == "--from" || strings.HasPrefix(argument, "--from=") {
-			count++
+		for _, name := range names {
+			if argument == name || strings.HasPrefix(argument, name+"=") {
+				count++
+				break
+			}
 		}
 	}
 	return count
@@ -433,7 +441,7 @@ func writeActionContractOutput(jsonOutput bool, output actionContractOutput, cod
 func printActionContractUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait contract validate --proposal <artifact.json> [--evaluation-time <rfc3339>] [--json]")
-	fmt.Println("  gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> [--valid-from <rfc3339>] [--valid-until <rfc3339>] [--out <activated.json>] [--json]")
+	fmt.Println("  gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> [--valid-from <rfc3339>] [--valid-until <rfc3339>] [--out <activated.json>] [--overwrite] [--json]")
 	fmt.Println("  gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> [--json]")
 	fmt.Println("  gait contract consume <artifact.json> [--selection <manifest.json>]")
 }
@@ -441,7 +449,7 @@ func printActionContractValidateUsage() {
 	fmt.Println("Usage: gait contract validate --proposal <artifact.json> [--evaluation-time <rfc3339>] [--json]")
 }
 func printActionContractActivateUsage() {
-	fmt.Println("Usage: gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> [--valid-from <rfc3339>] [--valid-until <rfc3339>] [--out <activated.json>] [--json]")
+	fmt.Println("Usage: gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> [--valid-from <rfc3339>] [--valid-until <rfc3339>] [--out <activated.json>] [--overwrite] [--json]")
 }
 func printActionContractVerifyUsage() {
 	fmt.Println("Usage: gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> [--allow-development-signing] [--json]")

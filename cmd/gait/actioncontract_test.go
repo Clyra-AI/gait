@@ -71,6 +71,25 @@ func TestActionContractVerifyCLIAndExitCodes(t *testing.T) {
 	}
 }
 
+func TestActionContractValidateRejectsMalformedEvaluationTime(t *testing.T) {
+	proposalPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
+	output, code := captureActionContractOutput(t, func() int {
+		return runActionContractValidate([]string{"--proposal", proposalPath, "--evaluation-time", "not-a-time", "--json"})
+	})
+	if code != exitInvalidInput || !strings.Contains(output, actioncontract.ReasonEvaluationTimeInvalid) {
+		t.Fatalf("malformed evaluation time must fail as invalid input: code=%d output=%s", code, output)
+	}
+}
+
+func TestActionContractVerifyRejectsConflictingActivationSelectors(t *testing.T) {
+	output, code := captureActionContractOutput(t, func() int {
+		return runActionContractVerify([]string{"--activation", "one.json", "--artifact", "two.json", "--proposal", "proposal.json", "--json"})
+	})
+	if code != exitInvalidInput || !strings.Contains(output, actioncontract.ReasonAmbiguousSelection) {
+		t.Fatalf("conflicting activation selectors must fail as invalid input: code=%d output=%s", code, output)
+	}
+}
+
 func captureActionContractOutput(t *testing.T, fn func() int) (string, int) {
 	t.Helper()
 	reader, writer, err := os.Pipe()

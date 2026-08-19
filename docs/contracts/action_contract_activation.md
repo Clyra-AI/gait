@@ -37,4 +37,6 @@ the local current-selection manifest beside fixture artifacts (or an explicit
 Production activation requires an explicit Ed25519 private-key source. The
 `--allow-development-signing` flag is test-only, requires `environment`
 `development` or `test`, and records `development_signing: true`; such output
-is rejected by normal verification.
+is rejected by normal verification. Verification always requires the actual
+bound proposal bytes. Activation output refuses existing files and symlinks
+by default; `--overwrite` explicitly replaces only an existing regular file.
