@@ -1,0 +1,186 @@
+{
+  "fixture_version": "1",
+  "producer": {
+    "name": "wrkr",
+    "version": "devel"
+  },
+  "schemas": {
+    "artifact": "1",
+    "contract": "3",
+    "packet": "1"
+  },
+  "external_consumers": {
+    "axym": {
+      "command_env": "WRKR_AXYM_ACTION_CONTRACT_CONSUMER",
+      "receipt": "receipts/axym.json"
+    },
+    "gait": {
+      "command_env": "WRKR_GAIT_ACTION_CONTRACT_CONSUMER",
+      "receipt": "receipts/gait.json"
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "customer-data-to-egress",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/customer-data-to-egress/pac-6dcee5a6d9a65e8c.json",
+      "artifact_sha256": "sha256:8ab669e4014be6447d01f8a0b04725beef0436822555e4f796f35280858fc758",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/customer-data-to-egress/packet.json",
+      "packet_json_sha256": "sha256:3c5ef1ac9345525908ee9b57cf6729d3bae935b16d6e9b76de3fd4748e4f1d31",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/customer-data-to-egress/packet.md",
+      "packet_markdown_sha256": "sha256:64f8cccbe465ce4466ac9c1413721d95138ed7d5888300d5155f2f51f939e90c",
+      "artifact_id": "paca-6ebedb2591c25c47",
+      "canonical_content_digest": "sha256:6ebedb2591c25c47ba63a32b2e7e25a7b3766d0e1e243dcf6573178525aefafb",
+      "contract_id": "pac-6dcee5a6d9a65e8c",
+      "contract_family_id": "pacf-e93233d7c6817604",
+      "revision": 1,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    },
+    {
+      "scenario_id": "workflow-to-deploy",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/workflow-to-deploy/pac-78931e17d6204821.json",
+      "artifact_sha256": "sha256:3e8a43466db0bc4862448ba6a1ef4888d441b802236533107d118627a9c142e5",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/workflow-to-deploy/packet.json",
+      "packet_json_sha256": "sha256:291e4fed1437573572a44007df31bfa20cb7fd839fc377d13d667f5c2b223614",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/workflow-to-deploy/packet.md",
+      "packet_markdown_sha256": "sha256:e6d5790ef1e5189b4211f56202d7a6ae8db347097b1e664f6a582b8f2ebb9294",
+      "artifact_id": "paca-8001527ad443d2d3",
+      "canonical_content_digest": "sha256:8001527ad443d2d388b19ad498327cff53011b3b96db9762929b484bf00a1625",
+      "contract_id": "pac-78931e17d6204821",
+      "contract_family_id": "pacf-4eb827fcc0c1ca88",
+      "revision": 1,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    },
+    {
+      "scenario_id": "secret-to-network",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/secret-to-network/pac-6203900dbd87492c.json",
+      "artifact_sha256": "sha256:a6aeb2e677faa1e82125b7b85d84c2ab4b78edbe882cbb308541c8677ef4e26c",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/secret-to-network/packet.json",
+      "packet_json_sha256": "sha256:4596a70396ef38491b8f126015cc8cf3745288ddd357485363c5713b3b05cbc7",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/secret-to-network/packet.md",
+      "packet_markdown_sha256": "sha256:f8eb41eb58b2f87b183ab2550f1292755e5246f8495eea4a775c6f4e44649de8",
+      "artifact_id": "paca-1a7a86d7bd99bde3",
+      "canonical_content_digest": "sha256:1a7a86d7bd99bde3319d3e9bb2aeb6750e83269096b75b0f678d709bf4488fbe",
+      "contract_id": "pac-6203900dbd87492c",
+      "contract_family_id": "pacf-7320bf2d792fead5",
+      "revision": 1,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    },
+    {
+      "scenario_id": "package-to-release",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/package-to-release/pac-0d9384785d3b213a.json",
+      "artifact_sha256": "sha256:7f2f21db7b89258ea82c9e866e33723db937211685fd91ad428e734d952d2ac0",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/package-to-release/packet.json",
+      "packet_json_sha256": "sha256:af7fc2cbc5bfb38e7c16d4384cd6af7f233c66f83c0944d41938077e9dddf285",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/package-to-release/packet.md",
+      "packet_markdown_sha256": "sha256:74a0284fe1ea127cce007e57ce9c93c2e5dd400ac842d36ad98882e2336fa6e2",
+      "artifact_id": "paca-343c0f37a21a9530",
+      "canonical_content_digest": "sha256:343c0f37a21a95301471840e6df571ef64c0ab4a8b519d1575c4bdf3bd78f6fe",
+      "contract_id": "pac-0d9384785d3b213a",
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    },
+    {
+      "scenario_id": "excessive-child-authority",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/excessive-child-authority/pac-5c85173a52a29cce.json",
+      "artifact_sha256": "sha256:39d8da1e011ddfe036abc1b510e6d672804ddf45a082e14b01018f04f9ac7c31",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/excessive-child-authority/packet.json",
+      "packet_json_sha256": "sha256:fea62088ca56761c2634e96c1f7218ec4fd05be4cb9381ed86bd119823a52e75",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/excessive-child-authority/packet.md",
+      "packet_markdown_sha256": "sha256:095d39d388482578e0575f1696540faa1369a7af6a1750dea52b4bdf7791b1d5",
+      "artifact_id": "paca-d7da5182fb5632a6",
+      "canonical_content_digest": "sha256:d7da5182fb5632a6135bbcdb1eba405bf684258a0752a4f90cab7dd469ff027e",
+      "contract_id": "pac-5c85173a52a29cce",
+      "contract_family_id": "pacf-d5dd2e874f0b7e17",
+      "revision": 1,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    },
+    {
+      "scenario_id": "failed-effect-validation",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation/pac-73293bb1eaa87677.json",
+      "artifact_sha256": "sha256:dad67c64020cecd40fbd3d276c33de259a02a0803d4367899b7286fcf1bfed0b",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation/packet.json",
+      "packet_json_sha256": "sha256:3f05c0da1e4788f06e59bb8fa694a4a0b7c9977a7a175cf0583645c74f3f62e6",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation/packet.md",
+      "packet_markdown_sha256": "sha256:093f89e3f859b5aa17e6406d480247c1df3d8a34248304d13fa2479471cf03e2",
+      "artifact_id": "paca-7c26e20008d56cd8",
+      "canonical_content_digest": "sha256:7c26e20008d56cd83789d1eab9175db5e6b1a9142cd84a1e744e2ca3feaa6270",
+      "contract_id": "pac-73293bb1eaa87677",
+      "contract_family_id": "pacf-551683d10a9e914d",
+      "revision": 1,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    },
+    {
+      "scenario_id": "approval-expiry",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/approval-expiry/pac-96f06dd53eb98150.json",
+      "artifact_sha256": "sha256:16893e57f1c2d5b9f07e507923e8444c09ccbcf47ac79794635afa32a9dca581",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/approval-expiry/packet.json",
+      "packet_json_sha256": "sha256:5ac381bd9a58dfcb4aa7f5fa989877d3c099948f24fc061b95d23011c6a37506",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/approval-expiry/packet.md",
+      "packet_markdown_sha256": "sha256:9293355d78ede36d8bdcee4be6531e001be21c57b8ba7195a0fc2482b3d2c430",
+      "artifact_id": "paca-866135edc00ded73",
+      "canonical_content_digest": "sha256:866135edc00ded732087cbe695220d5d9361ddf4e3a34132eabcdc287e86293a",
+      "contract_id": "pac-96f06dd53eb98150",
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    },
+    {
+      "scenario_id": "compensation",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/compensation/pac-4b7f1402784256ce.json",
+      "artifact_sha256": "sha256:bfb32cdce650b2ea969059ae0816df2637f7345e70b08a67d4c23684489bf154",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/compensation/packet.json",
+      "packet_json_sha256": "sha256:9d35345c26b8e85660e711a014bc6f2c7823f34ffd7c3f68c61a7d36f431cd5a",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/compensation/packet.md",
+      "packet_markdown_sha256": "sha256:c884fcbdabc1950bb6729d5966d7cf129c9a1b67e3a67c15145e08d22aa0e65e",
+      "artifact_id": "paca-d3a371d51af5af30",
+      "canonical_content_digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+      "contract_id": "pac-4b7f1402784256ce",
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    },
+    {
+      "scenario_id": "supersession",
+      "artifact_path": "scenarios/cross-product/action-contract-interop/expected/supersession/pac-5c7c346a73bdcd7a.json",
+      "artifact_sha256": "sha256:977d181e622061107751ee2193a4202ca6f20e052140e2bba377a036c9786837",
+      "packet_json_path": "scenarios/cross-product/action-contract-interop/expected/supersession/packet.json",
+      "packet_json_sha256": "sha256:ec9c4312999454f208279417b45fd3f5807d311a99bc5f2f1f0966b3ad6c294c",
+      "packet_markdown_path": "scenarios/cross-product/action-contract-interop/expected/supersession/packet.md",
+      "packet_markdown_sha256": "sha256:d5132b072262c4b79b62350a39c9daa9e95c7e7fc2797ae5bb5ab060895b6076",
+      "artifact_id": "paca-287855f45cb7e468",
+      "canonical_content_digest": "sha256:287855f45cb7e468b29d2821b0a84eceefb655737c2ba74a00e972d648e4921f",
+      "contract_id": "pac-5c7c346a73bdcd7a",
+      "contract_family_id": "pacf-3b1a1959823f569c",
+      "revision": 2,
+      "consumer_entrypoints": [
+        "WRKR_AXYM_ACTION_CONTRACT_CONSUMER {artifact_path}",
+        "WRKR_GAIT_ACTION_CONTRACT_CONSUMER {artifact_path}"
+      ]
+    }
+  ]
+}

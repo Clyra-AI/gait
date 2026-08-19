@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+  "title": "Gait Activated Action Contract Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id", "schema_version", "artifact_id", "contract_id", "contract_family_id",
+    "revision", "producer", "proposal", "policy_digest", "activating_principal",
+    "authority_refs", "target", "environment", "activation_mode", "validity",
+    "explicit_exceptions", "report_only", "signature"
+  ],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json"},
+    "schema_version": {"const": "1"},
+    "artifact_id": {"type": "string", "pattern": "^gact-[a-f0-9]{16}$"},
+    "contract_id": {"type": "string", "pattern": "^pac-[a-f0-9]{8,64}$"},
+    "contract_family_id": {"type": "string", "pattern": "^pacf-[a-f0-9]{8,64}$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "producer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "artifact_schema_version", "contract_schema_version"],
+      "properties": {"name": {"const": "gait"}, "artifact_schema_version": {"const": "1"}, "contract_schema_version": {"const": "1"}}
+    },
+    "proposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "canonical_content_digest", "contract_id", "contract_family_id", "revision", "schema_id", "schema_version", "contract_schema_version"],
+      "properties": {
+        "artifact_id": {"type": "string", "pattern": "^paca-[a-f0-9]{16}$"},
+        "canonical_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "contract_id": {"type": "string", "pattern": "^pac-[a-f0-9]{8,64}$"},
+        "contract_family_id": {"type": "string", "pattern": "^pacf-[a-f0-9]{8,64}$"},
+        "revision": {"type": "integer", "minimum": 1},
+        "schema_id": {"const": "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json"},
+        "schema_version": {"const": "1"},
+        "contract_schema_version": {"const": "3"}
+      }
+    },
+    "policy_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "activating_principal": {"type": "string", "minLength": 1},
+    "authority_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "target": {"type": "string", "minLength": 1},
+    "environment": {"type": "string", "minLength": 1},
+    "activation_mode": {"enum": ["context_only", "enforce_floor", "required"]},
+    "validity": {
+      "type": "object", "additionalProperties": false, "required": ["not_before"],
+      "properties": {"not_before": {"type": "string", "format": "date-time"}, "not_after": {"type": "string", "format": "date-time"}}
+    },
+    "explicit_exceptions": {"type": "array", "items": {"type": "string"}},
+    "report_only": {"const": false},
+    "signature": {
+      "type": "object", "additionalProperties": false, "required": ["alg", "key_id", "sig", "signed_digest"],
+      "properties": {"alg": {"const": "ed25519"}, "key_id": {"type": "string"}, "sig": {"type": "string"}, "signed_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+    }
+  }
+}

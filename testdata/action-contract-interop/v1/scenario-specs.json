@@ -1,0 +1,19 @@
+{
+  "fixture_version": "1",
+  "base_scan_root": "scenarios/wrkr/agent-action-bom-demo/after/repos",
+  "scenarios": [
+    {"scenario_id": "customer-data-to-egress", "pattern_id": "sensitive_read_to_egress", "mutation": "none"},
+    {"scenario_id": "workflow-to-deploy", "pattern_id": "workflow_mutation_to_production", "mutation": "none"},
+    {"scenario_id": "secret-to-network", "pattern_id": "secret_to_network", "mutation": "none"},
+    {"scenario_id": "package-to-release", "pattern_id": "package_change_to_release", "mutation": "none"},
+    {"scenario_id": "excessive-child-authority", "pattern_id": "code_to_deploy", "mutation": "excessive_child_authority"},
+    {"scenario_id": "failed-effect-validation", "pattern_id": "code_to_deploy", "mutation": "failed_effect_validation"},
+    {"scenario_id": "approval-expiry", "pattern_id": "package_change_to_release", "mutation": "approval_expiry"},
+    {"scenario_id": "compensation", "pattern_id": "package_change_to_release", "mutation": "compensation"},
+    {"scenario_id": "supersession", "pattern_id": "code_to_deploy", "mutation": "supersession"}
+  ],
+  "external_consumers": {
+    "gait": {"command_env": "WRKR_GAIT_ACTION_CONTRACT_CONSUMER", "receipt": "receipts/gait.json"},
+    "axym": {"command_env": "WRKR_AXYM_ACTION_CONTRACT_CONSUMER", "receipt": "receipts/axym.json"}
+  }
+}
