@@ -1,0 +1,14 @@
+{
+  "fixture_version": "1",
+  "producer": {"name": "gait", "version": "v1.5.0"},
+  "source_commit": "a991d6e16197e889aadd99affb2bc8504bf3481a",
+  "signing": {"mode":"fixture_only_deterministic_development_key","fixture_test_only":true,"development_signing":true,"non_authoritative":true,"key_id":"8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701","public_key_path":"fixture-signing-key.public.b64","derivation":"sha256(runtime-golden-key) as Ed25519 seed; never used by production/default lifecycle signing"},
+  "files": [
+    {"path":"fixture-signing-key.public.b64","sha256":"sha256:4a09d7988c00029e6da1d966c512a6a515d421b5f05155d8c87e1b734e8480fa"},
+    {"path":"runtime-action.json","sha256":"sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424"},
+    {"path":"runtime-readiness.json","sha256":"sha256:fb7e9d24f193ed6291a3c3511a83bc42eb5cbc1071107023de15a2703c0b579a"},
+    {"path":"runtime-lifecycle-record.json","sha256":"sha256:179095662ff95a070739c171f9535950d7b02c884290276f71199d8d142b46b3"},
+    {"path":"runtime-lifecycle-chain.json","sha256":"sha256:bbc93ad76726836ffd2a0fb215cd3ee43dda4b9740f9918e1672195d2fda22f1"},
+    {"path":"runtime-lifecycle-chain.jsonl","sha256":"sha256:1edb034104ca30fcdb4ec145384a625bf6580931384811d94cd10fa4c5338c51"}
+  ]
+}

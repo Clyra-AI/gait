@@ -8,6 +8,8 @@ package actioncontract
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -40,7 +42,7 @@ const (
 	ActionClassDelete           = "delete"
 	ActionClassExecute          = "execute"
 	ActionClassEgress           = "egress"
-	ActionClassCredentialAccess = "credential_access"
+	ActionClassCredentialAccess = "credential_access" // #nosec G101 -- fixed classification vocabulary, not a credential.
 	ActionClassRelease          = "release"
 	ActionClassResource         = "resource"
 )
@@ -194,6 +196,22 @@ type ClassificationResult struct {
 	Action      RuntimeAction `json:"action"`
 	Valid       bool          `json:"valid"`
 	ReasonCodes []string      `json:"reason_codes,omitempty"`
+}
+
+func ParseClassificationInput(raw []byte) (ClassificationInput, error) {
+	var input ClassificationInput
+	if err := DecodeStrictRuntimeJSON(raw, &input); err != nil {
+		return ClassificationInput{}, err
+	}
+	return input, nil
+}
+
+func ParseReadinessInput(raw []byte) (ReadinessInput, error) {
+	var input ReadinessInput
+	if err := DecodeStrictRuntimeJSON(raw, &input); err != nil {
+		return ReadinessInput{}, err
+	}
+	return input, nil
 }
 
 // Compatibility aliases keep the public vocabulary explicit for callers that
@@ -396,6 +414,9 @@ func ValidateRuntimeAction(action RuntimeAction) []string {
 			reasons = append(reasons, fmt.Sprintf("stage_%d_expected_outcome_class_unsupported", i))
 		}
 	}
+	if raw, err := json.Marshal(action); err != nil || validateRuntimeSchema(raw, RuntimeActionSchemaID) != nil {
+		reasons = append(reasons, "schema_validation_failed")
+	}
 	return sortedUnique(reasons)
 }
 
@@ -572,6 +593,17 @@ type ReadinessPrecondition struct {
 	ContractRef         string          `json:"contract_ref,omitempty"`
 	ObservedValue       string          `json:"observed_value,omitempty"`
 	ObservedResult      string          `json:"observed_result,omitempty"`
+	ObservedAt          string          `json:"observed_at,omitempty"`
+	MaxAgeSeconds       int64           `json:"max_age_seconds,omitempty"`
+	TTLSeconds          int64           `json:"ttl_seconds,omitempty"`
+	Environment         string          `json:"environment,omitempty"`
+	Target              string          `json:"target,omitempty"`
+	SandboxStatus       string          `json:"sandbox_status,omitempty"`
+	CredentialMode      string          `json:"credential_mode,omitempty"`
+	ResourceStatus      string          `json:"resource_status,omitempty"`
+	CompensationStatus  string          `json:"compensation_status,omitempty"`
+	EvidenceDigest      string          `json:"evidence_digest,omitempty"`
+	ValidatorSignature  string          `json:"validator_signature,omitempty"`
 	Producer            string          `json:"producer,omitempty"`
 	AcceptableProducers []string        `json:"acceptable_producers,omitempty"`
 	EvidenceState       string          `json:"evidence_state,omitempty"`
@@ -584,11 +616,12 @@ type ReadinessPrecondition struct {
 }
 
 type ReadinessInput struct {
-	ContractID           string                  `json:"contract_id,omitempty"`
-	Preconditions        []ReadinessPrecondition `json:"preconditions"`
-	TrustedValidatorRefs []string                `json:"trusted_validator_refs,omitempty"`
-	PolicyDigest         string                  `json:"policy_digest,omitempty"`
-	Now                  time.Time               `json:"-"`
+	ContractID           string                       `json:"contract_id,omitempty"`
+	Preconditions        []ReadinessPrecondition      `json:"preconditions"`
+	TrustedValidatorRefs []string                     `json:"trusted_validator_refs,omitempty"`
+	PolicyDigest         string                       `json:"policy_digest,omitempty"`
+	Now                  time.Time                    `json:"-"`
+	TrustedValidatorKeys map[string]ed25519.PublicKey `json:"-"`
 }
 
 type ReadinessResult struct {
@@ -622,6 +655,9 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 		item.BoundaryRefs = sortedUnique(item.BoundaryRefs)
 		item.AcceptableProducers = sortedUnique(item.AcceptableProducers)
 		item.ReasonCodes = nil
+		if item.ControlMode == "" {
+			item.ControlMode = ControlModeUnknown
+		}
 		if !item.Required {
 			item.Status = ReadinessNotRequired
 			out.Preconditions[i] = item
@@ -629,28 +665,48 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 		}
 		requiredCount++
 		item.Status = ReadinessInconclusive
-		if item.ControlMode == "" {
-			item.ControlMode = ControlModeUnknown
-		}
 		if item.ControlMode != ControlModeEnforced && item.ControlMode != ControlModeObserved && item.ControlMode != ControlModeSelfAttested && item.ControlMode != ControlModeUnknown {
 			item.ControlMode = ControlModeUnknown
+		}
+		if input.Now.IsZero() {
+			item.ReasonCodes = append(item.ReasonCodes, "evaluation_time:required")
+		}
+		if item.RequirementID == "" || item.Kind == "" {
+			item.ReasonCodes = append(item.ReasonCodes, "precondition:identity_missing")
 		}
 		if item.ControlMode == ControlModeSelfAttested || item.ControlMode == ControlModeUnknown {
 			item.ReasonCodes = append(item.ReasonCodes, "validator:untrusted_control_mode")
 		}
 		if item.Producer == "" {
 			item.ReasonCodes = append(item.ReasonCodes, "validator:missing")
+		} else if forbiddenReadinessProducer(item.Producer) {
+			item.ReasonCodes = append(item.ReasonCodes, "validator:declaration_only")
 		} else if _, ok := trusted[item.Producer]; !ok {
 			item.ReasonCodes = append(item.ReasonCodes, "validator:not_policy_named")
+		}
+		if item.ValidatorSignature == "" || item.EvidenceDigest == "" {
+			item.ReasonCodes = append(item.ReasonCodes, "evidence:authoritative_signature_missing")
+		} else if !validSHA256Digest(item.EvidenceDigest) {
+			item.ReasonCodes = append(item.ReasonCodes, "evidence:digest_invalid")
+		} else if key, ok := input.TrustedValidatorKeys[item.Producer]; !ok || len(key) != ed25519.PublicKeySize {
+			item.ReasonCodes = append(item.ReasonCodes, "validator:public_key_missing")
+		} else if !verifyEvidenceSignature(key, item.EvidenceDigest, item.ValidatorSignature) {
+			item.ReasonCodes = append(item.ReasonCodes, "evidence:signature_invalid")
+		}
+		if len(item.EvidenceRefs) == 0 {
+			item.ReasonCodes = append(item.ReasonCodes, "evidence:refs_missing")
+		}
+		if item.EvidenceState != "verified" {
+			item.ReasonCodes = append(item.ReasonCodes, "evidence:not_verified")
+		}
+		if item.ObservedResult == "" && item.ObservedValue == "" {
+			item.ReasonCodes = append(item.ReasonCodes, "evidence:result_missing")
 		}
 		if len(item.AcceptableProducers) > 0 && item.Producer != "" && !containsStringValue(item.AcceptableProducers, item.Producer) {
 			item.ReasonCodes = append(item.ReasonCodes, "validator:producer_not_acceptable")
 		}
-		if item.FreshnessState == "stale" || item.FreshnessState == "expired" {
-			item.ReasonCodes = append(item.ReasonCodes, "freshness:not_fresh")
-		}
-		if item.FreshnessState == "unknown" || item.FreshnessState == "" {
-			item.ReasonCodes = append(item.ReasonCodes, "freshness:unknown")
+		if err := validateFreshness(item, input.Now); err != "" {
+			item.ReasonCodes = append(item.ReasonCodes, err)
 		}
 		if isFalseResult(item.ObservedResult) {
 			item.Status = ReadinessUnsatisfied
@@ -661,26 +717,24 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 				item.ReasonCodes = append(item.ReasonCodes, "contract:ref_missing")
 			}
 		}
-		if (item.ControlMode == ControlModeEnforced || item.ControlMode == ControlModeObserved) && len(item.BoundaryRefs) == 0 && strings.Contains(item.Kind, "boundary") {
-			item.ReasonCodes = append(item.ReasonCodes, "boundary:reference_missing")
-		}
+		item.ReasonCodes = append(item.ReasonCodes, validateReadinessKind(item)...)
 		if item.Kind == "policy_digest" {
 			supplied := strings.TrimSpace(input.PolicyDigest)
-			if supplied == "" {
+			if !validSHA256Digest(supplied) {
 				item.ReasonCodes = append(item.ReasonCodes, "policy_digest:missing")
-			} else if item.ObservedValue != "" && strings.TrimSpace(item.ObservedValue) != supplied {
+			} else if !validSHA256Digest(strings.TrimSpace(item.ObservedValue)) || strings.TrimSpace(item.ObservedValue) != supplied {
 				item.Status = ReadinessUnsatisfied
 				item.ReasonCodes = append(item.ReasonCodes, "policy_digest:mismatch")
 			}
 		}
-		trustedProducer := item.Producer != ""
+		trustedProducer := item.Producer != "" && !forbiddenReadinessProducer(item.Producer)
 		if _, ok := trusted[item.Producer]; !ok {
 			trustedProducer = false
 		}
 		fresh := item.FreshnessState == "fresh" || item.FreshnessState == "current"
-		verifiedEvidence := item.EvidenceState == "verified" && strings.TrimSpace(item.ObservedResult) == ""
+		qualifying := item.EvidenceState == "verified" && len(item.EvidenceRefs) > 0 && item.ValidatorSignature != "" && item.EvidenceDigest != "" && verifyEvidenceSignature(input.TrustedValidatorKeys[item.Producer], item.EvidenceDigest, item.ValidatorSignature)
 		matchingConstraint := strings.TrimSpace(item.RequiredConstraint) != "" && strings.EqualFold(strings.TrimSpace(item.RequiredConstraint), strings.TrimSpace(item.ObservedResult))
-		if item.Status != ReadinessUnsatisfied && trustedProducer && fresh && (item.ControlMode == ControlModeEnforced || item.ControlMode == ControlModeObserved) && (isTrueResult(item.ObservedResult) || verifiedEvidence || matchingConstraint) {
+		if item.Status != ReadinessUnsatisfied && len(item.ReasonCodes) == 0 && trustedProducer && fresh && qualifying && (item.ControlMode == ControlModeEnforced || item.ControlMode == ControlModeObserved) && (isTrueResult(item.ObservedResult) || matchingConstraint) {
 			item.Status = ReadinessSatisfied
 		}
 		if item.Status == ReadinessSatisfied && len(item.ReasonCodes) > 0 {
@@ -711,7 +765,101 @@ func EvaluateReadiness(input ReadinessInput) ReadinessResult {
 		}
 	}
 	out.ReasonCodes = sortedUnique(out.ReasonCodes)
+	if raw, err := json.Marshal(out); err != nil || validateRuntimeSchema(raw, RuntimeReadinessSchemaID) != nil {
+		out.Ready = false
+		out.Status = ReadinessInconclusive
+		out.ReasonCodes = sortedUnique(append(out.ReasonCodes, "schema_validation_failed"))
+	}
 	return out
+}
+
+func forbiddenReadinessProducer(value string) bool {
+	switch normalize(value) {
+	case "wrkr", "judge", "advisory", "self", "self_attested", "declaration", "declaration_only":
+		return true
+	default:
+		return false
+	}
+}
+
+func validateFreshness(item ReadinessPrecondition, now time.Time) string {
+	if item.ObservedAt == "" {
+		return "freshness:timestamp_missing"
+	}
+	observed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(item.ObservedAt))
+	if err != nil {
+		return "freshness:timestamp_invalid"
+	}
+	if now.IsZero() || item.MaxAgeSeconds <= 0 {
+		return "freshness:max_age_missing"
+	}
+	age := now.UTC().Sub(observed.UTC())
+	if age < 0 || age > time.Duration(item.MaxAgeSeconds)*time.Second {
+		return "freshness:not_fresh"
+	}
+	if item.FreshnessState != "fresh" && item.FreshnessState != "current" {
+		return "freshness:not_fresh"
+	}
+	return ""
+}
+
+func validateReadinessKind(item ReadinessPrecondition) []string {
+	reasons := []string{}
+	switch item.Kind {
+	case "environment":
+		if strings.TrimSpace(item.Environment) == "" {
+			reasons = append(reasons, "environment:missing")
+		}
+	case "target":
+		if strings.TrimSpace(item.Target) == "" {
+			reasons = append(reasons, "target:missing")
+		}
+	case "sandbox", "sandbox_control":
+		if normalize(item.SandboxStatus) != "clean" && normalize(item.SandboxStatus) != "isolated" {
+			reasons = append(reasons, "sandbox:not_clean")
+		}
+	case "credential_mode", "credential":
+		if strings.TrimSpace(item.CredentialMode) == "" {
+			reasons = append(reasons, "credential:mode_missing")
+		}
+	case "resource", "resource_lifecycle":
+		if normalize(item.ResourceStatus) != "clean" {
+			reasons = append(reasons, "resource:not_clean")
+		}
+		if item.TTLSeconds <= 0 {
+			reasons = append(reasons, "resource:ttl_missing")
+		}
+	case "compensation", "compensation_contract":
+		if normalize(item.CompensationStatus) != "ready" && normalize(item.CompensationStatus) != "verified" {
+			reasons = append(reasons, "compensation:not_ready")
+		}
+	}
+	return reasons
+}
+
+func validSHA256Digest(value string) bool {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "sha256:")
+	if len(value) != 64 {
+		return false
+	}
+	for _, char := range value {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func verifyEvidenceSignature(publicKey ed25519.PublicKey, digest, encodedSignature string) bool {
+	if len(publicKey) != ed25519.PublicKeySize || !validSHA256Digest(digest) {
+		return false
+	}
+	rawSignature, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encodedSignature))
+	if err != nil || len(rawSignature) != ed25519.SignatureSize {
+		return false
+	}
+	digestBytes, err := hex.DecodeString(strings.TrimPrefix(strings.TrimSpace(digest), "sha256:"))
+	return err == nil && len(digestBytes) == 32 && ed25519.Verify(publicKey, digestBytes, rawSignature)
 }
 
 // EvaluateContractReadiness is the stable name for callers evaluating a
@@ -736,7 +884,7 @@ func ReadinessFromContract(contract map[string]any, options ReadinessInput) Read
 		if contractRef == "" {
 			contractRef = stringField(raw, "effect_contract_ref")
 		}
-		item := ReadinessPrecondition{RequirementID: stringField(raw, "requirement_id"), Kind: stringField(raw, "kind"), Required: true, RequiredConstraint: stringField(raw, "required_constraint"), ContractRef: contractRef, ObservedValue: stringField(raw, "observed_value"), ObservedResult: stringField(raw, "observed_result"), Producer: stringField(raw, "producer"), AcceptableProducers: stringArray(raw, "acceptable_producers"), EvidenceState: stringField(raw, "evidence_state"), FreshnessState: stringField(raw, "freshness_state"), EvidenceRefs: stringArray(raw, "evidence_refs"), BoundaryRefs: stringArray(raw, "boundary_refs"), ControlMode: ControlMode(stringField(raw, "control_mode"))}
+		item := ReadinessPrecondition{RequirementID: stringField(raw, "requirement_id"), Kind: stringField(raw, "kind"), Required: true, RequiredConstraint: stringField(raw, "required_constraint"), ContractRef: contractRef, ObservedValue: stringField(raw, "observed_value"), ObservedResult: stringField(raw, "observed_result"), ObservedAt: stringField(raw, "observed_at"), MaxAgeSeconds: int64Field(raw, "max_age_seconds"), TTLSeconds: int64Field(raw, "ttl_seconds"), Environment: stringField(raw, "environment"), Target: stringField(raw, "target"), SandboxStatus: stringField(raw, "sandbox_status"), CredentialMode: stringField(raw, "credential_mode"), ResourceStatus: stringField(raw, "resource_status"), CompensationStatus: stringField(raw, "compensation_status"), EvidenceDigest: stringField(raw, "evidence_digest"), ValidatorSignature: stringField(raw, "validator_signature"), Producer: stringField(raw, "producer"), AcceptableProducers: stringArray(raw, "acceptable_producers"), EvidenceState: stringField(raw, "evidence_state"), FreshnessState: stringField(raw, "freshness_state"), EvidenceRefs: stringArray(raw, "evidence_refs"), BoundaryRefs: stringArray(raw, "boundary_refs"), ControlMode: ControlMode(stringField(raw, "control_mode"))}
 		if value, ok := raw["required"].(bool); ok {
 			item.Required = value
 		}
@@ -768,6 +916,7 @@ type LifecycleRecord struct {
 	Kind             LifecycleEventKind                       `json:"kind"`
 	OccurredAt       string                                   `json:"occurred_at"`
 	ContractRef      proof.RelationshipRef                    `json:"contract_ref"`
+	Revision         int                                      `json:"revision"`
 	ProposalRef      *proof.RelationshipRef                   `json:"proposal_ref,omitempty"`
 	ActivationRef    *proof.RelationshipRef                   `json:"activation_ref,omitempty"`
 	PreconditionRefs []proof.RelationshipRef                  `json:"precondition_refs,omitempty"`
@@ -782,6 +931,7 @@ type LifecycleRecordOptions struct {
 	Kind              LifecycleEventKind
 	OccurredAt        time.Time
 	ContractRef       proof.RelationshipRef
+	Revision          int
 	ProposalRef       *proof.RelationshipRef
 	ActivationRef     *proof.RelationshipRef
 	PreconditionRefs  []proof.RelationshipRef
@@ -796,18 +946,20 @@ func NewLifecycleRecord(options LifecycleRecordOptions) (LifecycleRecord, error)
 	if strings.TrimSpace(string(options.Kind)) == "" {
 		return LifecycleRecord{}, errors.New("lifecycle kind is required")
 	}
-	if strings.TrimSpace(options.ContractRef.Kind) == "" || strings.TrimSpace(options.ContractRef.ID) == "" {
-		return LifecycleRecord{}, errors.New("contract reference is required")
+	if !validLifecycleRef(options.ContractRef) {
+		return LifecycleRecord{}, errors.New("digest-bound contract reference is required")
+	}
+	if options.Revision < 1 {
+		return LifecycleRecord{}, errors.New("lifecycle revision is required")
 	}
 	correlation := options.Correlation
 	if correlation.ProfileVersion == "" {
 		correlation.ProfileVersion = CorrelationProfileVersion
 	}
 	if correlation.BindingMode == "" {
-		correlation.BindingMode = proof.BindingModeIdentifierOnly
-		if options.ContractRef.Digest != "" || (options.ProposalRef != nil && options.ProposalRef.Digest != "") || (options.ActivationRef != nil && options.ActivationRef.Digest != "") {
-			correlation.BindingMode = proof.BindingModeDigestBound
-		}
+		correlation.BindingMode = proof.BindingModeDigestBound
+	} else if correlation.BindingMode != proof.BindingModeDigestBound {
+		return LifecycleRecord{}, errors.New("lifecycle records require digest_bound correlation")
 	}
 	if correlation.ContractRef == nil {
 		contractRef := options.ContractRef
@@ -816,7 +968,33 @@ func NewLifecycleRecord(options LifecycleRecordOptions) (LifecycleRecord, error)
 	if correlation.ContentDigest == "" && options.ContractRef.Digest != "" {
 		correlation.ContentDigest = options.ContractRef.Digest
 	}
-	record := LifecycleRecord{SchemaID: RuntimeLifecycleSchemaID, SchemaVersion: RuntimeLifecycleVersion, Kind: options.Kind, OccurredAt: options.OccurredAt.UTC().Format(time.RFC3339Nano), ContractRef: options.ContractRef, ProposalRef: options.ProposalRef, ActivationRef: options.ActivationRef, PreconditionRefs: append([]proof.RelationshipRef(nil), options.PreconditionRefs...), Decision: options.Decision, ReasonCodes: sortedUnique(options.ReasonCodes), Correlation: correlation, ImmutableObject: append([]byte(nil), options.ImmutableObject...)}
+	decision := options.Decision
+	if decision != nil {
+		copyDecision := *decision
+		if copyDecision.SchemaID == "" {
+			copyDecision.SchemaID = RuntimeReadinessSchemaID
+		}
+		if copyDecision.SchemaVersion == "" {
+			copyDecision.SchemaVersion = RuntimeActionSchemaVersion
+		}
+		if copyDecision.Preconditions == nil {
+			copyDecision.Preconditions = []ReadinessPrecondition{}
+		}
+		decision = &copyDecision
+	}
+	record := LifecycleRecord{SchemaID: RuntimeLifecycleSchemaID, SchemaVersion: RuntimeLifecycleVersion, Kind: options.Kind, OccurredAt: options.OccurredAt.UTC().Format(time.RFC3339Nano), ContractRef: options.ContractRef, Revision: options.Revision, ProposalRef: options.ProposalRef, ActivationRef: options.ActivationRef, PreconditionRefs: append([]proof.RelationshipRef(nil), options.PreconditionRefs...), Decision: decision, ReasonCodes: sortedUnique(options.ReasonCodes), Correlation: correlation, ImmutableObject: append([]byte(nil), options.ImmutableObject...)}
+	if options.OccurredAt.IsZero() {
+		return LifecycleRecord{}, errors.New("lifecycle timestamp is required")
+	}
+	if err := record.Correlation.Validate(); err != nil {
+		return LifecycleRecord{}, fmt.Errorf("lifecycle correlation invalid: %w", err)
+	}
+	if err := validateLifecycleRefs(record); err != nil {
+		return LifecycleRecord{}, err
+	}
+	if err := validateLifecycleEvent(record); err != nil {
+		return LifecycleRecord{}, err
+	}
 	digest, err := lifecycleDigest(record)
 	if err != nil {
 		return LifecycleRecord{}, err
@@ -833,12 +1011,31 @@ func NewLifecycleRecord(options LifecycleRecordOptions) (LifecycleRecord, error)
 		return LifecycleRecord{}, err
 	}
 	record.Signature = signature
+	if raw, err := json.Marshal(record); err != nil {
+		return LifecycleRecord{}, errors.New("lifecycle schema validation failed")
+	} else if err := validateRuntimeSchema(raw, RuntimeLifecycleSchemaID); err != nil {
+		return LifecycleRecord{}, fmt.Errorf("lifecycle schema validation failed: %w", err)
+	}
 	return record, nil
 }
 
 func VerifyLifecycleRecord(record LifecycleRecord, publicKey ed25519.PublicKey) (bool, error) {
 	if record.SchemaID != RuntimeLifecycleSchemaID || record.SchemaVersion != RuntimeLifecycleVersion || record.RecordID == "" {
 		return false, errors.New("lifecycle schema or identity invalid")
+	}
+	if err := record.Correlation.Validate(); err != nil {
+		return false, fmt.Errorf("lifecycle correlation invalid: %w", err)
+	}
+	if err := validateLifecycleRefs(record); err != nil {
+		return false, err
+	}
+	if err := validateLifecycleEvent(record); err != nil {
+		return false, err
+	}
+	if raw, err := json.Marshal(record); err != nil {
+		return false, errors.New("lifecycle schema validation failed")
+	} else if err := validateRuntimeSchema(raw, RuntimeLifecycleSchemaID); err != nil {
+		return false, fmt.Errorf("lifecycle schema validation failed: %w", err)
 	}
 	digest, err := lifecycleDigest(record)
 	if err != nil {
@@ -852,6 +1049,76 @@ func VerifyLifecycleRecord(record LifecycleRecord, publicKey ed25519.PublicKey) 
 		return false, errors.New("lifecycle signature invalid")
 	}
 	return record.RecordID == "gait-lr-"+strings.TrimPrefix(digest, "sha256:")[:16], nil
+}
+
+// ParseLifecycleRecord is the strict JSON boundary for persisted lifecycle
+// records; callers must verify the returned record before reducing it.
+func ParseLifecycleRecord(raw []byte) (LifecycleRecord, error) {
+	var record LifecycleRecord
+	if err := DecodeStrictRuntimeJSON(raw, &record); err != nil {
+		return LifecycleRecord{}, err
+	}
+	if err := validateRuntimeSchema(raw, RuntimeLifecycleSchemaID); err != nil {
+		return LifecycleRecord{}, errors.New("lifecycle schema validation failed")
+	}
+	if err := validateLifecycleEvent(record); err != nil {
+		return LifecycleRecord{}, err
+	}
+	return record, nil
+}
+
+func validLifecycleRef(ref proof.RelationshipRef) bool {
+	return strings.TrimSpace(ref.Kind) != "" && strings.TrimSpace(ref.ID) != "" && validSHA256Digest(ref.Digest)
+}
+
+func validateLifecycleRefs(record LifecycleRecord) error {
+	if !validLifecycleRef(record.ContractRef) {
+		return errors.New("lifecycle contract reference must be digest-bound")
+	}
+	if record.Correlation.BindingMode != proof.BindingModeDigestBound || record.Correlation.ContractRef == nil || !validLifecycleRef(*record.Correlation.ContractRef) {
+		return errors.New("lifecycle correlation must carry digest-bound contract reference")
+	}
+	if record.Correlation.ContractRef.Digest != record.ContractRef.Digest {
+		return errors.New("lifecycle correlation contract digest mismatch")
+	}
+	if record.ProposalRef != nil && !validLifecycleRef(*record.ProposalRef) {
+		return errors.New("lifecycle proposal reference must be digest-bound")
+	}
+	if record.ActivationRef != nil && !validLifecycleRef(*record.ActivationRef) {
+		return errors.New("lifecycle activation reference must be digest-bound")
+	}
+	for _, ref := range record.PreconditionRefs {
+		if !validLifecycleRef(ref) {
+			return errors.New("lifecycle precondition reference must be digest-bound")
+		}
+	}
+	return nil
+}
+
+func validateLifecycleEvent(record LifecycleRecord) error {
+	switch record.Kind {
+	case LifecycleProposalIngested:
+		if record.ProposalRef == nil {
+			return errors.New("lifecycle_proposal_ref_required")
+		}
+	case LifecycleActivationRequested:
+		if record.ProposalRef == nil {
+			return errors.New("lifecycle_proposal_ref_required")
+		}
+	case LifecycleActivated:
+		if record.ProposalRef == nil || record.ActivationRef == nil {
+			return errors.New("lifecycle_activation_refs_required")
+		}
+	case LifecyclePreconditionEvaluated:
+		if len(record.PreconditionRefs) == 0 {
+			return errors.New("lifecycle_precondition_refs_required")
+		}
+	case LifecycleDecisionReady:
+		if record.Decision == nil || !record.Decision.Ready {
+			return errors.New("lifecycle_decision_not_ready")
+		}
+	}
+	return nil
 }
 
 type LifecycleSnapshot struct {
@@ -869,21 +1136,90 @@ type LifecycleSnapshot struct {
 }
 
 func ReduceLifecycle(records []LifecycleRecord) LifecycleSnapshot {
+	snapshot, err := ReduceLifecycleChecked(records)
+	if err != nil {
+		return LifecycleSnapshot{CurrentStatus: "invalid", ReasonCodes: []string{err.Error()}, Records: append([]LifecycleRecord(nil), records...)}
+	}
+	return snapshot
+}
+
+// ReduceLifecycleChecked validates identity, timestamps, contract isolation,
+// duplicate IDs, and terminal ordering before applying the pure reduction.
+func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error) {
 	ordered := append([]LifecycleRecord(nil), records...)
-	sort.SliceStable(ordered, func(i, j int) bool {
-		if ordered[i].OccurredAt != ordered[j].OccurredAt {
-			return ordered[i].OccurredAt < ordered[j].OccurredAt
+	seenIDs := map[string]struct{}{}
+	contractKey := ""
+	revision := -1
+	var previousTime time.Time
+	previousID := ""
+	for index, record := range ordered {
+		if record.RecordID == "" {
+			return LifecycleSnapshot{}, errors.New("lifecycle_record_id_missing")
 		}
-		return ordered[i].RecordID < ordered[j].RecordID
-	})
+		if _, exists := seenIDs[record.RecordID]; exists {
+			return LifecycleSnapshot{}, errors.New("lifecycle_duplicate_record_id")
+		}
+		seenIDs[record.RecordID] = struct{}{}
+		occurredAt, err := time.Parse(time.RFC3339Nano, record.OccurredAt)
+		if err != nil {
+			return LifecycleSnapshot{}, errors.New("lifecycle_timestamp_invalid")
+		}
+		if index > 0 && (occurredAt.Before(previousTime) || (occurredAt.Equal(previousTime) && record.RecordID < previousID)) {
+			return LifecycleSnapshot{}, errors.New("lifecycle_input_reordered")
+		}
+		previousTime = occurredAt
+		previousID = record.RecordID
+		if record.Revision < 1 {
+			return LifecycleSnapshot{}, errors.New("lifecycle_revision_invalid")
+		}
+		if err := record.Correlation.Validate(); err != nil {
+			return LifecycleSnapshot{}, errors.New("lifecycle_correlation_invalid")
+		}
+		if err := validateLifecycleRefs(record); err != nil {
+			return LifecycleSnapshot{}, err
+		}
+		if err := validateLifecycleEvent(record); err != nil {
+			return LifecycleSnapshot{}, err
+		}
+		key := record.ContractRef.Kind + "|" + record.ContractRef.ID + "|" + record.ContractRef.Digest
+		if contractKey == "" {
+			contractKey = key
+		} else if key != contractKey {
+			return LifecycleSnapshot{}, errors.New("lifecycle_contract_mismatch")
+		}
+		if revision < 0 {
+			revision = record.Revision
+		} else if record.Revision != revision {
+			return LifecycleSnapshot{}, errors.New("lifecycle_revision_mismatch")
+		}
+	}
 	out := LifecycleSnapshot{Records: ordered}
+	evaluated := map[string]struct{}{}
+	terminal := false
+	proposalIngested := false
+	activationRequested := false
+	decisionReady := false
 	for _, record := range ordered {
+		if terminal && (record.Kind == LifecycleActivated || record.Kind == LifecycleActivationRequested) {
+			return LifecycleSnapshot{}, errors.New("lifecycle_terminal_order_invalid")
+		}
 		switch record.Kind {
 		case LifecycleProposalIngested:
 			out.ProposalIngested = true
+			proposalIngested = true
 		case LifecycleActivationRequested:
+			if !proposalIngested {
+				return LifecycleSnapshot{}, errors.New("lifecycle_activation_without_proposal")
+			}
 			out.ActivationRequested = true
+			activationRequested = true
 		case LifecycleActivated:
+			if !proposalIngested || !activationRequested {
+				return LifecycleSnapshot{}, errors.New("lifecycle_activation_without_request")
+			}
+			if !decisionReady {
+				return LifecycleSnapshot{}, errors.New("lifecycle_activation_without_decision")
+			}
 			out.Activated = true
 			out.Rejected = false
 		case LifecycleRejected:
@@ -892,13 +1228,28 @@ func ReduceLifecycle(records []LifecycleRecord) LifecycleSnapshot {
 		case LifecycleRevoked:
 			out.Revoked = true
 			out.Activated = false
+			terminal = true
 		case LifecycleSuperseded:
 			out.Superseded = true
 			out.Activated = false
+			terminal = true
 		case LifecyclePreconditionEvaluated:
-			out.PreconditionsEvaluated += len(record.PreconditionRefs)
+			for _, ref := range record.PreconditionRefs {
+				key := ref.Kind + "|" + ref.ID + "|" + ref.Digest
+				if _, exists := evaluated[key]; !exists {
+					evaluated[key] = struct{}{}
+					out.PreconditionsEvaluated++
+				}
+			}
 		case LifecycleDecisionReady:
-			out.DecisionReady = record.Decision == nil || record.Decision.Ready
+			if !proposalIngested {
+				return LifecycleSnapshot{}, errors.New("lifecycle_decision_without_proposal")
+			}
+			if record.Decision == nil || !record.Decision.Ready {
+				return LifecycleSnapshot{}, errors.New("lifecycle_decision_not_ready")
+			}
+			out.DecisionReady = true
+			decisionReady = true
 		}
 		out.ReasonCodes = append(out.ReasonCodes, record.ReasonCodes...)
 	}
@@ -919,7 +1270,7 @@ func ReduceLifecycle(records []LifecycleRecord) LifecycleSnapshot {
 		out.CurrentStatus = "unknown"
 	}
 	out.ReasonCodes = sortedUnique(out.ReasonCodes)
-	return out
+	return out, nil
 }
 
 // ReduceLifecycleEvents is a compatibility alias with the event-oriented
@@ -940,6 +1291,19 @@ func lifecycleDigest(record LifecycleRecord) (string, error) {
 }
 
 func normalize(value string) string { return strings.ToLower(strings.TrimSpace(value)) }
+func int64Field(object map[string]any, key string) int64 {
+	switch value := object[key].(type) {
+	case int:
+		return int64(value)
+	case float64:
+		return int64(value)
+	case json.Number:
+		parsed, _ := value.Int64()
+		return parsed
+	default:
+		return 0
+	}
+}
 func sortedUnique(values []string) []string {
 	seen := map[string]struct{}{}
 	for _, value := range values {

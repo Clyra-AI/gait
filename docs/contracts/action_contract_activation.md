@@ -47,7 +47,7 @@ Gait also exposes a deterministic runtime projection without executing a tool:
 
 ```bash
 gait contract classify --proposal proposal.json --json
-gait contract readiness --proposal proposal.json --trusted-validators gait-policy-validator --json
+gait contract readiness --proposal proposal.json --trusted-validators gait-policy-validator --trusted-validator-key gait-policy-validator=validator.pub.b64 --evaluation-time 2026-07-19T12:00:00Z --json
 gait contract explain --proposal proposal.json --json
 ```
 
@@ -58,11 +58,16 @@ preserve or raise a supplied class, never lower it. Intended outcome and
 observed effect are separate fields; classification does not claim execution.
 
 Readiness evaluates typed preconditions with statuses `satisfied`,
-`unsatisfied`, `inconclusive`, and `not_required`. Only policy-named trusted
-validators can satisfy a required check; Wrkr declarations and judge or
-self-attested results do not. Proof v0.6.1 digest-bound relationship refs and
-the correlation profile are retained on signed lifecycle records, which a
-pure reducer can reconstruct without an event store.
+`unsatisfied`, `inconclusive`, and `not_required`. The CLI requires an explicit
+UTC `--evaluation-time` and policy-bound validator public key(s); a freeform
+validator name or signature string cannot authorize readiness. Evidence must
+be verified, digest-bound, timestamped, fresh within its max age, and carry
+non-empty evidence references. Wrkr declarations, judge/advisory, and
+self-attested results do not satisfy required checks. Proof v0.6.1
+digest-bound relationship refs and the correlation profile are retained on
+signed lifecycle records, which a pure reducer can reconstruct without an
+event store. Lifecycle records require proposal/activation/precondition refs
+where their event kind requires them and reducer order is fail-closed.
 
 ## Released compatibility fixtures
 

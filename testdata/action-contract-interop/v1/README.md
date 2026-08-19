@@ -24,3 +24,14 @@ pack through the runtime classification/readiness projection. Those checks
 assert deterministic action/boundary/outcome normalization, bounded stage
 topology, fail-closed readiness without trusted validators, and the invariant
 that intended outcomes never become observed effects.
+
+Exact runtime projection goldens are committed under `testdata/runtime-goldens/`
+for action classification, readiness, and signed lifecycle records. The
+ordered full-record lifecycle chain is accompanied by a digest manifest and
+fixture-only public signing key. Runtime tests parse and verify every record
+with that key before reduction; their canonical JSON is compared byte-for-byte
+after normalization.
+The manifest records the provisional Gait producer target `v1.5.0` and the
+runtime-readiness source commit for later release reconciliation. Runtime tests
+pin the complete manifest file set and SHA-256 values, then compare generated
+canonical JSON and full JSONL bytes, so editing the manifest cannot bless drift.

@@ -7,6 +7,8 @@ This directory defines the cross-product Action Contract boundary:
 - Gait consumer receipt schema `1`.
 - Gait runtime action classification schema `1`, readiness schema `1`, and
   signed lifecycle-record schema `1`.
+- The lifecycle correlation field uses the versioned Proof control,
+  containment, and telemetry correlation profile with digest-bound references.
 
 Wrkr proposals are report-only evidence. Gait accepts one explicit proposal,
 requires a Gait-owned current-selection manifest for activation/consumer
@@ -28,4 +30,6 @@ resource lifecycle actions are deterministic and independent of `risk_class`.
 `observed_effect` is optional evidence and is never synthesized from an
 intended outcome. Readiness statuses are per-precondition and fail closed for
 required missing, stale, inconclusive, self-attested, or non-policy-named
-validators. Boundary references remain separate from evidence references.
+validators; authoritative readiness additionally requires an explicit UTC
+evaluation time and a policy-bound public-key signature over the evidence
+digest. Boundary references remain separate from evidence references.

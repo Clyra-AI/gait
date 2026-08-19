@@ -29,7 +29,7 @@
 - gait pack diff <left.zip> <right.zip>
 - gait contract validate --proposal <artifact.json> --json
 - gait contract classify --proposal <artifact.json> --json
-- gait contract readiness --proposal <artifact.json> --trusted-validators <csv> --json
+- gait contract readiness --proposal <artifact.json> --trusted-validators <csv> --trusted-validator-key producer=public-key-path --evaluation-time <rfc3339> --json
 - gait contract explain --proposal <artifact.json> --json
 - gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> --json
 - gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> --json

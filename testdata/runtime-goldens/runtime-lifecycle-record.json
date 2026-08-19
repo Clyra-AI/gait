@@ -1,0 +1,60 @@
+{
+  "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+  "schema_version": "1",
+  "record_id": "gait-lr-64c3a844a653a8aa",
+  "kind": "decision_ready",
+  "occurred_at": "2026-07-19T01:00:00Z",
+  "contract_ref": {
+    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "id": "pac-runtime-golden",
+    "kind": "action_contract",
+    "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+    "schema_version": "3",
+    "source_product": "gait"
+  },
+  "revision": 1,
+  "precondition_refs": [{"digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","id":"runtime-p1","kind":"precondition"}],
+  "decision": {
+    "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+    "schema_version": "1",
+    "contract_id": "pac-runtime-golden",
+    "ready": true,
+    "status": "satisfied",
+    "preconditions": [{
+      "requirement_id": "runtime-p1",
+      "kind": "environment",
+      "required": true,
+      "observed_result": "pass",
+      "observed_at": "2026-07-19T00:30:00Z",
+      "max_age_seconds": 3600,
+      "environment": "production",
+      "evidence_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "validator_signature": "cDhLc0ZYNiXGjJJoCrKg01QoMnYtrG+GIIdaoh2In6oZc6km0yjVB4H571UfL/3GGBgo+hqdXdAhyNJel8gQCQ==",
+      "producer": "validator",
+      "evidence_state": "verified",
+      "freshness_state": "fresh",
+      "evidence_refs": ["evidence:runtime-p1"],
+      "control_mode": "enforced",
+      "status": "satisfied"
+    }]
+  },
+  "correlation": {
+    "profile_version": "1.0",
+    "contract_ref": {
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "id": "pac-runtime-golden",
+      "kind": "action_contract",
+      "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+      "schema_version": "3",
+      "source_product": "gait"
+    },
+    "content_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "binding_mode": "digest_bound"
+  },
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701",
+    "sig": "rITINFqzxJjsc9Pk+S13lTExqtmVYqFSzAxYkuJoyxTYaZPzDyY4mtRqCsbnuOmKDXQtsb8PVkQIeMjV1f4aBA==",
+    "signed_digest": "64c3a844a653a8aa5225ef554f81cf42d7c64276d23c22449e14d3e644f58064"
+  }
+}

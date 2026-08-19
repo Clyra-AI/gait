@@ -1,0 +1,24 @@
+{
+  "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+  "schema_version": "1",
+  "contract_id": "pac-runtime-golden",
+  "ready": true,
+  "status": "satisfied",
+  "preconditions": [{
+    "requirement_id": "runtime-p1",
+    "kind": "environment",
+    "required": true,
+    "observed_result": "pass",
+    "observed_at": "2026-07-19T00:30:00Z",
+    "max_age_seconds": 3600,
+    "environment": "production",
+    "evidence_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "validator_signature": "cDhLc0ZYNiXGjJJoCrKg01QoMnYtrG+GIIdaoh2In6oZc6km0yjVB4H571UfL/3GGBgo+hqdXdAhyNJel8gQCQ==",
+    "producer": "validator",
+    "evidence_state": "verified",
+    "freshness_state": "fresh",
+    "evidence_refs": ["evidence:runtime-p1"],
+    "control_mode": "enforced",
+    "status": "satisfied"
+  }]
+}
