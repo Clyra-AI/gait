@@ -89,6 +89,8 @@ const (
 	ReasonSelectionAmbiguous           = "selection_ambiguous"
 	ReasonBindingMismatch              = "proposal_binding_mismatch"
 	ReasonEvaluationTimeInvalid        = "evaluation_time_invalid"
+	ReasonActivationNotYetValid        = "activation_not_yet_valid"
+	ReasonActivationExpired            = "activation_expired"
 )
 
 var (
@@ -407,6 +409,7 @@ func ParseActivatedArtifact(raw []byte) (ActivatedArtifact, error) {
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
+	decoder.DisallowUnknownFields()
 	var artifact ActivatedArtifact
 	if err := decoder.Decode(&artifact); err != nil {
 		return ActivatedArtifact{}, &ValidationError{Reasons: []string{ReasonMalformedArtifact}}
@@ -1175,6 +1178,10 @@ type ActivationResult struct {
 type VerificationOptions struct {
 	AllowDevelopmentSigning bool
 	Proposal                *Artifact
+	// EvaluationTime controls activation and proposal expiry checks. A zero
+	// value preserves the library's historical current-time behavior; CLI and
+	// deterministic callers should pass an explicit UTC time.
+	EvaluationTime time.Time
 }
 
 // Activate validates one proposal and emits a deterministic signed activation
@@ -1327,11 +1334,31 @@ func VerifyActivationWithOptions(artifact ActivatedArtifact, publicKey ed25519.P
 	if artifact.Proposal.SchemaID != ProposedSchemaID || artifact.Proposal.SchemaVersion != ProposedSchemaVersion || artifact.Proposal.ContractSchemaVersion != ProposedContractVersion || artifact.Proposal.ArtifactID == "" || artifact.Proposal.CanonicalContentDigest == "" || artifact.Proposal.ContractID != artifact.ContractID || artifact.Proposal.ContractFamilyID != artifact.ContractFamilyID || artifact.Proposal.Revision != artifact.Revision {
 		return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
 	}
-	if validation := ValidateArtifact(*options.Proposal, ValidationOptions{}); !validation.Valid {
+	if validation := ValidateArtifact(*options.Proposal, ValidationOptions{Now: options.EvaluationTime}); !validation.Valid {
 		return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
 	}
 	if artifact.Proposal.ArtifactID != options.Proposal.ArtifactID || artifact.Proposal.CanonicalContentDigest != options.Proposal.CanonicalContentDigest || artifact.Proposal.ContractID != options.Proposal.ContractID || artifact.Proposal.ContractFamilyID != options.Proposal.ContractFamilyID || artifact.Proposal.Revision != options.Proposal.Revision || artifact.Proposal.ContractSchemaVersion != options.Proposal.Producer.ContractSchemaVersion {
 		return false, &ValidationError{Reasons: []string{ReasonBindingMismatch}}
+	}
+	evaluationTime := options.EvaluationTime
+	if evaluationTime.IsZero() {
+		evaluationTime = time.Now().UTC()
+	}
+	notBefore, parseErr := time.Parse(time.RFC3339, artifact.Validity.NotBefore)
+	if parseErr != nil {
+		return false, &ValidationError{Reasons: []string{ReasonValidityInvalid}}
+	}
+	if evaluationTime.Before(notBefore) {
+		return false, &ValidationError{Reasons: []string{ReasonActivationNotYetValid}}
+	}
+	if strings.TrimSpace(artifact.Validity.NotAfter) != "" {
+		notAfter, parseErr := time.Parse(time.RFC3339, artifact.Validity.NotAfter)
+		if parseErr != nil {
+			return false, &ValidationError{Reasons: []string{ReasonValidityInvalid}}
+		}
+		if !evaluationTime.Before(notAfter) {
+			return false, &ValidationError{Reasons: []string{ReasonActivationExpired}}
+		}
 	}
 	digest, err := activatedSignableDigest(artifact)
 	if err != nil {

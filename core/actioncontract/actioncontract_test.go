@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	proofsign "github.com/Clyra-AI/proof/signing"
 )
@@ -59,7 +60,7 @@ func TestActivationIsDeterministicAndSigned(t *testing.T) {
 	if string(leftBytes) != string(rightBytes) {
 		t.Fatalf("activation is not deterministic\nleft=%s\nright=%s", leftBytes, rightBytes)
 	}
-	valid, err := VerifyActivation(left, keyPair.Public, proposal)
+	valid, err := VerifyActivationWithOptions(left, keyPair.Public, VerificationOptions{Proposal: &proposal, EvaluationTime: mustTime("2026-07-19T12:00:00Z")})
 	if err != nil || !valid {
 		t.Fatalf("verify activation: valid=%v err=%v", valid, err)
 	}
@@ -247,6 +248,59 @@ func TestVerifyActivationRejectsInvalidPublicKeyLength(t *testing.T) {
 	valid, err := VerifyActivationWithOptions(activated, ed25519.PublicKey{1}, VerificationOptions{Proposal: &proposal})
 	if valid || err == nil || !contains(err.(*ValidationError).Reasons, ReasonSigningKeyRequired) {
 		t.Fatalf("invalid key length must fail safely: valid=%v err=%v", valid, err)
+	}
+}
+
+func TestParseActivatedArtifactRejectsUnknownFields(t *testing.T) {
+	proposal := fixtureArtifact(t, "customer-data-to-egress")
+	activated, _, err := Activate(proposal, ActivationOptions{PolicyDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", ActivatingPrincipal: "principal:owner", AuthorityRefs: []string{"approval:owner"}, Target: "target:deploy", Environment: "production", Mode: ActivationContextOnly, ValidFrom: "2026-07-19T00:00:00Z", SigningPrivateKey: mustKey(t), Selection: fixtureSelection(t, "customer-data-to-egress", proposal)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(activated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mutated := range [][]byte{
+		bytesReplace(raw, []byte(`"report_only":false`), []byte(`"report_only":false,"unexpected":true`)),
+		bytesReplace(raw, []byte(`"name":"gait"`), []byte(`"name":"gait","unexpected":true`)),
+	} {
+		if _, err := ParseActivatedArtifact(mutated); err == nil {
+			t.Fatal("activated artifact with unknown field was accepted")
+		}
+	}
+}
+
+func TestVerifyActivationEnforcesValidityAtExplicitEvaluationTime(t *testing.T) {
+	proposal := fixtureArtifact(t, "customer-data-to-egress")
+	options := ActivationOptions{PolicyDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", ActivatingPrincipal: "principal:owner", AuthorityRefs: []string{"approval:owner"}, Target: "target:deploy", Environment: "production", Mode: ActivationContextOnly, ValidFrom: "2026-08-10T00:00:00Z", ValidUntil: "2026-08-20T00:00:00Z", SigningPrivateKey: mustKey(t), Selection: fixtureSelection(t, "customer-data-to-egress", proposal)}
+	activated, _, err := Activate(proposal, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey := options.SigningPrivateKey.Public().(ed25519.PublicKey)
+	for _, test := range []struct {
+		name   string
+		time   string
+		reason string
+	}{
+		{name: "before", time: "2026-08-09T23:59:59Z", reason: ReasonActivationNotYetValid},
+		{name: "after", time: "2026-08-20T00:00:00Z", reason: ReasonActivationExpired},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			evaluation, parseErr := time.Parse(time.RFC3339, test.time)
+			if parseErr != nil {
+				t.Fatal(parseErr)
+			}
+			valid, verifyErr := VerifyActivationWithOptions(activated, publicKey, VerificationOptions{Proposal: &proposal, EvaluationTime: evaluation})
+			if valid || verifyErr == nil || !contains(verifyErr.(*ValidationError).Reasons, test.reason) {
+				t.Fatalf("validity window result=%v err=%v", valid, verifyErr)
+			}
+		})
+	}
+	evaluation, _ := time.Parse(time.RFC3339, "2026-08-15T00:00:00Z")
+	if valid, verifyErr := VerifyActivationWithOptions(activated, publicKey, VerificationOptions{Proposal: &proposal, EvaluationTime: evaluation}); verifyErr != nil || !valid {
+		t.Fatalf("validity window should verify inside interval: valid=%v err=%v", valid, verifyErr)
 	}
 }
 

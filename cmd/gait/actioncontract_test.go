@@ -48,6 +48,12 @@ func TestActionContractVerifyCLIAndExitCodes(t *testing.T) {
 	if code != exitOK || !strings.Contains(output, `"ok":true`) {
 		t.Fatalf("verify CLI should pass: code=%d output=%s", code, output)
 	}
+	_, code = captureActionContractOutput(t, func() int {
+		return runActionContractVerify([]string{"--activation", activationPath, "--proposal", proposalPath, "--public-key", publicPath, "--evaluation-time", "not-a-time", "--json"})
+	})
+	if code != exitInvalidInput {
+		t.Fatalf("malformed verification evaluation time must be invalid input: %d", code)
+	}
 	wrongPublic, wrongPrivate, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -90,6 +96,33 @@ func TestActionContractValidateRejectsMalformedEvaluationTime(t *testing.T) {
 	})
 	if code != exitInvalidInput || !strings.Contains(output, actioncontract.ReasonEvaluationTimeInvalid) {
 		t.Fatalf("malformed evaluation time must fail as invalid input: code=%d output=%s", code, output)
+	}
+}
+
+func TestActionContractRejectReceiptHasRequiredFields(t *testing.T) {
+	output, code := captureActionContractOutput(t, func() int {
+		return runActionContractConsume([]string{"--json"})
+	})
+	if code != exitInvalidInput {
+		t.Fatalf("missing consumer artifact should be invalid input: %d", code)
+	}
+	var receipt struct {
+		ScenarioID     string `json:"scenario_id"`
+		ArtifactSHA256 string `json:"artifact_sha256"`
+		SchemaVersions struct {
+			Artifact string `json:"artifact"`
+			Contract string `json:"contract"`
+		} `json:"schema_versions"`
+		SemanticResult struct {
+			ExecutionClaim bool `json:"execution_claim"`
+			EffectClaim    bool `json:"effect_claim"`
+		} `json:"semantic_result"`
+	}
+	if err := json.Unmarshal([]byte(output), &receipt); err != nil {
+		t.Fatal(err)
+	}
+	if receipt.ScenarioID == "" || receipt.ArtifactSHA256 == "" || receipt.SchemaVersions.Artifact == "" || receipt.SchemaVersions.Contract == "" || receipt.SemanticResult.ExecutionClaim || receipt.SemanticResult.EffectClaim {
+		t.Fatalf("reject receipt is not schema-valid: %s", output)
 	}
 }
 
