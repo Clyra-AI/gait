@@ -162,6 +162,23 @@ func TestDuplicateJSONKeysAndNestedSchemaDriftReject(t *testing.T) {
 	}
 }
 
+func TestParseArtifactRejectsMalformedAndTrailingJSON(t *testing.T) {
+	path := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed, err := ParseArtifact(raw); err != nil || parsed.ArtifactID == "" {
+		t.Fatalf("valid proposal did not parse: id=%q err=%v", parsed.ArtifactID, err)
+	}
+	unknown := bytesReplace(raw, []byte(`"schema_id"`), []byte(`"unknown_field":"x","schema_id"`))
+	for _, malformed := range [][]byte{nil, []byte(`{"schema_id":`), append(append([]byte(nil), raw...), []byte(` {}`)...), unknown} {
+		if _, err := ParseArtifact(malformed); err == nil {
+			t.Fatalf("malformed/trailing proposal was accepted: %s", malformed)
+		}
+	}
+}
+
 func TestSelectionManifestAndStaleRevisionFailClosed(t *testing.T) {
 	artifactPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
 	manifestPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "fixture-manifest.json")
@@ -199,6 +216,26 @@ func TestActivationRequiresKeyAndDevelopmentModeIsMarked(t *testing.T) {
 	}
 	if valid, err := VerifyActivationWithOptions(activated, DevelopmentPublicKey(), VerificationOptions{AllowDevelopmentSigning: true, Proposal: &proposal}); err != nil || !valid {
 		t.Fatalf("explicit development verification should work: valid=%v err=%v", valid, err)
+	}
+}
+
+func TestActivationRejectsMissingAuthorityBoundaryFields(t *testing.T) {
+	proposal := fixtureArtifact(t, "customer-data-to-egress")
+	_, _, err := Activate(proposal, ActivationOptions{})
+	if err == nil {
+		t.Fatal("activation with no boundary fields was accepted")
+	}
+	validationErr := err.(*ValidationError)
+	for _, reason := range []string{ReasonSelectionEvidenceRequired, ReasonActivationModeUnsupported, ReasonPolicyDigestMissing, ReasonPrincipalMissing, ReasonAuthorityRefsMissing, ReasonTargetMissing, ReasonEnvironmentMissing, ReasonValidityInvalid} {
+		if !contains(validationErr.Reasons, reason) {
+			t.Fatalf("missing boundary reason %q: %v", reason, validationErr.Reasons)
+		}
+	}
+	selection := fixtureSelection(t, "customer-data-to-egress", proposal)
+	selection.Current = false
+	_, _, err = Activate(proposal, ActivationOptions{Selection: selection, Mode: ActivationContextOnly, PolicyDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", ActivatingPrincipal: "principal:owner", AuthorityRefs: []string{"approval:owner"}, Target: "target:deploy", Environment: "production", ValidFrom: "2026-07-19T00:00:00Z"})
+	if err == nil || !contains(err.(*ValidationError).Reasons, ReasonSelectionNotCurrent) {
+		t.Fatalf("non-current selection accepted: %v", err)
 	}
 }
 
@@ -310,6 +347,26 @@ func TestParseActivatedArtifactRejectsUnknownFields(t *testing.T) {
 	} {
 		if _, err := ParseActivatedArtifact(mutated); err == nil {
 			t.Fatal("activated artifact with unknown field was accepted")
+		}
+	}
+}
+
+func TestParseActivatedArtifactRejectsMalformedAndTrailingJSON(t *testing.T) {
+	proposal := fixtureArtifact(t, "customer-data-to-egress")
+	activated, _, err := Activate(proposal, ActivationOptions{PolicyDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", ActivatingPrincipal: "principal:owner", AuthorityRefs: []string{"approval:owner"}, Target: "target:deploy", Environment: "production", Mode: ActivationContextOnly, ValidFrom: "2026-07-19T00:00:00Z", SigningPrivateKey: mustKey(t), Selection: fixtureSelection(t, "customer-data-to-egress", proposal)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(activated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed, err := ParseActivatedArtifact(raw); err != nil || parsed.ArtifactID != activated.ArtifactID {
+		t.Fatalf("valid activated artifact did not parse: id=%q err=%v", parsed.ArtifactID, err)
+	}
+	for _, malformed := range [][]byte{nil, []byte(`{"schema_id":`), append(append([]byte(nil), raw...), []byte(` {}`)...)} {
+		if _, err := ParseActivatedArtifact(malformed); err == nil {
+			t.Fatalf("malformed/trailing activated artifact was accepted: %s", malformed)
 		}
 	}
 }
