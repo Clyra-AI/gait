@@ -19,6 +19,11 @@ This matrix defines compatibility between producer and consumer surfaces.
 | --- | --- | --- | --- |
 | current `1.x` release line | 1.0.0 | verifies PackSpec v1 (`run`, `job`, `call`) with additive verifier hardening and context-aware diff metadata where applicable | supported |
 
+| Action Contract producer/consumer | Artifact schema | Contract schema | Compatibility behavior |
+| --- | --- | --- | --- |
+| Wrkr `v1.14.0` -> Gait | 1 | 3 | Gait validates one explicit report-only proposal; activation is a separate signed Gait artifact and new revisions require reactivation |
+| Gait consumer receipt | 1 | n/a | Direct deterministic JSON receipt; `self_attestation=false`, no execution/effect claim |
+
 ## Stability Guarantees
 
 Within major `1.x` of PackSpec:
@@ -39,3 +44,6 @@ If you are emitting PackSpec outside Gait runtime:
 - validate outputs with `gait pack verify` in CI, and treat wrong-key signature failures as hard verification failures even in standard mode when a verify key is supplied
 
 Reference kit: `docs/contracts/pack_producer_kit.md`
+
+Action Contract details: `docs/contracts/action_contract_activation.md` and
+`schemas/v1/action-contract/README.md`.

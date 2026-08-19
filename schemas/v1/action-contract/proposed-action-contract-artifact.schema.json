@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json",
+  "title": "Wrkr Proposed Action Contract Portable Artifact",
+  "type": "object",
+  "required": ["schema_id", "schema_version", "artifact_id", "contract_id", "contract_family_id", "revision", "producer", "source_scan_refs", "composition_refs", "creation_evidence", "canonical_content_digest", "variant", "report_only", "contract"],
+  "properties": {
+    "schema_id": {"const": "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json"},
+    "schema_version": {"const": "1"},
+    "artifact_id": {"type": "string", "pattern": "^paca-[a-f0-9]{16}$"},
+    "contract_id": {"type": "string", "pattern": "^pac-[a-f0-9]{8,64}$"},
+    "contract_family_id": {"type": "string"},
+    "revision": {"type": "integer", "minimum": 1},
+    "producer": {
+      "type": "object", "required": ["name", "artifact_schema_version", "contract_schema_version"],
+      "properties": {"name": {"const": "wrkr"}, "artifact_schema_version": {"const": "1"}, "contract_schema_version": {"const": "3"}}, "additionalProperties": false
+    },
+    "source_scan_refs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "composition_refs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "resolution_key": {"type": "string"},
+    "creation_evidence": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "canonical_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "variant": {
+      "type": "object", "required": ["share_profile", "redacted"],
+      "properties": {"share_profile": {"type": "string", "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"]}, "redacted": {"type": "boolean"}}, "additionalProperties": false
+    },
+    "report_only": {"const": true},
+    "contract": {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json"}
+  },
+  "additionalProperties": false
+}

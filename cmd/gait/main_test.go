@@ -344,6 +344,10 @@ func TestTopLevelUsageIncludesSessionAndMCPServe(t *testing.T) {
 		"gait run session checkpoint",
 		"gait gateway ingest",
 		"gait mcp serve --policy <policy.yaml>",
+		"gait contract validate --proposal <artifact.json>",
+		"gait contract activate --proposal <artifact.json> --selection <manifest.json>",
+		"gait contract verify --activation <activated.json> --proposal <artifact.json>",
+		"gait contract consume <artifact.json>",
 		"gait version [--json] [--explain]",
 	} {
 		if !strings.Contains(raw, snippet) {
