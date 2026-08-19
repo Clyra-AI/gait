@@ -190,6 +190,7 @@ gait contract activate --proposal proposal.json --selection fixture-manifest.jso
   --valid-from 2026-07-19T00:00:00Z --json
 gait contract verify --activation activated.json --proposal proposal.json --public-key gait-public.key --json
 gait contract consume proposal.json --selection fixture-manifest.json
+gait effects grade --snapshot effect_snapshot.json --contract effect_contract.json [--junit effects.xml] --json
 ```
 
 For the pre-execution runtime projection, use deterministic classification and

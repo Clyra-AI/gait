@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - [semver:minor] Added deterministic pre-execution runtime action/boundary/outcome classification, typed contract readiness evaluation, and signed lifecycle records with pure reduction. These surfaces never execute tools or claim observed effects.
 - Added versioned runtime classification/readiness/lifecycle schemas and `gait contract classify|readiness|explain` CLI commands with stable JSON reason codes and fail-closed exit behavior.
+- [semver:minor] Added versioned deterministic effect snapshots and pure typed `effect_contract` grading for bounded Postgres, filesystem, HTTP, and resource lifecycle evidence, with fail-closed regress/JUnit integration.
 
 ## [1.4.0] - 2026-08-19
 

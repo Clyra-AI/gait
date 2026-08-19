@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/effects/effect-snapshot.schema.json",
+  "title": "Gait Effect Snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "snapshot_id", "resource_kind", "selector", "before", "after", "collector", "capture", "redaction", "completeness", "enforcement", "canonical_content_digest"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/effects/effect-snapshot.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "snapshot_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
+    "resource_kind": {"enum": ["postgres", "filesystem", "http", "resource"]},
+    "selector": {"$ref": "#/$defs/selector"},
+    "before": {"$ref": "#/$defs/observation"},
+    "after": {"$ref": "#/$defs/observation"},
+    "collector": {"$ref": "#/$defs/collector"},
+    "capture": {"$ref": "#/$defs/capture"},
+    "redaction": {"$ref": "#/$defs/redaction"},
+    "completeness": {"enum": ["complete", "partial", "unknown"]},
+    "enforcement": {"enum": ["verified", "observed_only", "partial", "unknown"]},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "canonical_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+  },
+  "$defs": {
+    "selector": {
+      "type": "object", "additionalProperties": false, "required": ["resource"],
+      "properties": {"resource": {"type": "string", "minLength": 1}, "scope": {"type": "string"}, "name": {"type": "string"}, "path": {"type": "string"}, "url": {"type": "string"}, "labels": {"type": "object", "additionalProperties": {"type": "string"}}}
+    },
+    "observation": {
+      "type": "object", "additionalProperties": false, "required": ["state", "observed_at"],
+      "properties": {
+        "state": {"enum": ["present", "absent", "unknown"]},
+        "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "count": {"type": "integer", "minimum": 0},
+        "identity": {"type": "string"}, "owner": {"type": "string"},
+        "ttl_seconds": {"type": "integer", "minimum": 0},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "collector": {"type": "object", "additionalProperties": false, "required": ["name", "version", "mode"], "properties": {"name": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1}, "mode": {"type": "string", "minLength": 1}}},
+    "capture": {"type": "object", "additionalProperties": false, "required": ["mode", "captured_at"], "properties": {"mode": {"type": "string", "enum": ["reference", "redacted", "full"]}, "source_ref": {"type": "string"}, "captured_at": {"type": "string", "format": "date-time"}}},
+    "redaction": {"type": "object", "additionalProperties": false, "required": ["mode"], "properties": {"mode": {"type": "string", "enum": ["none", "reference_only", "redacted"]}, "fields": {"type": "array", "items": {"type": "string"}}}}
+  }
+}

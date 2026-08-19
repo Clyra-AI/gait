@@ -90,6 +90,8 @@ func runDispatch(arguments []string) int {
 		return runDoctor(arguments[2:])
 	case "enforce":
 		return runEnforce(arguments[2:])
+	case "effects":
+		return runEffects(arguments[2:])
 	case "list-scripts":
 		return runListScripts(arguments[2:])
 	case "gate":

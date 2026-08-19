@@ -64,6 +64,8 @@ type fixtureMeta struct {
 	DiffAllowChangedFiles    []string `json:"diff_allow_changed_files,omitempty"`
 	SessionChain             string   `json:"session_chain,omitempty"`
 	CheckpointIndex          int      `json:"checkpoint_index,omitempty"`
+	EffectSnapshot           string   `json:"effect_snapshot,omitempty"`
+	EffectContract           string   `json:"effect_contract,omitempty"`
 }
 
 type configFile struct {

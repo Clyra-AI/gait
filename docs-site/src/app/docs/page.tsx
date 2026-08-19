@@ -43,6 +43,7 @@ const tracks = [
       { label: 'Pack Producer Kit', href: '/docs/contracts/pack_producer_kit' },
       { label: 'Compatibility Matrix', href: '/docs/contracts/compatibility_matrix' },
       { label: 'Action Contract Activation', href: '/docs/contracts/action_contract_activation' },
+      { label: 'Effect Evidence and Contracts', href: '/docs/contracts/effects' },
       { label: 'Failure Taxonomy + Exit Codes', href: '/docs/failure_taxonomy_exit_codes' },
       { label: 'Threat Model', href: '/docs/threat_model' },
       { label: 'Runtime SLO', href: '/docs/slo/runtime_slo' },

@@ -25,6 +25,10 @@ This matrix defines compatibility between producer and consumer surfaces.
 | Gait consumer receipt | 1 | n/a | Direct deterministic JSON receipt; `self_attestation=false`, no execution/effect claim |
 | Gait runtime classification/readiness/lifecycle | 1 | n/a | Additive pre-execution schemas; required readiness evidence is fail-closed, lifecycle records use Proof v0.6.1 relationship refs/correlation, and no surface claims execution/effect |
 
+| Effect snapshot / contract / grade | 1.0.0 | 1.0.0 | Bounded before/after evidence with Proof JCS digests; pure `expect`/`forbid`/`invariant` grading is pass, fail, or inconclusive and never executes effects |
+
+| Effect snapshot / contract / grade | 1.0.0 | 1.0.0 | Bounded before/after evidence with Proof JCS digests; pure `expect`/`forbid`/`invariant` grading is pass, fail, or inconclusive and never executes effects |
+
 The activation compatibility pack under `testdata/action-contract-interop/v1/`
 is generated from exact Wrkr proposal bytes by
 `scripts/action_contract_fixture_generator --check`. Its six valid scenario

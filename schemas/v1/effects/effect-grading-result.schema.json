@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/effects/effect-grading-result.schema.json",
+  "title": "Gait Effect Grading Result",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "contract_id", "snapshot_id", "status", "evidence_status", "reason_codes", "evaluations"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/effects/effect-grading-result.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "contract_id": {"type": "string"}, "snapshot_id": {"type": "string"},
+    "status": {"enum": ["pass", "fail", "inconclusive"]},
+    "evidence_status": {"enum": ["verified", "observed_only", "partial", "unknown"]},
+    "reason_codes": {"type": "array", "items": {"type": "string"}},
+    "evaluations": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "kind", "field", "status"], "properties": {"id": {"type": "string"}, "kind": {"type": "string"}, "field": {"type": "string"}, "status": {"enum": ["pass", "fail", "inconclusive"]}, "reason_codes": {"type": "array", "items": {"type": "string"}}, "observed": {}, "expected": {}}}}
+  }
+}
