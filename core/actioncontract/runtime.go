@@ -1295,17 +1295,20 @@ func NewLifecycleRecord(options LifecycleRecordOptions) (LifecycleRecord, error)
 	if err := validateLifecycleEvidence(record); err != nil {
 		return LifecycleRecord{}, err
 	}
-	digest, err := lifecycleDigest(record)
-	if err != nil {
-		return LifecycleRecord{}, err
-	}
-	record.RecordID = "gait-lr-" + strings.TrimPrefix(digest, "sha256:")[:16]
 	if len(options.SigningPrivateKey) == 0 {
 		return LifecycleRecord{}, errors.New("lifecycle signing key is required")
 	}
 	if len(options.SigningPrivateKey) != ed25519.PrivateKeySize {
 		return LifecycleRecord{}, errors.New("lifecycle signing key has invalid size")
 	}
+	if err := verifyLifecycleEmbeddedEvidence(record, options.SigningPrivateKey.Public().(ed25519.PublicKey)); err != nil {
+		return LifecycleRecord{}, err
+	}
+	digest, err := lifecycleDigest(record)
+	if err != nil {
+		return LifecycleRecord{}, err
+	}
+	record.RecordID = "gait-lr-" + strings.TrimPrefix(digest, "sha256:")[:16]
 	signature, err := proofsign.SignDigestHex(options.SigningPrivateKey, strings.TrimPrefix(digest, "sha256:"))
 	if err != nil {
 		return LifecycleRecord{}, err

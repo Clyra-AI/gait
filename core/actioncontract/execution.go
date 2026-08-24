@@ -139,19 +139,20 @@ func (b EvidenceBinding) Validate() error {
 			return errors.New("evidence binding reference must be digest-bound")
 		}
 	}
-	if b.ContractRef.SchemaID != ProposedContractSchemaID || b.ContractRef.SchemaVersion != ProposedContractVersion || b.ContractRef.SourceProduct != "wrkr" {
+	if b.ContractRef.Kind != "action_contract" || b.ContractRef.SchemaID != ProposedContractSchemaID || b.ContractRef.SchemaVersion != ProposedContractVersion || b.ContractRef.SourceProduct != "wrkr" {
 		return errors.New("evidence binding Wrkr contract reference invalid")
 	}
 	if b.ActivationRef.Kind != "activated_action_contract" || b.ActivationRef.SchemaID != ActivatedSchemaID || b.ActivationRef.SchemaVersion != ActivatedSchemaVersion || b.ActivationRef.SourceProduct != ActivatedProducer {
 		return errors.New("evidence binding Gait activation reference invalid")
 	}
-	if b.RuntimeActionRef.SchemaID != RuntimeActionSchemaID || b.RuntimeActionRef.SchemaVersion != RuntimeActionSchemaVersion || b.RuntimeActionRef.SourceProduct != EvidenceProducer {
+	if b.RuntimeActionRef.Kind != "runtime_action" || b.RuntimeActionRef.SchemaID != RuntimeActionSchemaID || b.RuntimeActionRef.SchemaVersion != RuntimeActionSchemaVersion || b.RuntimeActionRef.SourceProduct != EvidenceProducer {
 		return errors.New("evidence binding runtime action reference invalid")
 	}
-	for _, ref := range []proof.RelationshipRef{b.ReadinessRef, b.DecisionRef} {
-		if ref.SchemaID != RuntimeReadinessSchemaID || ref.SchemaVersion != RuntimeActionSchemaVersion || ref.SourceProduct != EvidenceProducer {
-			return errors.New("evidence binding readiness/decision reference invalid")
-		}
+	if b.ReadinessRef.Kind != "readiness" || b.ReadinessRef.SchemaID != RuntimeReadinessSchemaID || b.ReadinessRef.SchemaVersion != RuntimeActionSchemaVersion || b.ReadinessRef.SourceProduct != EvidenceProducer {
+		return errors.New("evidence binding readiness reference invalid")
+	}
+	if b.DecisionRef.Kind != "decision" || b.DecisionRef.SchemaID != RuntimeReadinessSchemaID || b.DecisionRef.SchemaVersion != RuntimeActionSchemaVersion || b.DecisionRef.SourceProduct != EvidenceProducer {
+		return errors.New("evidence binding decision reference invalid")
 	}
 	for _, ref := range append(append([]proof.RelationshipRef{}, b.ProofRefs...), b.CausalRefs...) {
 		if !digestBoundRef(ref) {

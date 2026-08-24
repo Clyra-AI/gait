@@ -26,6 +26,7 @@ Extended first-class surfaces:
 - Context Evidence
 - Action Contracts
 - Effect Evidence and Contracts
+- [Execution and Containment Evidence](contracts/execution-evidence.md)
 
 ## Start Here
 

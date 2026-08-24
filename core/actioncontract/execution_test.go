@@ -18,7 +18,7 @@ func executionTestRef(kind, id string) proof.RelationshipRef {
 }
 
 func executionTestBinding() EvidenceBinding {
-	binding := EvidenceBinding{ContractFamilyID: "pacf-test", Revision: 1, ContractRef: executionTestRef("contract", "pac-1"), ActivationRef: executionTestRef("activated_action_contract", "gact-1"), RuntimeActionRef: executionTestRef("runtime_action", "action-1"), ReadinessRef: executionTestRef("readiness", "ready-1"), DecisionRef: executionTestRef("decision", "decision-1"), PolicyRef: executionTestRef("policy", "policy-1"), TargetRef: executionTestRef("target", "target-1"), EnvironmentRef: executionTestRef("environment", "production"), ProofRefs: []proof.RelationshipRef{executionTestRef("proof", "proof-1")}, CausalRefs: []proof.RelationshipRef{executionTestRef("proposal", "proposal-1")}}
+	binding := EvidenceBinding{ContractFamilyID: "pacf-test", Revision: 1, ContractRef: executionTestRef("action_contract", "pac-1"), ActivationRef: executionTestRef("activated_action_contract", "gact-1"), RuntimeActionRef: executionTestRef("runtime_action", "action-1"), ReadinessRef: executionTestRef("readiness", "ready-1"), DecisionRef: executionTestRef("decision", "decision-1"), PolicyRef: executionTestRef("policy", "policy-1"), TargetRef: executionTestRef("target", "target-1"), EnvironmentRef: executionTestRef("environment", "production"), ProofRefs: []proof.RelationshipRef{executionTestRef("proof", "proof-1")}, CausalRefs: []proof.RelationshipRef{executionTestRef("proposal", "proposal-1")}}
 	binding.ContractRef.SchemaID, binding.ContractRef.SchemaVersion, binding.ContractRef.SourceProduct = ProposedContractSchemaID, ProposedContractVersion, "wrkr"
 	binding.ActivationRef.SchemaID, binding.ActivationRef.SchemaVersion, binding.ActivationRef.SourceProduct = ActivatedSchemaID, ActivatedSchemaVersion, ActivatedProducer
 	binding.RuntimeActionRef.SchemaID, binding.RuntimeActionRef.SchemaVersion, binding.RuntimeActionRef.SourceProduct = RuntimeActionSchemaID, RuntimeActionSchemaVersion, EvidenceProducer
@@ -238,9 +238,13 @@ func TestEvidenceBindingRejectsIdentifierOnlyAndWrongFamily(t *testing.T) {
 		{"revision", func(b *EvidenceBinding) { b.Revision = 0 }},
 		{"causal", func(b *EvidenceBinding) { b.CausalRefs = nil }},
 		{"contract producer", func(b *EvidenceBinding) { b.ContractRef.SourceProduct = "gait" }},
+		{"contract kind", func(b *EvidenceBinding) { b.ContractRef.Kind = "contract" }},
 		{"activation schema", func(b *EvidenceBinding) { b.ActivationRef.SchemaID = "wrong" }},
+		{"runtime kind", func(b *EvidenceBinding) { b.RuntimeActionRef.Kind = "decision" }},
 		{"runtime schema", func(b *EvidenceBinding) { b.RuntimeActionRef.SchemaID = "wrong" }},
+		{"readiness kind", func(b *EvidenceBinding) { b.ReadinessRef.Kind = "decision" }},
 		{"readiness schema", func(b *EvidenceBinding) { b.ReadinessRef.SchemaID = "wrong" }},
+		{"decision kind", func(b *EvidenceBinding) { b.DecisionRef.Kind = "readiness" }},
 		{"decision producer", func(b *EvidenceBinding) { b.DecisionRef.SourceProduct = "other" }},
 		{"correlation mode", func(b *EvidenceBinding) { b.Correlation.BindingMode = proof.BindingModeIdentifierOnly }},
 	} {
@@ -689,6 +693,16 @@ func TestLifecycleTypedEvidenceOrderAndLineage(t *testing.T) {
 	resignLifecycleRecord(t, &invalidInnerSignature, private)
 	if ok, err := VerifyLifecycleRecord(invalidInnerSignature, public); err == nil || ok {
 		t.Fatal("direct lifecycle verification accepted invalid embedded evidence")
+	}
+	tamperedForConstruction := *records[5].Execution
+	tamperedForConstruction.Provenance.Signature.Sig = "invalid"
+	if _, err := NewLifecycleRecord(LifecycleRecordOptions{
+		Kind: records[5].Kind, OccurredAt: mustParseTime(records[5].OccurredAt), ContractRef: records[5].ContractRef,
+		ContractFamilyID: records[5].ContractFamilyID, Revision: records[5].Revision, ProposalRef: records[5].ProposalRef,
+		ActivationRef: records[5].ActivationRef, Execution: &tamperedForConstruction, Correlation: records[5].Correlation,
+		SigningPrivateKey: private,
+	}); err == nil {
+		t.Fatal("lifecycle constructor accepted invalid embedded evidence")
 	}
 	outsideEvidenceWindow := cloneLifecycleRecords(t, signed)[5]
 	outsideEvidenceWindow.OccurredAt = when(7)
