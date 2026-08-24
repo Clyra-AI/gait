@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runtime-classification-input.schema.json",
+  "title": "Gait Runtime Classification Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "action_id"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/runtime-classification-input.schema.json"},
+    "schema_version": {"const": "1"},
+    "action_id": {"type": "string", "minLength": 1},
+    "action_class": {"enum": ["read", "write", "deploy", "delete", "execute", "egress", "credential_access", "release", "resource"]},
+    "action_classes": {"type": "array", "items": {"enum": ["read", "write", "deploy", "delete", "execute", "egress", "credential_access", "release", "resource"]}},
+    "composition_role": {"enum": ["source", "transform", "sink", "internal_sink", "external_sink", "privileged_sink", "destructive_sink"]},
+    "data_classes": {"type": "array", "items": {"enum": ["public", "internal", "confidential", "sensitive", "pii", "phi", "secret", "credential", "code", "unknown", "unclassified"]}},
+    "target_trust_class": {"enum": ["unknown", "untrusted", "external", "internal", "trusted", "privileged", "production"]},
+    "transition_class": {"enum": ["none", "read", "write", "delete", "execute", "deploy", "egress", "credential", "delegate", "resource_lifecycle", "approval", "control"]},
+    "expected_outcome_class": {"enum": ["unknown", "none", "read", "write", "execute", "data_egress", "network_egress", "external_egress", "production_deploy", "production_mutation", "release", "release_publish", "resource_change"]},
+    "intended_outcome_class": {"type": "string"}, "resource_lifecycle_actions": {"type": "array", "items": {"type": "string"}}, "resource_actions": {"type": "array", "items": {"type": "string"}}, "risk_class": {"type": "string"}, "target_ref": {"type": "string"}, "source_trust_class": {"type": "string"}, "boundary_refs": {"type": "array", "items": {"type": "string"}}, "proof_refs": {"type": "array", "items": {"type": "string"}}, "hints": {"type": "array", "items": {"type": "string"}}, "stages": {"type": "array", "maxItems": 5, "items": {"type": "object"}}
+  }
+}
+

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+  "title": "Gait Runtime Contract Readiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "ready", "status", "preconditions"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/runtime-readiness.schema.json"}, "schema_version": {"const": "1"},
+    "contract_id": {"type": "string"}, "policy_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}, "ready": {"type": "boolean"}, "status": {"enum": ["satisfied", "unsatisfied", "inconclusive", "not_required"]},
+    "reason_codes": {"type": "array", "items": {"type": "string"}}, "preconditions": {"type": "array", "items": {"$ref": "#/$defs/precondition"}}
+  },
+  "$defs": {
+    "precondition": {
+      "type": "object", "additionalProperties": false, "required": ["requirement_id", "kind", "required", "control_mode", "status"],
+      "properties": {
+        "requirement_id": {"type": "string"}, "kind": {"type": "string"}, "required": {"type": "boolean"}, "required_constraint": {"type": "string"}, "contract_ref": {"type": "string"}, "validation_contract_ref": {"type": "string"}, "effect_contract_ref": {"type": "string"},
+        "observed_value": {"type": "string"}, "observed_result": {"type": "string"}, "observed_at": {"type": "string", "format": "date-time"}, "max_age_seconds": {"type": "integer", "minimum": 1}, "ttl_seconds": {"type": "integer", "minimum": 1}, "producer": {"type": "string"},
+        "environment": {"type": "string"}, "target": {"type": "string"}, "sandbox_status": {"type": "string"}, "credential_mode": {"type": "string"}, "resource_status": {"type": "string"}, "compensation_status": {"type": "string"}, "evidence_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}, "validator_signature": {"type": "string", "minLength": 1},
+        "acceptable_producers": {"type": "array", "items": {"type": "string"}}, "evidence_state": {"type": "string"}, "freshness_state": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}, "boundary_refs": {"type": "array", "items": {"type": "string"}},
+        "control_mode": {"enum": ["enforced", "observed", "self_attested", "unknown"]}, "status": {"enum": ["satisfied", "unsatisfied", "inconclusive", "not_required"]},
+        "reason_codes": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  },
+  "allOf": [{"if": {"required": ["ready"], "properties": {"ready": {"const": true}}}, "then": {"required": ["contract_id", "policy_digest", "status", "preconditions"], "properties": {"status": {"const": "satisfied"}, "preconditions": {"contains": {"type": "object", "required": ["required", "status"], "properties": {"required": {"const": true}, "status": {"const": "satisfied"}}}}}}}]
+}

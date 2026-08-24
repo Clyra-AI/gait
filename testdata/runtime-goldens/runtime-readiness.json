@@ -1,0 +1,25 @@
+{
+  "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+  "schema_version": "1",
+  "contract_id": "pac-4b7f1402784256ce",
+  "policy_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "ready": true,
+  "status": "satisfied",
+  "preconditions": [{
+    "requirement_id": "runtime-p1",
+    "kind": "environment",
+    "required": true,
+    "observed_result": "pass",
+    "observed_at": "2026-07-19T00:30:00Z",
+    "max_age_seconds": 3600,
+    "environment": "production",
+    "evidence_digest": "sha256:c32fbb43aae4c2df2e156df5f971256a50e1fb35e2706c9e5b78598104bbf7e1",
+    "validator_signature": "X9XxIz/Lrt6drhxI+6jsFVcm9HWpiGAvyYvBhtP75I/h+4uI2CgiIZilwC6on3fGCGsWtfBmFyGZdw+Cb1YOBw==",
+    "producer": "validator",
+    "evidence_state": "verified",
+    "freshness_state": "fresh",
+    "evidence_refs": ["evidence:runtime-p1"],
+    "control_mode": "enforced",
+    "status": "satisfied"
+  }]
+}

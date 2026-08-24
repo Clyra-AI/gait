@@ -1,0 +1,51 @@
+{
+  "schema_version": "1",
+  "contract_ref": {
+    "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+    "id": "pac-4b7f1402784256ce",
+    "kind": "action_contract"
+  },
+  "revision": 1,
+  "records": [
+    {
+      "kind": "proposal_ingested",
+      "occurred_at": "2026-07-19T00:00:00Z",
+      "record_id": "gait-lr-0da5f1acd53a8915",
+      "signed_digest": "0da5f1acd53a8915a62a978f8428819ff582d53e10a0bb3f3111dee47fce304d",
+      "key_id": "8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701",
+      "signature": "1aF/VU+HrKCgT5uhPXejHsBlE+DzbB/2HHRMdKOP9e99CYvcu069Y0h0w6jxAha/6dr+3YdVTEvJRNU7oDh5Dg=="
+    },
+    {
+      "kind": "precondition_evaluated",
+      "occurred_at": "2026-07-19T00:00:30Z",
+      "record_id": "gait-lr-5f0ddcf2f9426302",
+      "signed_digest": "5f0ddcf2f94263022b449592fa700ef415c5600d9f453e85f0713318303a79fb",
+      "key_id": "8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701",
+      "signature": "PpfcDJTWGwy5Og6kuIMAudjlx+gnYF3naV6hW7tWVddWJS+jr3h9s3FnqZV4jEVac+CYRmYG82yunH9acYvMBw=="
+    },
+    {
+      "kind": "decision_ready",
+      "occurred_at": "2026-07-19T01:00:00Z",
+      "record_id": "gait-lr-3d72a5363def6023",
+      "signed_digest": "3d72a5363def6023df90ddcbf0b714d34190717122e722926b8f14fb643771b7",
+      "key_id": "8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701",
+      "signature": "IvX3+2cbcUki6pwtLnzJQVMVmmqWTRax0AXWjJ0hYPq7Afrm37beud7VthGf8NZ7c5DuoOBRj6wq3E5jmXBIBw=="
+    },
+    {
+      "kind": "activation_requested",
+      "occurred_at": "2026-07-19T01:01:30Z",
+      "record_id": "gait-lr-c08c1cc6fa2ffd8f",
+      "signed_digest": "c08c1cc6fa2ffd8f8e45fa8b8b2aa200009d88cd323d25dd1abaf2b3b3b632f7",
+      "key_id": "8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701",
+      "signature": "3mw4QXgQkB+LIJecSK4wpwe/cnQj6ucTcdyKqTw+TDFTnNvaIKuBzAaX+djTiguJEzIweATp0MLnvcC4QFNLBg=="
+    },
+    {
+      "kind": "activated",
+      "occurred_at": "2026-07-19T01:02:00Z",
+      "record_id": "gait-lr-637e1cb66df46b95",
+      "signed_digest": "637e1cb66df46b9540c01c2ca9a7f4ac3ea37d2e74ff11ae22159f7fad66074e",
+      "key_id": "8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701",
+      "signature": "7XOrBHPRnheM9cv94OnJsr10a0VmJe9vv0Mk6BF5P+Xtljari0audtClwVo8u4U18nQRJQ15sQI7YjgfNNP5AA=="
+    }
+  ]
+}
