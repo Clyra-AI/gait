@@ -103,7 +103,7 @@ func run(repoRoot string, update bool) error {
 	if err != nil {
 		return err
 	}
-	activationRaw, err := os.ReadFile(filepath.Join(repoRoot, sourceActivation))
+	activationRaw, err := os.ReadFile(filepath.Join(repoRoot, sourceActivation)) // #nosec G304 -- fixed generator-owned activation fixture path.
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func run(repoRoot string, update bool) error {
 	if valid, err := actioncontract.VerifyActivationWithOptions(activation, public, actioncontract.VerificationOptions{AllowDevelopmentSigning: true, Proposal: &proposal, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)}); err != nil || !valid {
 		return fmt.Errorf("source activation verification failed: %v", err)
 	}
-	readinessRaw, err := os.ReadFile(filepath.Join(repoRoot, runtimeReadiness))
+	readinessRaw, err := os.ReadFile(filepath.Join(repoRoot, runtimeReadiness)) // #nosec G304 -- fixed generator-owned readiness source path.
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func run(repoRoot string, update bool) error {
 	if err := json.Unmarshal(readinessRaw, &readiness); err != nil {
 		return err
 	}
-	actionRaw, err := os.ReadFile(filepath.Join(repoRoot, runtimeAction))
+	actionRaw, err := os.ReadFile(filepath.Join(repoRoot, runtimeAction)) // #nosec G304 -- fixed generator-owned runtime action source path.
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func run(repoRoot string, update bool) error {
 		}
 		files[n.ScenarioID+"/lifecycle.json"] = append(negativeRaw, '\n')
 	}
-	proposalRaw, err := os.ReadFile(filepath.Join(repoRoot, sourceProposal))
+	proposalRaw, err := os.ReadFile(filepath.Join(repoRoot, sourceProposal)) // #nosec G304 -- fixed generator-owned proposal fixture path.
 	if err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ func run(repoRoot string, update bool) error {
 		return nil
 	}
 	for name, want := range files {
-		got, err := os.ReadFile(filepath.Join(root, name))
+		got, err := os.ReadFile(filepath.Join(root, name)) // #nosec G304 -- name is restricted to the generator-owned fixture allowlist.
 		if err != nil {
 			return err
 		}
