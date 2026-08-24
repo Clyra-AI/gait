@@ -558,9 +558,10 @@ func ParseCompensationEvidence(raw []byte) (CompensationEvidence, error) {
 	return item, nil
 }
 
-// WriteEvidenceAtomic and ReadEvidence are bounded, no-follow helpers for
-// evidence handoff. They never follow symlinks and never overwrite an
-// existing destination.
+// WriteEvidenceAtomic and ReadEvidenceFile are bounded, no-follow helpers for
+// evidence handoff. The writer anchors all path operations to a verified
+// directory descriptor. The reader accepts an already-open descriptor and
+// never resolves a path itself.
 func WriteEvidenceAtomic(path string, value any) error {
 	if strings.TrimSpace(path) == "" {
 		return errors.New("evidence path required")
@@ -622,50 +623,27 @@ func WriteEvidenceAtomic(path string, value any) error {
 	return root.Remove(tempName)
 }
 
-func ReadEvidence(path string) ([]byte, error) {
-	abs, err := filepath.Abs(filepath.Clean(strings.TrimSpace(path)))
-	if err != nil || strings.TrimSpace(path) == "" {
-		return nil, errors.New("evidence path invalid")
+func ReadEvidenceFile(file *os.File) ([]byte, error) {
+	if file == nil {
+		return nil, errors.New("evidence descriptor required")
 	}
-	if err := rejectRuntimeAncestors(abs); err != nil {
-		return nil, err
-	}
-	root, err := openVerifiedEvidenceRoot(filepath.Dir(abs))
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = root.Close() }()
-	base := filepath.Base(abs)
-	info, err := root.Lstat(base)
-	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return nil, errors.New("evidence file unsafe")
-	}
-	if info.Size() > MaxEvidenceBytes {
-		return nil, errors.New("evidence exceeds size limit")
-	}
-	file, err := root.Open(base)
-	if err != nil {
-		return nil, errors.New("evidence file unreadable")
-	}
-	defer func() { _ = file.Close() }()
 	descriptor, err := file.Stat()
 	if err != nil || !descriptor.Mode().IsRegular() || descriptor.Size() > MaxEvidenceBytes {
-		return nil, errors.New("evidence file is not stable")
+		return nil, errors.New("evidence descriptor is not a bounded regular file")
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return nil, errors.New("evidence descriptor is unreadable")
 	}
 	first, err := io.ReadAll(io.LimitReader(file, MaxEvidenceBytes+1))
 	if err != nil || int64(len(first)) > MaxEvidenceBytes {
-		return nil, errors.New("evidence file unreadable")
+		return nil, errors.New("evidence descriptor is unreadable")
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return nil, errors.New("evidence file unreadable")
+		return nil, errors.New("evidence descriptor is unreadable")
 	}
 	second, err := io.ReadAll(io.LimitReader(file, MaxEvidenceBytes+1))
 	if err != nil || !bytes.Equal(first, second) {
-		return nil, errors.New("evidence file changed during read")
-	}
-	final, err := root.Lstat(base)
-	if err != nil || final.Mode()&os.ModeSymlink != 0 || !final.Mode().IsRegular() || !os.SameFile(descriptor, final) {
-		return nil, errors.New("evidence file changed during read")
+		return nil, errors.New("evidence descriptor changed during read")
 	}
 	return first, nil
 }

@@ -108,8 +108,15 @@ func TestEvidenceWriteIsBoundedNoFollowNoOverwrite(t *testing.T) {
 	if err := WriteEvidenceAtomic(path, map[string]string{"ok": "1"}); err != nil {
 		t.Fatal(err)
 	}
-	if raw, err := ReadEvidence(path); err != nil || string(raw) != `{"ok":"1"}` {
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw, err := ReadEvidenceFile(file); err != nil || string(raw) != `{"ok":"1"}` {
 		t.Fatalf("stable evidence read failed: raw=%q err=%v", raw, err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
 	}
 	if err := WriteEvidenceAtomic(path, map[string]string{"ok": "2"}); err == nil {
 		t.Fatal("evidence overwrite accepted")
@@ -126,29 +133,33 @@ func TestEvidenceWriteIsBoundedNoFollowNoOverwrite(t *testing.T) {
 	if err := WriteEvidenceAtomic(filepath.Join(dir, "missing", "evidence.json"), map[string]string{"ok": "4"}); err == nil {
 		t.Fatal("unsafe missing evidence parent accepted")
 	}
-	if _, err := ReadEvidence(""); err == nil {
-		t.Fatal("empty evidence read path accepted")
+	if _, err := ReadEvidenceFile(nil); err == nil {
+		t.Fatal("nil evidence descriptor accepted")
 	}
-	if _, err := ReadEvidence(dir); err == nil {
+	directory, err := os.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadEvidenceFile(directory); err == nil {
 		t.Fatal("evidence reader accepted a directory")
 	}
+	_ = directory.Close()
 	oversizedPath := filepath.Join(dir, "oversized-read.json")
 	if err := os.WriteFile(oversizedPath, []byte(strings.Repeat("x", int(MaxEvidenceBytes)+1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadEvidence(oversizedPath); err == nil {
+	oversized, err := os.Open(oversizedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadEvidenceFile(oversized); err == nil {
 		t.Fatal("evidence reader accepted an oversized file")
 	}
+	_ = oversized.Close()
 	linkedParent := filepath.Join(t.TempDir(), "linked")
 	if err := os.Symlink(t.TempDir(), linkedParent); err == nil {
 		if err := WriteEvidenceAtomic(filepath.Join(linkedParent, "evidence.json"), map[string]string{"ok": "3"}); err == nil {
 			t.Fatal("symlinked evidence parent accepted")
-		}
-		linkPath := filepath.Join(dir, "link.json")
-		if err := os.Symlink(path, linkPath); err == nil {
-			if _, err := ReadEvidence(linkPath); err == nil {
-				t.Fatal("symlinked evidence file accepted")
-			}
 		}
 	}
 }
