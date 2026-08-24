@@ -5,11 +5,15 @@ package actioncontract
 // tool and these types intentionally contain no raw tool payloads or secrets.
 
 import (
+	"bytes"
 	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -184,9 +188,9 @@ func (b EvidenceBinding) RelationshipRefs() []proof.RelationshipRef {
 	return append(out, append([]proof.RelationshipRef{}, b.ProofRefs...)...)
 }
 
-func hasDigestRef(refs []proof.RelationshipRef, digest string) bool {
+func hasExactRef(refs []proof.RelationshipRef, expected proof.RelationshipRef) bool {
 	for _, ref := range refs {
-		if ref.Digest == digest && validSHA256Digest(ref.Digest) {
+		if ref.Kind == expected.Kind && ref.ID == expected.ID && ref.Digest == expected.Digest && ref.SchemaID == expected.SchemaID && ref.SchemaVersion == expected.SchemaVersion && ref.SourceProduct == expected.SourceProduct && validSHA256Digest(ref.Digest) {
 			return true
 		}
 	}
@@ -572,21 +576,26 @@ func WriteEvidenceAtomic(path string, value any) error {
 		return err
 	}
 	dir := filepath.Dir(abs)
-	if _, err := os.Lstat(abs); err == nil {
+	root, err := openVerifiedEvidenceRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	base := filepath.Base(abs)
+	if _, err := root.Lstat(base); err == nil {
 		return errors.New("evidence destination already exists")
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return errors.New("evidence destination is not stable")
 	}
-	tmp, err := os.CreateTemp(dir, ".gait-evidence-")
+	tempName, err := randomEvidenceTempName(base)
 	if err != nil {
 		return err
 	}
-	name := tmp.Name()
-	defer func() { _ = os.Remove(name) }()
-	if err := tmp.Chmod(0600); err != nil {
-		_ = tmp.Close()
+	tmp, err := root.OpenFile(tempName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
 		return err
 	}
+	defer func() { _ = root.Remove(tempName) }()
 	if _, err := tmp.Write(raw); err != nil {
 		_ = tmp.Close()
 		return err
@@ -598,13 +607,15 @@ func WriteEvidenceAtomic(path string, value any) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	if _, err := os.Lstat(abs); err == nil {
+	if _, err := root.Lstat(base); err == nil {
 		return errors.New("evidence destination changed during write")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return errors.New("evidence destination is not stable")
 	}
-	if err := os.Link(name, abs); err != nil {
+	if err := root.Link(tempName, base); err != nil {
 		return err
 	}
-	return os.Remove(name)
+	return root.Remove(tempName)
 }
 
 func ReadEvidence(path string) ([]byte, error) {
@@ -615,12 +626,67 @@ func ReadEvidence(path string) ([]byte, error) {
 	if err := rejectRuntimeAncestors(abs); err != nil {
 		return nil, err
 	}
-	info, err := os.Lstat(abs)
+	root, err := openVerifiedEvidenceRoot(filepath.Dir(abs))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	base := filepath.Base(abs)
+	info, err := root.Lstat(base)
 	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return nil, errors.New("evidence file unsafe")
 	}
 	if info.Size() > MaxEvidenceBytes {
 		return nil, errors.New("evidence exceeds size limit")
 	}
-	return ReadRuntimeInput(abs)
+	file, err := root.Open(base)
+	if err != nil {
+		return nil, errors.New("evidence file unreadable")
+	}
+	defer func() { _ = file.Close() }()
+	descriptor, err := file.Stat()
+	if err != nil || !descriptor.Mode().IsRegular() || descriptor.Size() > MaxEvidenceBytes {
+		return nil, errors.New("evidence file is not stable")
+	}
+	first, err := io.ReadAll(io.LimitReader(file, MaxEvidenceBytes+1))
+	if err != nil || int64(len(first)) > MaxEvidenceBytes {
+		return nil, errors.New("evidence file unreadable")
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return nil, errors.New("evidence file unreadable")
+	}
+	second, err := io.ReadAll(io.LimitReader(file, MaxEvidenceBytes+1))
+	if err != nil || !bytes.Equal(first, second) {
+		return nil, errors.New("evidence file changed during read")
+	}
+	final, err := root.Lstat(base)
+	if err != nil || final.Mode()&os.ModeSymlink != 0 || !final.Mode().IsRegular() || !os.SameFile(descriptor, final) {
+		return nil, errors.New("evidence file changed during read")
+	}
+	return first, nil
+}
+
+func openVerifiedEvidenceRoot(dir string) (*os.Root, error) {
+	initial, err := os.Lstat(dir)
+	if err != nil || initial.Mode()&os.ModeSymlink != 0 || !initial.IsDir() {
+		return nil, errors.New("evidence directory is unsafe")
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, errors.New("evidence directory is unsafe")
+	}
+	anchored, err := root.Stat(".")
+	if err != nil || !os.SameFile(initial, anchored) {
+		_ = root.Close()
+		return nil, errors.New("evidence directory changed during open")
+	}
+	return root, nil
+}
+
+func randomEvidenceTempName(base string) (string, error) {
+	var suffix [16]byte
+	if _, err := rand.Read(suffix[:]); err != nil {
+		return "", errors.New("evidence temporary name unavailable")
+	}
+	return "." + base + ".gait-tmp-" + hex.EncodeToString(suffix[:]), nil
 }

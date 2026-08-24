@@ -138,6 +138,53 @@ func TestEvidenceWriteIsBoundedNoFollowNoOverwrite(t *testing.T) {
 	}
 }
 
+func TestEvidenceRootAndReferenceIdentityBranches(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := openVerifiedEvidenceRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := root.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openVerifiedEvidenceRoot(filepath.Join(dir, "missing")); err == nil {
+		t.Fatal("missing evidence root accepted")
+	}
+	filePath := filepath.Join(dir, "file")
+	if err := os.WriteFile(filePath, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openVerifiedEvidenceRoot(filePath); err == nil {
+		t.Fatal("regular file accepted as evidence root")
+	}
+	if tempName, err := randomEvidenceTempName("artifact.json"); err != nil || !strings.HasPrefix(tempName, ".artifact.json.gait-tmp-") {
+		t.Fatalf("unexpected evidence temporary name: %q err=%v", tempName, err)
+	}
+	base := executionTestBinding().ContractRef
+	if !sameLifecycleRefIdentity(&base, &base) || sameLifecycleRefIdentity(nil, &base) {
+		t.Fatal("relationship identity nil/equality handling failed")
+	}
+	for _, edit := range []func(*proof.RelationshipRef){
+		func(ref *proof.RelationshipRef) { ref.Kind = "other" },
+		func(ref *proof.RelationshipRef) { ref.ID = "other" },
+		func(ref *proof.RelationshipRef) {
+			ref.Digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		},
+		func(ref *proof.RelationshipRef) { ref.SchemaID = "other" },
+		func(ref *proof.RelationshipRef) { ref.SchemaVersion = "other" },
+		func(ref *proof.RelationshipRef) { ref.SourceProduct = "other" },
+	} {
+		candidate := base
+		edit(&candidate)
+		if sameLifecycleRefIdentity(&candidate, &base) {
+			t.Fatal("mismatched relationship identity accepted")
+		}
+	}
+}
+
 func TestEvidenceBindingRejectsIdentifierOnlyAndWrongFamily(t *testing.T) {
 	binding := executionTestBinding()
 	binding.PolicyRef.Digest = ""
@@ -465,6 +512,11 @@ func TestLifecycleTypedEvidenceOrderAndLineage(t *testing.T) {
 	proofDrift[6].Execution.Binding.ProofRefs[0].Digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	if _, err := ReduceLifecycleChecked(proofDrift); err == nil {
 		t.Fatal("cross-Proof execution lineage accepted")
+	}
+	causalIdentityDrift := cloneLifecycleRecords(t, records)
+	causalIdentityDrift[6].Execution.Binding.CausalRefs[0].ID = "unrelated-execution"
+	if _, err := ReduceLifecycleChecked(causalIdentityDrift); err == nil {
+		t.Fatal("causal predecessor with only a matching digest accepted")
 	}
 	wrongContainmentExecution := cloneLifecycleRecords(t, records)
 	wrongContainmentExecution[9].Containment.ExecutionRef.Digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
