@@ -1,0 +1,23 @@
+{
+  "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
+  "schema_version": "1",
+  "action_id": "runtime-golden-action",
+  "action_class": "read",
+  "action_classes": [
+    "read"
+  ],
+  "composition_role": "source",
+  "data_classes": [
+    "internal"
+  ],
+  "target_trust_class": "external",
+  "transition_class": "read",
+  "expected_outcome_class": "read",
+  "intended_outcome_class": "read",
+  "target_ref": "target:fixture",
+  "boundary": {
+    "source_trust_class": "",
+    "target_trust_class": "external",
+    "transition_class": "read"
+  }
+}

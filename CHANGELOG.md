@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Added versioned runtime classification/readiness/lifecycle schemas and `gait contract classify|readiness|explain` CLI commands with stable JSON reason codes and fail-closed exit behavior.
 - [semver:minor] Added versioned deterministic effect snapshots and pure typed `effect_contract` grading for bounded Postgres, filesystem, HTTP, and resource lifecycle evidence, with fail-closed regress/JUnit integration.
 - [semver:minor] Added additive signed execution, effect-event, containment, and compensation evidence schemas plus pure verified lifecycle transitions; these remain caller-boundary evidence only and never execute tools.
+- Added deterministic, non-authoritative full-lineage conformance fixtures and a composite fail-closed grader covering proposal, activation, readiness, execution, effect, containment, compensation, replay, and cross-lineage negative paths.
 
 ## [1.4.0] - 2026-08-19
 

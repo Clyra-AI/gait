@@ -1944,7 +1944,19 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			executionEvidenceRef = executionStartedRef
 			out.ExecutionStatus = "started"
 			compensationNeeded = compensationNeeded || record.Execution.CompensationRequired
-		case LifecycleExecutionSucceeded, LifecycleExecutionFailed, LifecycleExecutionBlocked:
+		case LifecycleExecutionBlocked:
+			if !decisionReady || !out.Activated || executionStarted || executionTerminal || record.Execution == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_blocked_order_invalid")
+			}
+			if record.ActivationRef == nil || !hasExactRef(record.Execution.Binding.CausalRefs, *record.ActivationRef) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_blocked_predecessor_mismatch")
+			}
+			executionTerminal = true
+			executionOutcome = record.Execution.Outcome
+			executionEvidenceRef = evidenceRefForExecution(*record.Execution)
+			out.ExecutionStatus = executionOutcome
+			compensationNeeded = compensationNeeded || record.Execution.CompensationRequired
+		case LifecycleExecutionSucceeded, LifecycleExecutionFailed:
 			if !executionStarted || executionTerminal {
 				return LifecycleSnapshot{}, errors.New("lifecycle_execution_terminal_order_invalid")
 			}
