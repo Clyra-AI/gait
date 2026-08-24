@@ -110,6 +110,10 @@ var requiredSchemaPaths = []string{
 	"schemas/v1/effects/effect_snapshot.schema.json",
 	"schemas/v1/effects/effect_contract.schema.json",
 	"schemas/v1/effects/effect-grading-result.schema.json",
+	"schemas/v1/action-contract/execution-evidence.schema.json",
+	"schemas/v1/action-contract/effect-event.schema.json",
+	"schemas/v1/action-contract/containment-evidence.schema.json",
+	"schemas/v1/action-contract/compensation-evidence.schema.json",
 }
 
 var requiredOnboardingPaths = []string{

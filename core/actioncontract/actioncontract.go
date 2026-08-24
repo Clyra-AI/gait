@@ -276,13 +276,17 @@ func validateSchema(raw []byte, schemaFile, schemaRoot string) error {
 	_ = schemaRoot // retained in ValidationOptions for source compatibility; assets are package-owned.
 	compiler := jsonschema.NewCompiler()
 	resources := map[string]string{
-		ProposedSchemaID:         "proposed-action-contract-artifact.schema.json",
-		ProposedContractSchemaID: "proposed-action-contract-v3.schema.json",
-		ActivatedSchemaID:        "activated-action-contract-artifact.schema.json",
-		RuntimeActionSchemaID:    "runtime-action.schema.json",
+		ProposedSchemaID:                   "proposed-action-contract-artifact.schema.json",
+		ProposedContractSchemaID:           "proposed-action-contract-v3.schema.json",
+		ActivatedSchemaID:                  "activated-action-contract-artifact.schema.json",
+		RuntimeActionSchemaID:              "runtime-action.schema.json",
 		RuntimeClassificationInputSchemaID: "runtime-classification-input.schema.json",
-		RuntimeReadinessSchemaID: "runtime-readiness.schema.json",
-		RuntimeLifecycleSchemaID: "runtime-lifecycle-record.schema.json",
+		RuntimeReadinessSchemaID:           "runtime-readiness.schema.json",
+		RuntimeLifecycleSchemaID:           "runtime-lifecycle-record.schema.json",
+		ExecutionEvidenceSchemaID:          "execution-evidence.schema.json",
+		EffectEventSchemaID:                "effect-event.schema.json",
+		ContainmentEvidenceSchemaID:        "containment-evidence.schema.json",
+		CompensationEvidenceSchemaID:       "compensation-evidence.schema.json",
 		"https://github.com/Clyra-AI/proof/schemas/v1/control-containment-telemetry-profile-v1.schema.json": "control-containment-telemetry-profile-v1.schema.json",
 	}
 	for uri, filename := range resources {

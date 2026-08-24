@@ -1167,6 +1167,19 @@ const (
 	LifecycleSuperseded            LifecycleEventKind = "superseded"
 	LifecyclePreconditionEvaluated LifecycleEventKind = "precondition_evaluated"
 	LifecycleDecisionReady         LifecycleEventKind = "decision_ready"
+	LifecycleExecutionStarted      LifecycleEventKind = "execution_started"
+	LifecycleExecutionSucceeded    LifecycleEventKind = "execution_succeeded"
+	LifecycleExecutionFailed       LifecycleEventKind = "execution_failed"
+	LifecycleExecutionBlocked      LifecycleEventKind = "execution_blocked"
+	LifecycleEffectRecorded        LifecycleEventKind = "effect_recorded"
+	LifecycleEffectValidated       LifecycleEventKind = "effect_validated"
+	LifecycleContainmentRequested  LifecycleEventKind = "containment_requested"
+	LifecycleContainmentCompleted  LifecycleEventKind = "containment_completed"
+	LifecycleContainmentPartial    LifecycleEventKind = "containment_partial"
+	LifecycleContainmentUnresolved LifecycleEventKind = "containment_unresolved"
+	LifecycleCompensationRequired  LifecycleEventKind = "compensation_required"
+	LifecycleCompensationStarted   LifecycleEventKind = "compensation_started"
+	LifecycleCompensationCompleted LifecycleEventKind = "compensation_completed"
 )
 
 type LifecycleRecord struct {
@@ -1176,11 +1189,17 @@ type LifecycleRecord struct {
 	Kind             LifecycleEventKind                       `json:"kind"`
 	OccurredAt       string                                   `json:"occurred_at"`
 	ContractRef      proof.RelationshipRef                    `json:"contract_ref"`
+	ContractFamilyID string                                   `json:"contract_family_id,omitempty"`
 	Revision         int                                      `json:"revision"`
 	ProposalRef      *proof.RelationshipRef                   `json:"proposal_ref,omitempty"`
 	ActivationRef    *proof.RelationshipRef                   `json:"activation_ref,omitempty"`
 	PreconditionRefs []proof.RelationshipRef                  `json:"precondition_refs,omitempty"`
 	Decision         *ReadinessResult                         `json:"decision,omitempty"`
+	EvidenceRefs     []proof.RelationshipRef                  `json:"evidence_refs,omitempty"`
+	Execution        *ExecutionEvidence                       `json:"execution,omitempty"`
+	Effect           *EffectEvent                             `json:"effect,omitempty"`
+	Containment      *ContainmentEvidence                     `json:"containment,omitempty"`
+	Compensation     *CompensationEvidence                    `json:"compensation,omitempty"`
 	ReasonCodes      []string                                 `json:"reason_codes,omitempty"`
 	Correlation      proof.ControlContainmentTelemetryProfile `json:"correlation"`
 	ImmutableObject  json.RawMessage                          `json:"immutable_object,omitempty"`
@@ -1191,11 +1210,17 @@ type LifecycleRecordOptions struct {
 	Kind              LifecycleEventKind
 	OccurredAt        time.Time
 	ContractRef       proof.RelationshipRef
+	ContractFamilyID  string
 	Revision          int
 	ProposalRef       *proof.RelationshipRef
 	ActivationRef     *proof.RelationshipRef
 	PreconditionRefs  []proof.RelationshipRef
 	Decision          *ReadinessResult
+	EvidenceRefs      []proof.RelationshipRef
+	Execution         *ExecutionEvidence
+	Effect            *EffectEvent
+	Containment       *ContainmentEvidence
+	Compensation      *CompensationEvidence
 	ReasonCodes       []string
 	Correlation       proof.ControlContainmentTelemetryProfile
 	ImmutableObject   json.RawMessage
@@ -1242,7 +1267,19 @@ func NewLifecycleRecord(options LifecycleRecordOptions) (LifecycleRecord, error)
 		}
 		decision = &copyDecision
 	}
-	record := LifecycleRecord{SchemaID: RuntimeLifecycleSchemaID, SchemaVersion: RuntimeLifecycleVersion, Kind: options.Kind, OccurredAt: options.OccurredAt.UTC().Format(time.RFC3339Nano), ContractRef: options.ContractRef, Revision: options.Revision, ProposalRef: options.ProposalRef, ActivationRef: options.ActivationRef, PreconditionRefs: append([]proof.RelationshipRef(nil), options.PreconditionRefs...), Decision: decision, ReasonCodes: sortedUnique(options.ReasonCodes), Correlation: correlation, ImmutableObject: append([]byte(nil), options.ImmutableObject...)}
+	record := LifecycleRecord{SchemaID: RuntimeLifecycleSchemaID, SchemaVersion: RuntimeLifecycleVersion, Kind: options.Kind, OccurredAt: options.OccurredAt.UTC().Format(time.RFC3339Nano), ContractRef: options.ContractRef, ContractFamilyID: strings.TrimSpace(options.ContractFamilyID), Revision: options.Revision, ProposalRef: options.ProposalRef, ActivationRef: options.ActivationRef, PreconditionRefs: append([]proof.RelationshipRef(nil), options.PreconditionRefs...), Decision: decision, EvidenceRefs: append([]proof.RelationshipRef(nil), options.EvidenceRefs...), Execution: options.Execution, Effect: options.Effect, Containment: options.Containment, Compensation: options.Compensation, ReasonCodes: sortedUnique(options.ReasonCodes), Correlation: correlation, ImmutableObject: append([]byte(nil), options.ImmutableObject...)}
+	if record.Execution != nil {
+		record.EvidenceRefs = append(record.EvidenceRefs, evidenceRefForExecution(*record.Execution))
+	}
+	if record.Effect != nil {
+		record.EvidenceRefs = append(record.EvidenceRefs, evidenceRefForEffect(*record.Effect))
+	}
+	if record.Containment != nil {
+		record.EvidenceRefs = append(record.EvidenceRefs, evidenceRefForContainment(*record.Containment))
+	}
+	if record.Compensation != nil {
+		record.EvidenceRefs = append(record.EvidenceRefs, evidenceRefForCompensation(*record.Compensation))
+	}
 	if options.OccurredAt.IsZero() {
 		return LifecycleRecord{}, errors.New("lifecycle timestamp is required")
 	}
@@ -1253,6 +1290,9 @@ func NewLifecycleRecord(options LifecycleRecordOptions) (LifecycleRecord, error)
 		return LifecycleRecord{}, err
 	}
 	if err := validateLifecycleEvent(record); err != nil {
+		return LifecycleRecord{}, err
+	}
+	if err := validateLifecycleEvidence(record); err != nil {
 		return LifecycleRecord{}, err
 	}
 	digest, err := lifecycleDigest(record)
@@ -1361,6 +1401,14 @@ func validateLifecycleRefs(record LifecycleRecord) error {
 			return errors.New("lifecycle precondition reference must be digest-bound")
 		}
 	}
+	for _, ref := range record.EvidenceRefs {
+		if !validLifecycleRef(ref) {
+			return errors.New("lifecycle evidence reference must be digest-bound")
+		}
+	}
+	if err := validateLifecycleEvidenceBinding(record); err != nil {
+		return err
+	}
 	if record.Correlation.EventRef != nil {
 		expected := record.ActivationRef
 		if expected == nil {
@@ -1398,6 +1446,44 @@ func sameLifecycleRefIdentity(actual, expected *proof.RelationshipRef) bool {
 }
 
 func validateLifecycleEvent(record LifecycleRecord) error {
+	typedEvidenceCount := 0
+	if record.Execution != nil {
+		typedEvidenceCount++
+	}
+	if record.Effect != nil {
+		typedEvidenceCount++
+	}
+	if record.Containment != nil {
+		typedEvidenceCount++
+	}
+	if record.Compensation != nil {
+		typedEvidenceCount++
+	}
+	if typedEvidenceCount > 1 {
+		return errors.New("lifecycle_typed_evidence_ambiguous")
+	}
+	switch record.Kind {
+	case LifecycleExecutionStarted, LifecycleExecutionSucceeded, LifecycleExecutionFailed, LifecycleExecutionBlocked:
+		if record.Execution == nil || typedEvidenceCount != 1 {
+			return errors.New("lifecycle_execution_evidence_required")
+		}
+	case LifecycleEffectRecorded, LifecycleEffectValidated:
+		if record.Effect == nil || typedEvidenceCount != 1 {
+			return errors.New("lifecycle_effect_evidence_required")
+		}
+	case LifecycleContainmentRequested, LifecycleContainmentCompleted, LifecycleContainmentPartial, LifecycleContainmentUnresolved:
+		if record.Containment == nil || typedEvidenceCount != 1 {
+			return errors.New("lifecycle_containment_evidence_required")
+		}
+	case LifecycleCompensationRequired, LifecycleCompensationStarted, LifecycleCompensationCompleted:
+		if record.Compensation == nil || typedEvidenceCount != 1 {
+			return errors.New("lifecycle_compensation_evidence_required")
+		}
+	default:
+		if typedEvidenceCount != 0 {
+			return errors.New("lifecycle_typed_evidence_kind_mismatch")
+		}
+	}
 	switch record.Kind {
 	case LifecycleProposalIngested:
 		if record.ProposalRef == nil {
@@ -1434,6 +1520,160 @@ func validateLifecycleEvent(record LifecycleRecord) error {
 		if requiredCount == 0 {
 			return errors.New("lifecycle_decision_required_precondition_missing")
 		}
+	case LifecycleExecutionStarted:
+		if record.Execution == nil || record.Execution.Outcome != "started" {
+			return errors.New("lifecycle_execution_started_evidence_required")
+		}
+	case LifecycleExecutionSucceeded:
+		if record.Execution == nil || record.Execution.Outcome != "succeeded" {
+			return errors.New("lifecycle_execution_succeeded_evidence_required")
+		}
+	case LifecycleExecutionFailed:
+		if record.Execution == nil || record.Execution.Outcome != "failed" {
+			return errors.New("lifecycle_execution_failed_evidence_required")
+		}
+	case LifecycleExecutionBlocked:
+		if record.Execution == nil || record.Execution.Outcome != "blocked" {
+			return errors.New("lifecycle_execution_blocked_evidence_required")
+		}
+	case LifecycleEffectRecorded:
+		if record.Effect == nil || record.Effect.Outcome != "recorded" {
+			return errors.New("lifecycle_effect_recorded_evidence_required")
+		}
+	case LifecycleEffectValidated:
+		if record.Effect == nil || record.Effect.Outcome != "validated" {
+			return errors.New("lifecycle_effect_validated_evidence_required")
+		}
+	case LifecycleContainmentRequested:
+		if record.Containment == nil || record.Containment.Outcome != "requested" {
+			return errors.New("lifecycle_containment_requested_evidence_required")
+		}
+	case LifecycleContainmentCompleted:
+		if record.Containment == nil || record.Containment.Outcome != "completed" {
+			return errors.New("lifecycle_containment_completed_evidence_required")
+		}
+	case LifecycleContainmentPartial:
+		if record.Containment == nil || record.Containment.Outcome != "partial" {
+			return errors.New("lifecycle_containment_partial_evidence_required")
+		}
+	case LifecycleContainmentUnresolved:
+		if record.Containment == nil || record.Containment.Outcome != "unresolved" {
+			return errors.New("lifecycle_containment_unresolved_evidence_required")
+		}
+	case LifecycleCompensationRequired, LifecycleCompensationStarted, LifecycleCompensationCompleted:
+		if record.Compensation == nil {
+			return errors.New("lifecycle_compensation_evidence_required")
+		}
+		if record.Kind == LifecycleCompensationRequired && record.Compensation.Outcome != "required" || record.Kind == LifecycleCompensationStarted && record.Compensation.Outcome != "started" || record.Kind == LifecycleCompensationCompleted && record.Compensation.Outcome != "completed" {
+			return errors.New("lifecycle_compensation_outcome_mismatch")
+		}
+	}
+	return nil
+}
+
+func evidenceRefForExecution(item ExecutionEvidence) proof.RelationshipRef {
+	return evidenceRef("execution", item.EvidenceID, item.CanonicalContentDigest, ExecutionEvidenceSchemaID)
+}
+func evidenceRefForEffect(item EffectEvent) proof.RelationshipRef {
+	return evidenceRef("effect_event", item.EvidenceID, item.CanonicalContentDigest, EffectEventSchemaID)
+}
+func evidenceRefForContainment(item ContainmentEvidence) proof.RelationshipRef {
+	return evidenceRef("containment", item.EvidenceID, item.CanonicalContentDigest, ContainmentEvidenceSchemaID)
+}
+func evidenceRefForCompensation(item CompensationEvidence) proof.RelationshipRef {
+	return evidenceRef("compensation", item.EvidenceID, item.CanonicalContentDigest, CompensationEvidenceSchemaID)
+}
+
+func validateLifecycleEvidenceBinding(record LifecycleRecord) error {
+	var binding *EvidenceBinding
+	if record.Execution != nil {
+		b := record.Execution.Binding
+		binding = &b
+	}
+	if record.Effect != nil {
+		b := record.Effect.Binding
+		if binding != nil && !binding.sameIdentity(b) {
+			return errors.New("lifecycle evidence binding mismatch")
+		}
+		binding = &b
+	}
+	if record.Containment != nil {
+		b := record.Containment.Binding
+		if binding != nil && !binding.sameIdentity(b) {
+			return errors.New("lifecycle evidence binding mismatch")
+		}
+		binding = &b
+	}
+	if record.Compensation != nil {
+		b := record.Compensation.Binding
+		if binding != nil && !binding.sameIdentity(b) {
+			return errors.New("lifecycle evidence binding mismatch")
+		}
+		binding = &b
+	}
+	if binding == nil {
+		return nil
+	}
+	if err := binding.Validate(); err != nil {
+		return err
+	}
+	if !sameLifecycleRefIdentity(&binding.ContractRef, &record.ContractRef) || binding.Revision != record.Revision {
+		return errors.New("lifecycle evidence contract/revision mismatch")
+	}
+	if record.ContractFamilyID == "" || binding.ContractFamilyID != record.ContractFamilyID {
+		return errors.New("lifecycle evidence family mismatch")
+	}
+	if record.ProposalRef == nil || record.ActivationRef == nil || !sameLifecycleRefIdentity(&binding.ContractRef, record.ProposalRef) || !sameLifecycleRefIdentity(&binding.ActivationRef, record.ActivationRef) {
+		return errors.New("lifecycle evidence proposal/activation mismatch")
+	}
+	expectedRefs := []proof.RelationshipRef{}
+	if record.Execution != nil {
+		expectedRefs = append(expectedRefs, evidenceRefForExecution(*record.Execution))
+	}
+	if record.Effect != nil {
+		expectedRefs = append(expectedRefs, evidenceRefForEffect(*record.Effect))
+	}
+	if record.Containment != nil {
+		expectedRefs = append(expectedRefs, evidenceRefForContainment(*record.Containment))
+	}
+	if record.Compensation != nil {
+		expectedRefs = append(expectedRefs, evidenceRefForCompensation(*record.Compensation))
+	}
+	for _, expected := range expectedRefs {
+		found := false
+		for _, actual := range record.EvidenceRefs {
+			if actual.Kind == expected.Kind && actual.ID == expected.ID && actual.Digest == expected.Digest && actual.SchemaID == expected.SchemaID && actual.SchemaVersion == expected.SchemaVersion && actual.SourceProduct == expected.SourceProduct {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("lifecycle typed evidence reference missing")
+		}
+	}
+	return nil
+}
+
+func validateLifecycleEvidence(record LifecycleRecord) error {
+	if record.Execution != nil {
+		if err := validateExecutionEvidence(*record.Execution); err != nil {
+			return err
+		}
+	}
+	if record.Effect != nil {
+		if err := validateEffectEvent(*record.Effect); err != nil {
+			return err
+		}
+	}
+	if record.Containment != nil {
+		if err := validateContainmentEvidence(*record.Containment); err != nil {
+			return err
+		}
+	}
+	if record.Compensation != nil {
+		if err := validateCompensationEvidence(*record.Compensation); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1447,6 +1687,10 @@ type LifecycleSnapshot struct {
 	Superseded             bool              `json:"superseded"`
 	DecisionReady          bool              `json:"decision_ready"`
 	PreconditionsEvaluated int               `json:"preconditions_evaluated"`
+	ExecutionStatus        string            `json:"execution_status,omitempty"`
+	EffectStatus           string            `json:"effect_status,omitempty"`
+	ContainmentStatus      string            `json:"containment_status,omitempty"`
+	CompensationStatus     string            `json:"compensation_status,omitempty"`
 	CurrentStatus          string            `json:"current_status"`
 	ReasonCodes            []string          `json:"reason_codes,omitempty"`
 	Records                []LifecycleRecord `json:"records"`
@@ -1471,6 +1715,7 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 	revision := -1
 	var previousTime time.Time
 	previousID := ""
+	var evidenceBinding *EvidenceBinding
 	for index, record := range ordered {
 		if record.RecordID == "" {
 			return LifecycleSnapshot{}, errors.New("lifecycle_record_id_missing")
@@ -1500,6 +1745,27 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 		if err := validateLifecycleEvent(record); err != nil {
 			return LifecycleSnapshot{}, err
 		}
+		if err := validateLifecycleEvidence(record); err != nil {
+			return LifecycleSnapshot{}, err
+		}
+		if record.Execution != nil || record.Effect != nil || record.Containment != nil || record.Compensation != nil {
+			var current EvidenceBinding
+			switch {
+			case record.Execution != nil:
+				current = record.Execution.Binding
+			case record.Effect != nil:
+				current = record.Effect.Binding
+			case record.Containment != nil:
+				current = record.Containment.Binding
+			default:
+				current = record.Compensation.Binding
+			}
+			if evidenceBinding == nil {
+				evidenceBinding = &current
+			} else if !evidenceBinding.sameIdentity(current) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_evidence_binding_mismatch")
+			}
+		}
 		key := record.ContractRef.Kind + "|" + record.ContractRef.ID + "|" + record.ContractRef.Digest
 		if contractKey == "" {
 			contractKey = key
@@ -1519,6 +1785,25 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 	proposalIngested := false
 	activationRequested := false
 	decisionReady := false
+	executionStarted := false
+	executionTerminal := false
+	executionOutcome := ""
+	executionStartedDigest := ""
+	executionEvidenceDigest := ""
+	effectRecorded := false
+	effectValidated := false
+	effectArtifactDigest := ""
+	containmentRequested := false
+	containmentTerminal := false
+	containmentRequestDigest := ""
+	containmentScopeDigest := ""
+	compensationNeeded := false
+	compensationRequiredRecorded := false
+	compensationStarted := false
+	compensationCompleted := false
+	compensationRequirementDigest := ""
+	compensationEventDigest := ""
+	effectEvidenceDigest := ""
 	for _, record := range ordered {
 		if terminal {
 			return LifecycleSnapshot{}, errors.New("lifecycle_terminal_order_invalid")
@@ -1595,8 +1880,124 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			}
 			out.DecisionReady = true
 			decisionReady = true
+		case LifecycleExecutionStarted:
+			if !decisionReady || !out.Activated {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_before_verified_activation")
+			}
+			if executionStarted || executionTerminal {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_replayed")
+			}
+			if record.Execution == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_evidence_missing")
+			}
+			executionStarted = true
+			executionStartedDigest = record.Execution.CanonicalContentDigest
+			executionEvidenceDigest = record.Execution.CanonicalContentDigest
+			out.ExecutionStatus = "started"
+			compensationNeeded = compensationNeeded || record.Execution.CompensationRequired
+		case LifecycleExecutionSucceeded, LifecycleExecutionFailed, LifecycleExecutionBlocked:
+			if !executionStarted || executionTerminal {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_terminal_order_invalid")
+			}
+			if record.Execution == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_evidence_missing")
+			}
+			if !hasDigestRef(record.Execution.Binding.CausalRefs, executionStartedDigest) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_predecessor_mismatch")
+			}
+			executionTerminal = true
+			executionOutcome = record.Execution.Outcome
+			executionEvidenceDigest = record.Execution.CanonicalContentDigest
+			out.ExecutionStatus = executionOutcome
+			compensationNeeded = compensationNeeded || record.Execution.CompensationRequired
+		case LifecycleEffectRecorded:
+			if !executionTerminal || executionOutcome != "succeeded" {
+				return LifecycleSnapshot{}, errors.New("lifecycle_effect_without_successful_execution")
+			}
+			if effectRecorded || effectValidated || record.Effect == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_effect_replayed_or_missing")
+			}
+			if record.Effect.ExecutionRef.Digest != executionEvidenceDigest {
+				return LifecycleSnapshot{}, errors.New("lifecycle_effect_execution_mismatch")
+			}
+			if !hasDigestRef(record.Effect.Binding.CausalRefs, executionEvidenceDigest) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_effect_predecessor_mismatch")
+			}
+			effectRecorded = true
+			effectEvidenceDigest = record.Effect.CanonicalContentDigest
+			effectArtifactDigest = record.Effect.EffectRef.Digest
+			out.EffectStatus = "recorded"
+		case LifecycleEffectValidated:
+			if !effectRecorded || effectValidated || record.Effect == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_effect_validation_order_invalid")
+			}
+			effectValidated = true
+			if record.Effect.ExecutionRef.Digest != executionEvidenceDigest {
+				return LifecycleSnapshot{}, errors.New("lifecycle_effect_validation_mismatch")
+			}
+			if record.Effect.EffectRef.Digest != effectArtifactDigest || !hasDigestRef(record.Effect.Binding.CausalRefs, effectEvidenceDigest) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_effect_validation_predecessor_mismatch")
+			}
+			effectEvidenceDigest = record.Effect.CanonicalContentDigest
+			out.EffectStatus = "validated"
+		case LifecycleContainmentRequested:
+			if !executionStarted || containmentRequested || containmentTerminal || record.Containment == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_containment_request_invalid")
+			}
+			if !effectValidated {
+				return LifecycleSnapshot{}, errors.New("lifecycle_containment_without_validated_effect")
+			}
+			containmentRequested = true
+			if record.Containment.ExecutionRef.Digest != executionEvidenceDigest || record.Containment.EffectRef.Digest != effectEvidenceDigest || !hasDigestRef(record.Containment.Binding.CausalRefs, effectEvidenceDigest) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_containment_effect_mismatch")
+			}
+			containmentRequestDigest = record.Containment.CanonicalContentDigest
+			containmentScopeDigest = record.Containment.ContainmentRef.Digest
+			out.ContainmentStatus = "requested"
+		case LifecycleContainmentCompleted, LifecycleContainmentPartial, LifecycleContainmentUnresolved:
+			if !containmentRequested || containmentTerminal || record.Containment == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_containment_terminal_order_invalid")
+			}
+			containmentTerminal = true
+			if record.Containment.ExecutionRef.Digest != executionEvidenceDigest || record.Containment.EffectRef.Digest != effectEvidenceDigest || record.Containment.ContainmentRef.Digest != containmentScopeDigest || !hasDigestRef(record.Containment.Binding.CausalRefs, containmentRequestDigest) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_containment_effect_mismatch")
+			}
+			out.ContainmentStatus = record.Containment.Outcome
+		case LifecycleCompensationRequired:
+			if !executionTerminal || !compensationNeeded || compensationRequiredRecorded || record.Compensation == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_requirement_invalid")
+			}
+			if record.Compensation.ExecutionRef.Digest != executionEvidenceDigest || !hasDigestRef(record.Compensation.Binding.CausalRefs, executionEvidenceDigest) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_execution_mismatch")
+			}
+			compensationRequiredRecorded = true
+			compensationRequirementDigest = record.Compensation.RequirementRef.Digest
+			compensationEventDigest = record.Compensation.CanonicalContentDigest
+			out.CompensationStatus = "required"
+		case LifecycleCompensationStarted:
+			if !compensationRequiredRecorded || compensationStarted || compensationCompleted || record.Compensation == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_start_invalid")
+			}
+			if record.Compensation.ExecutionRef.Digest != executionEvidenceDigest || record.Compensation.RequirementRef.Digest != compensationRequirementDigest || !hasDigestRef(record.Compensation.Binding.CausalRefs, compensationEventDigest) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_requirement_mismatch")
+			}
+			compensationStarted = true
+			compensationEventDigest = record.Compensation.CanonicalContentDigest
+			out.CompensationStatus = "started"
+		case LifecycleCompensationCompleted:
+			if !compensationStarted || compensationCompleted || record.Compensation == nil {
+				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_completion_invalid")
+			}
+			if record.Compensation.ExecutionRef.Digest != executionEvidenceDigest || record.Compensation.RequirementRef.Digest != compensationRequirementDigest || !hasDigestRef(record.Compensation.Binding.CausalRefs, compensationEventDigest) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_completion_mismatch")
+			}
+			compensationCompleted = true
+			out.CompensationStatus = "completed"
 		}
 		out.ReasonCodes = append(out.ReasonCodes, record.ReasonCodes...)
+	}
+	if compensationNeeded && !compensationCompleted {
+		return LifecycleSnapshot{}, errors.New("lifecycle_required_compensation_missing")
 	}
 	switch {
 	case out.Revoked:
@@ -1605,6 +2006,14 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 		out.CurrentStatus = "superseded"
 	case out.Rejected:
 		out.CurrentStatus = "rejected"
+	case out.CompensationStatus != "":
+		out.CurrentStatus = "compensation_" + out.CompensationStatus
+	case out.ContainmentStatus != "":
+		out.CurrentStatus = "containment_" + out.ContainmentStatus
+	case out.EffectStatus != "":
+		out.CurrentStatus = "effect_" + out.EffectStatus
+	case out.ExecutionStatus != "":
+		out.CurrentStatus = "execution_" + out.ExecutionStatus
 	case out.Activated:
 		out.CurrentStatus = "activated"
 	case out.DecisionReady:
@@ -1632,6 +2041,26 @@ func ReduceVerifiedLifecycle(records []LifecycleRecord, publicKey ed25519.Public
 				return LifecycleSnapshot{}, fmt.Errorf("lifecycle record verification failed: %w", err)
 			}
 			return LifecycleSnapshot{}, errors.New("lifecycle record verification failed")
+		}
+		if record.Execution != nil {
+			if ok, err := VerifyExecutionEvidence(*record.Execution, publicKey); err != nil || !ok {
+				return LifecycleSnapshot{}, errors.New("execution evidence verification failed")
+			}
+		}
+		if record.Effect != nil {
+			if ok, err := VerifyEffectEvent(*record.Effect, publicKey); err != nil || !ok {
+				return LifecycleSnapshot{}, errors.New("effect evidence verification failed")
+			}
+		}
+		if record.Containment != nil {
+			if ok, err := VerifyContainmentEvidence(*record.Containment, publicKey); err != nil || !ok {
+				return LifecycleSnapshot{}, errors.New("containment evidence verification failed")
+			}
+		}
+		if record.Compensation != nil {
+			if ok, err := VerifyCompensationEvidence(*record.Compensation, publicKey); err != nil || !ok {
+				return LifecycleSnapshot{}, errors.New("compensation evidence verification failed")
+			}
 		}
 	}
 	return ReduceLifecycleChecked(records)
