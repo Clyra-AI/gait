@@ -22,6 +22,7 @@ type conformanceFixturePack struct {
 type conformanceFixtureManifest struct {
 	FixtureVersion   string `json:"fixture_version"`
 	FoundationCommit string `json:"foundation_commit"`
+	SourceCommit     string `json:"source_commit"`
 	Producer         struct {
 		Name    string `json:"name"`
 		Version string `json:"version"`
@@ -112,7 +113,7 @@ func TestLifecycleConformanceManifestPinsExactBytes(t *testing.T) {
 	if err := json.Unmarshal(manifestRaw, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.FixtureVersion != "1" || manifest.FoundationCommit != "4177f1e575441975b5a8979e6350e988c2f71d70" || manifest.Producer.Name != "gait" || manifest.Producer.Version != "v1.5.0" || !manifest.Signing.FixtureTestOnly || !manifest.Signing.NonAuthoritative || len(manifest.Scenarios) != 9 {
+	if manifest.FixtureVersion != "1" || manifest.FoundationCommit != "4177f1e575441975b5a8979e6350e988c2f71d70" || manifest.SourceCommit != "eb4c599a5c1a24dbb270c39a5a513d78f253506d" || manifest.Producer.Name != "gait" || manifest.Producer.Version != "v1.5.0" || !manifest.Signing.FixtureTestOnly || !manifest.Signing.NonAuthoritative || len(manifest.Scenarios) != 9 {
 		t.Fatalf("unexpected conformance fixture manifest: %+v", manifest)
 	}
 	for _, prefix := range []string{"proposal", "activation", "runtime_action", "runtime_readiness", "runtime_action_source", "runtime_readiness_source"} {

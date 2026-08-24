@@ -31,11 +31,13 @@ const (
 	runtimeReadiness = "testdata/runtime-goldens/runtime-readiness.json"
 	seedPhrase       = "gait-action-contract-activation-development-key-v1"
 	foundationCommit = "4177f1e575441975b5a8979e6350e988c2f71d70"
+	sourceCommit     = "eb4c599a5c1a24dbb270c39a5a513d78f253506d"
 )
 
 type manifest struct {
 	FixtureVersion   string `json:"fixture_version"`
 	FoundationCommit string `json:"foundation_commit"`
+	SourceCommit     string `json:"source_commit"`
 	Producer         struct {
 		Name    string `json:"name"`
 		Version string `json:"version"`
@@ -233,7 +235,7 @@ func run(repoRoot string, update bool) error {
 	if err != nil {
 		return err
 	}
-	manifestValue := manifest{FixtureVersion: "1", FoundationCommit: foundationCommit, Bindings: map[string]string{
+	manifestValue := manifest{FixtureVersion: "1", FoundationCommit: foundationCommit, SourceCommit: sourceCommit, Bindings: map[string]string{
 		"proposal_path": sourceProposal, "proposal_sha256": rawDigest(proposalRaw),
 		"activation_path": sourceActivation, "activation_sha256": rawDigest(activationRaw),
 		"runtime_action_path": fixtureRoot + "/runtime-action.json", "runtime_action_sha256": rawDigest(projectedActionRaw),
