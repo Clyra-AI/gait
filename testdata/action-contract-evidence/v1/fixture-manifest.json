@@ -1,6 +1,7 @@
 {
   "fixture_version": "1",
   "foundation_commit": "4177f1e575441975b5a8979e6350e988c2f71d70",
+  "source_commit": "eb4c599a5c1a24dbb270c39a5a513d78f253506d",
   "producer": {
     "name": "gait",
     "version": "v1.5.0"
