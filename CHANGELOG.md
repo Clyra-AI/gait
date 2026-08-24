@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-24
+
 ### Added
 
 - [semver:minor] Added deterministic pre-execution runtime action/boundary/outcome classification, typed contract readiness evaluation, and signed lifecycle records with pure reduction. These surfaces never execute tools or claim observed effects.
