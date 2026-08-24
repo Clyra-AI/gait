@@ -641,6 +641,10 @@ func TestEffectSchemasValidateRepresentativeObjects(t *testing.T) {
 	if err := proofschema.ValidateJSON(filepath.Join(root, "effect_contract.schema.json"), raw); err == nil {
 		t.Fatal("checked-in contract schema accepted comparison without expected operand")
 	}
+	nullExpected := []byte(`{"schema_id":"` + ContractSchemaID + `","schema_version":"1.0.0","contract_id":"contract:null","name":"null","predicates":[{"id":"missing","kind":"expect","field":"after.owner","operator":"not_equals","expected":null}]}`)
+	if err := proofschema.ValidateJSON(filepath.Join(root, "effect_contract.schema.json"), nullExpected); err == nil {
+		t.Fatal("checked-in contract schema accepted null comparison operand")
+	}
 }
 
 func TestEmbeddedEffectSchemasMatchCheckedInSchemas(t *testing.T) {

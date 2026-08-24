@@ -24,7 +24,7 @@
         "kind": {"enum": ["expect", "forbid", "invariant"]},
         "field": {"type": "string", "minLength": 1},
         "operator": {"enum": ["equals", "not_equals", "contains", "exists", "gte", "lte", "unchanged"]},
-        "expected": {}
+        "expected": {"not": {"type": "null"}}
       }
     }
   }
