@@ -32,7 +32,7 @@
   "files": [
     {
       "path": "effect_snapshot.json",
-      "sha256": "sha256:ba3dbded6ed13c887f7225bd5decb5aa116bc94811fc2e44271b4a026c9bbd36",
+      "sha256": "sha256:a320816ede0a51b0e01e9ac3b4d2ba6f63aa2191a760048ff0a8819149b89a33",
       "schema_id": "https://gait.dev/schemas/v1/effects/effect-snapshot.schema.json",
       "schema_version": "1.0.0"
     },

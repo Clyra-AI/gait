@@ -152,7 +152,12 @@ func Run(opts RunOptions) (RunResult, error) {
 	for _, fixture := range fixtures {
 		ctx := FixtureContext{Fixture: fixture}
 		graders := append([]Grader(nil), baseGraders...)
-		if fixture.EffectSnapshotPath != "" || fixture.EffectContractPath != "" {
+		// Any effect metadata opts this fixture into the effect grader. This is
+		// deliberately broader than checking only the three resolved paths:
+		// expected correlations and a trusted key are evidence requirements too.
+		// The grader then fails closed when the metadata is incomplete instead of
+		// allowing an otherwise ordinary fixture to bypass effect validation.
+		if hasEffectMetadata(fixture) {
 			graders = append(graders, effectContractGrader{})
 		}
 		for _, grader := range graders {
@@ -227,6 +232,15 @@ func Run(opts RunOptions) (RunResult, error) {
 		JUnitPath:     junitPath,
 		FailedGraders: failedGraders,
 	}, nil
+}
+
+func hasEffectMetadata(fixture fixtureSpec) bool {
+	return strings.TrimSpace(fixture.EffectSnapshotPath) != "" ||
+		strings.TrimSpace(fixture.EffectContractPath) != "" ||
+		strings.TrimSpace(fixture.EffectPublicKeyPath) != "" ||
+		strings.TrimSpace(fixture.Meta.EffectExpectedActionDigest) != "" ||
+		strings.TrimSpace(fixture.Meta.EffectExpectedActivationDigest) != "" ||
+		strings.TrimSpace(fixture.Meta.EffectExpectedProofDigest) != ""
 }
 
 func readRegressConfig(configPath string) (configFile, error) {

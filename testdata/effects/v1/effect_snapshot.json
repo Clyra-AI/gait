@@ -59,8 +59,8 @@
     "signature": {
       "alg": "ed25519",
       "key_id": "39e72b22bc3e4c1a16487e0cfb65bb38ca38e06e6847f4802e5b554fb143adb2",
-      "sig": "gGUweF9bZLIUMwGiYgZCg/Y7PRtlbhxAHtFqhTO9dKYrfEYQsHASZ4cGPtULRV6zbDHjm4MWZ9hsrU6NwYJ9BA==",
-      "signed_digest": "da43a88b21db6371631fb644211464beae0a7322a5dc10fa8118b04004a2f90c"
+      "sig": "OPdjac6ndjwA8QhegLEA5s2RJeKoxrEn/AqobqK+qUctsK52gRZWFw/VF/n2HMWspalvKCkFtwAI1u+qzkKKBg==",
+      "signed_digest": "dc07726758648b304a536044a737d032db3eb5b0a2e2a1f3df4ce4a1e12f8064"
     }
   },
   "completeness": "complete",
@@ -69,5 +69,5 @@
     "ref:before",
     "ref:after"
   ],
-  "canonical_content_digest": "sha256:da43a88b21db6371631fb644211464beae0a7322a5dc10fa8118b04004a2f90c"
+  "canonical_content_digest": "sha256:dc07726758648b304a536044a737d032db3eb5b0a2e2a1f3df4ce4a1e12f8064"
 }

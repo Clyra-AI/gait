@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -237,7 +238,6 @@ type CorrelationExpectation struct {
 
 func (s Snapshot) CanonicalDigest() (string, error) {
 	payload := s
-	payload.SnapshotID = ""
 	payload.CanonicalContentDigest = ""
 	payload.EvidenceRefs = sortedStrings(payload.EvidenceRefs)
 	payload.Before.EvidenceRefs = sortedStrings(payload.Before.EvidenceRefs)
@@ -638,9 +638,9 @@ func matches(observed any, operator string, expected any) (bool, bool) {
 			return false, false
 		}
 		if operator == "gte" {
-			return left >= right, true
+			return left.Cmp(right) >= 0, true
 		}
-		return left <= right, true
+		return left.Cmp(right) <= 0, true
 	default:
 		return false, false
 	}
@@ -681,19 +681,27 @@ func validateEmbeddedSchema(raw []byte, schemaID string) error {
 	return schema.Validate(document)
 }
 
-func numberValue(value any) (float64, bool) {
+func numberValue(value any) (*big.Rat, bool) {
 	switch number := value.(type) {
 	case int64:
-		return float64(number), true
+		return new(big.Rat).SetInt64(number), true
 	case int:
-		return float64(number), true
+		return new(big.Rat).SetInt64(int64(number)), true
+	case uint64:
+		return new(big.Rat).SetUint64(number), true
+	case uint:
+		return new(big.Rat).SetUint64(uint64(number)), true
 	case float64:
-		return number, !math.IsNaN(number)
+		if math.IsNaN(number) || math.IsInf(number, 0) {
+			return nil, false
+		}
+		parsed := new(big.Rat).SetFloat64(number)
+		return parsed, parsed != nil
 	case json.Number:
-		parsed, err := number.Float64()
-		return parsed, err == nil
+		parsed, ok := new(big.Rat).SetString(string(number))
+		return parsed, ok
 	default:
-		return 0, false
+		return nil, false
 	}
 }
 
@@ -1041,6 +1049,9 @@ func decodeStrict(raw []byte, target any) error {
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
+	// Preserve JSON numbers as json.Number so predicate grading can compare
+	// them exactly instead of rounding through float64.
+	decoder.UseNumber()
 	if err := decoder.Decode(target); err != nil {
 		return err
 	}

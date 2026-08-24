@@ -139,6 +139,11 @@ func TestEffectProvenanceAndSchemaErrorBranches(t *testing.T) {
 		t.Fatal("mismatched trusted provenance key accepted")
 	}
 	tampered := snapshot
+	tampered.SnapshotID = "effect-snapshot:substituted"
+	if err := tampered.VerifyProvenanceAgainst(testPrivateKey().Public().(ed25519.PublicKey)); err == nil {
+		t.Fatal("snapshot ID substitution accepted by provenance verification")
+	}
+	tampered = snapshot
 	tampered.Provenance.Signature.SignedDigest = strings.Repeat("0", 64)
 	if err := tampered.VerifyProvenanceAgainst(testPrivateKey().Public().(ed25519.PublicKey)); err == nil {
 		t.Fatal("mismatched provenance digest accepted")
@@ -165,6 +170,30 @@ func TestEffectProvenanceAndSchemaErrorBranches(t *testing.T) {
 	}
 	if _, err := LoadSnapshot(path); err == nil {
 		t.Fatal("trailing snapshot JSON accepted")
+	}
+}
+
+func TestEffectNumericPredicatesPreserveIntegerPrecision(t *testing.T) {
+	const exact = int64(9007199254740993) // 2^53 + 1; float64 cannot represent it.
+	if matched, supported := matches(exact, "gte", json.Number("9007199254740993")); !supported || !matched {
+		t.Fatalf("exact integer lower bound comparison failed: matched=%t supported=%t", matched, supported)
+	}
+	if matched, supported := matches(exact, "lte", json.Number("9007199254740992")); !supported || matched {
+		t.Fatalf("exact integer upper bound comparison rounded: matched=%t supported=%t", matched, supported)
+	}
+	if matched, supported := matches(json.Number("9007199254740993"), "equals", json.Number("9007199254740993")); !supported || !matched {
+		t.Fatalf("exact JSON number equality failed: matched=%t supported=%t", matched, supported)
+	}
+
+	// Contracts loaded from JSON must retain JSON numbers rather than decoding
+	// expected values through float64.
+	raw := []byte(`{"schema_id":"` + ContractSchemaID + `","schema_version":"1.0.0","contract_id":"contract:numeric","name":"numeric","predicates":[{"id":"count","kind":"expect","field":"after.count","operator":"gte","expected":9007199254740993}]}`)
+	var contract Contract
+	if err := decodeStrict(raw, &contract); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := contract.Predicates[0].Expected.(json.Number); !ok {
+		t.Fatalf("JSON expected number lost exact representation: %T", contract.Predicates[0].Expected)
 	}
 }
 
