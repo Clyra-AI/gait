@@ -12,7 +12,7 @@
     "binding": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/binding"},
     "event_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
     "requirement_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
-    "execution_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
+    "execution_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/execution_artifact_ref"},
     "occurred_at": {"type": "string", "format": "date-time"},
     "fresh_until": {"type": "string", "format": "date-time"},
     "outcome": {"enum": ["required", "started", "completed"]},

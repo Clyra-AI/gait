@@ -202,6 +202,10 @@ func exactRef(actual, expected proof.RelationshipRef) bool {
 	return hasExactRef([]proof.RelationshipRef{actual}, expected)
 }
 
+func validExecutionEvidenceRef(ref proof.RelationshipRef) bool {
+	return digestBoundRef(ref) && ref.Kind == "execution" && ref.SchemaID == ExecutionEvidenceSchemaID && ref.SchemaVersion == ExecutionEvidenceSchemaVersion && ref.SourceProduct == EvidenceProducer
+}
+
 func validEvidenceTime(value string) bool {
 	t, err := time.Parse(time.RFC3339Nano, value)
 	return err == nil && !t.IsZero() && t.Location() != nil
@@ -352,7 +356,7 @@ func validateEffectEvent(item EffectEvent) error {
 	if item.SchemaID != EffectEventSchemaID || (item.Outcome != "recorded" && item.Outcome != "validated") || !digestBoundRef(item.EventRef) {
 		return errors.New("effect event shape invalid")
 	}
-	if !digestBoundRef(item.ExecutionRef) || !digestBoundRef(item.EffectRef) {
+	if !validExecutionEvidenceRef(item.ExecutionRef) || !digestBoundRef(item.EffectRef) {
 		return errors.New("effect execution/effect references required")
 	}
 	return validateTypedEvidenceSchema(item, EffectEventSchemaID)
@@ -370,7 +374,7 @@ func validateContainmentEvidence(item ContainmentEvidence) error {
 	if item.SchemaID != ContainmentEvidenceSchemaID || (item.Outcome != "requested" && item.Outcome != "completed" && item.Outcome != "partial" && item.Outcome != "unresolved") || !digestBoundRef(item.EventRef) {
 		return errors.New("containment evidence shape invalid")
 	}
-	if !digestBoundRef(item.ExecutionRef) || !digestBoundRef(item.ContainmentRef) {
+	if !validExecutionEvidenceRef(item.ExecutionRef) || !digestBoundRef(item.ContainmentRef) {
 		return errors.New("containment execution/scope references required")
 	}
 	return validateTypedEvidenceSchema(item, ContainmentEvidenceSchemaID)
@@ -388,7 +392,7 @@ func validateCompensationEvidence(item CompensationEvidence) error {
 	if item.SchemaID != CompensationEvidenceSchemaID || (item.Outcome != "required" && item.Outcome != "started" && item.Outcome != "completed") || !digestBoundRef(item.EventRef) {
 		return errors.New("compensation evidence shape invalid")
 	}
-	if !digestBoundRef(item.ExecutionRef) || !digestBoundRef(item.RequirementRef) {
+	if !validExecutionEvidenceRef(item.ExecutionRef) || !digestBoundRef(item.RequirementRef) {
 		return errors.New("compensation execution/requirement references required")
 	}
 	return validateTypedEvidenceSchema(item, CompensationEvidenceSchemaID)

@@ -342,6 +342,11 @@ func TestTypedEvidenceParsersAndValidationBranches(t *testing.T) {
 		t.Fatal("effect event accepted a missing execution reference")
 	}
 	invalidEffect = effect
+	invalidEffect.ExecutionRef.Kind = "runtime_action"
+	if err := validateEffectEvent(invalidEffect); err == nil {
+		t.Fatal("effect event accepted a non-execution typed reference")
+	}
+	invalidEffect = effect
 	invalidEffect.Provenance.PublicKey = ""
 	if err := validateEffectEvent(invalidEffect); err == nil {
 		t.Fatal("effect event accepted incomplete provenance")
@@ -361,6 +366,11 @@ func TestTypedEvidenceParsersAndValidationBranches(t *testing.T) {
 	if err := validateContainmentEvidence(invalidContainment); err == nil {
 		t.Fatal("containment evidence accepted a missing scope reference")
 	}
+	invalidContainment = containment
+	invalidContainment.ExecutionRef.SchemaID = RuntimeActionSchemaID
+	if err := validateContainmentEvidence(invalidContainment); err == nil {
+		t.Fatal("containment evidence accepted a non-execution typed reference")
+	}
 	invalidCompensation := compensation
 	invalidCompensation.ReasonCode = ""
 	if err := validateCompensationEvidence(invalidCompensation); err == nil {
@@ -375,6 +385,11 @@ func TestTypedEvidenceParsersAndValidationBranches(t *testing.T) {
 	invalidCompensation.RequirementRef = proof.RelationshipRef{}
 	if err := validateCompensationEvidence(invalidCompensation); err == nil {
 		t.Fatal("compensation evidence accepted a missing requirement reference")
+	}
+	invalidCompensation = compensation
+	invalidCompensation.ExecutionRef.SourceProduct = "other"
+	if err := validateCompensationEvidence(invalidCompensation); err == nil {
+		t.Fatal("compensation evidence accepted a non-execution typed reference")
 	}
 	brokenExecution := execution
 	brokenExecution.ReasonCode = ""

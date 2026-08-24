@@ -99,6 +99,20 @@
         }
       }
     },
+    "execution_artifact_ref": {
+      "allOf": [
+        {"$ref": "#/$defs/ref"},
+        {
+          "required": ["schema_id", "schema_version", "source_product"],
+          "properties": {
+            "kind": {"const": "execution"},
+            "schema_id": {"const": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json"},
+            "schema_version": {"const": "1"},
+            "source_product": {"const": "gait"}
+          }
+        }
+      ]
+    },
     "wrkr_contract_ref": {
       "allOf": [
         {

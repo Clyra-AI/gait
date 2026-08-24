@@ -11,7 +11,7 @@
     "evidence_id": {"type": "string", "pattern": "^gait-effect-[a-f0-9]{16}$"},
     "binding": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/binding"},
     "event_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
-    "execution_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
+    "execution_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/execution_artifact_ref"},
     "effect_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
     "occurred_at": {"type": "string", "format": "date-time"},
     "fresh_until": {"type": "string", "format": "date-time"},
