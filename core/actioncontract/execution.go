@@ -7,9 +7,7 @@ package actioncontract
 import (
 	"bytes"
 	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -563,11 +561,11 @@ func ParseCompensationEvidence(raw []byte) (CompensationEvidence, error) {
 	return item, nil
 }
 
-// WriteEvidenceAtomic and ReadEvidenceFile are bounded, no-follow helpers for
+// WriteEvidenceExclusive and ReadEvidenceFile are bounded, no-follow helpers for
 // evidence handoff. The writer anchors all path operations to a verified
-// directory descriptor. The reader accepts an already-open descriptor and
-// never resolves a path itself.
-func WriteEvidenceAtomic(path string, value any) error {
+// directory descriptor and creates the destination exactly once. The reader
+// accepts an already-open descriptor and never resolves a path itself.
+func WriteEvidenceExclusive(path string, value any) error {
 	if strings.TrimSpace(path) == "" {
 		return errors.New("evidence path required")
 	}
@@ -597,35 +595,23 @@ func WriteEvidenceAtomic(path string, value any) error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return errors.New("evidence destination is not stable")
 	}
-	tempName, err := randomEvidenceTempName(base)
+	file, err := root.OpenFile(base, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
-	tmp, err := root.OpenFile(tempName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
+	defer func() { _ = file.Close() }()
+	if _, err := file.Write(raw); err != nil {
 		return err
 	}
-	defer func() { _ = root.Remove(tempName) }()
-	if _, err := tmp.Write(raw); err != nil {
-		_ = tmp.Close()
+	if err := file.Sync(); err != nil {
 		return err
 	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	if _, err := root.Lstat(base); err == nil {
+	descriptor, err := file.Stat()
+	final, finalErr := root.Lstat(base)
+	if err != nil || finalErr != nil || final.Mode()&os.ModeSymlink != 0 || !final.Mode().IsRegular() || !os.SameFile(descriptor, final) {
 		return errors.New("evidence destination changed during write")
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return errors.New("evidence destination is not stable")
 	}
-	if err := root.Link(tempName, base); err != nil {
-		return err
-	}
-	return root.Remove(tempName)
+	return file.Close()
 }
 
 func ReadEvidenceFile(file *os.File) ([]byte, error) {
@@ -668,12 +654,4 @@ func openVerifiedEvidenceRoot(dir string) (*os.Root, error) {
 		return nil, errors.New("evidence directory changed during open")
 	}
 	return root, nil
-}
-
-func randomEvidenceTempName(base string) (string, error) {
-	var suffix [16]byte
-	if _, err := rand.Read(suffix[:]); err != nil {
-		return "", errors.New("evidence temporary name unavailable")
-	}
-	return "." + base + ".gait-tmp-" + hex.EncodeToString(suffix[:]), nil
 }

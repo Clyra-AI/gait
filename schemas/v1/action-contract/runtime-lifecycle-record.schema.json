@@ -38,8 +38,18 @@
         "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$", "not": {"const": "00000000000000000000000000000000"}}, "span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$", "not": {"const": "0000000000000000"}}, "parent_span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$", "not": {"const": "0000000000000000"}}, "redaction": {"$ref": "#/$defs/redaction_metadata"}, "redaction_metadata": {"$ref": "#/$defs/redaction_metadata"}
       }
     },
+    "typed_evidence_exclusive": {
+      "oneOf": [
+        {"not": {"anyOf": [{"required": ["execution"]}, {"required": ["effect"]}, {"required": ["containment"]}, {"required": ["compensation"]}]}},
+        {"required": ["execution"], "not": {"anyOf": [{"required": ["effect"]}, {"required": ["containment"]}, {"required": ["compensation"]}]}},
+        {"required": ["effect"], "not": {"anyOf": [{"required": ["execution"]}, {"required": ["containment"]}, {"required": ["compensation"]}]}},
+        {"required": ["containment"], "not": {"anyOf": [{"required": ["execution"]}, {"required": ["effect"]}, {"required": ["compensation"]}]}},
+        {"required": ["compensation"], "not": {"anyOf": [{"required": ["execution"]}, {"required": ["effect"]}, {"required": ["containment"]}]}}
+      ]
+    },
     "event_requirements": {
       "allOf": [
+        {"if": {"properties": {"kind": {"enum": ["proposal_ingested", "activation_requested", "activated", "rejected", "revoked", "superseded", "precondition_evaluated", "decision_ready"]}}}, "then": {"not": {"anyOf": [{"required": ["execution"]}, {"required": ["effect"]}, {"required": ["containment"]}, {"required": ["compensation"]}]}}},
         {"if": {"properties": {"kind": {"const": "proposal_ingested"}}}, "then": {"required": ["proposal_ref"]}},
         {"if": {"properties": {"kind": {"const": "activation_requested"}}}, "then": {"required": ["proposal_ref"]}},
         {"if": {"properties": {"kind": {"const": "activated"}}}, "then": {"required": ["proposal_ref", "activation_ref"]}},
@@ -61,5 +71,5 @@
       ]
     }
   },
-  "allOf": [{"$ref": "#/$defs/event_requirements"}]
+  "allOf": [{"$ref": "#/$defs/event_requirements"}, {"$ref": "#/$defs/typed_evidence_exclusive"}]
 }

@@ -105,7 +105,7 @@ func TestEvidenceWriteIsBoundedNoFollowNoOverwrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "evidence.json")
-	if err := WriteEvidenceAtomic(path, map[string]string{"ok": "1"}); err != nil {
+	if err := WriteEvidenceExclusive(path, map[string]string{"ok": "1"}); err != nil {
 		t.Fatal(err)
 	}
 	file, err := os.Open(path)
@@ -118,19 +118,19 @@ func TestEvidenceWriteIsBoundedNoFollowNoOverwrite(t *testing.T) {
 	if err := file.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteEvidenceAtomic(path, map[string]string{"ok": "2"}); err == nil {
+	if err := WriteEvidenceExclusive(path, map[string]string{"ok": "2"}); err == nil {
 		t.Fatal("evidence overwrite accepted")
 	}
-	if err := WriteEvidenceAtomic("", map[string]string{"ok": "2"}); err == nil {
+	if err := WriteEvidenceExclusive("", map[string]string{"ok": "2"}); err == nil {
 		t.Fatal("empty evidence path accepted")
 	}
-	if err := WriteEvidenceAtomic(filepath.Join(dir, "large.json"), strings.Repeat("x", int(MaxEvidenceBytes)+1)); err == nil {
+	if err := WriteEvidenceExclusive(filepath.Join(dir, "large.json"), strings.Repeat("x", int(MaxEvidenceBytes)+1)); err == nil {
 		t.Fatal("oversized evidence accepted")
 	}
-	if err := WriteEvidenceAtomic(filepath.Join(dir, "unsupported.json"), make(chan int)); err == nil {
+	if err := WriteEvidenceExclusive(filepath.Join(dir, "unsupported.json"), make(chan int)); err == nil {
 		t.Fatal("unsupported evidence value accepted")
 	}
-	if err := WriteEvidenceAtomic(filepath.Join(dir, "missing", "evidence.json"), map[string]string{"ok": "4"}); err == nil {
+	if err := WriteEvidenceExclusive(filepath.Join(dir, "missing", "evidence.json"), map[string]string{"ok": "4"}); err == nil {
 		t.Fatal("unsafe missing evidence parent accepted")
 	}
 	if _, err := ReadEvidenceFile(nil); err == nil {
@@ -158,7 +158,7 @@ func TestEvidenceWriteIsBoundedNoFollowNoOverwrite(t *testing.T) {
 	_ = oversized.Close()
 	linkedParent := filepath.Join(t.TempDir(), "linked")
 	if err := os.Symlink(t.TempDir(), linkedParent); err == nil {
-		if err := WriteEvidenceAtomic(filepath.Join(linkedParent, "evidence.json"), map[string]string{"ok": "3"}); err == nil {
+		if err := WriteEvidenceExclusive(filepath.Join(linkedParent, "evidence.json"), map[string]string{"ok": "3"}); err == nil {
 			t.Fatal("symlinked evidence parent accepted")
 		}
 	}
@@ -185,9 +185,6 @@ func TestEvidenceRootAndReferenceIdentityBranches(t *testing.T) {
 	}
 	if _, err := openVerifiedEvidenceRoot(filePath); err == nil {
 		t.Fatal("regular file accepted as evidence root")
-	}
-	if tempName, err := randomEvidenceTempName("artifact.json"); err != nil || !strings.HasPrefix(tempName, ".artifact.json.gait-tmp-") {
-		t.Fatalf("unexpected evidence temporary name: %q err=%v", tempName, err)
 	}
 	base := executionTestBinding().ContractRef
 	if !sameLifecycleRefIdentity(&base, &base) || sameLifecycleRefIdentity(nil, &base) {
@@ -733,6 +730,24 @@ func TestLifecycleTypedEvidenceOrderAndLineage(t *testing.T) {
 	}
 	if _, err := ParseLifecycleRecord(mismatchedRaw); err == nil {
 		t.Fatal("lifecycle schema accepted an event/evidence outcome mismatch")
+	}
+	extraTypedEvidence := signed[5]
+	extraTypedEvidence.Effect = &effect
+	extraRaw, err := json.Marshal(extraTypedEvidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseLifecycleRecord(extraRaw); err == nil {
+		t.Fatal("lifecycle schema accepted multiple typed evidence members")
+	}
+	legacyWithTypedEvidence := signed[0]
+	legacyWithTypedEvidence.Execution = &started
+	legacyTypedRaw, err := json.Marshal(legacyWithTypedEvidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseLifecycleRecord(legacyTypedRaw); err == nil {
+		t.Fatal("lifecycle schema accepted typed evidence on a legacy event kind")
 	}
 	wrongPublic, _, _ := ed25519.GenerateKey(nil)
 	if _, err := ReduceVerifiedLifecycle(signed, wrongPublic); err == nil {
