@@ -452,6 +452,12 @@ func TestEffectContractValidationRejectsMalformedBoundaries(t *testing.T) {
 		{name: "operator missing", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[1].Operator = "" }},
 		{name: "operator unsupported", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[1].Operator = "execute" }},
 		{name: "invariant operator", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[0].Operator = "equals" }},
+		{name: "expect missing expected", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[1].Operator = "not_equals"; c.Predicates[1].Expected = nil }},
+		{name: "forbid missing expected", reason: ReasonPredicateInvalid, edit: func(c *Contract) {
+			c.Predicates[1].Kind = PredicateForbid
+			c.Predicates[1].Operator = "equals"
+			c.Predicates[1].Expected = nil
+		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			contract := validContract()
@@ -625,6 +631,15 @@ func TestEffectSchemasValidateRepresentativeObjects(t *testing.T) {
 				t.Fatalf("schema validation: %v", err)
 			}
 		})
+	}
+	missingExpected := validContract()
+	missingExpected.Predicates = []Predicate{{ID: "missing", Kind: PredicateExpect, Field: "after.owner", Operator: "not_equals"}}
+	raw, err := json.Marshal(missingExpected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := proofschema.ValidateJSON(filepath.Join(root, "effect_contract.schema.json"), raw); err == nil {
+		t.Fatal("checked-in contract schema accepted comparison without expected operand")
 	}
 }
 

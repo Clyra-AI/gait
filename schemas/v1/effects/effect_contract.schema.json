@@ -16,7 +16,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["id", "kind", "field"],
       "allOf": [
-        {"if": {"properties": {"kind": {"enum": ["expect", "forbid"]}}}, "then": {"required": ["operator"], "properties": {"operator": {"enum": ["equals", "not_equals", "contains", "exists", "gte", "lte"]}}}},
+        {"if": {"properties": {"kind": {"enum": ["expect", "forbid"]}}}, "then": {"required": ["operator"], "properties": {"operator": {"enum": ["equals", "not_equals", "contains", "exists", "gte", "lte"]}}, "allOf": [{"if": {"properties": {"operator": {"const": "exists"}}}, "then": {}, "else": {"required": ["expected"]}}]}},
         {"if": {"properties": {"kind": {"const": "invariant"}}}, "then": {"properties": {"operator": {"const": "unchanged"}}}}
       ],
       "properties": {

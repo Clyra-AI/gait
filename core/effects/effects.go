@@ -415,6 +415,9 @@ func ValidateContract(c Contract) ValidationResult {
 		if p.Kind != PredicateInvariant && strings.TrimSpace(p.Operator) == "" {
 			reasons = append(reasons, ReasonPredicateInvalid)
 		}
+		if (p.Kind == PredicateExpect || p.Kind == PredicateForbid) && p.Operator != "exists" && p.Expected == nil {
+			reasons = append(reasons, ReasonPredicateInvalid)
+		}
 		if p.Kind != PredicateInvariant && p.Operator == "unchanged" {
 			reasons = append(reasons, ReasonPredicateInvalid)
 		}
