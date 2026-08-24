@@ -1655,24 +1655,37 @@ func validateLifecycleEvidenceBinding(record LifecycleRecord) error {
 }
 
 func validateLifecycleEvidence(record LifecycleRecord) error {
+	evidenceOccurredAt, evidenceFreshUntil := "", ""
 	if record.Execution != nil {
 		if err := validateExecutionEvidence(*record.Execution); err != nil {
 			return err
 		}
+		evidenceOccurredAt, evidenceFreshUntil = record.Execution.OccurredAt, record.Execution.FreshUntil
 	}
 	if record.Effect != nil {
 		if err := validateEffectEvent(*record.Effect); err != nil {
 			return err
 		}
+		evidenceOccurredAt, evidenceFreshUntil = record.Effect.OccurredAt, record.Effect.FreshUntil
 	}
 	if record.Containment != nil {
 		if err := validateContainmentEvidence(*record.Containment); err != nil {
 			return err
 		}
+		evidenceOccurredAt, evidenceFreshUntil = record.Containment.OccurredAt, record.Containment.FreshUntil
 	}
 	if record.Compensation != nil {
 		if err := validateCompensationEvidence(*record.Compensation); err != nil {
 			return err
+		}
+		evidenceOccurredAt, evidenceFreshUntil = record.Compensation.OccurredAt, record.Compensation.FreshUntil
+	}
+	if evidenceOccurredAt != "" {
+		recordTime, recordErr := time.Parse(time.RFC3339Nano, record.OccurredAt)
+		evidenceTime, evidenceErr := time.Parse(time.RFC3339Nano, evidenceOccurredAt)
+		freshUntil, freshErr := time.Parse(time.RFC3339Nano, evidenceFreshUntil)
+		if recordErr != nil || evidenceErr != nil || freshErr != nil || recordTime.Before(evidenceTime) || recordTime.After(freshUntil) {
+			return errors.New("lifecycle evidence outside event time window")
 		}
 	}
 	return nil
@@ -1790,21 +1803,19 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 	executionOutcome := ""
 	executionStartedRef := proof.RelationshipRef{}
 	executionEvidenceRef := proof.RelationshipRef{}
-	executionEvidenceDigest := ""
 	effectRecorded := false
 	effectValidated := false
-	effectArtifactDigest := ""
+	effectArtifactRef := proof.RelationshipRef{}
 	containmentRequested := false
 	containmentTerminal := false
 	containmentRequestRef := proof.RelationshipRef{}
-	containmentScopeDigest := ""
+	containmentScopeRef := proof.RelationshipRef{}
 	compensationNeeded := false
 	compensationRequiredRecorded := false
 	compensationStarted := false
 	compensationCompleted := false
-	compensationRequirementDigest := ""
+	compensationRequirementRef := proof.RelationshipRef{}
 	compensationEventRef := proof.RelationshipRef{}
-	effectEvidenceDigest := ""
 	effectEvidenceRef := proof.RelationshipRef{}
 	for _, record := range ordered {
 		if terminal {
@@ -1894,7 +1905,6 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			}
 			executionStarted = true
 			executionStartedRef = evidenceRefForExecution(*record.Execution)
-			executionEvidenceDigest = record.Execution.CanonicalContentDigest
 			executionEvidenceRef = executionStartedRef
 			out.ExecutionStatus = "started"
 			compensationNeeded = compensationNeeded || record.Execution.CompensationRequired
@@ -1910,7 +1920,6 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			}
 			executionTerminal = true
 			executionOutcome = record.Execution.Outcome
-			executionEvidenceDigest = record.Execution.CanonicalContentDigest
 			executionEvidenceRef = evidenceRefForExecution(*record.Execution)
 			out.ExecutionStatus = executionOutcome
 			compensationNeeded = compensationNeeded || record.Execution.CompensationRequired
@@ -1921,29 +1930,27 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			if effectRecorded || effectValidated || record.Effect == nil {
 				return LifecycleSnapshot{}, errors.New("lifecycle_effect_replayed_or_missing")
 			}
-			if record.Effect.ExecutionRef.Digest != executionEvidenceDigest {
+			if !exactRef(record.Effect.ExecutionRef, executionEvidenceRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_effect_execution_mismatch")
 			}
 			if !hasExactRef(record.Effect.Binding.CausalRefs, executionEvidenceRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_effect_predecessor_mismatch")
 			}
 			effectRecorded = true
-			effectEvidenceDigest = record.Effect.CanonicalContentDigest
 			effectEvidenceRef = evidenceRefForEffect(*record.Effect)
-			effectArtifactDigest = record.Effect.EffectRef.Digest
+			effectArtifactRef = record.Effect.EffectRef
 			out.EffectStatus = "recorded"
 		case LifecycleEffectValidated:
 			if !effectRecorded || effectValidated || record.Effect == nil {
 				return LifecycleSnapshot{}, errors.New("lifecycle_effect_validation_order_invalid")
 			}
 			effectValidated = true
-			if record.Effect.ExecutionRef.Digest != executionEvidenceDigest {
+			if !exactRef(record.Effect.ExecutionRef, executionEvidenceRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_effect_validation_mismatch")
 			}
-			if record.Effect.EffectRef.Digest != effectArtifactDigest || !hasExactRef(record.Effect.Binding.CausalRefs, effectEvidenceRef) {
+			if !exactRef(record.Effect.EffectRef, effectArtifactRef) || !hasExactRef(record.Effect.Binding.CausalRefs, effectEvidenceRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_effect_validation_predecessor_mismatch")
 			}
-			effectEvidenceDigest = record.Effect.CanonicalContentDigest
 			effectEvidenceRef = evidenceRefForEffect(*record.Effect)
 			out.EffectStatus = "validated"
 		case LifecycleContainmentRequested:
@@ -1954,18 +1961,18 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 				return LifecycleSnapshot{}, errors.New("lifecycle_containment_without_validated_effect")
 			}
 			containmentRequested = true
-			if record.Containment.ExecutionRef.Digest != executionEvidenceDigest || record.Containment.EffectRef.Digest != effectEvidenceDigest || !hasExactRef(record.Containment.Binding.CausalRefs, effectEvidenceRef) {
+			if !exactRef(record.Containment.ExecutionRef, executionEvidenceRef) || !exactRef(record.Containment.EffectRef, effectEvidenceRef) || !hasExactRef(record.Containment.Binding.CausalRefs, effectEvidenceRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_containment_effect_mismatch")
 			}
 			containmentRequestRef = evidenceRefForContainment(*record.Containment)
-			containmentScopeDigest = record.Containment.ContainmentRef.Digest
+			containmentScopeRef = record.Containment.ContainmentRef
 			out.ContainmentStatus = "requested"
 		case LifecycleContainmentCompleted, LifecycleContainmentPartial, LifecycleContainmentUnresolved:
 			if !containmentRequested || containmentTerminal || record.Containment == nil {
 				return LifecycleSnapshot{}, errors.New("lifecycle_containment_terminal_order_invalid")
 			}
 			containmentTerminal = true
-			if record.Containment.ExecutionRef.Digest != executionEvidenceDigest || record.Containment.EffectRef.Digest != effectEvidenceDigest || record.Containment.ContainmentRef.Digest != containmentScopeDigest || !hasExactRef(record.Containment.Binding.CausalRefs, containmentRequestRef) {
+			if !exactRef(record.Containment.ExecutionRef, executionEvidenceRef) || !exactRef(record.Containment.EffectRef, effectEvidenceRef) || !exactRef(record.Containment.ContainmentRef, containmentScopeRef) || !hasExactRef(record.Containment.Binding.CausalRefs, containmentRequestRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_containment_effect_mismatch")
 			}
 			out.ContainmentStatus = record.Containment.Outcome
@@ -1973,18 +1980,18 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			if !executionTerminal || !compensationNeeded || compensationRequiredRecorded || record.Compensation == nil {
 				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_requirement_invalid")
 			}
-			if record.Compensation.ExecutionRef.Digest != executionEvidenceDigest || !hasExactRef(record.Compensation.Binding.CausalRefs, executionEvidenceRef) {
+			if !exactRef(record.Compensation.ExecutionRef, executionEvidenceRef) || !hasExactRef(record.Compensation.Binding.CausalRefs, executionEvidenceRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_execution_mismatch")
 			}
 			compensationRequiredRecorded = true
-			compensationRequirementDigest = record.Compensation.RequirementRef.Digest
+			compensationRequirementRef = record.Compensation.RequirementRef
 			compensationEventRef = evidenceRefForCompensation(*record.Compensation)
 			out.CompensationStatus = "required"
 		case LifecycleCompensationStarted:
 			if !compensationRequiredRecorded || compensationStarted || compensationCompleted || record.Compensation == nil {
 				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_start_invalid")
 			}
-			if record.Compensation.ExecutionRef.Digest != executionEvidenceDigest || record.Compensation.RequirementRef.Digest != compensationRequirementDigest || !hasExactRef(record.Compensation.Binding.CausalRefs, compensationEventRef) {
+			if !exactRef(record.Compensation.ExecutionRef, executionEvidenceRef) || !exactRef(record.Compensation.RequirementRef, compensationRequirementRef) || !hasExactRef(record.Compensation.Binding.CausalRefs, compensationEventRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_requirement_mismatch")
 			}
 			compensationStarted = true
@@ -1994,7 +2001,7 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			if !compensationStarted || compensationCompleted || record.Compensation == nil {
 				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_completion_invalid")
 			}
-			if record.Compensation.ExecutionRef.Digest != executionEvidenceDigest || record.Compensation.RequirementRef.Digest != compensationRequirementDigest || !hasExactRef(record.Compensation.Binding.CausalRefs, compensationEventRef) {
+			if !exactRef(record.Compensation.ExecutionRef, executionEvidenceRef) || !exactRef(record.Compensation.RequirementRef, compensationRequirementRef) || !hasExactRef(record.Compensation.Binding.CausalRefs, compensationEventRef) {
 				return LifecycleSnapshot{}, errors.New("lifecycle_compensation_completion_mismatch")
 			}
 			compensationCompleted = true

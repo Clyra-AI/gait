@@ -518,6 +518,21 @@ func TestLifecycleTypedEvidenceOrderAndLineage(t *testing.T) {
 	if _, err := ReduceLifecycleChecked(causalIdentityDrift); err == nil {
 		t.Fatal("causal predecessor with only a matching digest accepted")
 	}
+	explicitIdentityDrift := cloneLifecycleRecords(t, records)
+	explicitIdentityDrift[7].Effect.ExecutionRef.ID = "unrelated-execution"
+	if _, err := ReduceLifecycleChecked(explicitIdentityDrift); err == nil {
+		t.Fatal("effect execution ref with only a matching digest accepted")
+	}
+	futureEvidence := cloneLifecycleRecords(t, records)
+	futureEvidence[5].OccurredAt = when(5)
+	if _, err := ReduceLifecycleChecked(futureEvidence); err == nil {
+		t.Fatal("future evidence accepted for an earlier lifecycle event")
+	}
+	expiredEvidence := cloneLifecycleRecords(t, records)
+	expiredEvidence[5].OccurredAt = when(7)
+	if _, err := ReduceLifecycleChecked(expiredEvidence); err == nil {
+		t.Fatal("expired evidence accepted for a later lifecycle event")
+	}
 	wrongContainmentExecution := cloneLifecycleRecords(t, records)
 	wrongContainmentExecution[9].Containment.ExecutionRef.Digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	if _, err := ReduceLifecycleChecked(wrongContainmentExecution); err == nil {

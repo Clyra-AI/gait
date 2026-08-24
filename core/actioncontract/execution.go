@@ -197,6 +197,10 @@ func hasExactRef(refs []proof.RelationshipRef, expected proof.RelationshipRef) b
 	return false
 }
 
+func exactRef(actual, expected proof.RelationshipRef) bool {
+	return hasExactRef([]proof.RelationshipRef{actual}, expected)
+}
+
 func validEvidenceTime(value string) bool {
 	t, err := time.Parse(time.RFC3339Nano, value)
 	return err == nil && !t.IsZero() && t.Location() != nil
