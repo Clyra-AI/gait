@@ -1,0 +1,577 @@
+{
+  "records": [
+    {
+      "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+      "schema_version": "1",
+      "record_id": "gait-lr-449615bff7842dba",
+      "kind": "proposal_ingested",
+      "occurred_at": "2026-07-19T02:00:00Z",
+      "contract_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "proposal_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "correlation": {
+        "profile_version": "1.0",
+        "contract_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "causal_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "content_digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "binding_mode": "digest_bound"
+      },
+      "signature": {
+        "alg": "ed25519",
+        "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+        "sig": "5kZRsgABLQKbrS2MmnTlJc3ushczb4avZEVBAThhlpTza47Vd2LYSZruwjOnA7zse1l5BwcJj7k3qnT7I3Z1Aw==",
+        "signed_digest": "449615bff7842dba6e5ff13443c395d3f2150f5f8e4cd23eaed29c0b81a00e4e"
+      }
+    },
+    {
+      "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+      "schema_version": "1",
+      "record_id": "gait-lr-3b41733b37edd3e7",
+      "kind": "activation_requested",
+      "occurred_at": "2026-07-19T02:00:01Z",
+      "contract_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "proposal_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "activation_ref": {
+        "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+        "id": "gact-4aad73ff9f3c7e5a",
+        "kind": "activated_action_contract",
+        "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+        "schema_version": "1",
+        "source_product": "gait"
+      },
+      "correlation": {
+        "profile_version": "1.0",
+        "event_ref": {
+          "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+          "id": "gact-4aad73ff9f3c7e5a",
+          "kind": "activated_action_contract",
+          "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+          "schema_version": "1",
+          "source_product": "gait"
+        },
+        "contract_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "causal_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "content_digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "binding_mode": "digest_bound"
+      },
+      "signature": {
+        "alg": "ed25519",
+        "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+        "sig": "BMKJStJQ0rNFz/MfCRDlhQRnMGdRdHQMQM57IPYYNhbs1mypPkTn5EEpN4Hmjktbzz0Fj75ZZPfjIp2g+lxEAg==",
+        "signed_digest": "3b41733b37edd3e7acc38f2f5e9c8ee1c3b88b6e445eee0454a37a9cecc3ce87"
+      }
+    },
+    {
+      "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+      "schema_version": "1",
+      "record_id": "gait-lr-bf9bc57cbd670b48",
+      "kind": "precondition_evaluated",
+      "occurred_at": "2026-07-19T02:00:02Z",
+      "contract_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "proposal_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "activation_ref": {
+        "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+        "id": "gact-4aad73ff9f3c7e5a",
+        "kind": "activated_action_contract",
+        "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+        "schema_version": "1",
+        "source_product": "gait"
+      },
+      "precondition_refs": [
+        {
+          "digest": "sha256:c32fbb43aae4c2df2e156df5f971256a50e1fb35e2706c9e5b78598104bbf7e1",
+          "id": "runtime-p1",
+          "kind": "precondition",
+          "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+          "schema_version": "1",
+          "source_product": "gait"
+        }
+      ],
+      "correlation": {
+        "profile_version": "1.0",
+        "event_ref": {
+          "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+          "id": "gact-4aad73ff9f3c7e5a",
+          "kind": "activated_action_contract",
+          "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+          "schema_version": "1",
+          "source_product": "gait"
+        },
+        "contract_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "causal_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "content_digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "binding_mode": "digest_bound"
+      },
+      "signature": {
+        "alg": "ed25519",
+        "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+        "sig": "2ii8Owte9fuknsbw3NwgI5wvniqH/sUuh51scNwHwucNMHy8cnqfz3hyND9fLDh4nLNttNLTYRsA5PP0yFPjCw==",
+        "signed_digest": "bf9bc57cbd670b481785e8ab09d37be562ef64b9db5db5d856bcc229961ba5cb"
+      }
+    },
+    {
+      "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+      "schema_version": "1",
+      "record_id": "gait-lr-eb89094058b511ed",
+      "kind": "decision_ready",
+      "occurred_at": "2026-07-19T02:00:03Z",
+      "contract_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "proposal_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "activation_ref": {
+        "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+        "id": "gact-4aad73ff9f3c7e5a",
+        "kind": "activated_action_contract",
+        "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+        "schema_version": "1",
+        "source_product": "gait"
+      },
+      "decision": {
+        "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+        "schema_version": "1",
+        "contract_id": "pac-4b7f1402784256ce",
+        "policy_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "ready": true,
+        "status": "satisfied",
+        "preconditions": [
+          {
+            "requirement_id": "runtime-p1",
+            "kind": "environment",
+            "required": true,
+            "observed_result": "pass",
+            "observed_at": "2026-07-19T00:30:00Z",
+            "max_age_seconds": 3600,
+            "environment": "production",
+            "evidence_digest": "sha256:c32fbb43aae4c2df2e156df5f971256a50e1fb35e2706c9e5b78598104bbf7e1",
+            "validator_signature": "X9XxIz/Lrt6drhxI+6jsFVcm9HWpiGAvyYvBhtP75I/h+4uI2CgiIZilwC6on3fGCGsWtfBmFyGZdw+Cb1YOBw==",
+            "producer": "validator",
+            "evidence_state": "verified",
+            "freshness_state": "fresh",
+            "evidence_refs": [
+              "evidence:runtime-p1"
+            ],
+            "control_mode": "enforced",
+            "status": "satisfied"
+          }
+        ]
+      },
+      "correlation": {
+        "profile_version": "1.0",
+        "event_ref": {
+          "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+          "id": "gact-4aad73ff9f3c7e5a",
+          "kind": "activated_action_contract",
+          "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+          "schema_version": "1",
+          "source_product": "gait"
+        },
+        "contract_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "causal_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "content_digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "binding_mode": "digest_bound"
+      },
+      "signature": {
+        "alg": "ed25519",
+        "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+        "sig": "zYHo6/1GKwq7sKcWeojO/r79XAUEQmMztjOGNRErgfGUVmvELYT648zBQvlTLPfiTAyz0USdNz0KxbWYLJ3/CQ==",
+        "signed_digest": "eb89094058b511ed501f6492d1dedcbd3a3efd2f89fefa749e47201c58f592eb"
+      }
+    },
+    {
+      "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+      "schema_version": "1",
+      "record_id": "gait-lr-2aa0b1861f5e8166",
+      "kind": "activated",
+      "occurred_at": "2026-07-19T02:00:04Z",
+      "contract_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "proposal_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "activation_ref": {
+        "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+        "id": "gact-4aad73ff9f3c7e5a",
+        "kind": "activated_action_contract",
+        "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+        "schema_version": "1",
+        "source_product": "gait"
+      },
+      "correlation": {
+        "profile_version": "1.0",
+        "event_ref": {
+          "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+          "id": "gact-4aad73ff9f3c7e5a",
+          "kind": "activated_action_contract",
+          "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+          "schema_version": "1",
+          "source_product": "gait"
+        },
+        "contract_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "causal_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "content_digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "binding_mode": "digest_bound"
+      },
+      "signature": {
+        "alg": "ed25519",
+        "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+        "sig": "ypc75Qjye4RCwH0Uh1Ed/kh9tev7Oi/KYc6sDVS0gMI5i+0wDj3VTJiDALO4H8z0CtpN42CJyilQdp2b5fK/Dw==",
+        "signed_digest": "2aa0b1861f5e816650da37abdafb030cdcb8cc36eaebc6a9052e262589cc1009"
+      }
+    },
+    {
+      "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
+      "schema_version": "1",
+      "record_id": "gait-lr-ace3e859e1354e75",
+      "kind": "execution_blocked",
+      "occurred_at": "2026-07-19T02:00:05Z",
+      "contract_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "contract_family_id": "pacf-55f758ded9e42f84",
+      "revision": 1,
+      "proposal_ref": {
+        "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "id": "pac-4b7f1402784256ce",
+        "kind": "action_contract",
+        "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+        "schema_version": "3",
+        "source_product": "wrkr"
+      },
+      "activation_ref": {
+        "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+        "id": "gact-4aad73ff9f3c7e5a",
+        "kind": "activated_action_contract",
+        "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+        "schema_version": "1",
+        "source_product": "gait"
+      },
+      "evidence_refs": [
+        {
+          "digest": "sha256:ba288090c910b8096feffef2692dd080a274737d32e185595b43671bfcdadf70",
+          "id": "gait-exec-ba288090c910b809",
+          "kind": "execution",
+          "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
+          "schema_version": "1",
+          "source_product": "gait"
+        }
+      ],
+      "execution": {
+        "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
+        "schema_version": "1",
+        "evidence_id": "gait-exec-ba288090c910b809",
+        "binding": {
+          "contract_family_id": "pacf-55f758ded9e42f84",
+          "revision": 1,
+          "contract_ref": {
+            "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+            "id": "pac-4b7f1402784256ce",
+            "kind": "action_contract",
+            "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+            "schema_version": "3",
+            "source_product": "wrkr"
+          },
+          "activation_ref": {
+            "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+            "id": "gact-4aad73ff9f3c7e5a",
+            "kind": "activated_action_contract",
+            "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+            "schema_version": "1",
+            "source_product": "gait"
+          },
+          "runtime_action_ref": {
+            "digest": "sha256:5d612e670e5bda71456270cbc5d60a63a7526efc2ee22cb7e0d462a90faa3e01",
+            "id": "runtime-golden-action",
+            "kind": "runtime_action",
+            "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
+            "schema_version": "1",
+            "source_product": "gait"
+          },
+          "readiness_ref": {
+            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "id": "runtime-readiness",
+            "kind": "readiness",
+            "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+            "schema_version": "1",
+            "source_product": "gait"
+          },
+          "decision_ref": {
+            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "id": "runtime-decision",
+            "kind": "decision",
+            "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+            "schema_version": "1",
+            "source_product": "gait"
+          },
+          "policy_ref": {
+            "digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "id": "policy-fixture",
+            "kind": "policy",
+            "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
+            "schema_version": "1",
+            "source_product": "gait"
+          },
+          "target_ref": {
+            "digest": "sha256:ab7b6da24c317864e69aa98a2208ce5ac8686f4b67be26e61024129306874f70",
+            "id": "target:golden",
+            "kind": "target",
+            "schema_id": "https://gait.dev/schemas/v1/target-ref.schema.json",
+            "schema_version": "1",
+            "source_product": "gait"
+          },
+          "environment_ref": {
+            "digest": "sha256:ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
+            "id": "production",
+            "kind": "environment",
+            "schema_id": "https://gait.dev/schemas/v1/environment-ref.schema.json",
+            "schema_version": "1",
+            "source_product": "gait"
+          },
+          "proof_refs": [
+            {
+              "digest": "sha256:e78d34baa33a48af5ca3bbbb96041287a6421b2ed340bbf279e24e38cac39132",
+              "id": "proof-fixture",
+              "kind": "proof",
+              "schema_id": "https://proof.dev/schemas/v1/proof-ref.schema.json",
+              "schema_version": "1",
+              "source_product": "proof"
+            }
+          ],
+          "causal_refs": [
+            {
+              "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+              "id": "gact-4aad73ff9f3c7e5a",
+              "kind": "activated_action_contract",
+              "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+              "schema_version": "1",
+              "source_product": "gait"
+            }
+          ],
+          "correlation": {
+            "profile_version": "1.0",
+            "contract_ref": {
+              "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+              "id": "pac-4b7f1402784256ce",
+              "kind": "action_contract",
+              "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+              "schema_version": "3",
+              "source_product": "wrkr"
+            },
+            "content_digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+            "binding_mode": "digest_bound"
+          }
+        },
+        "event_ref": {
+          "digest": "sha256:490a3702b5e5451c7ac91460795a288acc3b487019d785ae4a69761058e7e9d5",
+          "id": "execution-blocked",
+          "kind": "event",
+          "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
+          "schema_version": "1",
+          "source_product": "gait"
+        },
+        "occurred_at": "2026-07-19T02:00:05Z",
+        "fresh_until": "2026-07-19T03:00:00Z",
+        "outcome": "blocked",
+        "reason_code": "blocked",
+        "compensation_required": false,
+        "provenance": {
+          "producer": "gait",
+          "writer": "gait-boundary",
+          "verifier": "gait-verifier",
+          "public_key": "BxLWcNIKl9pRbNm4LHPyPwnVp900QkZDtQgiP1hpkFI=",
+          "signature": {
+            "alg": "ed25519",
+            "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+            "sig": "g7OHI1cMfcJZMQy0ZhNdRcwdSIuN93lGbaomkXVnG9Z2ppoYZJdYEY539qXDrx9GLdPSX5f6M5jMPVt1jdCpCg==",
+            "signed_digest": "ba288090c910b8096feffef2692dd080a274737d32e185595b43671bfcdadf70"
+          }
+        },
+        "canonical_content_digest": "sha256:ba288090c910b8096feffef2692dd080a274737d32e185595b43671bfcdadf70"
+      },
+      "correlation": {
+        "profile_version": "1.0",
+        "event_ref": {
+          "digest": "sha256:4aad73ff9f3c7e5a680dec3bc05684221f4770e6c47a58ed95bd7d6e1adbfe71",
+          "id": "gact-4aad73ff9f3c7e5a",
+          "kind": "activated_action_contract",
+          "schema_id": "https://gait.dev/schemas/v1/activated-action-contract-artifact.schema.json",
+          "schema_version": "1",
+          "source_product": "gait"
+        },
+        "contract_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "causal_ref": {
+          "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+          "id": "pac-4b7f1402784256ce",
+          "kind": "action_contract",
+          "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json",
+          "schema_version": "3",
+          "source_product": "wrkr"
+        },
+        "content_digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
+        "binding_mode": "digest_bound"
+      },
+      "signature": {
+        "alg": "ed25519",
+        "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+        "sig": "0zzJL/gMErpFoAIbI28P6totUm0MkRH5Ap7k51BlpEpyb96N9lBH5PsCzEMzDcsQjnJhVYKlGX8ou9zSBzEIAw==",
+        "signed_digest": "ace3e859e1354e75fc6fe87a21b11d63e6e578376bc5fdffb6a66edb2434fb99"
+      }
+    }
+  ]
+}

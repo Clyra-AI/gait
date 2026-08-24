@@ -1,0 +1,106 @@
+{
+  "fixture_version": "1",
+  "foundation_commit": "4177f1e575441975b5a8979e6350e988c2f71d70",
+  "producer": {
+    "name": "gait",
+    "version": "v1.5.0"
+  },
+  "signing": {
+    "mode": "fixture_only_deterministic_development_key",
+    "fixture_test_only": true,
+    "development_signing": true,
+    "non_authoritative": true,
+    "public_key_path": "testdata/action-contract-evidence/v1/fixture-signing-key.public.b64",
+    "public_key_sha256": "sha256:4244369efbbbe9c1bea2f6eca00ba26d5a5a968e212788813558590089d28d24",
+    "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
+    "derivation": "sha256(gait-action-contract-activation-development-key-v1) as Ed25519 seed; never used by production/default lifecycle signing"
+  },
+  "bindings": {
+    "activation_path": "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json",
+    "activation_sha256": "sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f",
+    "proposal_path": "testdata/action-contract-interop/v1/expected/compensation/pac-4b7f1402784256ce.json",
+    "proposal_sha256": "sha256:bfb32cdce650b2ea969059ae0816df2637f7345e70b08a67d4c23684489bf154",
+    "runtime_action_path": "testdata/runtime-goldens/runtime-action.json",
+    "runtime_action_sha256": "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424",
+    "runtime_readiness_path": "testdata/runtime-goldens/runtime-readiness.json",
+    "runtime_readiness_sha256": "sha256:4e8f72e42ee658be485e53c0ff09b1d7c2b5cd9000542ecaa634d462f1ff4a7a"
+  },
+  "scenarios": [
+    {
+      "scenario_id": "blocked-before-execution",
+      "path": "blocked-before-execution/lifecycle.json",
+      "sha256": "sha256:fbd8f846f61370e88134ded9c672f233c8e70718acc028ff80573f325766e17a",
+      "expected_valid": true,
+      "execution": "blocked"
+    },
+    {
+      "scenario_id": "compensation-required-started-completed",
+      "path": "compensation-required-started-completed/lifecycle.json",
+      "sha256": "sha256:81c65cecffc6ad191756aa18713381524925713ae794ff185c7ae49ce9daf22a",
+      "expected_valid": true,
+      "execution": "succeeded",
+      "effect": "validated",
+      "containment": "completed",
+      "compensation": "completed"
+    },
+    {
+      "scenario_id": "failed-execution-compensation",
+      "path": "failed-execution-compensation/lifecycle.json",
+      "sha256": "sha256:6336044191e2e74174b8fb27c38582c6ec3fa96ec3b880078f78f2ccc5e2797d",
+      "expected_valid": true,
+      "execution": "failed",
+      "compensation": "completed"
+    },
+    {
+      "scenario_id": "partial-containment",
+      "path": "partial-containment/lifecycle.json",
+      "sha256": "sha256:391e2820f909dc89c4363f66982e18a96a5067cd0f512f14428ab45f8cfd2300",
+      "expected_valid": true,
+      "execution": "succeeded",
+      "effect": "validated",
+      "containment": "partial"
+    },
+    {
+      "scenario_id": "successful-execution-effect-containment",
+      "path": "successful-execution-effect-containment/lifecycle.json",
+      "sha256": "sha256:dacad33b1303537e9ecfaf2f0a6a21cff727d38d31bfe26f67b03d514d74ce2b",
+      "expected_valid": true,
+      "execution": "succeeded",
+      "effect": "validated",
+      "containment": "completed"
+    },
+    {
+      "scenario_id": "unresolved-containment",
+      "path": "unresolved-containment/lifecycle.json",
+      "sha256": "sha256:7647f48f47a4c8085d38bbed81d4595e84aec7b90e2c22cbdc717d970008b9ee",
+      "expected_valid": true,
+      "execution": "succeeded",
+      "effect": "validated",
+      "containment": "unresolved"
+    },
+    {
+      "scenario_id": "stale-activation",
+      "path": "stale-activation/lifecycle.json",
+      "sha256": "sha256:dacad33b1303537e9ecfaf2f0a6a21cff727d38d31bfe26f67b03d514d74ce2b",
+      "expected_valid": false,
+      "expected_reason": "activation_expired",
+      "evaluation_time": "2036-07-20T00:00:00Z"
+    },
+    {
+      "scenario_id": "replay-mismatched-lineage",
+      "path": "replay-mismatched-lineage/lifecycle.json",
+      "sha256": "sha256:909205b2a8031eb7a5fe21fd0fc50105667e3255b617816e00f3c6deb73e7e3e",
+      "expected_valid": false,
+      "expected_reason": "conformance_lineage_mismatch",
+      "evaluation_time": "2026-07-20T00:00:00Z"
+    },
+    {
+      "scenario_id": "identifier-only-correlation",
+      "path": "identifier-only-correlation/lifecycle.json",
+      "sha256": "sha256:c92ef20077ec97f174045660a07830a3a1bf4d29f61ad26f998e1aee97f33272",
+      "expected_valid": false,
+      "expected_reason": "conformance_identifier_only",
+      "evaluation_time": "2026-07-20T00:00:00Z"
+    }
+  ]
+}

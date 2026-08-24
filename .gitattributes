@@ -1,3 +1,4 @@
 testdata/action-contract-interop/v1/** text eol=lf
 testdata/runtime-goldens/** text eol=lf
 testdata/effects/v1/** text eol=lf
+testdata/action-contract-evidence/v1/** text eol=lf
