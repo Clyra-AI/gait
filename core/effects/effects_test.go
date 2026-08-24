@@ -496,6 +496,51 @@ func TestEffectPredicateOperatorsAndUnavailableFields(t *testing.T) {
 	}
 }
 
+func TestEffectNumericEqualityUsesExactValues(t *testing.T) {
+	if matched, supported := matches(int64(1), "equals", json.Number("1.0")); !supported || !matched {
+		t.Fatalf("numeric spellings should compare equal: matched=%t supported=%t", matched, supported)
+	}
+	if matched, supported := matches(int64(1), "not_equals", json.Number("1.0")); !supported || matched {
+		t.Fatalf("numeric spellings should not compare unequal: matched=%t supported=%t", matched, supported)
+	}
+	const exact = int64(9007199254740993)
+	if matched, supported := matches(exact, "equals", json.Number("9007199254740993")); !supported || !matched {
+		t.Fatalf("large exact integers should compare equal: matched=%t supported=%t", matched, supported)
+	}
+	if matched, supported := matches(exact, "equals", json.Number("9007199254740992")); !supported || matched {
+		t.Fatalf("large adjacent integers were rounded together: matched=%t supported=%t", matched, supported)
+	}
+}
+
+func TestEffectAuthoritativeNumericEqualityAndForbid(t *testing.T) {
+	snapshot := validSnapshot(t)
+	contract := Contract{SchemaID: ContractSchemaID, SchemaVersion: SchemaVersion, ContractID: "contract:numeric-equality", Name: "numeric equality", Predicates: []Predicate{{ID: "count", Kind: PredicateExpect, Field: "after.count", Operator: "equals", Expected: json.Number("2.0")}}}
+	if result := testGrade(snapshot, contract); result.Status != GradePass {
+		t.Fatalf("authoritative numeric equality did not pass: %+v", result)
+	}
+	contract.Predicates[0] = Predicate{ID: "not-count", Kind: PredicateExpect, Field: "after.count", Operator: "not_equals", Expected: json.Number("2.0")}
+	if result := testGrade(snapshot, contract); result.Status != GradeFail || !hasGradeReason(result, ReasonPredicateFailed) {
+		t.Fatalf("authoritative not_equals did not fail on equal numeric spellings: %+v", result)
+	}
+	contract.Predicates[0] = Predicate{ID: "forbid-count", Kind: PredicateForbid, Field: "after.count", Operator: "equals", Expected: json.Number("2.0")}
+	if result := testGrade(snapshot, contract); result.Status != GradeFail || !hasGradeReason(result, ReasonPredicateFailed) {
+		t.Fatalf("authoritative forbid equals did not fail on equal numeric spellings: %+v", result)
+	}
+
+	const exact = int64(9007199254740993)
+	snapshot.Before.Count = int64ptr(exact)
+	snapshot.After.Count = int64ptr(exact)
+	refreshSnapshot(t, &snapshot)
+	contract.Predicates[0] = Predicate{ID: "large-count", Kind: PredicateExpect, Field: "after.count", Operator: "equals", Expected: json.Number("9007199254740993")}
+	if result := testGrade(snapshot, contract); result.Status != GradePass {
+		t.Fatalf("authoritative large integer equality did not pass: %+v", result)
+	}
+	contract.Predicates[0].Expected = json.Number("9007199254740992")
+	if result := testGrade(snapshot, contract); result.Status != GradeFail || !hasGradeReason(result, ReasonPredicateFailed) {
+		t.Fatalf("authoritative adjacent large integer equality unexpectedly passed: %+v", result)
+	}
+}
+
 func TestEffectSnapshotValidationRejectsMalformedFields(t *testing.T) {
 	snapshot := validSnapshot(t)
 	snapshot.Before.State = "bad"

@@ -709,6 +709,11 @@ func numberValue(value any) (*big.Rat, bool) {
 }
 
 func valuesEqual(left, right any) bool {
+	if leftNumber, leftOK := numberValue(left); leftOK {
+		if rightNumber, rightOK := numberValue(right); rightOK {
+			return leftNumber.Cmp(rightNumber) == 0
+		}
+	}
 	leftRaw, leftErr := json.Marshal(left)
 	rightRaw, rightErr := json.Marshal(right)
 	return leftErr == nil && rightErr == nil && string(leftRaw) == string(rightRaw)
