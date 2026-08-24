@@ -78,13 +78,14 @@ func containsReason(reasons []string, wanted string) bool {
 }
 
 func TestResolveOptionalEffectPathsRejectEscape(t *testing.T) {
-	if path, err := resolveOptionalFixturePath("effects/snapshot.json", "/fixtures/demo"); err != nil || path != "/fixtures/demo/effects/snapshot.json" {
+	fixtureDir := filepath.Join(t.TempDir(), "fixtures", "demo")
+	if path, err := resolveOptionalFixturePath("effects/snapshot.json", fixtureDir); err != nil || path != filepath.Join(fixtureDir, "effects", "snapshot.json") {
 		t.Fatalf("valid relative effect path: path=%q err=%v", path, err)
 	}
-	if _, err := resolveOptionalFixturePath("../../outside.json", "/fixtures/demo"); err == nil {
+	if _, err := resolveOptionalFixturePath(filepath.Join("..", "..", "outside.json"), fixtureDir); err == nil {
 		t.Fatal("effect path escape accepted")
 	}
-	if _, err := resolveOptionalFixturePath("/absolute.json", "/fixtures/demo"); err == nil {
+	if _, err := resolveOptionalFixturePath(filepath.Join(t.TempDir(), "absolute.json"), fixtureDir); err == nil {
 		t.Fatal("absolute effect path accepted")
 	}
 }
