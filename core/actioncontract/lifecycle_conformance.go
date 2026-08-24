@@ -213,6 +213,11 @@ func VerifyLifecycleConformance(input LifecycleConformanceInput) LifecycleConfor
 		return result
 	}
 	result.Snapshot = &snapshot
+	if err := checkConformanceTerminalCompleteness(snapshot); err != nil {
+		conformanceReason(&result, ReasonConformanceEvidenceMissing)
+		conformanceReason(&result, err.Error())
+		return result
+	}
 	if err := checkConformanceExpectation(snapshot, input.Expectation); err != nil {
 		conformanceReason(&result, ReasonConformanceEvidenceMissing)
 		conformanceReason(&result, err.Error())
@@ -253,6 +258,26 @@ func conformanceDigest(value any) (string, error) {
 func conformanceTextDigest(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func checkConformanceTerminalCompleteness(snapshot LifecycleSnapshot) error {
+	switch snapshot.ExecutionStatus {
+	case "blocked", "failed":
+		if snapshot.EffectStatus != "" || snapshot.ContainmentStatus != "" {
+			return errors.New("non_success_execution_has_downstream_effect")
+		}
+		return nil
+	case "succeeded":
+		if snapshot.EffectStatus != "validated" {
+			return errors.New("validated_effect_required")
+		}
+		if snapshot.ContainmentStatus != "completed" && snapshot.ContainmentStatus != "partial" && snapshot.ContainmentStatus != "unresolved" {
+			return errors.New("terminal_containment_required")
+		}
+		return nil
+	default:
+		return errors.New("terminal_execution_required")
+	}
 }
 
 // GradeLifecycleConformance is the verb-oriented alias used by regression

@@ -357,6 +357,16 @@ func TestLifecycleConformanceStableFailureBranchesAndAlias(t *testing.T) {
 	if result := VerifyLifecycleConformance(wrongLifecycleKey); result.Valid || !containsString(result.ReasonCodes, ReasonConformanceVerification) {
 		t.Fatalf("wrong lifecycle key accepted: %+v", result)
 	}
+	activationOnly := base
+	activationOnly.LifecycleRecords = records[:5]
+	if result := VerifyLifecycleConformance(activationOnly); result.Valid || !containsString(result.ReasonCodes, "terminal_execution_required") {
+		t.Fatalf("activation-only lineage accepted: %+v", result)
+	}
+	successWithoutEffect := base
+	successWithoutEffect.LifecycleRecords = records[:7]
+	if result := VerifyLifecycleConformance(successWithoutEffect); result.Valid || !containsString(result.ReasonCodes, "validated_effect_required") {
+		t.Fatalf("successful execution without effect/containment accepted: %+v", result)
+	}
 	if _, err := conformanceDigest(make(chan int)); err == nil {
 		t.Fatal("unsupported conformance digest input accepted")
 	}
