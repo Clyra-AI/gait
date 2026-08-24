@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -92,13 +93,47 @@ func TestEvidenceWriteIsBoundedNoFollowNoOverwrite(t *testing.T) {
 	if err := WriteEvidenceAtomic(path, map[string]string{"ok": "1"}); err != nil {
 		t.Fatal(err)
 	}
+	if raw, err := ReadEvidence(path); err != nil || string(raw) != `{"ok":"1"}` {
+		t.Fatalf("stable evidence read failed: raw=%q err=%v", raw, err)
+	}
 	if err := WriteEvidenceAtomic(path, map[string]string{"ok": "2"}); err == nil {
 		t.Fatal("evidence overwrite accepted")
+	}
+	if err := WriteEvidenceAtomic("", map[string]string{"ok": "2"}); err == nil {
+		t.Fatal("empty evidence path accepted")
+	}
+	if err := WriteEvidenceAtomic(filepath.Join(dir, "large.json"), strings.Repeat("x", int(MaxEvidenceBytes)+1)); err == nil {
+		t.Fatal("oversized evidence accepted")
+	}
+	if err := WriteEvidenceAtomic(filepath.Join(dir, "unsupported.json"), make(chan int)); err == nil {
+		t.Fatal("unsupported evidence value accepted")
+	}
+	if err := WriteEvidenceAtomic(filepath.Join(dir, "missing", "evidence.json"), map[string]string{"ok": "4"}); err == nil {
+		t.Fatal("unsafe missing evidence parent accepted")
+	}
+	if _, err := ReadEvidence(""); err == nil {
+		t.Fatal("empty evidence read path accepted")
+	}
+	if _, err := ReadEvidence(dir); err == nil {
+		t.Fatal("evidence reader accepted a directory")
+	}
+	oversizedPath := filepath.Join(dir, "oversized-read.json")
+	if err := os.WriteFile(oversizedPath, []byte(strings.Repeat("x", int(MaxEvidenceBytes)+1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadEvidence(oversizedPath); err == nil {
+		t.Fatal("evidence reader accepted an oversized file")
 	}
 	linkedParent := filepath.Join(t.TempDir(), "linked")
 	if err := os.Symlink(t.TempDir(), linkedParent); err == nil {
 		if err := WriteEvidenceAtomic(filepath.Join(linkedParent, "evidence.json"), map[string]string{"ok": "3"}); err == nil {
 			t.Fatal("symlinked evidence parent accepted")
+		}
+		linkPath := filepath.Join(dir, "link.json")
+		if err := os.Symlink(path, linkPath); err == nil {
+			if _, err := ReadEvidence(linkPath); err == nil {
+				t.Fatal("symlinked evidence file accepted")
+			}
 		}
 	}
 }
@@ -118,6 +153,230 @@ func TestEvidenceBindingRejectsIdentifierOnlyAndWrongFamily(t *testing.T) {
 	other.ContractFamilyID = "pacf-other"
 	if binding.sameIdentity(other) {
 		t.Fatal("cross-family binding considered identical")
+	}
+	if len(executionTestBinding().RelationshipRefs()) != 9 {
+		t.Fatal("evidence binding relationship refs are incomplete")
+	}
+	for _, test := range []struct {
+		name string
+		edit func(*EvidenceBinding)
+	}{
+		{"family", func(b *EvidenceBinding) { b.ContractFamilyID = "" }},
+		{"revision", func(b *EvidenceBinding) { b.Revision = 0 }},
+		{"causal", func(b *EvidenceBinding) { b.CausalRefs = nil }},
+		{"contract producer", func(b *EvidenceBinding) { b.ContractRef.SourceProduct = "gait" }},
+		{"activation schema", func(b *EvidenceBinding) { b.ActivationRef.SchemaID = "wrong" }},
+		{"runtime schema", func(b *EvidenceBinding) { b.RuntimeActionRef.SchemaID = "wrong" }},
+		{"readiness schema", func(b *EvidenceBinding) { b.ReadinessRef.SchemaID = "wrong" }},
+		{"decision producer", func(b *EvidenceBinding) { b.DecisionRef.SourceProduct = "other" }},
+		{"correlation mode", func(b *EvidenceBinding) { b.Correlation.BindingMode = proof.BindingModeIdentifierOnly }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := executionTestBinding()
+			test.edit(&candidate)
+			if err := candidate.Validate(); err == nil {
+				t.Fatal("invalid evidence binding accepted")
+			}
+		})
+	}
+}
+
+func TestTypedEvidenceParsersAndValidationBranches(t *testing.T) {
+	public, private, _ := ed25519.GenerateKey(nil)
+	when := func(n int) string { return time.Date(2026, 8, 24, 2, 0, n, 0, time.UTC).Format(time.RFC3339Nano) }
+	execution, err := NewExecutionEvidence(ExecutionEvidence{Binding: executionTestBinding(), EventRef: executionTestRef("event", "parser-execution"), OccurredAt: when(1), FreshUntil: when(2), Outcome: "succeeded"}, private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	effectBinding := executionTestBinding()
+	effectBinding.CausalRefs = []proof.RelationshipRef{evidenceRefForExecution(execution)}
+	effect, err := NewEffectEvent(EffectEvent{Binding: effectBinding, EventRef: executionTestRef("event", "parser-effect"), ExecutionRef: evidenceRefForExecution(execution), EffectRef: executionTestRef("effect", "parser-effect"), OccurredAt: when(3), FreshUntil: when(4), Outcome: "recorded"}, private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	containmentBinding := executionTestBinding()
+	containmentBinding.CausalRefs = []proof.RelationshipRef{evidenceRefForEffect(effect)}
+	containment, err := NewContainmentEvidence(ContainmentEvidence{Binding: containmentBinding, EventRef: executionTestRef("event", "parser-containment"), ExecutionRef: evidenceRefForExecution(execution), EffectRef: evidenceRefForEffect(effect), ContainmentRef: executionTestRef("containment", "parser-scope"), OccurredAt: when(5), FreshUntil: when(6), Outcome: "requested"}, private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compensationBinding := executionTestBinding()
+	compensationBinding.CausalRefs = []proof.RelationshipRef{evidenceRefForExecution(execution)}
+	compensation, err := NewCompensationEvidence(CompensationEvidence{Binding: compensationBinding, EventRef: executionTestRef("event", "parser-compensation"), RequirementRef: executionTestRef("compensation_requirement", "parser-requirement"), ExecutionRef: evidenceRefForExecution(execution), OccurredAt: when(7), FreshUntil: when(8), Outcome: "required"}, private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []struct {
+		name   string
+		value  any
+		parse  func([]byte) error
+		verify func() (bool, error)
+	}{
+		{"execution", execution, func(raw []byte) error { _, err := ParseExecutionEvidence(raw); return err }, func() (bool, error) { return VerifyExecutionEvidence(execution, public) }},
+		{"effect", effect, func(raw []byte) error { _, err := ParseEffectEvent(raw); return err }, func() (bool, error) { return VerifyEffectEvent(effect, public) }},
+		{"containment", containment, func(raw []byte) error { _, err := ParseContainmentEvidence(raw); return err }, func() (bool, error) { return VerifyContainmentEvidence(containment, public) }},
+		{"compensation", compensation, func(raw []byte) error { _, err := ParseCompensationEvidence(raw); return err }, func() (bool, error) { return VerifyCompensationEvidence(compensation, public) }},
+	} {
+		t.Run(item.name, func(t *testing.T) {
+			raw, marshalErr := json.Marshal(item.value)
+			parseErr := item.parse(raw)
+			if marshalErr != nil || parseErr != nil {
+				t.Fatalf("parse failed: marshal=%v parse=%v", marshalErr, parseErr)
+			}
+			if ok, verifyErr := item.verify(); verifyErr != nil || !ok {
+				t.Fatalf("verify failed: ok=%t err=%v", ok, verifyErr)
+			}
+			if parseErr := item.parse([]byte(`{"schema_id":`)); parseErr == nil {
+				t.Fatal("malformed evidence accepted")
+			}
+			if parseErr := item.parse([]byte(`{}`)); parseErr == nil {
+				t.Fatal("incomplete evidence accepted")
+			}
+		})
+	}
+	invalidExecution := execution
+	invalidExecution.CanonicalContentDigest = "bad"
+	if err := validateExecutionEvidence(invalidExecution); err == nil {
+		t.Fatal("execution evidence accepted an invalid canonical digest")
+	}
+	invalidExecution = execution
+	invalidExecution.Provenance.Signature.Alg = ""
+	if err := validateExecutionEvidence(invalidExecution); err == nil {
+		t.Fatal("execution evidence accepted missing provenance")
+	}
+	invalidExecution = execution
+	invalidExecution.Binding.ProofRefs = nil
+	if err := validateExecutionEvidence(invalidExecution); err == nil {
+		t.Fatal("execution evidence accepted an incomplete binding")
+	}
+	invalidEffect := effect
+	invalidEffect.ReasonCode = ""
+	if err := validateEffectEvent(invalidEffect); err == nil {
+		t.Fatal("effect event accepted a missing reason code")
+	}
+	invalidEffect = effect
+	invalidEffect.Outcome = "unknown"
+	if err := validateEffectEvent(invalidEffect); err == nil {
+		t.Fatal("effect event accepted an unknown outcome")
+	}
+	invalidEffect = effect
+	invalidEffect.ExecutionRef = proof.RelationshipRef{}
+	if err := validateEffectEvent(invalidEffect); err == nil {
+		t.Fatal("effect event accepted a missing execution reference")
+	}
+	invalidEffect = effect
+	invalidEffect.Provenance.PublicKey = ""
+	if err := validateEffectEvent(invalidEffect); err == nil {
+		t.Fatal("effect event accepted incomplete provenance")
+	}
+	invalidContainment := containment
+	invalidContainment.ReasonCode = ""
+	if err := validateContainmentEvidence(invalidContainment); err == nil {
+		t.Fatal("containment evidence accepted a missing reason code")
+	}
+	invalidContainment = containment
+	invalidContainment.Outcome = "unknown"
+	if err := validateContainmentEvidence(invalidContainment); err == nil {
+		t.Fatal("containment evidence accepted an unknown outcome")
+	}
+	invalidContainment = containment
+	invalidContainment.ContainmentRef = proof.RelationshipRef{}
+	if err := validateContainmentEvidence(invalidContainment); err == nil {
+		t.Fatal("containment evidence accepted a missing scope reference")
+	}
+	invalidCompensation := compensation
+	invalidCompensation.ReasonCode = ""
+	if err := validateCompensationEvidence(invalidCompensation); err == nil {
+		t.Fatal("compensation evidence accepted a missing reason code")
+	}
+	invalidCompensation = compensation
+	invalidCompensation.Outcome = "unknown"
+	if err := validateCompensationEvidence(invalidCompensation); err == nil {
+		t.Fatal("compensation evidence accepted an unknown outcome")
+	}
+	invalidCompensation = compensation
+	invalidCompensation.RequirementRef = proof.RelationshipRef{}
+	if err := validateCompensationEvidence(invalidCompensation); err == nil {
+		t.Fatal("compensation evidence accepted a missing requirement reference")
+	}
+	brokenExecution := execution
+	brokenExecution.ReasonCode = ""
+	if err := validateLifecycleEvidence(LifecycleRecord{Execution: &brokenExecution}); err == nil {
+		t.Fatal("lifecycle accepted invalid execution evidence")
+	}
+	brokenEffect := effect
+	brokenEffect.ReasonCode = ""
+	if err := validateLifecycleEvidence(LifecycleRecord{Effect: &brokenEffect}); err == nil {
+		t.Fatal("lifecycle accepted invalid effect evidence")
+	}
+	brokenContainment := containment
+	brokenContainment.ReasonCode = ""
+	if err := validateLifecycleEvidence(LifecycleRecord{Containment: &brokenContainment}); err == nil {
+		t.Fatal("lifecycle accepted invalid containment evidence")
+	}
+	brokenCompensation := compensation
+	brokenCompensation.ReasonCode = ""
+	if err := validateLifecycleEvidence(LifecycleRecord{Compensation: &brokenCompensation}); err == nil {
+		t.Fatal("lifecycle accepted invalid compensation evidence")
+	}
+	if _, err := canonicalEvidence(make(chan int)); err == nil {
+		t.Fatal("canonical evidence accepted an unsupported value")
+	}
+	if _, err := canonicalEvidence([]string{"not-an-object"}); err == nil {
+		t.Fatal("canonical evidence accepted a non-object")
+	}
+	if _, _, err := signEvidence(execution, nil); err == nil {
+		t.Fatal("sign evidence accepted an invalid key")
+	}
+	if err := validateTypedEvidenceSchema(make(chan int), ExecutionEvidenceSchemaID); err == nil {
+		t.Fatal("typed schema validation accepted an unsupported value")
+	}
+	for _, item := range []struct {
+		kind        LifecycleEventKind
+		execution   *ExecutionEvidence
+		containment *ContainmentEvidence
+	}{
+		{kind: LifecycleExecutionFailed, execution: func() *ExecutionEvidence { value := execution; value.Outcome = "failed"; return &value }()},
+		{kind: LifecycleExecutionBlocked, execution: func() *ExecutionEvidence { value := execution; value.Outcome = "blocked"; return &value }()},
+		{kind: LifecycleContainmentCompleted, containment: func() *ContainmentEvidence { value := containment; value.Outcome = "completed"; return &value }()},
+		{kind: LifecycleContainmentPartial, containment: func() *ContainmentEvidence { value := containment; value.Outcome = "partial"; return &value }()},
+		{kind: LifecycleContainmentUnresolved, containment: func() *ContainmentEvidence { value := containment; value.Outcome = "unresolved"; return &value }()},
+	} {
+		if err := validateLifecycleEvent(LifecycleRecord{Kind: item.kind, Execution: item.execution, Containment: item.containment}); err != nil {
+			t.Fatalf("valid lifecycle event %s rejected: %v", item.kind, err)
+		}
+	}
+	mismatched := execution
+	mismatched.Outcome = "blocked"
+	if err := validateLifecycleEvent(LifecycleRecord{Kind: LifecycleExecutionFailed, Execution: &mismatched}); err == nil {
+		t.Fatal("mismatched lifecycle execution outcome accepted")
+	}
+	if _, err := NewExecutionEvidence(ExecutionEvidence{}, nil); err == nil {
+		t.Fatal("execution evidence accepted an invalid signing key")
+	}
+	if _, err := NewEffectEvent(EffectEvent{}, nil); err == nil {
+		t.Fatal("effect evidence accepted an invalid signing key")
+	}
+	if _, err := NewContainmentEvidence(ContainmentEvidence{}, nil); err == nil {
+		t.Fatal("containment evidence accepted an invalid signing key")
+	}
+	if _, err := NewCompensationEvidence(CompensationEvidence{}, nil); err == nil {
+		t.Fatal("compensation evidence accepted an invalid signing key")
+	}
+	if _, err := NewExecutionEvidence(ExecutionEvidence{Binding: executionTestBinding(), EventRef: executionTestRef("event", "bad-time"), OccurredAt: "bad", FreshUntil: when(1), Outcome: "started"}, private); err == nil {
+		t.Fatal("execution evidence accepted an invalid timestamp")
+	}
+	if _, err := NewExecutionEvidence(ExecutionEvidence{Binding: executionTestBinding(), EventRef: executionTestRef("event", "reversed-time"), OccurredAt: when(2), FreshUntil: when(1), Outcome: "started"}, private); err == nil {
+		t.Fatal("execution evidence accepted a reversed freshness window")
+	}
+	if _, err := NewEffectEvent(EffectEvent{Binding: effectBinding, EventRef: executionTestRef("event", "bad-effect-time"), ExecutionRef: evidenceRefForExecution(execution), EffectRef: effect.EffectRef, OccurredAt: "bad", FreshUntil: when(1), Outcome: "recorded"}, private); err == nil {
+		t.Fatal("effect evidence accepted an invalid timestamp")
+	}
+	if _, err := NewContainmentEvidence(ContainmentEvidence{Binding: containmentBinding, EventRef: executionTestRef("event", "bad-containment-time"), ExecutionRef: evidenceRefForExecution(execution), EffectRef: evidenceRefForEffect(effect), ContainmentRef: containment.ContainmentRef, OccurredAt: "bad", FreshUntil: when(1), Outcome: "requested"}, private); err == nil {
+		t.Fatal("containment evidence accepted an invalid timestamp")
+	}
+	if _, err := NewCompensationEvidence(CompensationEvidence{Binding: compensationBinding, EventRef: executionTestRef("event", "bad-compensation-time"), RequirementRef: compensation.RequirementRef, ExecutionRef: evidenceRefForExecution(execution), OccurredAt: "bad", FreshUntil: when(1), Outcome: "required"}, private); err == nil {
+		t.Fatal("compensation evidence accepted an invalid timestamp")
 	}
 }
 
@@ -183,6 +442,19 @@ func TestLifecycleTypedEvidenceOrderAndLineage(t *testing.T) {
 	}
 	if snapshot, err := ReduceLifecycleChecked(records); err != nil || snapshot.ExecutionStatus != "succeeded" || snapshot.EffectStatus != "validated" || snapshot.ContainmentStatus != "requested" || snapshot.CurrentStatus != "containment_requested" {
 		t.Fatalf("typed lifecycle reduction failed: snapshot=%#v err=%v", snapshot, err)
+	}
+	completedContainmentBinding := executionTestBinding()
+	completedContainmentBinding.CausalRefs = []proof.RelationshipRef{evidenceRefForContainment(containment)}
+	completedContainment, err := NewContainmentEvidence(ContainmentEvidence{Binding: completedContainmentBinding, EventRef: executionTestRef("event", "contain-completed"), ExecutionRef: evidenceRefForExecution(succeeded), EffectRef: evidenceRefForEffect(validated), ContainmentRef: containment.ContainmentRef, OccurredAt: when(11), FreshUntil: when(11), Outcome: "completed"}, private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	completedRecord := base("r12", LifecycleContainmentCompleted, when(11))
+	completedRecord.Containment = &completedContainment
+	completedRecord.EvidenceRefs = []proof.RelationshipRef{evidenceRefForContainment(completedContainment)}
+	completedRecords := append(cloneLifecycleRecords(t, records), completedRecord)
+	if snapshot, err := ReduceLifecycleChecked(completedRecords); err != nil || snapshot.CurrentStatus != "containment_completed" {
+		t.Fatalf("completed containment lifecycle failed: snapshot=%#v err=%v", snapshot, err)
 	}
 
 	withoutValidation := append(cloneLifecycleRecords(t, records[:8]), cloneLifecycleRecords(t, records[9:])...)
@@ -262,6 +534,23 @@ func TestLifecycleTypedEvidenceOrderAndLineage(t *testing.T) {
 	if snapshot, err := ReduceLifecycleChecked(compensationRecords); err != nil || snapshot.CurrentStatus != "compensation_completed" {
 		t.Fatalf("complete compensation lifecycle failed: snapshot=%#v err=%v", snapshot, err)
 	}
+	signedCompensation := make([]LifecycleRecord, 0, len(compensationRecords))
+	for _, record := range compensationRecords {
+		created, createErr := NewLifecycleRecord(LifecycleRecordOptions{
+			Kind: record.Kind, OccurredAt: mustParseTime(record.OccurredAt), ContractRef: record.ContractRef,
+			ContractFamilyID: record.ContractFamilyID, Revision: record.Revision, ProposalRef: record.ProposalRef,
+			ActivationRef: record.ActivationRef, PreconditionRefs: record.PreconditionRefs, Decision: record.Decision,
+			Execution: record.Execution, Effect: record.Effect, Containment: record.Containment, Compensation: record.Compensation,
+			Correlation: record.Correlation, SigningPrivateKey: private,
+		})
+		if createErr != nil {
+			t.Fatalf("sign compensation lifecycle %s: %v", record.Kind, createErr)
+		}
+		signedCompensation = append(signedCompensation, created)
+	}
+	if snapshot, err := ReduceVerifiedLifecycle(signedCompensation, public); err != nil || snapshot.CurrentStatus != "compensation_completed" {
+		t.Fatalf("verified compensation lifecycle failed: snapshot=%#v err=%v", snapshot, err)
+	}
 	if _, err := ReduceLifecycleChecked(compensationRecords[:len(compensationRecords)-1]); err == nil {
 		t.Fatal("required compensation without completion accepted")
 	}
@@ -287,6 +576,15 @@ func TestLifecycleTypedEvidenceOrderAndLineage(t *testing.T) {
 	}
 	if snapshot, err := ReduceVerifiedLifecycle(signed, public); err != nil || snapshot.CurrentStatus != "containment_requested" {
 		t.Fatalf("verified typed lifecycle failed: snapshot=%#v err=%v", snapshot, err)
+	}
+	mismatchedOutcome := signed[6]
+	mismatchedOutcome.Kind = LifecycleExecutionFailed
+	mismatchedRaw, err := json.Marshal(mismatchedOutcome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseLifecycleRecord(mismatchedRaw); err == nil {
+		t.Fatal("lifecycle schema accepted an event/evidence outcome mismatch")
 	}
 	wrongPublic, _, _ := ed25519.GenerateKey(nil)
 	if _, err := ReduceVerifiedLifecycle(signed, wrongPublic); err == nil {

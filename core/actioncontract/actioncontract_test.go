@@ -292,6 +292,13 @@ func TestEmbeddedSchemasRemainAlignedWithCheckedInSchemas(t *testing.T) {
 			t.Fatalf("embedded schema drift: %s", name)
 		}
 	}
+	lifecycleSchema, err := os.ReadFile(filepath.Join("..", "..", "schemas", "v1", "action-contract", "runtime-lifecycle-record.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(lifecycleSchema), "github.com/Clyra-AI/proof/schemas") {
+		t.Fatal("runtime lifecycle schema requires a network-only Proof schema reference")
+	}
 }
 
 func TestEmbeddedSchemaValidationIsIndependentOfWorkingDirectory(t *testing.T) {
