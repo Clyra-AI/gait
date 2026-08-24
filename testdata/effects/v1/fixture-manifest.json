@@ -10,8 +10,8 @@
     "grade": "1.0.0"
   },
   "bindings": {
-    "runtime_action_path": "testdata/runtime-goldens/runtime-action.json",
-    "runtime_action_sha256": "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424",
+    "runtime_classification_path": "testdata/runtime-goldens/runtime-action.json",
+    "runtime_classification_sha256": "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424",
     "activation_path": "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json",
     "activation_sha256": "sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f",
     "runtime_lifecycle_path": "testdata/runtime-goldens/runtime-lifecycle-chain.jsonl",

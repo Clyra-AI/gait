@@ -54,7 +54,7 @@ fallback.
 The committed `testdata/effects/v1` pack is labeled for the planned Gait
 `v1.5.0` effects compatibility line. Its `fixture_test_only` key and golden
 result are test evidence only and do not authorize collectors or effects. The
-manifest binds the exact merged runtime action, signed lifecycle JSONL, and
+manifest binds the exact merged runtime classification result, signed lifecycle JSONL, and
 released Gait v1.4.0 compensation activation bytes, so downstream consumers
 can verify the complete proposal-to-activation-to-runtime-to-effect lineage.
 Regenerate/check exact bytes with

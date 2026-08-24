@@ -17,16 +17,16 @@ import (
 )
 
 const (
-	fixtureRoot            = "testdata/effects/v1"
-	runtimeActionPath      = "testdata/runtime-goldens/runtime-action.json"
-	runtimeActionDigest    = "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424"
-	activationPath         = "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json"
-	activationDigest       = "sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f"
-	runtimeLifecyclePath   = "testdata/runtime-goldens/runtime-lifecycle-chain.jsonl"
-	runtimeLifecycleDigest = "sha256:481bbc0c38b1cdabdbf3b80004fdd34f0b538df72ff49a9250cea7bc48c1b884"
-	runtimeRecordPath      = "testdata/runtime-goldens/runtime-lifecycle-record.json"
-	runtimeRecordDigest    = "sha256:e33d10eb5efb3370c01eae8b3838419baa2700bd14662e15464992a72ccc1320"
-	runtimeLifecycleID     = "gait-lr-637e1cb66df46b95"
+	fixtureRoot                 = "testdata/effects/v1"
+	runtimeClassificationPath   = "testdata/runtime-goldens/runtime-action.json"
+	runtimeClassificationDigest = "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424"
+	activationPath              = "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json"
+	activationDigest            = "sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f"
+	runtimeLifecyclePath        = "testdata/runtime-goldens/runtime-lifecycle-chain.jsonl"
+	runtimeLifecycleDigest      = "sha256:481bbc0c38b1cdabdbf3b80004fdd34f0b538df72ff49a9250cea7bc48c1b884"
+	runtimeRecordPath           = "testdata/runtime-goldens/runtime-lifecycle-record.json"
+	runtimeRecordDigest         = "sha256:e33d10eb5efb3370c01eae8b3838419baa2700bd14662e15464992a72ccc1320"
+	runtimeLifecycleID          = "gait-lr-637e1cb66df46b95"
 )
 
 type manifest struct {
@@ -41,15 +41,15 @@ type manifest struct {
 		Grade    string `json:"grade"`
 	} `json:"schemas"`
 	Bindings struct {
-		RuntimeActionPath      string `json:"runtime_action_path"`
-		RuntimeActionSHA256    string `json:"runtime_action_sha256"`
-		ActivationPath         string `json:"activation_path"`
-		ActivationSHA256       string `json:"activation_sha256"`
-		RuntimeLifecyclePath   string `json:"runtime_lifecycle_path"`
-		RuntimeLifecycleSHA256 string `json:"runtime_lifecycle_sha256"`
-		RuntimeRecordPath      string `json:"runtime_record_path"`
-		RuntimeRecordSHA256    string `json:"runtime_record_sha256"`
-		RuntimeLifecycleID     string `json:"runtime_lifecycle_id"`
+		RuntimeClassificationPath   string `json:"runtime_classification_path"`
+		RuntimeClassificationSHA256 string `json:"runtime_classification_sha256"`
+		ActivationPath              string `json:"activation_path"`
+		ActivationSHA256            string `json:"activation_sha256"`
+		RuntimeLifecyclePath        string `json:"runtime_lifecycle_path"`
+		RuntimeLifecycleSHA256      string `json:"runtime_lifecycle_sha256"`
+		RuntimeRecordPath           string `json:"runtime_record_path"`
+		RuntimeRecordSHA256         string `json:"runtime_record_sha256"`
+		RuntimeLifecycleID          string `json:"runtime_lifecycle_id"`
 	} `json:"bindings"`
 	Signing struct {
 		Mode             string `json:"mode"`
@@ -86,7 +86,7 @@ func main() {
 func run(repoRoot string, update bool) error {
 	root := filepath.Join(repoRoot, fixtureRoot)
 	for path, digest := range map[string]string{
-		runtimeActionPath: runtimeActionDigest, activationPath: activationDigest,
+		runtimeClassificationPath: runtimeClassificationDigest, activationPath: activationDigest,
 		runtimeLifecyclePath: runtimeLifecycleDigest, runtimeRecordPath: runtimeRecordDigest,
 	} {
 		raw, err := os.ReadFile(filepath.Join(repoRoot, path)) // #nosec G304 -- fixed generator-owned compatibility paths.
@@ -102,7 +102,7 @@ func run(repoRoot string, update bool) error {
 		Selector:  effects.Selector{Resource: "filesystem.path", Path: "/srv/example/data.json"},
 		Before:    effects.Observation{State: effects.ObservationPresent, Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Count: int64ptr(1), Identity: "file:data.json", Owner: "owner:fixture", TTLSeconds: int64ptr(3600), ObservedAt: "2026-08-19T00:00:00Z", EvidenceRefs: []string{"ref:before"}},
 		After:     effects.Observation{State: effects.ObservationPresent, Digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Count: int64ptr(1), Identity: "file:data.json", Owner: "owner:fixture", TTLSeconds: int64ptr(3600), ObservedAt: "2026-08-19T00:00:01Z", EvidenceRefs: []string{"ref:after"}},
-		Collector: effects.Collector{Name: "fixture-collector", Version: "1.0.0", Mode: "deterministic"}, Capture: effects.Capture{Mode: "reference", SourceRef: runtimeLifecycleID, CapturedAt: "2026-08-19T00:00:02Z"}, Redaction: effects.Redaction{Mode: "reference_only"}, Correlation: effects.Correlation{ActionDigest: runtimeActionDigest, ActivationDigest: activationDigest, ProofDigest: runtimeLifecycleDigest, LifecycleID: runtimeLifecycleID, ProofRefs: []string{runtimeRecordDigest}}, EvidenceRefs: []string{"ref:before", "ref:after"}, Completeness: effects.CompletenessComplete, Enforcement: effects.EnforcementVerified,
+		Collector: effects.Collector{Name: "fixture-collector", Version: "1.0.0", Mode: "deterministic"}, Capture: effects.Capture{Mode: "reference", SourceRef: runtimeLifecycleID, CapturedAt: "2026-08-19T00:00:02Z"}, Redaction: effects.Redaction{Mode: "reference_only"}, Correlation: effects.Correlation{ActionDigest: runtimeClassificationDigest, ActivationDigest: activationDigest, ProofDigest: runtimeLifecycleDigest, LifecycleID: runtimeLifecycleID, ProofRefs: []string{runtimeRecordDigest}}, EvidenceRefs: []string{"ref:before", "ref:after"}, Completeness: effects.CompletenessComplete, Enforcement: effects.EnforcementVerified,
 	}
 	seed := sha256.Sum256([]byte("gait-effects-fixture-producer-key-v1"))
 	snapshot, err := snapshot.Sign(ed25519.NewKeyFromSeed(seed[:]), "fixture_test_only")
@@ -127,7 +127,7 @@ func run(repoRoot string, update bool) error {
 	manifestValue := manifest{FixtureVersion: "1", Files: []manifestFile{{Path: "effect_snapshot.json", SHA256: rawDigest(files["effect_snapshot.json"]), SchemaID: effects.SnapshotSchemaID, SchemaVersion: effects.SchemaVersion}, {Path: "effect_contract.json", SHA256: rawDigest(files["effect_contract.json"]), SchemaID: effects.ContractSchemaID, SchemaVersion: effects.SchemaVersion}, {Path: "effect_grading_result.json", SHA256: rawDigest(files["effect_grading_result.json"]), SchemaID: effects.GradeSchemaID, SchemaVersion: effects.SchemaVersion}}}
 	manifestValue.Producer.Name, manifestValue.Producer.Version = "gait", "v1.5.0"
 	manifestValue.Schemas.Snapshot, manifestValue.Schemas.Contract, manifestValue.Schemas.Grade = effects.SchemaVersion, effects.SchemaVersion, effects.SchemaVersion
-	manifestValue.Bindings.RuntimeActionPath, manifestValue.Bindings.RuntimeActionSHA256 = runtimeActionPath, runtimeActionDigest
+	manifestValue.Bindings.RuntimeClassificationPath, manifestValue.Bindings.RuntimeClassificationSHA256 = runtimeClassificationPath, runtimeClassificationDigest
 	manifestValue.Bindings.ActivationPath, manifestValue.Bindings.ActivationSHA256 = activationPath, activationDigest
 	manifestValue.Bindings.RuntimeLifecyclePath, manifestValue.Bindings.RuntimeLifecycleSHA256 = runtimeLifecyclePath, runtimeLifecycleDigest
 	manifestValue.Bindings.RuntimeRecordPath, manifestValue.Bindings.RuntimeRecordSHA256 = runtimeRecordPath, runtimeRecordDigest

@@ -276,6 +276,7 @@ func TestValidateSnapshotRejectsMalformedBoundaryFields(t *testing.T) {
 		{name: "completeness", reason: ReasonCompletenessInvalid, edit: func(s *Snapshot) { s.Completeness = "invalid" }},
 		{name: "enforcement", reason: ReasonEnforcementInvalid, edit: func(s *Snapshot) { s.Enforcement = "invalid" }},
 		{name: "evidence refs", reason: ReasonEvidenceMissing, edit: func(s *Snapshot) { s.EvidenceRefs = nil }},
+		{name: "empty evidence ref", reason: ReasonEvidenceMissing, edit: func(s *Snapshot) { s.EvidenceRefs = []string{""} }},
 		{name: "provenance", reason: ReasonProvenanceMissing, edit: func(s *Snapshot) { s.Provenance.Mode = "" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {

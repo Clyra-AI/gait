@@ -20,7 +20,7 @@
     "provenance": {"$ref": "#/$defs/provenance"},
     "completeness": {"enum": ["complete", "partial", "unknown"]},
     "enforcement": {"enum": ["verified", "observed_only", "partial", "unknown"]},
-    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "evidence_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
     "canonical_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
   },
   "$defs": {
@@ -37,7 +37,7 @@
         "identity": {"type": "string"}, "owner": {"type": "string"},
         "ttl_seconds": {"type": "integer", "minimum": 0},
         "observed_at": {"type": "string", "format": "date-time"},
-        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+        "evidence_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
       }
     },
     "collector": {"type": "object", "additionalProperties": false, "required": ["name", "version", "mode"], "properties": {"name": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1}, "mode": {"type": "string", "minLength": 1}}},
@@ -50,7 +50,7 @@
         "activation_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
         "proof_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
         "run_id": {"type": "string"}, "lifecycle_id": {"type": "string"},
-        "proof_refs": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}}
+        "proof_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}}
       },
       "anyOf": [{"required": ["action_digest"]}, {"required": ["activation_digest"]}, {"required": ["proof_digest"]}, {"required": ["proof_refs"]}]
     },

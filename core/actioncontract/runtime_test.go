@@ -236,7 +236,7 @@ func TestRuntimeActionReadinessLifecycleGoldens(t *testing.T) {
 			SHA256 string `json:"sha256"`
 		} `json:"files"`
 	}
-	if err := json.Unmarshal(manifestRaw, &manifest); err != nil || manifest.FixtureVersion != "1" || manifest.SourceCommit == "" || manifest.Producer.Version != "v1.5.0" || !manifest.Signing.FixtureTestOnly || !manifest.Signing.DevelopmentSigning || !manifest.Signing.NonAuthoritative {
+	if err := json.Unmarshal(manifestRaw, &manifest); err != nil || manifest.FixtureVersion != "1" || manifest.SourceCommit != "84b33527edabffc3e3ddda7e349ef1a36bece351" || manifest.Producer.Version != "v1.5.0" || !manifest.Signing.FixtureTestOnly || !manifest.Signing.DevelopmentSigning || !manifest.Signing.NonAuthoritative {
 		t.Fatalf("invalid runtime golden manifest: %v", err)
 	}
 	publicRaw, err := os.ReadFile(filepath.Join(goldenRoot, manifest.Signing.PublicKeyPath))

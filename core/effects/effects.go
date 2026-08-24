@@ -319,7 +319,7 @@ func ValidateSnapshot(s Snapshot) ValidationResult {
 	if s.Enforcement != EnforcementVerified && s.Enforcement != EnforcementObservedOnly && s.Enforcement != EnforcementPartial && s.Enforcement != EnforcementUnknown {
 		reasons = append(reasons, ReasonEnforcementInvalid)
 	}
-	if len(s.EvidenceRefs) == 0 {
+	if len(s.EvidenceRefs) == 0 || hasEmptyEffectRef(s.EvidenceRefs) {
 		reasons = append(reasons, ReasonEvidenceMissing)
 	}
 	if s.Provenance.Mode != "collector_signed" && s.Provenance.Mode != "fixture_test_only" {
@@ -365,6 +365,15 @@ func validateObservation(reasons *[]string, o Observation) {
 func parseEffectTime(value string) (time.Time, bool) {
 	parsed, err := time.Parse(time.RFC3339, value)
 	return parsed, err == nil
+}
+
+func hasEmptyEffectRef(values []string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == "" {
+			return true
+		}
+	}
+	return false
 }
 
 func hasCorrelationDigest(c Correlation) bool {

@@ -26,15 +26,15 @@ type effectFixtureManifest struct {
 		Grade    string `json:"grade"`
 	} `json:"schemas"`
 	Bindings struct {
-		RuntimeActionPath      string `json:"runtime_action_path"`
-		RuntimeActionSHA256    string `json:"runtime_action_sha256"`
-		ActivationPath         string `json:"activation_path"`
-		ActivationSHA256       string `json:"activation_sha256"`
-		RuntimeLifecyclePath   string `json:"runtime_lifecycle_path"`
-		RuntimeLifecycleSHA256 string `json:"runtime_lifecycle_sha256"`
-		RuntimeRecordPath      string `json:"runtime_record_path"`
-		RuntimeRecordSHA256    string `json:"runtime_record_sha256"`
-		RuntimeLifecycleID     string `json:"runtime_lifecycle_id"`
+		RuntimeClassificationPath   string `json:"runtime_classification_path"`
+		RuntimeClassificationSHA256 string `json:"runtime_classification_sha256"`
+		ActivationPath              string `json:"activation_path"`
+		ActivationSHA256            string `json:"activation_sha256"`
+		RuntimeLifecyclePath        string `json:"runtime_lifecycle_path"`
+		RuntimeLifecycleSHA256      string `json:"runtime_lifecycle_sha256"`
+		RuntimeRecordPath           string `json:"runtime_record_path"`
+		RuntimeRecordSHA256         string `json:"runtime_record_sha256"`
+		RuntimeLifecycleID          string `json:"runtime_lifecycle_id"`
 	} `json:"bindings"`
 	Signing struct {
 		Mode             string `json:"mode"`
@@ -70,10 +70,10 @@ func TestCommittedEffectFixturePackHasNoDigestOrGradingDrift(t *testing.T) {
 		t.Fatalf("fixture signing provenance missing: %+v", manifest.Signing)
 	}
 	boundFiles := map[string]string{
-		manifest.Bindings.RuntimeActionPath:    manifest.Bindings.RuntimeActionSHA256,
-		manifest.Bindings.ActivationPath:       manifest.Bindings.ActivationSHA256,
-		manifest.Bindings.RuntimeLifecyclePath: manifest.Bindings.RuntimeLifecycleSHA256,
-		manifest.Bindings.RuntimeRecordPath:    manifest.Bindings.RuntimeRecordSHA256,
+		manifest.Bindings.RuntimeClassificationPath: manifest.Bindings.RuntimeClassificationSHA256,
+		manifest.Bindings.ActivationPath:            manifest.Bindings.ActivationSHA256,
+		manifest.Bindings.RuntimeLifecyclePath:      manifest.Bindings.RuntimeLifecycleSHA256,
+		manifest.Bindings.RuntimeRecordPath:         manifest.Bindings.RuntimeRecordSHA256,
 	}
 	if manifest.Bindings.RuntimeLifecycleID == "" || len(boundFiles) != 4 {
 		t.Fatalf("fixture producer bindings missing: %+v", manifest.Bindings)
@@ -129,7 +129,7 @@ func TestCommittedEffectFixturePackHasNoDigestOrGradingDrift(t *testing.T) {
 	if result := ValidateSnapshot(snapshot); !result.Valid {
 		t.Fatalf("fixture snapshot invalid: %+v", result)
 	}
-	if snapshot.Correlation.ActionDigest != manifest.Bindings.RuntimeActionSHA256 || snapshot.Correlation.ActivationDigest != manifest.Bindings.ActivationSHA256 || snapshot.Correlation.ProofDigest != manifest.Bindings.RuntimeLifecycleSHA256 || snapshot.Correlation.LifecycleID != manifest.Bindings.RuntimeLifecycleID {
+	if snapshot.Correlation.ActionDigest != manifest.Bindings.RuntimeClassificationSHA256 || snapshot.Correlation.ActivationDigest != manifest.Bindings.ActivationSHA256 || snapshot.Correlation.ProofDigest != manifest.Bindings.RuntimeLifecycleSHA256 || snapshot.Correlation.LifecycleID != manifest.Bindings.RuntimeLifecycleID {
 		t.Fatalf("effect fixture correlation does not match released runtime bindings: %+v", snapshot.Correlation)
 	}
 	if result := ValidateContract(contract); !result.Valid {

@@ -1,7 +1,7 @@
 {
   "fixture_version": "1",
   "producer": {"name": "gait", "version": "v1.5.0"},
-  "source_commit": "a4636e96bd50b9eaa968306e824977f74e8b8e5c",
+  "source_commit": "84b33527edabffc3e3ddda7e349ef1a36bece351",
   "producer_bindings": {"wrkr_version":"v1.14.0","gait_version":"v1.4.0","scenario_id":"compensation","proposal_path":"testdata/action-contract-interop/v1/expected/compensation/pac-4b7f1402784256ce.json","proposal_sha256":"sha256:bfb32cdce650b2ea969059ae0816df2637f7345e70b08a67d4c23684489bf154","proposal_canonical_digest":"sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf","proposal_artifact_id":"paca-d3a371d51af5af30","activation_path":"testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json","activation_sha256":"sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f","activation_artifact_id":"gact-4aad73ff9f3c7e5a","contract_id":"pac-4b7f1402784256ce","policy_digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","revision":1},
   "signing": {"mode":"fixture_only_deterministic_development_key","fixture_test_only":true,"development_signing":true,"non_authoritative":true,"key_id":"8b100ff0cc76f1c0e13375d29041e5fd928c74d56e4544e5a961ef79a7a86701","public_key_path":"fixture-signing-key.public.b64","derivation":"sha256(runtime-golden-key) as Ed25519 seed; never used by production/default lifecycle signing"},
   "files": [
