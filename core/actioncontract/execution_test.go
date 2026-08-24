@@ -10,6 +10,7 @@ import (
 	"time"
 
 	proof "github.com/Clyra-AI/proof"
+	proofsign "github.com/Clyra-AI/proof/signing"
 )
 
 func executionTestRef(kind, id string) proof.RelationshipRef {
@@ -38,6 +39,20 @@ func cloneLifecycleRecords(t *testing.T, records []LifecycleRecord) []LifecycleR
 		t.Fatal(err)
 	}
 	return cloned
+}
+
+func resignLifecycleRecord(t *testing.T, record *LifecycleRecord, private ed25519.PrivateKey) {
+	t.Helper()
+	digest, err := lifecycleDigest(*record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature, err := proofsign.SignDigestHex(private, strings.TrimPrefix(digest, "sha256:"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.Signature = signature
+	record.RecordID = "gait-lr-" + strings.TrimPrefix(digest, "sha256:")[:16]
 }
 
 func TestTypedEvidenceSignsVerifiesAndRejectsTampering(t *testing.T) {
@@ -643,6 +658,32 @@ func TestLifecycleTypedEvidenceOrderAndLineage(t *testing.T) {
 	}
 	if snapshot, err := ReduceVerifiedLifecycle(signed, public); err != nil || snapshot.CurrentStatus != "containment_requested" {
 		t.Fatalf("verified typed lifecycle failed: snapshot=%#v err=%v", snapshot, err)
+	}
+	legacyAuxiliaryRef := signed[0]
+	legacyAuxiliaryRef.Correlation.ActionRef = &proof.RelationshipRef{Kind: "runtime_action", ID: "legacy-identifier-only"}
+	resignLifecycleRecord(t, &legacyAuxiliaryRef, private)
+	legacyRaw, err := json.Marshal(legacyAuxiliaryRef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedLegacy, err := ParseLifecycleRecord(legacyRaw)
+	if err != nil {
+		t.Fatalf("legacy identifier-only auxiliary correlation ref rejected: %v", err)
+	}
+	if ok, err := VerifyLifecycleRecord(parsedLegacy, public); err != nil || !ok {
+		t.Fatalf("legacy identifier-only auxiliary correlation ref failed verification: ok=%t err=%v", ok, err)
+	}
+	invalidInnerSignature := cloneLifecycleRecords(t, signed)[5]
+	invalidInnerSignature.Execution.Provenance.Signature.Sig = "invalid"
+	resignLifecycleRecord(t, &invalidInnerSignature, private)
+	if ok, err := VerifyLifecycleRecord(invalidInnerSignature, public); err == nil || ok {
+		t.Fatal("direct lifecycle verification accepted invalid embedded evidence")
+	}
+	outsideEvidenceWindow := cloneLifecycleRecords(t, signed)[5]
+	outsideEvidenceWindow.OccurredAt = when(7)
+	resignLifecycleRecord(t, &outsideEvidenceWindow, private)
+	if ok, err := VerifyLifecycleRecord(outsideEvidenceWindow, public); err == nil || ok {
+		t.Fatal("direct lifecycle verification accepted expired embedded evidence")
 	}
 	mismatchedOutcome := signed[6]
 	mismatchedOutcome.Kind = LifecycleExecutionFailed

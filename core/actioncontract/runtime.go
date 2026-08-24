@@ -1332,6 +1332,9 @@ func VerifyLifecycleRecord(record LifecycleRecord, publicKey ed25519.PublicKey) 
 	if err := validateLifecycleEvent(record); err != nil {
 		return false, err
 	}
+	if err := validateLifecycleEvidence(record); err != nil {
+		return false, err
+	}
 	if raw, err := json.Marshal(record); err != nil {
 		return false, errors.New("lifecycle schema validation failed")
 	} else if err := validateRuntimeSchema(raw, RuntimeLifecycleSchemaID); err != nil {
@@ -1348,7 +1351,13 @@ func VerifyLifecycleRecord(record LifecycleRecord, publicKey ed25519.PublicKey) 
 	if verifyErr != nil || !valid {
 		return false, errors.New("lifecycle signature invalid")
 	}
-	return record.RecordID == "gait-lr-"+strings.TrimPrefix(digest, "sha256:")[:16], nil
+	if record.RecordID != "gait-lr-"+strings.TrimPrefix(digest, "sha256:")[:16] {
+		return false, nil
+	}
+	if err := verifyLifecycleEmbeddedEvidence(record, publicKey); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // ParseLifecycleRecord is the strict JSON boundary for persisted lifecycle
@@ -1686,6 +1695,30 @@ func validateLifecycleEvidence(record LifecycleRecord) error {
 		freshUntil, freshErr := time.Parse(time.RFC3339Nano, evidenceFreshUntil)
 		if recordErr != nil || evidenceErr != nil || freshErr != nil || recordTime.Before(evidenceTime) || recordTime.After(freshUntil) {
 			return errors.New("lifecycle evidence outside event time window")
+		}
+	}
+	return nil
+}
+
+func verifyLifecycleEmbeddedEvidence(record LifecycleRecord, publicKey ed25519.PublicKey) error {
+	if record.Execution != nil {
+		if ok, err := VerifyExecutionEvidence(*record.Execution, publicKey); err != nil || !ok {
+			return errors.New("execution evidence verification failed")
+		}
+	}
+	if record.Effect != nil {
+		if ok, err := VerifyEffectEvent(*record.Effect, publicKey); err != nil || !ok {
+			return errors.New("effect evidence verification failed")
+		}
+	}
+	if record.Containment != nil {
+		if ok, err := VerifyContainmentEvidence(*record.Containment, publicKey); err != nil || !ok {
+			return errors.New("containment evidence verification failed")
+		}
+	}
+	if record.Compensation != nil {
+		if ok, err := VerifyCompensationEvidence(*record.Compensation, publicKey); err != nil || !ok {
+			return errors.New("compensation evidence verification failed")
 		}
 	}
 	return nil
@@ -2054,26 +2087,6 @@ func ReduceVerifiedLifecycle(records []LifecycleRecord, publicKey ed25519.Public
 				return LifecycleSnapshot{}, fmt.Errorf("lifecycle record verification failed: %w", err)
 			}
 			return LifecycleSnapshot{}, errors.New("lifecycle record verification failed")
-		}
-		if record.Execution != nil {
-			if ok, err := VerifyExecutionEvidence(*record.Execution, publicKey); err != nil || !ok {
-				return LifecycleSnapshot{}, errors.New("execution evidence verification failed")
-			}
-		}
-		if record.Effect != nil {
-			if ok, err := VerifyEffectEvent(*record.Effect, publicKey); err != nil || !ok {
-				return LifecycleSnapshot{}, errors.New("effect evidence verification failed")
-			}
-		}
-		if record.Containment != nil {
-			if ok, err := VerifyContainmentEvidence(*record.Containment, publicKey); err != nil || !ok {
-				return LifecycleSnapshot{}, errors.New("containment evidence verification failed")
-			}
-		}
-		if record.Compensation != nil {
-			if ok, err := VerifyCompensationEvidence(*record.Compensation, publicKey); err != nil || !ok {
-				return LifecycleSnapshot{}, errors.New("compensation evidence verification failed")
-			}
 		}
 	}
 	return ReduceLifecycleChecked(records)

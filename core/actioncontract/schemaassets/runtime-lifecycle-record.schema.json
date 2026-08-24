@@ -18,6 +18,10 @@
       "type": "object", "additionalProperties": false, "required": ["kind", "id", "digest"],
       "properties": {"kind": {"type": "string", "minLength": 1}, "id": {"type": "string", "minLength": 1}, "digest": {"type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$"}, "schema_id": {"type": "string"}, "schema_version": {"type": "string"}, "source_product": {"type": "string"}}
     },
+    "correlation_ref": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "id"],
+      "properties": {"kind": {"type": "string", "minLength": 1}, "id": {"type": "string", "minLength": 1}, "digest": {"type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$"}, "schema_id": {"type": "string", "minLength": 1}, "schema_version": {"type": "string", "minLength": 1}, "source_product": {"type": "string", "minLength": 1}}
+    },
     "signature": {
       "type": "object", "additionalProperties": false, "required": ["alg", "key_id", "sig", "signed_digest"],
       "properties": {"alg": {"const": "ed25519"}, "key_id": {"type": "string", "minLength": 1}, "sig": {"type": "string", "minLength": 1}, "signed_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
@@ -30,7 +34,7 @@
       "type": "object", "additionalProperties": false, "required": ["profile_version", "binding_mode", "contract_ref", "content_digest"],
       "properties": {
         "profile_version": {"enum": ["1", "1.0"]}, "binding_mode": {"const": "digest_bound"}, "content_digest": {"type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$"},
-        "event_ref": {"$ref": "#/$defs/relationship_ref"}, "action_ref": {"$ref": "#/$defs/relationship_ref"}, "contract_ref": {"$ref": "#/$defs/relationship_ref"}, "run_ref": {"$ref": "#/$defs/relationship_ref"}, "session_ref": {"$ref": "#/$defs/relationship_ref"}, "policy_ref": {"$ref": "#/$defs/relationship_ref"}, "decision_ref": {"$ref": "#/$defs/relationship_ref"}, "proof_ref": {"$ref": "#/$defs/relationship_ref"}, "causal_ref": {"$ref": "#/$defs/relationship_ref"}, "containment_ref": {"$ref": "#/$defs/relationship_ref"}, "boundary_ref": {"$ref": "#/$defs/relationship_ref"}, "revocation_ref": {"$ref": "#/$defs/relationship_ref"}, "acknowledgement_ref": {"$ref": "#/$defs/relationship_ref"},
+        "event_ref": {"$ref": "#/$defs/correlation_ref"}, "action_ref": {"$ref": "#/$defs/correlation_ref"}, "contract_ref": {"$ref": "#/$defs/relationship_ref"}, "run_ref": {"$ref": "#/$defs/correlation_ref"}, "session_ref": {"$ref": "#/$defs/correlation_ref"}, "policy_ref": {"$ref": "#/$defs/correlation_ref"}, "decision_ref": {"$ref": "#/$defs/correlation_ref"}, "proof_ref": {"$ref": "#/$defs/correlation_ref"}, "causal_ref": {"$ref": "#/$defs/correlation_ref"}, "containment_ref": {"$ref": "#/$defs/correlation_ref"}, "boundary_ref": {"$ref": "#/$defs/correlation_ref"}, "revocation_ref": {"$ref": "#/$defs/correlation_ref"}, "acknowledgement_ref": {"$ref": "#/$defs/correlation_ref"},
         "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$", "not": {"const": "00000000000000000000000000000000"}}, "span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$", "not": {"const": "0000000000000000"}}, "parent_span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$", "not": {"const": "0000000000000000"}}, "redaction": {"$ref": "#/$defs/redaction_metadata"}, "redaction_metadata": {"$ref": "#/$defs/redaction_metadata"}
       }
     },
