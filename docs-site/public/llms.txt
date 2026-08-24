@@ -37,7 +37,7 @@
 - gait effects grade --snapshot <effect_snapshot.json> --contract <effect_contract.json> --trusted-collector-key <public-key> --expected-action-digest sha256:<64-hex> [--expected-activation-digest sha256:<64-hex>] [--expected-proof-digest sha256:<64-hex>] [--junit <junit.xml>] --json
 - Action Contract input is one explicitly selected Wrkr `proposed_action_contract`; activation emits a distinct signed artifact and never claims execution or effects.
 - Runtime classification/readiness is pre-execution only: inference can preserve or raise action posture, required readiness evidence fails closed, validator signatures bind the normalized typed claim digest, and intended outcomes remain separate from observed effects.
-- Full-lineage conformance fixtures under `testdata/action-contract-evidence/v1` bind proposal → activation → readiness → execution → effect → containment/compensation; `VerifyLifecycleConformance` is a pure fail-closed verifier and never executes tools.
+- Full-lineage conformance fixtures under `testdata/action-contract-evidence/v1` bind proposal → activation → readiness → execution → effect → containment/compensation; `VerifyLifecycleConformance` revalidates readiness with trusted validator keys at decision time, enforces activation scope, is pure/fail-closed, and never executes tools.
 - A lifecycle success gate requires both `valid` and `authoritative_success`; blocked, failed, partial, and unresolved fixtures never set authoritative success.
 - gait pack export <pack.zip> --otel-out <otel.jsonl>
 - gait run replay <run_id>

@@ -26,8 +26,9 @@ This foundation does not by itself declare Gait v1.5.0 release conformance. Exac
 scenarios for successful execution/effect/containment, blocked execution,
 failed execution with compensation, partial/unresolved containment, and required-to-
 completed compensation. The checked-in manifest binds these records to the
-released Wrkr proposal, Gait activation, runtime classification/readiness, and
-Proof digest-bound references. The public signing key is explicitly
+released Wrkr proposal and Gait activation plus activation-scoped
+runtime/readiness projections derived from exact released runtime source
+bytes, and to Proof digest-bound references. The public signing key is explicitly
 development-only and non-authoritative; no private key is persisted.
 
 Run `go run ./scripts/action_contract_evidence_fixture_generator --check` to
@@ -38,3 +39,7 @@ treat every non-valid result as blocked; the grader never executes tools.
 not mean the action succeeded. A production success gate must require both
 `valid` and `authoritative_success`. Blocked, failed, partial-containment, and
 unresolved-containment fixtures always set `authoritative_success` to false.
+Callers must supply an explicit evaluation time and policy-named readiness
+validator references/public keys; the grader revalidates signatures and
+freshness at the lifecycle decision timestamp rather than trusting projected
+`ready` fields.

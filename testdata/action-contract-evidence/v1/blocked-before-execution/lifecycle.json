@@ -3,9 +3,9 @@
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-449615bff7842dba",
+      "record_id": "gait-lr-56341bd700fb0d35",
       "kind": "proposal_ingested",
-      "occurred_at": "2026-07-19T02:00:00Z",
+      "occurred_at": "2026-07-19T01:00:00Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -48,16 +48,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "5kZRsgABLQKbrS2MmnTlJc3ushczb4avZEVBAThhlpTza47Vd2LYSZruwjOnA7zse1l5BwcJj7k3qnT7I3Z1Aw==",
-        "signed_digest": "449615bff7842dba6e5ff13443c395d3f2150f5f8e4cd23eaed29c0b81a00e4e"
+        "sig": "Ad9lS1Q5tilMDHow+YOQ1zKlid0IkBg0vGlt9Xls/FtJN/U1Sj29gy4BmC5DjXpUW/vC3c86N3iJ2slLnICtCw==",
+        "signed_digest": "56341bd700fb0d357ef4d3a3280e4839d7a38802462085822d9e8a5eab7e7898"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-3b41733b37edd3e7",
+      "record_id": "gait-lr-4169029f4868a9bb",
       "kind": "activation_requested",
-      "occurred_at": "2026-07-19T02:00:01Z",
+      "occurred_at": "2026-07-19T01:00:01Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -116,16 +116,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "BMKJStJQ0rNFz/MfCRDlhQRnMGdRdHQMQM57IPYYNhbs1mypPkTn5EEpN4Hmjktbzz0Fj75ZZPfjIp2g+lxEAg==",
-        "signed_digest": "3b41733b37edd3e7acc38f2f5e9c8ee1c3b88b6e445eee0454a37a9cecc3ce87"
+        "sig": "Nlh2ay4ka5axZ1CGWkm+9zUDDbk1lOKQSWBZ+pTbMy1VwFal4E8sjv8CWfNSTg8hcb0LHR28+iNXsepVadRKDw==",
+        "signed_digest": "4169029f4868a9bbeb57776ea104cef9c008cea8ca3d4bd9c8aacf88bdafdff6"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-bf9bc57cbd670b48",
+      "record_id": "gait-lr-48f30dc734a2be93",
       "kind": "precondition_evaluated",
-      "occurred_at": "2026-07-19T02:00:02Z",
+      "occurred_at": "2026-07-19T01:00:02Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -154,7 +154,7 @@
       },
       "precondition_refs": [
         {
-          "digest": "sha256:c32fbb43aae4c2df2e156df5f971256a50e1fb35e2706c9e5b78598104bbf7e1",
+          "digest": "sha256:a3a433d3cbec2d780d3f9e9bc412ee7546d469134397b2ab1bfd24c90df2d527",
           "id": "runtime-p1",
           "kind": "precondition",
           "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -194,16 +194,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "2ii8Owte9fuknsbw3NwgI5wvniqH/sUuh51scNwHwucNMHy8cnqfz3hyND9fLDh4nLNttNLTYRsA5PP0yFPjCw==",
-        "signed_digest": "bf9bc57cbd670b481785e8ab09d37be562ef64b9db5db5d856bcc229961ba5cb"
+        "sig": "BwJLX0yHZdcHoIoWgDBoJqb2s1wgfunngD9RhBnhMCbEsYnRGduqQqDYqoOhC7en4zns1BV8ggJNT9scHbOeDA==",
+        "signed_digest": "48f30dc734a2be931d4384c9d0bc76eeb78e684a9602d7e7fc89406a406cc51d"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-eb89094058b511ed",
+      "record_id": "gait-lr-2c126b9af89ef971",
       "kind": "decision_ready",
-      "occurred_at": "2026-07-19T02:00:03Z",
+      "occurred_at": "2026-07-19T01:00:03Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -245,9 +245,10 @@
             "observed_result": "pass",
             "observed_at": "2026-07-19T00:30:00Z",
             "max_age_seconds": 3600,
-            "environment": "production",
-            "evidence_digest": "sha256:c32fbb43aae4c2df2e156df5f971256a50e1fb35e2706c9e5b78598104bbf7e1",
-            "validator_signature": "X9XxIz/Lrt6drhxI+6jsFVcm9HWpiGAvyYvBhtP75I/h+4uI2CgiIZilwC6on3fGCGsWtfBmFyGZdw+Cb1YOBw==",
+            "environment": "test",
+            "target": "target:fixture",
+            "evidence_digest": "sha256:a3a433d3cbec2d780d3f9e9bc412ee7546d469134397b2ab1bfd24c90df2d527",
+            "validator_signature": "gZMYdHY06JMWj46go89E8NK5LSmPC4xsHx25b/DzFRqKy8N56xy48A1IfxZ153yY3JBRVaEv/0WgrqDlbJ5JCA==",
             "producer": "validator",
             "evidence_state": "verified",
             "freshness_state": "fresh",
@@ -291,16 +292,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "zYHo6/1GKwq7sKcWeojO/r79XAUEQmMztjOGNRErgfGUVmvELYT648zBQvlTLPfiTAyz0USdNz0KxbWYLJ3/CQ==",
-        "signed_digest": "eb89094058b511ed501f6492d1dedcbd3a3efd2f89fefa749e47201c58f592eb"
+        "sig": "JAIK5g/kt98a/2R4BwSGlETb0fjHpLK8+DQCv7PpHawM0XnMmAbyYAFF+2g6gg1sPPaHz6nwxVJGVkfAjjfRAg==",
+        "signed_digest": "2c126b9af89ef9719c325781e3b048439b0171209dd53f1324b69c442ca84873"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-2aa0b1861f5e8166",
+      "record_id": "gait-lr-63e67b832ce84478",
       "kind": "activated",
-      "occurred_at": "2026-07-19T02:00:04Z",
+      "occurred_at": "2026-07-19T01:00:04Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -359,16 +360,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "ypc75Qjye4RCwH0Uh1Ed/kh9tev7Oi/KYc6sDVS0gMI5i+0wDj3VTJiDALO4H8z0CtpN42CJyilQdp2b5fK/Dw==",
-        "signed_digest": "2aa0b1861f5e816650da37abdafb030cdcb8cc36eaebc6a9052e262589cc1009"
+        "sig": "wn3bjFnOT5JNWGvtN/BoAsniQgWYqL77LVMKj6UaamtcEH6YwNcYHUEzqDk/m9YW7E6/viRUMrDfs708vvNjDg==",
+        "signed_digest": "63e67b832ce84478cdfa4e2280a4d8abfe8eb101d83c29ba5f418c5927116a9a"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-ace3e859e1354e75",
+      "record_id": "gait-lr-f987eb6443fc7606",
       "kind": "execution_blocked",
-      "occurred_at": "2026-07-19T02:00:05Z",
+      "occurred_at": "2026-07-19T01:00:05Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -397,8 +398,8 @@
       },
       "evidence_refs": [
         {
-          "digest": "sha256:ba288090c910b8096feffef2692dd080a274737d32e185595b43671bfcdadf70",
-          "id": "gait-exec-ba288090c910b809",
+          "digest": "sha256:1788caba37ee76db583e8174b9c343582cad4843d7344c63c5f004383b0fea92",
+          "id": "gait-exec-1788caba37ee76db",
           "kind": "execution",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
           "schema_version": "1",
@@ -408,7 +409,7 @@
       "execution": {
         "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
         "schema_version": "1",
-        "evidence_id": "gait-exec-ba288090c910b809",
+        "evidence_id": "gait-exec-1788caba37ee76db",
         "binding": {
           "contract_family_id": "pacf-55f758ded9e42f84",
           "revision": 1,
@@ -429,7 +430,7 @@
             "source_product": "gait"
           },
           "runtime_action_ref": {
-            "digest": "sha256:5d612e670e5bda71456270cbc5d60a63a7526efc2ee22cb7e0d462a90faa3e01",
+            "digest": "sha256:ffdb7187847ee43434cf0bc428d9defc9b407da4595be1bdfab4c16a47a801e1",
             "id": "runtime-golden-action",
             "kind": "runtime_action",
             "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
@@ -437,7 +438,7 @@
             "source_product": "gait"
           },
           "readiness_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-readiness",
             "kind": "readiness",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -445,7 +446,7 @@
             "source_product": "gait"
           },
           "decision_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-decision",
             "kind": "decision",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -461,16 +462,16 @@
             "source_product": "gait"
           },
           "target_ref": {
-            "digest": "sha256:ab7b6da24c317864e69aa98a2208ce5ac8686f4b67be26e61024129306874f70",
-            "id": "target:golden",
+            "digest": "sha256:2e53368ae3531f4d7ffa75b26e72cbe0dff065c2bdfd68aad3e3bf7ad30ae08f",
+            "id": "target:fixture",
             "kind": "target",
             "schema_id": "https://gait.dev/schemas/v1/target-ref.schema.json",
             "schema_version": "1",
             "source_product": "gait"
           },
           "environment_ref": {
-            "digest": "sha256:ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
-            "id": "production",
+            "digest": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "id": "test",
             "kind": "environment",
             "schema_id": "https://gait.dev/schemas/v1/environment-ref.schema.json",
             "schema_version": "1",
@@ -518,7 +519,7 @@
           "schema_version": "1",
           "source_product": "gait"
         },
-        "occurred_at": "2026-07-19T02:00:05Z",
+        "occurred_at": "2026-07-19T01:00:05Z",
         "fresh_until": "2026-07-19T03:00:00Z",
         "outcome": "blocked",
         "reason_code": "blocked",
@@ -531,11 +532,11 @@
           "signature": {
             "alg": "ed25519",
             "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-            "sig": "g7OHI1cMfcJZMQy0ZhNdRcwdSIuN93lGbaomkXVnG9Z2ppoYZJdYEY539qXDrx9GLdPSX5f6M5jMPVt1jdCpCg==",
-            "signed_digest": "ba288090c910b8096feffef2692dd080a274737d32e185595b43671bfcdadf70"
+            "sig": "1uMdVCOREitjCTJxmdoZcVCn/1kabZXZzDFjPMXiZ33YFwPpxPBC17FBmBCX3XRl7hYznTPTmyMD6VWwIzZEBw==",
+            "signed_digest": "1788caba37ee76db583e8174b9c343582cad4843d7344c63c5f004383b0fea92"
           }
         },
-        "canonical_content_digest": "sha256:ba288090c910b8096feffef2692dd080a274737d32e185595b43671bfcdadf70"
+        "canonical_content_digest": "sha256:1788caba37ee76db583e8174b9c343582cad4843d7344c63c5f004383b0fea92"
       },
       "correlation": {
         "profile_version": "1.0",
@@ -569,8 +570,8 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "0zzJL/gMErpFoAIbI28P6totUm0MkRH5Ap7k51BlpEpyb96N9lBH5PsCzEMzDcsQjnJhVYKlGX8ou9zSBzEIAw==",
-        "signed_digest": "ace3e859e1354e75fc6fe87a21b11d63e6e578376bc5fdffb6a66edb2434fb99"
+        "sig": "55zElp5F+jj8GtHu1puDwEZKUsBmFETzVqb3pADxtx1S2Qsv3Vzysyt8gkI7Rf50zUBuyYsceYkBn8JjbEYXCQ==",
+        "signed_digest": "f987eb6443fc76069aa2f27d382105dba57c5498fa1bebaa065f45ad16cd0f35"
       }
     }
   ]

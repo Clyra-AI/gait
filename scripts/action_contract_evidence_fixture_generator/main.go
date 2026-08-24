@@ -30,7 +30,6 @@ const (
 	runtimeAction    = "testdata/runtime-goldens/runtime-action.json"
 	runtimeReadiness = "testdata/runtime-goldens/runtime-readiness.json"
 	seedPhrase       = "gait-action-contract-activation-development-key-v1"
-	whenBase         = "2026-07-19T02:00:00Z"
 	foundationCommit = "4177f1e575441975b5a8979e6350e988c2f71d70"
 )
 
@@ -138,6 +137,39 @@ func run(repoRoot string, update bool) error {
 	if err := json.Unmarshal(actionWrapper.Action, &action); err != nil {
 		return err
 	}
+	sourceReadinessRaw, sourceActionRaw := readinessRaw, actionRaw
+	action.TargetRef = activation.Target
+	projectedActionRaw, err := json.MarshalIndent(action, "", "  ")
+	if err != nil {
+		return err
+	}
+	projectedActionRaw = append(projectedActionRaw, '\n')
+	validatorPrivate := runtimeValidatorPrivateKey()
+	validatorPublic := validatorPrivate.Public().(ed25519.PublicKey)
+	precondition := readiness.Preconditions[0]
+	precondition.Environment = activation.Environment
+	precondition.Target = activation.Target
+	precondition.Status = ""
+	precondition.ReasonCodes = nil
+	precondition.EvidenceDigest = ""
+	precondition.ValidatorSignature = ""
+	readinessInput := actioncontract.ReadinessInput{ContractID: proposal.ContractID, PolicyDigest: activation.PolicyDigest}
+	claimDigest, err := actioncontract.CanonicalReadinessClaimDigest(readinessInput, precondition)
+	if err != nil {
+		return err
+	}
+	precondition.EvidenceDigest = claimDigest
+	precondition.ValidatorSignature = signReadinessDigest(validatorPrivate, claimDigest)
+	readiness = actioncontract.EvaluateReadiness(actioncontract.ReadinessInput{Now: time.Date(2026, 7, 19, 1, 0, 3, 0, time.UTC), ContractID: proposal.ContractID, PolicyDigest: activation.PolicyDigest, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validatorPublic}, Preconditions: []actioncontract.ReadinessPrecondition{precondition}})
+	if !readiness.Ready || readiness.Status != actioncontract.ReadinessSatisfied {
+		return fmt.Errorf("projected readiness is not authoritative: %+v", readiness)
+	}
+	projectedReadinessRaw, err := json.MarshalIndent(readiness, "", "  ")
+	if err != nil {
+		return err
+	}
+	projectedReadinessRaw = append(projectedReadinessRaw, '\n')
+	readinessRaw, actionWrapper.Action = projectedReadinessRaw, projectedActionRaw
 	proposalRef := proof.RelationshipRef{Kind: "action_contract", ID: proposal.ContractID, Digest: proposal.CanonicalContentDigest, SchemaID: actioncontract.ProposedContractSchemaID, SchemaVersion: actioncontract.ProposedContractVersion, SourceProduct: "wrkr"}
 	activationRef := proof.RelationshipRef{Kind: "activated_action_contract", ID: activation.ArtifactID, Digest: activationDigest(activation), SchemaID: actioncontract.ActivatedSchemaID, SchemaVersion: actioncontract.ActivatedSchemaVersion, SourceProduct: "gait"}
 	readinessDigest, err := digestJCS(readinessRaw)
@@ -153,8 +185,8 @@ func run(repoRoot string, update bool) error {
 		RuntimeActionRef: ref("runtime_action", action.ActionID, actionDigest, actioncontract.RuntimeActionSchemaID, "1", "gait"),
 		ReadinessRef:     ref("readiness", "runtime-readiness", readinessDigest, actioncontract.RuntimeReadinessSchemaID, "1", "gait"),
 		DecisionRef:      ref("decision", "runtime-decision", readinessDigest, actioncontract.RuntimeReadinessSchemaID, "1", "gait"), PolicyRef: policyRef,
-		TargetRef:      ref("target", "target:golden", digestText("target:golden"), "https://gait.dev/schemas/v1/target-ref.schema.json", "1", "gait"),
-		EnvironmentRef: ref("environment", "production", digestText("production"), "https://gait.dev/schemas/v1/environment-ref.schema.json", "1", "gait"),
+		TargetRef:      ref("target", activation.Target, digestText(activation.Target), "https://gait.dev/schemas/v1/target-ref.schema.json", "1", "gait"),
+		EnvironmentRef: ref("environment", activation.Environment, digestText(activation.Environment), "https://gait.dev/schemas/v1/environment-ref.schema.json", "1", "gait"),
 		ProofRefs:      []proof.RelationshipRef{ref("proof", "proof-fixture", digestText("proof-fixture"), "https://proof.dev/schemas/v1/proof-ref.schema.json", "1", "proof")},
 		CausalRefs:     []proof.RelationshipRef{proposalRef},
 		Correlation:    proof.ControlContainmentTelemetryProfile{ProfileVersion: actioncontract.CorrelationProfileVersion, BindingMode: proof.BindingModeDigestBound, ContractRef: &proposalRef, ContentDigest: proposalRef.Digest}}
@@ -169,7 +201,7 @@ func run(repoRoot string, update bool) error {
 	validPacks["partial-containment"] = base.successful("partial", false)
 	validPacks["unresolved-containment"] = base.successful("unresolved", false)
 	validPacks["compensation-required-started-completed"] = base.successful("completed", true)
-	files := map[string][]byte{}
+	files := map[string][]byte{"runtime-action.json": projectedActionRaw, "runtime-readiness.json": projectedReadinessRaw}
 	for id, pack := range validPacks {
 		raw, err := json.MarshalIndent(pack, "", "  ")
 		if err != nil {
@@ -179,16 +211,17 @@ func run(repoRoot string, update bool) error {
 	}
 	negatives := []scenarioManifest{
 		{ScenarioID: "stale-activation", Path: "stale-activation/lifecycle.json", ExpectedValid: false, ExpectedReason: "activation_expired", EvaluationTime: "2036-07-20T00:00:00Z"},
-		{ScenarioID: "replay-mismatched-lineage", Path: "replay-mismatched-lineage/lifecycle.json", ExpectedValid: false, ExpectedReason: actioncontract.ReasonConformanceLineageMismatch, EvaluationTime: "2026-07-20T00:00:00Z"},
+		{ScenarioID: "replay-mismatched-lineage", Path: "replay-mismatched-lineage/lifecycle.json", ExpectedValid: false, ExpectedReason: actioncontract.ReasonConformanceReplay, EvaluationTime: "2026-07-20T00:00:00Z"},
 		{ScenarioID: "identifier-only-correlation", Path: "identifier-only-correlation/lifecycle.json", ExpectedValid: false, ExpectedReason: actioncontract.ReasonConformanceIdentifierOnly, EvaluationTime: "2026-07-20T00:00:00Z"},
 	}
 	for _, n := range negatives {
 		negativePack := cloneFixturePack(validPacks["successful-execution-effect-containment"])
 		switch n.ScenarioID {
 		case "replay-mismatched-lineage":
-			negativePack.Records[5].ContractFamilyID = "pacf-mismatched-fixture"
+			negativePack.Records = append(negativePack.Records, negativePack.Records[len(negativePack.Records)-1])
 		case "identifier-only-correlation":
 			negativePack.Records[5].Correlation.BindingMode = proof.BindingModeIdentifierOnly
+			negativePack.Records[5] = resignLifecycleFixture(negativePack.Records[5], private)
 		}
 		negativeRaw, marshalErr := json.MarshalIndent(negativePack, "", "  ")
 		if marshalErr != nil {
@@ -203,8 +236,11 @@ func run(repoRoot string, update bool) error {
 	manifestValue := manifest{FixtureVersion: "1", FoundationCommit: foundationCommit, Bindings: map[string]string{
 		"proposal_path": sourceProposal, "proposal_sha256": rawDigest(proposalRaw),
 		"activation_path": sourceActivation, "activation_sha256": rawDigest(activationRaw),
-		"runtime_action_path": runtimeAction, "runtime_action_sha256": rawDigest(actionRaw),
-		"runtime_readiness_path": runtimeReadiness, "runtime_readiness_sha256": rawDigest(readinessRaw),
+		"runtime_action_path": fixtureRoot + "/runtime-action.json", "runtime_action_sha256": rawDigest(projectedActionRaw),
+		"runtime_readiness_path": fixtureRoot + "/runtime-readiness.json", "runtime_readiness_sha256": rawDigest(projectedReadinessRaw),
+		"runtime_action_source_path": runtimeAction, "runtime_action_source_sha256": rawDigest(sourceActionRaw),
+		"runtime_readiness_source_path": runtimeReadiness, "runtime_readiness_source_sha256": rawDigest(sourceReadinessRaw),
+		"readiness_validator_key_path": "testdata/runtime-goldens/fixture-signing-key.public.b64", "readiness_validator_key_sha256": rawDigest([]byte(base64.StdEncoding.EncodeToString(validatorPublic) + "\n")),
 	}}
 	manifestValue.Producer.Name, manifestValue.Producer.Version = "gait", "v1.5.0"
 	manifestValue.Signing.Mode, manifestValue.Signing.FixtureTestOnly, manifestValue.Signing.DevelopmentSigning, manifestValue.Signing.NonAuthoritative = "fixture_only_deterministic_development_key", true, true, true
@@ -315,7 +351,7 @@ func (b fixtureBase) record(kind actioncontract.LifecycleEventKind, at int, prop
 	case actioncontract.CompensationEvidence:
 		compensation = &v
 	}
-	r, err := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: kind, OccurredAt: time.Date(2026, 7, 19, 2, 0, at, 0, time.UTC), ContractRef: b.proposalRef, ContractFamilyID: b.binding.ContractFamilyID, Revision: 1, ProposalRef: p, ActivationRef: a, Decision: decision, PreconditionRefs: pre, Execution: exec, Effect: effect, Containment: containment, Compensation: compensation, Correlation: b.corr(a, causal), SigningPrivateKey: b.private})
+	r, err := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: kind, OccurredAt: time.Date(2026, 7, 19, 1, 0, at, 0, time.UTC), ContractRef: b.proposalRef, ContractFamilyID: b.binding.ContractFamilyID, Revision: 1, ProposalRef: p, ActivationRef: a, Decision: decision, PreconditionRefs: pre, Execution: exec, Effect: effect, Containment: containment, Compensation: compensation, Correlation: b.corr(a, causal), SigningPrivateKey: b.private})
 	if err != nil {
 		panic(fmt.Sprintf("%s: %v binding=%+v evidence=%#v", kind, err, binding, evidence))
 	}
@@ -334,42 +370,42 @@ func (b fixtureBase) successful(containmentOutcome string, compensation bool) fi
 	at++
 	records = append(records, b.record(actioncontract.LifecycleActivated, at, true, true, nil, nil, nil, nil))
 	at++
-	start, _ := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: b.binding, EventRef: ref("event", "execution-start", digestText("execution-start"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T02:00:05Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "started", CompensationRequired: compensation}, b.private)
+	start, _ := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: b.binding, EventRef: ref("event", "execution-start", digestText("execution-start"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T01:00:05Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "started", CompensationRequired: compensation}, b.private)
 	records = append(records, b.record(actioncontract.LifecycleExecutionStarted, at, true, true, start, nil, nil, &b.proposalRef))
 	at++
 	startRef := evidenceRef("execution", start)
-	done, _ := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: withCausal(b.binding, startRef), EventRef: ref("event", "execution-done", digestText("execution-done"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T02:00:06Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "succeeded", CompensationRequired: compensation}, b.private)
+	done, _ := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: withCausal(b.binding, startRef), EventRef: ref("event", "execution-done", digestText("execution-done"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T01:00:06Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "succeeded", CompensationRequired: compensation}, b.private)
 	records = append(records, b.record(actioncontract.LifecycleExecutionSucceeded, at, true, true, done, nil, nil, &startRef))
 	at++
 	doneRef := evidenceRef("execution", done)
 	effectArtifact := ref("effect", "effect-fixture", digestText("effect-fixture"), "https://gait.dev/schemas/v1/effect-event.schema.json", "1", "gait")
-	effect, _ := actioncontract.NewEffectEvent(actioncontract.EffectEvent{Binding: withCausal(b.binding, doneRef), EventRef: ref("event", "effect-recorded", digestText("effect-recorded"), actioncontract.EffectEventSchemaID, "1", "gait"), ExecutionRef: doneRef, EffectRef: effectArtifact, OccurredAt: "2026-07-19T02:00:07Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "recorded"}, b.private)
+	effect, _ := actioncontract.NewEffectEvent(actioncontract.EffectEvent{Binding: withCausal(b.binding, doneRef), EventRef: ref("event", "effect-recorded", digestText("effect-recorded"), actioncontract.EffectEventSchemaID, "1", "gait"), ExecutionRef: doneRef, EffectRef: effectArtifact, OccurredAt: "2026-07-19T01:00:07Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "recorded"}, b.private)
 	records = append(records, b.record(actioncontract.LifecycleEffectRecorded, at, true, true, effect, nil, nil, &doneRef))
 	at++
 	effectRef := evidenceRef("effect_event", effect)
-	effectValidated, _ := actioncontract.NewEffectEvent(actioncontract.EffectEvent{Binding: withCausal(b.binding, effectRef), EventRef: ref("event", "effect-validated", digestText("effect-validated"), actioncontract.EffectEventSchemaID, "1", "gait"), ExecutionRef: doneRef, EffectRef: effectArtifact, OccurredAt: "2026-07-19T02:00:08Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "validated"}, b.private)
+	effectValidated, _ := actioncontract.NewEffectEvent(actioncontract.EffectEvent{Binding: withCausal(b.binding, effectRef), EventRef: ref("event", "effect-validated", digestText("effect-validated"), actioncontract.EffectEventSchemaID, "1", "gait"), ExecutionRef: doneRef, EffectRef: effectArtifact, OccurredAt: "2026-07-19T01:00:08Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "validated"}, b.private)
 	records = append(records, b.record(actioncontract.LifecycleEffectValidated, at, true, true, effectValidated, nil, nil, &effectRef))
 	at++
 	effectValidatedRef := evidenceRef("effect_event", effectValidated)
 	scope := ref("containment", "containment-scope", digestText("containment-scope"), "https://gait.dev/schemas/v1/containment-ref.schema.json", "1", "gait")
-	requested, _ := actioncontract.NewContainmentEvidence(actioncontract.ContainmentEvidence{Binding: withCausal(b.binding, effectValidatedRef), EventRef: ref("event", "containment-request", digestText("containment-request"), actioncontract.ContainmentEvidenceSchemaID, "1", "gait"), ExecutionRef: doneRef, EffectRef: effectValidatedRef, ContainmentRef: scope, OccurredAt: "2026-07-19T02:00:09Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "requested"}, b.private)
+	requested, _ := actioncontract.NewContainmentEvidence(actioncontract.ContainmentEvidence{Binding: withCausal(b.binding, effectValidatedRef), EventRef: ref("event", "containment-request", digestText("containment-request"), actioncontract.ContainmentEvidenceSchemaID, "1", "gait"), ExecutionRef: doneRef, EffectRef: effectValidatedRef, ContainmentRef: scope, OccurredAt: "2026-07-19T01:00:09Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "requested"}, b.private)
 	records = append(records, b.record(actioncontract.LifecycleContainmentRequested, at, true, true, requested, nil, nil, &effectValidatedRef))
 	at++
 	requestRef := evidenceRef("containment", requested)
-	terminal, _ := actioncontract.NewContainmentEvidence(actioncontract.ContainmentEvidence{Binding: withCausal(b.binding, requestRef), EventRef: ref("event", "containment-terminal", digestText("containment-terminal"), actioncontract.ContainmentEvidenceSchemaID, "1", "gait"), ExecutionRef: doneRef, EffectRef: effectValidatedRef, ContainmentRef: scope, OccurredAt: "2026-07-19T02:00:10Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: containmentOutcome}, b.private)
+	terminal, _ := actioncontract.NewContainmentEvidence(actioncontract.ContainmentEvidence{Binding: withCausal(b.binding, requestRef), EventRef: ref("event", "containment-terminal", digestText("containment-terminal"), actioncontract.ContainmentEvidenceSchemaID, "1", "gait"), ExecutionRef: doneRef, EffectRef: effectValidatedRef, ContainmentRef: scope, OccurredAt: "2026-07-19T01:00:10Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: containmentOutcome}, b.private)
 	records = append(records, b.record(containmentKind(containmentOutcome), at, true, true, terminal, nil, nil, &requestRef))
 	at++
 	if compensation {
 		req := ref("compensation_requirement", "compensation-fixture", digestText("compensation-fixture"), "https://gait.dev/schemas/v1/compensation-ref.schema.json", "1", "gait")
-		required, _ := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, doneRef), EventRef: ref("event", "compensation-required", digestText("compensation-required"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: req, ExecutionRef: doneRef, OccurredAt: "2026-07-19T02:00:11Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "required"}, b.private)
+		required, _ := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, doneRef), EventRef: ref("event", "compensation-required", digestText("compensation-required"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: req, ExecutionRef: doneRef, OccurredAt: "2026-07-19T01:00:11Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "required"}, b.private)
 		records = append(records, b.record(actioncontract.LifecycleCompensationRequired, at, true, true, required, nil, nil, &doneRef))
 		at++
 		requiredRef := evidenceRef("compensation", required)
-		started, _ := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, requiredRef), EventRef: ref("event", "compensation-started", digestText("compensation-started"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: req, ExecutionRef: doneRef, OccurredAt: "2026-07-19T02:00:12Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "started"}, b.private)
+		started, _ := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, requiredRef), EventRef: ref("event", "compensation-started", digestText("compensation-started"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: req, ExecutionRef: doneRef, OccurredAt: "2026-07-19T01:00:12Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "started"}, b.private)
 		records = append(records, b.record(actioncontract.LifecycleCompensationStarted, at, true, true, started, nil, nil, &requiredRef))
 		at++
 		startedRef := evidenceRef("compensation", started)
-		completed, _ := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, startedRef), EventRef: ref("event", "compensation-completed", digestText("compensation-completed"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: req, ExecutionRef: doneRef, OccurredAt: "2026-07-19T02:00:13Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "completed"}, b.private)
+		completed, _ := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, startedRef), EventRef: ref("event", "compensation-completed", digestText("compensation-completed"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: req, ExecutionRef: doneRef, OccurredAt: "2026-07-19T01:00:13Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "completed"}, b.private)
 		records = append(records, b.record(actioncontract.LifecycleCompensationCompleted, at, true, true, completed, nil, nil, &startedRef))
 	}
 	return fixturePack{Records: records}
@@ -386,7 +422,7 @@ func (b fixtureBase) blocked() fixturePack {
 	at++
 	records = append(records, b.record(actioncontract.LifecycleActivated, at, true, true, nil, nil, nil, nil))
 	at++
-	blocked, _ := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: withCausal(b.binding, b.activationRef), EventRef: ref("event", "execution-blocked", digestText("execution-blocked"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T02:00:05Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "blocked"}, b.private)
+	blocked, _ := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: withCausal(b.binding, b.activationRef), EventRef: ref("event", "execution-blocked", digestText("execution-blocked"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T01:00:05Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "blocked"}, b.private)
 	records = append(records, b.record(actioncontract.LifecycleExecutionBlocked, at, true, true, blocked, nil, nil, &b.activationRef))
 	return fixturePack{Records: records}
 }
@@ -395,32 +431,32 @@ func (b fixtureBase) failed() fixturePack {
 	// require and complete compensation, which is the fail-closed recovery path.
 	pack := b.blocked()
 	records := append([]actioncontract.LifecycleRecord(nil), pack.Records[:5]...)
-	started, err := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: b.binding, EventRef: ref("event", "execution-started-failed", digestText("execution-started-failed"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T02:00:05Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "started", CompensationRequired: true}, b.private)
+	started, err := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: b.binding, EventRef: ref("event", "execution-started-failed", digestText("execution-started-failed"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T01:00:05Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "started", CompensationRequired: true}, b.private)
 	if err != nil {
 		panic(err)
 	}
 	records = append(records, b.record(actioncontract.LifecycleExecutionStarted, 5, true, true, started, nil, nil, &b.proposalRef))
 	startedRef := evidenceRef("execution", started)
-	failed, err := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: withCausal(b.binding, startedRef), EventRef: ref("event", "execution-failed", digestText("execution-failed"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T02:00:06Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "failed", CompensationRequired: true}, b.private)
+	failed, err := actioncontract.NewExecutionEvidence(actioncontract.ExecutionEvidence{Binding: withCausal(b.binding, startedRef), EventRef: ref("event", "execution-failed", digestText("execution-failed"), actioncontract.ExecutionEvidenceSchemaID, "1", "gait"), OccurredAt: "2026-07-19T01:00:06Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "failed", CompensationRequired: true}, b.private)
 	if err != nil {
 		panic(err)
 	}
 	records = append(records, b.record(actioncontract.LifecycleExecutionFailed, 6, true, true, failed, nil, nil, &startedRef))
 	failedRef := evidenceRef("execution", failed)
 	requiredRef := ref("compensation_requirement", "compensation-failed", digestText("compensation-failed"), "https://gait.dev/schemas/v1/compensation-ref.schema.json", "1", "gait")
-	required, err := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, failedRef), EventRef: ref("event", "compensation-required-failed", digestText("compensation-required-failed"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: requiredRef, ExecutionRef: failedRef, OccurredAt: "2026-07-19T02:00:06Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "required"}, b.private)
+	required, err := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, failedRef), EventRef: ref("event", "compensation-required-failed", digestText("compensation-required-failed"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: requiredRef, ExecutionRef: failedRef, OccurredAt: "2026-07-19T01:00:06Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "required"}, b.private)
 	if err != nil {
 		panic(err)
 	}
 	records = append(records, b.record(actioncontract.LifecycleCompensationRequired, 7, true, true, required, nil, nil, &failedRef))
 	requiredEvidenceRef := evidenceRef("compensation", required)
-	compensationStarted, err := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, requiredEvidenceRef), EventRef: ref("event", "compensation-started-failed", digestText("compensation-started-failed"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: requiredRef, ExecutionRef: failedRef, OccurredAt: "2026-07-19T02:00:08Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "started"}, b.private)
+	compensationStarted, err := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, requiredEvidenceRef), EventRef: ref("event", "compensation-started-failed", digestText("compensation-started-failed"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: requiredRef, ExecutionRef: failedRef, OccurredAt: "2026-07-19T01:00:08Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "started"}, b.private)
 	if err != nil {
 		panic(err)
 	}
 	records = append(records, b.record(actioncontract.LifecycleCompensationStarted, 8, true, true, compensationStarted, nil, nil, &requiredEvidenceRef))
 	startedEvidenceRef := evidenceRef("compensation", compensationStarted)
-	completed, err := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, startedEvidenceRef), EventRef: ref("event", "compensation-completed-failed", digestText("compensation-completed-failed"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: requiredRef, ExecutionRef: failedRef, OccurredAt: "2026-07-19T02:00:09Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "completed"}, b.private)
+	completed, err := actioncontract.NewCompensationEvidence(actioncontract.CompensationEvidence{Binding: withCausal(b.binding, startedEvidenceRef), EventRef: ref("event", "compensation-completed-failed", digestText("compensation-completed-failed"), actioncontract.CompensationEvidenceSchemaID, "1", "gait"), RequirementRef: requiredRef, ExecutionRef: failedRef, OccurredAt: "2026-07-19T01:00:09Z", FreshUntil: "2026-07-19T03:00:00Z", Outcome: "completed"}, b.private)
 	if err != nil {
 		panic(err)
 	}
@@ -459,6 +495,35 @@ func rawDigest(raw []byte) string {
 func fixturePrivateKey() ed25519.PrivateKey {
 	sum := sha256.Sum256([]byte(seedPhrase))
 	return ed25519.NewKeyFromSeed(sum[:])
+}
+func runtimeValidatorPrivateKey() ed25519.PrivateKey {
+	sum := sha256.Sum256([]byte("runtime-golden-key"))
+	return ed25519.NewKeyFromSeed(sum[:])
+}
+func signReadinessDigest(private ed25519.PrivateKey, digest string) string {
+	raw, err := hex.DecodeString(strings.TrimPrefix(digest, "sha256:"))
+	if err != nil {
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(ed25519.Sign(private, raw))
+}
+func resignLifecycleFixture(record actioncontract.LifecycleRecord, private ed25519.PrivateKey) actioncontract.LifecycleRecord {
+	record.RecordID = ""
+	record.Signature = proofsign.Signature{}
+	raw, err := json.Marshal(record)
+	if err != nil {
+		panic(err)
+	}
+	digest, err := digestJCS(raw)
+	if err != nil {
+		panic(err)
+	}
+	record.RecordID = "gait-lr-" + strings.TrimPrefix(digest, "sha256:")[:16]
+	record.Signature, err = proofsign.SignDigestHex(private, strings.TrimPrefix(digest, "sha256:"))
+	if err != nil {
+		panic(err)
+	}
+	return record
 }
 func activationDigest(a actioncontract.ActivatedArtifact) string {
 	copy := a

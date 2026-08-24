@@ -3,9 +3,9 @@
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-449615bff7842dba",
+      "record_id": "gait-lr-56341bd700fb0d35",
       "kind": "proposal_ingested",
-      "occurred_at": "2026-07-19T02:00:00Z",
+      "occurred_at": "2026-07-19T01:00:00Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -48,16 +48,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "5kZRsgABLQKbrS2MmnTlJc3ushczb4avZEVBAThhlpTza47Vd2LYSZruwjOnA7zse1l5BwcJj7k3qnT7I3Z1Aw==",
-        "signed_digest": "449615bff7842dba6e5ff13443c395d3f2150f5f8e4cd23eaed29c0b81a00e4e"
+        "sig": "Ad9lS1Q5tilMDHow+YOQ1zKlid0IkBg0vGlt9Xls/FtJN/U1Sj29gy4BmC5DjXpUW/vC3c86N3iJ2slLnICtCw==",
+        "signed_digest": "56341bd700fb0d357ef4d3a3280e4839d7a38802462085822d9e8a5eab7e7898"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-3b41733b37edd3e7",
+      "record_id": "gait-lr-4169029f4868a9bb",
       "kind": "activation_requested",
-      "occurred_at": "2026-07-19T02:00:01Z",
+      "occurred_at": "2026-07-19T01:00:01Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -116,16 +116,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "BMKJStJQ0rNFz/MfCRDlhQRnMGdRdHQMQM57IPYYNhbs1mypPkTn5EEpN4Hmjktbzz0Fj75ZZPfjIp2g+lxEAg==",
-        "signed_digest": "3b41733b37edd3e7acc38f2f5e9c8ee1c3b88b6e445eee0454a37a9cecc3ce87"
+        "sig": "Nlh2ay4ka5axZ1CGWkm+9zUDDbk1lOKQSWBZ+pTbMy1VwFal4E8sjv8CWfNSTg8hcb0LHR28+iNXsepVadRKDw==",
+        "signed_digest": "4169029f4868a9bbeb57776ea104cef9c008cea8ca3d4bd9c8aacf88bdafdff6"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-bf9bc57cbd670b48",
+      "record_id": "gait-lr-48f30dc734a2be93",
       "kind": "precondition_evaluated",
-      "occurred_at": "2026-07-19T02:00:02Z",
+      "occurred_at": "2026-07-19T01:00:02Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -154,7 +154,7 @@
       },
       "precondition_refs": [
         {
-          "digest": "sha256:c32fbb43aae4c2df2e156df5f971256a50e1fb35e2706c9e5b78598104bbf7e1",
+          "digest": "sha256:a3a433d3cbec2d780d3f9e9bc412ee7546d469134397b2ab1bfd24c90df2d527",
           "id": "runtime-p1",
           "kind": "precondition",
           "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -194,16 +194,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "2ii8Owte9fuknsbw3NwgI5wvniqH/sUuh51scNwHwucNMHy8cnqfz3hyND9fLDh4nLNttNLTYRsA5PP0yFPjCw==",
-        "signed_digest": "bf9bc57cbd670b481785e8ab09d37be562ef64b9db5db5d856bcc229961ba5cb"
+        "sig": "BwJLX0yHZdcHoIoWgDBoJqb2s1wgfunngD9RhBnhMCbEsYnRGduqQqDYqoOhC7en4zns1BV8ggJNT9scHbOeDA==",
+        "signed_digest": "48f30dc734a2be931d4384c9d0bc76eeb78e684a9602d7e7fc89406a406cc51d"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-eb89094058b511ed",
+      "record_id": "gait-lr-2c126b9af89ef971",
       "kind": "decision_ready",
-      "occurred_at": "2026-07-19T02:00:03Z",
+      "occurred_at": "2026-07-19T01:00:03Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -245,9 +245,10 @@
             "observed_result": "pass",
             "observed_at": "2026-07-19T00:30:00Z",
             "max_age_seconds": 3600,
-            "environment": "production",
-            "evidence_digest": "sha256:c32fbb43aae4c2df2e156df5f971256a50e1fb35e2706c9e5b78598104bbf7e1",
-            "validator_signature": "X9XxIz/Lrt6drhxI+6jsFVcm9HWpiGAvyYvBhtP75I/h+4uI2CgiIZilwC6on3fGCGsWtfBmFyGZdw+Cb1YOBw==",
+            "environment": "test",
+            "target": "target:fixture",
+            "evidence_digest": "sha256:a3a433d3cbec2d780d3f9e9bc412ee7546d469134397b2ab1bfd24c90df2d527",
+            "validator_signature": "gZMYdHY06JMWj46go89E8NK5LSmPC4xsHx25b/DzFRqKy8N56xy48A1IfxZ153yY3JBRVaEv/0WgrqDlbJ5JCA==",
             "producer": "validator",
             "evidence_state": "verified",
             "freshness_state": "fresh",
@@ -291,16 +292,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "zYHo6/1GKwq7sKcWeojO/r79XAUEQmMztjOGNRErgfGUVmvELYT648zBQvlTLPfiTAyz0USdNz0KxbWYLJ3/CQ==",
-        "signed_digest": "eb89094058b511ed501f6492d1dedcbd3a3efd2f89fefa749e47201c58f592eb"
+        "sig": "JAIK5g/kt98a/2R4BwSGlETb0fjHpLK8+DQCv7PpHawM0XnMmAbyYAFF+2g6gg1sPPaHz6nwxVJGVkfAjjfRAg==",
+        "signed_digest": "2c126b9af89ef9719c325781e3b048439b0171209dd53f1324b69c442ca84873"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-2aa0b1861f5e8166",
+      "record_id": "gait-lr-63e67b832ce84478",
       "kind": "activated",
-      "occurred_at": "2026-07-19T02:00:04Z",
+      "occurred_at": "2026-07-19T01:00:04Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -359,16 +360,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "ypc75Qjye4RCwH0Uh1Ed/kh9tev7Oi/KYc6sDVS0gMI5i+0wDj3VTJiDALO4H8z0CtpN42CJyilQdp2b5fK/Dw==",
-        "signed_digest": "2aa0b1861f5e816650da37abdafb030cdcb8cc36eaebc6a9052e262589cc1009"
+        "sig": "wn3bjFnOT5JNWGvtN/BoAsniQgWYqL77LVMKj6UaamtcEH6YwNcYHUEzqDk/m9YW7E6/viRUMrDfs708vvNjDg==",
+        "signed_digest": "63e67b832ce84478cdfa4e2280a4d8abfe8eb101d83c29ba5f418c5927116a9a"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-5173c366c2983332",
+      "record_id": "gait-lr-5aca937b7f3b61e0",
       "kind": "execution_started",
-      "occurred_at": "2026-07-19T02:00:05Z",
+      "occurred_at": "2026-07-19T01:00:05Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -397,8 +398,8 @@
       },
       "evidence_refs": [
         {
-          "digest": "sha256:810dcbd6670e987eebd1f7f0438da02aa72bc7e85c344b8e36807e66f57a5781",
-          "id": "gait-exec-810dcbd6670e987e",
+          "digest": "sha256:1ca2ddf402ec82c40c669ea8c96df8a8cbe0e01502119f0f158a217360e6d5a3",
+          "id": "gait-exec-1ca2ddf402ec82c4",
           "kind": "execution",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
           "schema_version": "1",
@@ -408,7 +409,7 @@
       "execution": {
         "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
         "schema_version": "1",
-        "evidence_id": "gait-exec-810dcbd6670e987e",
+        "evidence_id": "gait-exec-1ca2ddf402ec82c4",
         "binding": {
           "contract_family_id": "pacf-55f758ded9e42f84",
           "revision": 1,
@@ -429,7 +430,7 @@
             "source_product": "gait"
           },
           "runtime_action_ref": {
-            "digest": "sha256:5d612e670e5bda71456270cbc5d60a63a7526efc2ee22cb7e0d462a90faa3e01",
+            "digest": "sha256:ffdb7187847ee43434cf0bc428d9defc9b407da4595be1bdfab4c16a47a801e1",
             "id": "runtime-golden-action",
             "kind": "runtime_action",
             "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
@@ -437,7 +438,7 @@
             "source_product": "gait"
           },
           "readiness_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-readiness",
             "kind": "readiness",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -445,7 +446,7 @@
             "source_product": "gait"
           },
           "decision_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-decision",
             "kind": "decision",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -461,16 +462,16 @@
             "source_product": "gait"
           },
           "target_ref": {
-            "digest": "sha256:ab7b6da24c317864e69aa98a2208ce5ac8686f4b67be26e61024129306874f70",
-            "id": "target:golden",
+            "digest": "sha256:2e53368ae3531f4d7ffa75b26e72cbe0dff065c2bdfd68aad3e3bf7ad30ae08f",
+            "id": "target:fixture",
             "kind": "target",
             "schema_id": "https://gait.dev/schemas/v1/target-ref.schema.json",
             "schema_version": "1",
             "source_product": "gait"
           },
           "environment_ref": {
-            "digest": "sha256:ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
-            "id": "production",
+            "digest": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "id": "test",
             "kind": "environment",
             "schema_id": "https://gait.dev/schemas/v1/environment-ref.schema.json",
             "schema_version": "1",
@@ -518,7 +519,7 @@
           "schema_version": "1",
           "source_product": "gait"
         },
-        "occurred_at": "2026-07-19T02:00:05Z",
+        "occurred_at": "2026-07-19T01:00:05Z",
         "fresh_until": "2026-07-19T03:00:00Z",
         "outcome": "started",
         "reason_code": "started",
@@ -531,11 +532,11 @@
           "signature": {
             "alg": "ed25519",
             "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-            "sig": "O0jUEcx9CCUoTTh1tZC6HroTBV/l+ASXx9QYFiKnkd9FEhVfMiBuQWV9fwrPPO6KcE742vL8U0bL3v856wnwDw==",
-            "signed_digest": "810dcbd6670e987eebd1f7f0438da02aa72bc7e85c344b8e36807e66f57a5781"
+            "sig": "ultklHgx19g7avbefFkMw9UJSlD5T/EN2CpxPc0jGatvuZeOc/kh6a/bzJ5KCITre1yxP4wtiZ+H6NkmnYOTDg==",
+            "signed_digest": "1ca2ddf402ec82c40c669ea8c96df8a8cbe0e01502119f0f158a217360e6d5a3"
           }
         },
-        "canonical_content_digest": "sha256:810dcbd6670e987eebd1f7f0438da02aa72bc7e85c344b8e36807e66f57a5781"
+        "canonical_content_digest": "sha256:1ca2ddf402ec82c40c669ea8c96df8a8cbe0e01502119f0f158a217360e6d5a3"
       },
       "correlation": {
         "profile_version": "1.0",
@@ -569,16 +570,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "wPU9jSFiZ2umCnRts8L4hiEHgClpzcmKtTn1zVy8emNMEzNGProqYhsJ6Wulv2Og3HemEBVc1REQXBBaOJu2Aw==",
-        "signed_digest": "5173c366c29833326377e9b5356512ff65a8d0d30ef2d14ea1cdbec3100613ec"
+        "sig": "L8BX1VMAr97VSHELV/99xbUmkzA9HJrvnsjeB0RKbGSR+jeLbxiij5fHp5mmm08k+pWzcFUwLfowaRgsw3I5AA==",
+        "signed_digest": "5aca937b7f3b61e0e7f4a53ebe93064c5150925dbc5f31f29abdb784a15935b9"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-d1e0726cd622ecbf",
+      "record_id": "gait-lr-94509c208a8751da",
       "kind": "execution_succeeded",
-      "occurred_at": "2026-07-19T02:00:06Z",
+      "occurred_at": "2026-07-19T01:00:06Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -607,8 +608,8 @@
       },
       "evidence_refs": [
         {
-          "digest": "sha256:6d813ce54ed3c63ce66a6411635103b2044ecd3a1a59c366ac8c94b21122bc67",
-          "id": "gait-exec-6d813ce54ed3c63c",
+          "digest": "sha256:68602742f8064bf50bb9fa363c21c870ce678b972ea1f891736076dc98c86471",
+          "id": "gait-exec-68602742f8064bf5",
           "kind": "execution",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
           "schema_version": "1",
@@ -618,7 +619,7 @@
       "execution": {
         "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
         "schema_version": "1",
-        "evidence_id": "gait-exec-6d813ce54ed3c63c",
+        "evidence_id": "gait-exec-68602742f8064bf5",
         "binding": {
           "contract_family_id": "pacf-55f758ded9e42f84",
           "revision": 1,
@@ -639,7 +640,7 @@
             "source_product": "gait"
           },
           "runtime_action_ref": {
-            "digest": "sha256:5d612e670e5bda71456270cbc5d60a63a7526efc2ee22cb7e0d462a90faa3e01",
+            "digest": "sha256:ffdb7187847ee43434cf0bc428d9defc9b407da4595be1bdfab4c16a47a801e1",
             "id": "runtime-golden-action",
             "kind": "runtime_action",
             "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
@@ -647,7 +648,7 @@
             "source_product": "gait"
           },
           "readiness_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-readiness",
             "kind": "readiness",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -655,7 +656,7 @@
             "source_product": "gait"
           },
           "decision_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-decision",
             "kind": "decision",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -671,16 +672,16 @@
             "source_product": "gait"
           },
           "target_ref": {
-            "digest": "sha256:ab7b6da24c317864e69aa98a2208ce5ac8686f4b67be26e61024129306874f70",
-            "id": "target:golden",
+            "digest": "sha256:2e53368ae3531f4d7ffa75b26e72cbe0dff065c2bdfd68aad3e3bf7ad30ae08f",
+            "id": "target:fixture",
             "kind": "target",
             "schema_id": "https://gait.dev/schemas/v1/target-ref.schema.json",
             "schema_version": "1",
             "source_product": "gait"
           },
           "environment_ref": {
-            "digest": "sha256:ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
-            "id": "production",
+            "digest": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "id": "test",
             "kind": "environment",
             "schema_id": "https://gait.dev/schemas/v1/environment-ref.schema.json",
             "schema_version": "1",
@@ -698,8 +699,8 @@
           ],
           "causal_refs": [
             {
-              "digest": "sha256:810dcbd6670e987eebd1f7f0438da02aa72bc7e85c344b8e36807e66f57a5781",
-              "id": "gait-exec-810dcbd6670e987e",
+              "digest": "sha256:1ca2ddf402ec82c40c669ea8c96df8a8cbe0e01502119f0f158a217360e6d5a3",
+              "id": "gait-exec-1ca2ddf402ec82c4",
               "kind": "execution",
               "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
               "schema_version": "1",
@@ -728,7 +729,7 @@
           "schema_version": "1",
           "source_product": "gait"
         },
-        "occurred_at": "2026-07-19T02:00:06Z",
+        "occurred_at": "2026-07-19T01:00:06Z",
         "fresh_until": "2026-07-19T03:00:00Z",
         "outcome": "succeeded",
         "reason_code": "succeeded",
@@ -741,11 +742,11 @@
           "signature": {
             "alg": "ed25519",
             "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-            "sig": "aB1R07vnok9NKx8oOMvc1DzZr3rU6jj2qYq3a3qfRmRYMZY54SiUtEjIhda5MuyVoGUmW7LaQ2zvzX9rfHtnDQ==",
-            "signed_digest": "6d813ce54ed3c63ce66a6411635103b2044ecd3a1a59c366ac8c94b21122bc67"
+            "sig": "80YXlQmbZC6NO0dpksajK3ySVpj9hZQYVakjL+VYp8Rr1kEztN3xJKzH9CLfCNajPyzkQJL5F+v6qwh+c9NzCA==",
+            "signed_digest": "68602742f8064bf50bb9fa363c21c870ce678b972ea1f891736076dc98c86471"
           }
         },
-        "canonical_content_digest": "sha256:6d813ce54ed3c63ce66a6411635103b2044ecd3a1a59c366ac8c94b21122bc67"
+        "canonical_content_digest": "sha256:68602742f8064bf50bb9fa363c21c870ce678b972ea1f891736076dc98c86471"
       },
       "correlation": {
         "profile_version": "1.0",
@@ -779,16 +780,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "qkVmSzAiiIaGIghe5ReXdZ4zfh9o2cIUH/6ovwCl0clU2ka2auJHdZXR6ScYqZ8vwfuPvJtv7mW77B7sFRvMCw==",
-        "signed_digest": "d1e0726cd622ecbf1db61ac40d67e1b5fb09a6cc532ba53949291a8e329d0561"
+        "sig": "PCb8zdDVERAWDBrgRoSHN9PfXv2MFlKbbfSygbJFfMKOCkiak4fxgpczfnOncV3u0WZgjiXWHnr6O9Ij89gZCQ==",
+        "signed_digest": "94509c208a8751dae4512a96f2fab92fca81adbc0990e2c0db1382680973c8ab"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-133c6835185c20c0",
+      "record_id": "gait-lr-2175abc2005cd520",
       "kind": "effect_recorded",
-      "occurred_at": "2026-07-19T02:00:07Z",
+      "occurred_at": "2026-07-19T01:00:07Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -817,8 +818,8 @@
       },
       "evidence_refs": [
         {
-          "digest": "sha256:b0d8d39a195d131d197ee17d7a8c0a416c5d960446815a07b8f6325162b848b9",
-          "id": "gait-effect-b0d8d39a195d131d",
+          "digest": "sha256:783d733f6f8dc3713a8ec5f8cbc184096029ebf054da669a3b6240bf0fa98805",
+          "id": "gait-effect-783d733f6f8dc371",
           "kind": "effect_event",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
           "schema_version": "1",
@@ -828,7 +829,7 @@
       "effect": {
         "schema_id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
         "schema_version": "1",
-        "evidence_id": "gait-effect-b0d8d39a195d131d",
+        "evidence_id": "gait-effect-783d733f6f8dc371",
         "binding": {
           "contract_family_id": "pacf-55f758ded9e42f84",
           "revision": 1,
@@ -849,7 +850,7 @@
             "source_product": "gait"
           },
           "runtime_action_ref": {
-            "digest": "sha256:5d612e670e5bda71456270cbc5d60a63a7526efc2ee22cb7e0d462a90faa3e01",
+            "digest": "sha256:ffdb7187847ee43434cf0bc428d9defc9b407da4595be1bdfab4c16a47a801e1",
             "id": "runtime-golden-action",
             "kind": "runtime_action",
             "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
@@ -857,7 +858,7 @@
             "source_product": "gait"
           },
           "readiness_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-readiness",
             "kind": "readiness",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -865,7 +866,7 @@
             "source_product": "gait"
           },
           "decision_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-decision",
             "kind": "decision",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -881,16 +882,16 @@
             "source_product": "gait"
           },
           "target_ref": {
-            "digest": "sha256:ab7b6da24c317864e69aa98a2208ce5ac8686f4b67be26e61024129306874f70",
-            "id": "target:golden",
+            "digest": "sha256:2e53368ae3531f4d7ffa75b26e72cbe0dff065c2bdfd68aad3e3bf7ad30ae08f",
+            "id": "target:fixture",
             "kind": "target",
             "schema_id": "https://gait.dev/schemas/v1/target-ref.schema.json",
             "schema_version": "1",
             "source_product": "gait"
           },
           "environment_ref": {
-            "digest": "sha256:ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
-            "id": "production",
+            "digest": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "id": "test",
             "kind": "environment",
             "schema_id": "https://gait.dev/schemas/v1/environment-ref.schema.json",
             "schema_version": "1",
@@ -908,8 +909,8 @@
           ],
           "causal_refs": [
             {
-              "digest": "sha256:6d813ce54ed3c63ce66a6411635103b2044ecd3a1a59c366ac8c94b21122bc67",
-              "id": "gait-exec-6d813ce54ed3c63c",
+              "digest": "sha256:68602742f8064bf50bb9fa363c21c870ce678b972ea1f891736076dc98c86471",
+              "id": "gait-exec-68602742f8064bf5",
               "kind": "execution",
               "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
               "schema_version": "1",
@@ -939,8 +940,8 @@
           "source_product": "gait"
         },
         "execution_ref": {
-          "digest": "sha256:6d813ce54ed3c63ce66a6411635103b2044ecd3a1a59c366ac8c94b21122bc67",
-          "id": "gait-exec-6d813ce54ed3c63c",
+          "digest": "sha256:68602742f8064bf50bb9fa363c21c870ce678b972ea1f891736076dc98c86471",
+          "id": "gait-exec-68602742f8064bf5",
           "kind": "execution",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
           "schema_version": "1",
@@ -954,7 +955,7 @@
           "schema_version": "1",
           "source_product": "gait"
         },
-        "occurred_at": "2026-07-19T02:00:07Z",
+        "occurred_at": "2026-07-19T01:00:07Z",
         "fresh_until": "2026-07-19T03:00:00Z",
         "outcome": "recorded",
         "reason_code": "recorded",
@@ -966,11 +967,11 @@
           "signature": {
             "alg": "ed25519",
             "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-            "sig": "uoqVBC6cLSaY9HZ/a11NlMOgLOntbDJN0gdl+BIkXqJ3H+Hnno0QqUMIVejtTz49+w+klDO8UM2pwpIKhF8TBA==",
-            "signed_digest": "b0d8d39a195d131d197ee17d7a8c0a416c5d960446815a07b8f6325162b848b9"
+            "sig": "YC4vqEUO88PLxqywRPfO6mN8xOJvCcRb0uKg4KdcL2AimCupPbDN4cGXHAQihJwsNt4oy4weyi5iCi3YmQZvBQ==",
+            "signed_digest": "783d733f6f8dc3713a8ec5f8cbc184096029ebf054da669a3b6240bf0fa98805"
           }
         },
-        "canonical_content_digest": "sha256:b0d8d39a195d131d197ee17d7a8c0a416c5d960446815a07b8f6325162b848b9"
+        "canonical_content_digest": "sha256:783d733f6f8dc3713a8ec5f8cbc184096029ebf054da669a3b6240bf0fa98805"
       },
       "correlation": {
         "profile_version": "1.0",
@@ -1004,16 +1005,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "BS6Kt037SBP2m9+YmHVer7wPCHL8CbeCwuJIeUYvXVBRb/E94w9Ltm011HRIoJv8U74bEeJSRADz3GEmLgM4BQ==",
-        "signed_digest": "133c6835185c20c072fc8159f87ccc3cbb47dfdb3eea52678bf60c427a43347c"
+        "sig": "i70lvg67OfAKw5eUynZbScIp1oszEqMSey+msAgJ6XxNkeXglGoKaeHmBCixfKFgKQ0hmEytdrd2yk/enMpxAg==",
+        "signed_digest": "2175abc2005cd520280f32bb4d5fffa063e81f95d357b6ec9069fa44cd27b321"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-16dd53ad4b5314d8",
+      "record_id": "gait-lr-238bd43efbf9567e",
       "kind": "effect_validated",
-      "occurred_at": "2026-07-19T02:00:08Z",
+      "occurred_at": "2026-07-19T01:00:08Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -1042,8 +1043,8 @@
       },
       "evidence_refs": [
         {
-          "digest": "sha256:5472cc777f821d6075b795f0ae595b7dda660a7c134414508935367fb30b8da0",
-          "id": "gait-effect-5472cc777f821d60",
+          "digest": "sha256:53753e5a8b409836a9d77565e0becb4bf7718c78cd2228e0aa540d8e7bf90037",
+          "id": "gait-effect-53753e5a8b409836",
           "kind": "effect_event",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
           "schema_version": "1",
@@ -1053,7 +1054,7 @@
       "effect": {
         "schema_id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
         "schema_version": "1",
-        "evidence_id": "gait-effect-5472cc777f821d60",
+        "evidence_id": "gait-effect-53753e5a8b409836",
         "binding": {
           "contract_family_id": "pacf-55f758ded9e42f84",
           "revision": 1,
@@ -1074,7 +1075,7 @@
             "source_product": "gait"
           },
           "runtime_action_ref": {
-            "digest": "sha256:5d612e670e5bda71456270cbc5d60a63a7526efc2ee22cb7e0d462a90faa3e01",
+            "digest": "sha256:ffdb7187847ee43434cf0bc428d9defc9b407da4595be1bdfab4c16a47a801e1",
             "id": "runtime-golden-action",
             "kind": "runtime_action",
             "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
@@ -1082,7 +1083,7 @@
             "source_product": "gait"
           },
           "readiness_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-readiness",
             "kind": "readiness",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -1090,7 +1091,7 @@
             "source_product": "gait"
           },
           "decision_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-decision",
             "kind": "decision",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -1106,16 +1107,16 @@
             "source_product": "gait"
           },
           "target_ref": {
-            "digest": "sha256:ab7b6da24c317864e69aa98a2208ce5ac8686f4b67be26e61024129306874f70",
-            "id": "target:golden",
+            "digest": "sha256:2e53368ae3531f4d7ffa75b26e72cbe0dff065c2bdfd68aad3e3bf7ad30ae08f",
+            "id": "target:fixture",
             "kind": "target",
             "schema_id": "https://gait.dev/schemas/v1/target-ref.schema.json",
             "schema_version": "1",
             "source_product": "gait"
           },
           "environment_ref": {
-            "digest": "sha256:ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
-            "id": "production",
+            "digest": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "id": "test",
             "kind": "environment",
             "schema_id": "https://gait.dev/schemas/v1/environment-ref.schema.json",
             "schema_version": "1",
@@ -1133,8 +1134,8 @@
           ],
           "causal_refs": [
             {
-              "digest": "sha256:b0d8d39a195d131d197ee17d7a8c0a416c5d960446815a07b8f6325162b848b9",
-              "id": "gait-effect-b0d8d39a195d131d",
+              "digest": "sha256:783d733f6f8dc3713a8ec5f8cbc184096029ebf054da669a3b6240bf0fa98805",
+              "id": "gait-effect-783d733f6f8dc371",
               "kind": "effect_event",
               "schema_id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
               "schema_version": "1",
@@ -1164,8 +1165,8 @@
           "source_product": "gait"
         },
         "execution_ref": {
-          "digest": "sha256:6d813ce54ed3c63ce66a6411635103b2044ecd3a1a59c366ac8c94b21122bc67",
-          "id": "gait-exec-6d813ce54ed3c63c",
+          "digest": "sha256:68602742f8064bf50bb9fa363c21c870ce678b972ea1f891736076dc98c86471",
+          "id": "gait-exec-68602742f8064bf5",
           "kind": "execution",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
           "schema_version": "1",
@@ -1179,7 +1180,7 @@
           "schema_version": "1",
           "source_product": "gait"
         },
-        "occurred_at": "2026-07-19T02:00:08Z",
+        "occurred_at": "2026-07-19T01:00:08Z",
         "fresh_until": "2026-07-19T03:00:00Z",
         "outcome": "validated",
         "reason_code": "validated",
@@ -1191,11 +1192,11 @@
           "signature": {
             "alg": "ed25519",
             "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-            "sig": "AsB/nvr1bChQhurhEMtgojkwGGL47F9ZAgQY9AH94v0UAp3nZwkTggG8N4ra6hdPQtV67zgY8PbYHDbcv4h+Cw==",
-            "signed_digest": "5472cc777f821d6075b795f0ae595b7dda660a7c134414508935367fb30b8da0"
+            "sig": "zXrgnLYaPUVtn5FjOWgmHESZbnWo4ZDbVm/3fq+3m55tBiz2eqsMnlBJPwnvmfA4WbGcwNKSWhMYKNA88ihSBA==",
+            "signed_digest": "53753e5a8b409836a9d77565e0becb4bf7718c78cd2228e0aa540d8e7bf90037"
           }
         },
-        "canonical_content_digest": "sha256:5472cc777f821d6075b795f0ae595b7dda660a7c134414508935367fb30b8da0"
+        "canonical_content_digest": "sha256:53753e5a8b409836a9d77565e0becb4bf7718c78cd2228e0aa540d8e7bf90037"
       },
       "correlation": {
         "profile_version": "1.0",
@@ -1229,16 +1230,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "nuZb8WJyEzD+O8gqGAIdbJIPFeqy00HSJNcK3/YrW/d0aU/Lz87RTSLSuc+P9+ibjbWpeWE7yPDPx7sX/UKUDg==",
-        "signed_digest": "16dd53ad4b5314d80e2a29a310f2619931c8cc03be02069d6e4c471b09d07281"
+        "sig": "+NHGqk/IKd6QYvTIj1X8u74ZtvtbGP2p5eKPr86djLAaow9vFYX4raZSGsOO/zi3I+kfC2O1hqevWk3Oq5R+AA==",
+        "signed_digest": "238bd43efbf9567e6453a72f5680e36b11a16bccdb46d22357613819f5f8c49c"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-9c67d427e53faa85",
+      "record_id": "gait-lr-1b4c001449697023",
       "kind": "containment_requested",
-      "occurred_at": "2026-07-19T02:00:09Z",
+      "occurred_at": "2026-07-19T01:00:09Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -1267,8 +1268,8 @@
       },
       "evidence_refs": [
         {
-          "digest": "sha256:c11a55aff812390e04ed8ee053b732a08d62b185d0ca5c50d0738f8d0103e235",
-          "id": "gait-containment-c11a55aff812390e",
+          "digest": "sha256:558793eec57b717857f9d0f02bc937b15f6cff2a069f415495dcc4cd4573a57c",
+          "id": "gait-containment-558793eec57b7178",
           "kind": "containment",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/containment-evidence.schema.json",
           "schema_version": "1",
@@ -1278,7 +1279,7 @@
       "containment": {
         "schema_id": "https://gait.dev/schemas/v1/action-contract/containment-evidence.schema.json",
         "schema_version": "1",
-        "evidence_id": "gait-containment-c11a55aff812390e",
+        "evidence_id": "gait-containment-558793eec57b7178",
         "binding": {
           "contract_family_id": "pacf-55f758ded9e42f84",
           "revision": 1,
@@ -1299,7 +1300,7 @@
             "source_product": "gait"
           },
           "runtime_action_ref": {
-            "digest": "sha256:5d612e670e5bda71456270cbc5d60a63a7526efc2ee22cb7e0d462a90faa3e01",
+            "digest": "sha256:ffdb7187847ee43434cf0bc428d9defc9b407da4595be1bdfab4c16a47a801e1",
             "id": "runtime-golden-action",
             "kind": "runtime_action",
             "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
@@ -1307,7 +1308,7 @@
             "source_product": "gait"
           },
           "readiness_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-readiness",
             "kind": "readiness",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -1315,7 +1316,7 @@
             "source_product": "gait"
           },
           "decision_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-decision",
             "kind": "decision",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -1331,16 +1332,16 @@
             "source_product": "gait"
           },
           "target_ref": {
-            "digest": "sha256:ab7b6da24c317864e69aa98a2208ce5ac8686f4b67be26e61024129306874f70",
-            "id": "target:golden",
+            "digest": "sha256:2e53368ae3531f4d7ffa75b26e72cbe0dff065c2bdfd68aad3e3bf7ad30ae08f",
+            "id": "target:fixture",
             "kind": "target",
             "schema_id": "https://gait.dev/schemas/v1/target-ref.schema.json",
             "schema_version": "1",
             "source_product": "gait"
           },
           "environment_ref": {
-            "digest": "sha256:ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
-            "id": "production",
+            "digest": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "id": "test",
             "kind": "environment",
             "schema_id": "https://gait.dev/schemas/v1/environment-ref.schema.json",
             "schema_version": "1",
@@ -1358,8 +1359,8 @@
           ],
           "causal_refs": [
             {
-              "digest": "sha256:5472cc777f821d6075b795f0ae595b7dda660a7c134414508935367fb30b8da0",
-              "id": "gait-effect-5472cc777f821d60",
+              "digest": "sha256:53753e5a8b409836a9d77565e0becb4bf7718c78cd2228e0aa540d8e7bf90037",
+              "id": "gait-effect-53753e5a8b409836",
               "kind": "effect_event",
               "schema_id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
               "schema_version": "1",
@@ -1389,16 +1390,16 @@
           "source_product": "gait"
         },
         "execution_ref": {
-          "digest": "sha256:6d813ce54ed3c63ce66a6411635103b2044ecd3a1a59c366ac8c94b21122bc67",
-          "id": "gait-exec-6d813ce54ed3c63c",
+          "digest": "sha256:68602742f8064bf50bb9fa363c21c870ce678b972ea1f891736076dc98c86471",
+          "id": "gait-exec-68602742f8064bf5",
           "kind": "execution",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
           "schema_version": "1",
           "source_product": "gait"
         },
         "effect_ref": {
-          "digest": "sha256:5472cc777f821d6075b795f0ae595b7dda660a7c134414508935367fb30b8da0",
-          "id": "gait-effect-5472cc777f821d60",
+          "digest": "sha256:53753e5a8b409836a9d77565e0becb4bf7718c78cd2228e0aa540d8e7bf90037",
+          "id": "gait-effect-53753e5a8b409836",
           "kind": "effect_event",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
           "schema_version": "1",
@@ -1412,7 +1413,7 @@
           "schema_version": "1",
           "source_product": "gait"
         },
-        "occurred_at": "2026-07-19T02:00:09Z",
+        "occurred_at": "2026-07-19T01:00:09Z",
         "fresh_until": "2026-07-19T03:00:00Z",
         "outcome": "requested",
         "reason_code": "requested",
@@ -1424,11 +1425,11 @@
           "signature": {
             "alg": "ed25519",
             "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-            "sig": "sqU9meUOaNi+r1HiTitfUKmoSSYNhzWtQWQRz2Ep3wczPxI6AsD4kBVhZ16IOSMBggH+RYVLFEeBJVJIeuODDg==",
-            "signed_digest": "c11a55aff812390e04ed8ee053b732a08d62b185d0ca5c50d0738f8d0103e235"
+            "sig": "wV9ioy49cc2ODpb2i4xK0akWPw765E9cEVFVhxoJfPCDiRh61c07VUqqxhA/cUi2zpixC7SwlMsPpFEILoRtBg==",
+            "signed_digest": "558793eec57b717857f9d0f02bc937b15f6cff2a069f415495dcc4cd4573a57c"
           }
         },
-        "canonical_content_digest": "sha256:c11a55aff812390e04ed8ee053b732a08d62b185d0ca5c50d0738f8d0103e235"
+        "canonical_content_digest": "sha256:558793eec57b717857f9d0f02bc937b15f6cff2a069f415495dcc4cd4573a57c"
       },
       "correlation": {
         "profile_version": "1.0",
@@ -1462,16 +1463,16 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "WHdzUpbFKsN7/k/1QjdzX5vQF4R1YaZY+DPpAA0eVa1KmD4v9qHy0PTkxNARWLNniawmeSilsqgxO86vn/SZCw==",
-        "signed_digest": "9c67d427e53faa85daad88b09050924e2c677dfdcc545a8c5c9d920ee7cb5e61"
+        "sig": "ELROWruruUCI2CYzgQZR6xK9AIIa938vUKlhAOTFPVgEnh8RV0EHmebneAggp1WdtlSS47UvwOteVaWUNNeyAw==",
+        "signed_digest": "1b4c0014496970235536a0ff5524630a8a09fa3fe436dc988ccc1ce150299796"
       }
     },
     {
       "schema_id": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json",
       "schema_version": "1",
-      "record_id": "gait-lr-174784cfde4bbea0",
+      "record_id": "gait-lr-16eba08f5e0d07d8",
       "kind": "containment_completed",
-      "occurred_at": "2026-07-19T02:00:10Z",
+      "occurred_at": "2026-07-19T01:00:10Z",
       "contract_ref": {
         "digest": "sha256:d3a371d51af5af30c4c4b8e2694b40cb16791c4e8c469bd53a483a99fb3c88cf",
         "id": "pac-4b7f1402784256ce",
@@ -1500,8 +1501,8 @@
       },
       "evidence_refs": [
         {
-          "digest": "sha256:401a9569f2eba9afbe0d4b4f8d058a9676c13bd296e5cd9d5376db79dd6c8501",
-          "id": "gait-containment-401a9569f2eba9af",
+          "digest": "sha256:80a62dce6d21798114efc63fe00e60dc1341d5e159750cbc16c9393a6f849519",
+          "id": "gait-containment-80a62dce6d217981",
           "kind": "containment",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/containment-evidence.schema.json",
           "schema_version": "1",
@@ -1511,7 +1512,7 @@
       "containment": {
         "schema_id": "https://gait.dev/schemas/v1/action-contract/containment-evidence.schema.json",
         "schema_version": "1",
-        "evidence_id": "gait-containment-401a9569f2eba9af",
+        "evidence_id": "gait-containment-80a62dce6d217981",
         "binding": {
           "contract_family_id": "pacf-55f758ded9e42f84",
           "revision": 1,
@@ -1532,7 +1533,7 @@
             "source_product": "gait"
           },
           "runtime_action_ref": {
-            "digest": "sha256:5d612e670e5bda71456270cbc5d60a63a7526efc2ee22cb7e0d462a90faa3e01",
+            "digest": "sha256:ffdb7187847ee43434cf0bc428d9defc9b407da4595be1bdfab4c16a47a801e1",
             "id": "runtime-golden-action",
             "kind": "runtime_action",
             "schema_id": "https://gait.dev/schemas/v1/runtime-action.schema.json",
@@ -1540,7 +1541,7 @@
             "source_product": "gait"
           },
           "readiness_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-readiness",
             "kind": "readiness",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -1548,7 +1549,7 @@
             "source_product": "gait"
           },
           "decision_ref": {
-            "digest": "sha256:d88dcf9d82a072d993c51b4ce151b891ad0e8b542909b6ebcabd91bac42f24a0",
+            "digest": "sha256:5537a606ce771336b50c0f6f6ca978d8d310cb7e8d59eff47d7ac698264b4305",
             "id": "runtime-decision",
             "kind": "decision",
             "schema_id": "https://gait.dev/schemas/v1/runtime-readiness.schema.json",
@@ -1564,16 +1565,16 @@
             "source_product": "gait"
           },
           "target_ref": {
-            "digest": "sha256:ab7b6da24c317864e69aa98a2208ce5ac8686f4b67be26e61024129306874f70",
-            "id": "target:golden",
+            "digest": "sha256:2e53368ae3531f4d7ffa75b26e72cbe0dff065c2bdfd68aad3e3bf7ad30ae08f",
+            "id": "target:fixture",
             "kind": "target",
             "schema_id": "https://gait.dev/schemas/v1/target-ref.schema.json",
             "schema_version": "1",
             "source_product": "gait"
           },
           "environment_ref": {
-            "digest": "sha256:ab8e18ef4ebebeddc0b3152ce9c9006e14fc05242e3fc9ce32246ea6a9543074",
-            "id": "production",
+            "digest": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            "id": "test",
             "kind": "environment",
             "schema_id": "https://gait.dev/schemas/v1/environment-ref.schema.json",
             "schema_version": "1",
@@ -1591,8 +1592,8 @@
           ],
           "causal_refs": [
             {
-              "digest": "sha256:c11a55aff812390e04ed8ee053b732a08d62b185d0ca5c50d0738f8d0103e235",
-              "id": "gait-containment-c11a55aff812390e",
+              "digest": "sha256:558793eec57b717857f9d0f02bc937b15f6cff2a069f415495dcc4cd4573a57c",
+              "id": "gait-containment-558793eec57b7178",
               "kind": "containment",
               "schema_id": "https://gait.dev/schemas/v1/action-contract/containment-evidence.schema.json",
               "schema_version": "1",
@@ -1622,16 +1623,16 @@
           "source_product": "gait"
         },
         "execution_ref": {
-          "digest": "sha256:6d813ce54ed3c63ce66a6411635103b2044ecd3a1a59c366ac8c94b21122bc67",
-          "id": "gait-exec-6d813ce54ed3c63c",
+          "digest": "sha256:68602742f8064bf50bb9fa363c21c870ce678b972ea1f891736076dc98c86471",
+          "id": "gait-exec-68602742f8064bf5",
           "kind": "execution",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json",
           "schema_version": "1",
           "source_product": "gait"
         },
         "effect_ref": {
-          "digest": "sha256:5472cc777f821d6075b795f0ae595b7dda660a7c134414508935367fb30b8da0",
-          "id": "gait-effect-5472cc777f821d60",
+          "digest": "sha256:53753e5a8b409836a9d77565e0becb4bf7718c78cd2228e0aa540d8e7bf90037",
+          "id": "gait-effect-53753e5a8b409836",
           "kind": "effect_event",
           "schema_id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
           "schema_version": "1",
@@ -1645,7 +1646,7 @@
           "schema_version": "1",
           "source_product": "gait"
         },
-        "occurred_at": "2026-07-19T02:00:10Z",
+        "occurred_at": "2026-07-19T01:00:10Z",
         "fresh_until": "2026-07-19T03:00:00Z",
         "outcome": "completed",
         "reason_code": "completed",
@@ -1657,11 +1658,11 @@
           "signature": {
             "alg": "ed25519",
             "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-            "sig": "OLwiYxTnrv7CZxw7c2hI0D20c3rOklzmrtYS9E1pxNfiWSHXyHtbHm0dMcJ2rFgQf450sfhNAEpy1Y0rYrcgDQ==",
-            "signed_digest": "401a9569f2eba9afbe0d4b4f8d058a9676c13bd296e5cd9d5376db79dd6c8501"
+            "sig": "kf/0L61W3NV/vFIs9Z2PgOkZ9yqrAK//AtJmUvgUvir8TODNdOuprtCeUy3Max9lKvWc1F03VZwDXoJLNtHvBw==",
+            "signed_digest": "80a62dce6d21798114efc63fe00e60dc1341d5e159750cbc16c9393a6f849519"
           }
         },
-        "canonical_content_digest": "sha256:401a9569f2eba9afbe0d4b4f8d058a9676c13bd296e5cd9d5376db79dd6c8501"
+        "canonical_content_digest": "sha256:80a62dce6d21798114efc63fe00e60dc1341d5e159750cbc16c9393a6f849519"
       },
       "correlation": {
         "profile_version": "1.0",
@@ -1695,8 +1696,8 @@
       "signature": {
         "alg": "ed25519",
         "key_id": "42571c8843a10df565fd17a97a236c3552e8e4b7ff2a0b48bf524409279771d9",
-        "sig": "Vdj/x9a/T0sj70U1/i7kzYdxwbFCeRrkHgH+CvJZnyUMsqsaWP90ed+uGEiUH42QbBsTBYjYRuY9JpLyncAADA==",
-        "signed_digest": "174784cfde4bbea088764cd39a2a3f8475d605831ef04ee148f4b23986a3ff25"
+        "sig": "CJmeBSWH6NK54MSgRMJUoniOpGbLkI6NIoOPNUoO9A/iZqWRIbR8ugsRZTAFZygrAaKeHg5pDMfKKOlNXPUyDQ==",
+        "signed_digest": "16eba08f5e0d07d87311a873bc34d61134cdc65f55caa6c5545c59a5094d01f1"
       }
     }
   ]

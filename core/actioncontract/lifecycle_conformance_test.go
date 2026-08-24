@@ -44,7 +44,7 @@ type conformanceFixtureManifest struct {
 	} `json:"scenarios"`
 }
 
-func loadConformanceFixture(t *testing.T, scenario string) (Artifact, ActivatedArtifact, RuntimeAction, ReadinessResult, []LifecycleRecord, ed25519.PublicKey) {
+func loadConformanceFixture(t *testing.T, scenario string) (Artifact, ActivatedArtifact, RuntimeAction, ReadinessResult, []LifecycleRecord, ed25519.PublicKey, ed25519.PublicKey) {
 	t.Helper()
 	root := filepath.Join("..", "..", "testdata", "action-contract-evidence", "v1")
 	proposal, _, err := ReadArtifact(filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "compensation", "pac-4b7f1402784256ce.json"))
@@ -59,21 +59,15 @@ func loadConformanceFixture(t *testing.T, scenario string) (Artifact, ActivatedA
 	if err != nil {
 		t.Fatal(err)
 	}
-	actionRaw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "runtime-goldens", "runtime-action.json"))
+	actionRaw, err := os.ReadFile(filepath.Join(root, "runtime-action.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var actionWrapper struct {
-		Action json.RawMessage `json:"action"`
-	}
-	if err := json.Unmarshal(actionRaw, &actionWrapper); err != nil {
-		t.Fatal(err)
-	}
-	action, err := ParseRuntimeAction(actionWrapper.Action)
+	action, err := ParseRuntimeAction(actionRaw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	readinessRaw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "runtime-goldens", "runtime-readiness.json"))
+	readinessRaw, err := os.ReadFile(filepath.Join(root, "runtime-readiness.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +91,15 @@ func loadConformanceFixture(t *testing.T, scenario string) (Artifact, ActivatedA
 	if err != nil || len(key) != ed25519.PublicKeySize {
 		t.Fatal(err)
 	}
-	return proposal, activation, action, readiness, pack.Records, ed25519.PublicKey(key)
+	validatorRaw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "runtime-goldens", "fixture-signing-key.public.b64"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	validatorKey, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(validatorRaw)))
+	if err != nil || len(validatorKey) != ed25519.PublicKeySize {
+		t.Fatal(err)
+	}
+	return proposal, activation, action, readiness, pack.Records, ed25519.PublicKey(key), ed25519.PublicKey(validatorKey)
 }
 
 func TestLifecycleConformanceManifestPinsExactBytes(t *testing.T) {
@@ -113,7 +115,7 @@ func TestLifecycleConformanceManifestPinsExactBytes(t *testing.T) {
 	if manifest.FixtureVersion != "1" || manifest.FoundationCommit != "4177f1e575441975b5a8979e6350e988c2f71d70" || manifest.Producer.Name != "gait" || manifest.Producer.Version != "v1.5.0" || !manifest.Signing.FixtureTestOnly || !manifest.Signing.NonAuthoritative || len(manifest.Scenarios) != 9 {
 		t.Fatalf("unexpected conformance fixture manifest: %+v", manifest)
 	}
-	for _, prefix := range []string{"proposal", "activation", "runtime_action", "runtime_readiness"} {
+	for _, prefix := range []string{"proposal", "activation", "runtime_action", "runtime_readiness", "runtime_action_source", "runtime_readiness_source"} {
 		path, digest := manifest.Bindings[prefix+"_path"], manifest.Bindings[prefix+"_sha256"]
 		raw, err := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(path)))
 		if err != nil {
@@ -131,7 +133,11 @@ func TestLifecycleConformanceManifestPinsExactBytes(t *testing.T) {
 	if err != nil || len(public) != ed25519.PublicKeySize || RawDigest(publicRaw) != manifest.Signing.PublicKeySHA256 || proofsign.KeyID(ed25519.PublicKey(public)) != manifest.Signing.KeyID {
 		t.Fatalf("fixture public key provenance drift: %v", err)
 	}
-	allowed := map[string]bool{"fixture-manifest.json": true, "fixture-signing-key.public.b64": true}
+	validatorRaw, err := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(manifest.Bindings["readiness_validator_key_path"])))
+	if err != nil || RawDigest(validatorRaw) != manifest.Bindings["readiness_validator_key_sha256"] {
+		t.Fatalf("readiness validator key drift: %v", err)
+	}
+	allowed := map[string]bool{"fixture-manifest.json": true, "fixture-signing-key.public.b64": true, "runtime-action.json": true, "runtime-readiness.json": true}
 	seen := map[string]bool{}
 	for _, scenario := range manifest.Scenarios {
 		if seen[scenario.ScenarioID] || scenario.Path == "" {
@@ -170,8 +176,16 @@ func TestLifecycleConformanceManifestPinsExactBytes(t *testing.T) {
 }
 
 func TestLifecycleConformanceFixtureSuccessfulLineage(t *testing.T) {
-	proposal, activation, action, readiness, records, public := loadConformanceFixture(t, "successful-execution-effect-containment")
-	result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC), Expectation: LifecycleConformanceExpectation{ExecutionOutcome: "succeeded", EffectOutcome: "validated", ContainmentOutcome: "completed", RequireComplete: true}})
+	proposal, activation, action, readiness, records, public, validator := loadConformanceFixture(t, "successful-execution-effect-containment")
+	decisionTime, err := time.Parse(time.RFC3339Nano, records[3].OccurredAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revalidated := EvaluateReadiness(ReadinessInput{Now: decisionTime, ContractID: readiness.ContractID, PolicyDigest: readiness.PolicyDigest, Preconditions: readiness.Preconditions, TrustedValidatorRefs: []string{"validator"}, TrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}})
+	if !revalidated.Ready {
+		t.Fatalf("fixture readiness failed revalidation: %+v", revalidated)
+	}
+	result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC), Expectation: LifecycleConformanceExpectation{ExecutionOutcome: "succeeded", EffectOutcome: "validated", ContainmentOutcome: "completed", RequireComplete: true}})
 	if !result.Valid || !result.AuthoritativeSuccess {
 		t.Fatalf("successful fixture rejected: %+v", result)
 	}
@@ -191,8 +205,8 @@ func TestLifecycleConformanceFixtureScenarioMatrix(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			proposal, activation, action, readiness, records, public := loadConformanceFixture(t, tc.name)
-			result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC), Expectation: tc.expect})
+			proposal, activation, action, readiness, records, public, validator := loadConformanceFixture(t, tc.name)
+			result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC), Expectation: tc.expect})
 			if !result.Valid {
 				t.Fatalf("fixture rejected: %+v", result)
 			}
@@ -204,22 +218,22 @@ func TestLifecycleConformanceFixtureScenarioMatrix(t *testing.T) {
 }
 
 func TestLifecycleConformanceFailsClosedForWrongKeyAndReplay(t *testing.T) {
-	proposal, activation, action, readiness, records, public := loadConformanceFixture(t, "successful-execution-effect-containment")
+	proposal, activation, action, readiness, records, public, validator := loadConformanceFixture(t, "successful-execution-effect-containment")
 	wrong := make(ed25519.PublicKey, ed25519.PublicKeySize)
-	result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: wrong, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)})
+	result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: wrong, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)})
 	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceActivationInvalid) {
 		t.Fatalf("wrong key accepted: %+v", result)
 	}
-	result = VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: public, LifecycleRecords: append(records, records[len(records)-1]), LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)})
+	result = VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: public, LifecycleRecords: append(records, records[len(records)-1]), LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)})
 	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceReplay) {
 		t.Fatalf("replayed lineage accepted: %+v", result)
 	}
 }
 
 func TestLifecycleConformanceRejectsIdentifierOnlyCorrelation(t *testing.T) {
-	proposal, activation, action, readiness, records, public := loadConformanceFixture(t, "successful-execution-effect-containment")
+	proposal, activation, action, readiness, records, public, validator := loadConformanceFixture(t, "successful-execution-effect-containment")
 	records[5].Correlation.BindingMode = "identifier_only"
-	result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)})
+	result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)})
 	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceIdentifierOnly) {
 		t.Fatalf("identifier-only lineage accepted: %+v", result)
 	}
@@ -242,12 +256,22 @@ func TestLifecycleConformanceNegativeFixtureMatrix(t *testing.T) {
 		}
 		scenario := scenario
 		t.Run(scenario.ScenarioID, func(t *testing.T) {
-			proposal, activation, action, readiness, records, public := loadConformanceFixture(t, scenario.ScenarioID)
+			proposal, activation, action, readiness, records, public, validator := loadConformanceFixture(t, scenario.ScenarioID)
+			for _, record := range records {
+				digest, err := lifecycleDigest(record)
+				if err != nil || record.Signature.SignedDigest != strings.TrimPrefix(digest, "sha256:") {
+					t.Fatalf("negative fixture outer digest is not authentic: kind=%s err=%v", record.Kind, err)
+				}
+				valid, err := proofsign.VerifyDigestHex(public, record.Signature)
+				if err != nil || !valid {
+					t.Fatalf("negative fixture outer signature is not authentic: kind=%s err=%v", record.Kind, err)
+				}
+			}
 			evaluationTime, err := time.Parse(time.RFC3339, scenario.EvaluationTime)
 			if err != nil {
 				t.Fatal(err)
 			}
-			result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: evaluationTime})
+			result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: evaluationTime})
 			if result.Valid || !containsString(result.ReasonCodes, scenario.ExpectedReason) {
 				t.Fatalf("negative fixture did not fail closed: expected=%s result=%+v", scenario.ExpectedReason, result)
 			}
@@ -260,26 +284,32 @@ func TestLifecycleConformanceNegativeFixtureMatrix(t *testing.T) {
 }
 
 func TestLifecycleConformanceRequiresExplicitEvaluationTime(t *testing.T) {
-	proposal, activation, action, readiness, records, public := loadConformanceFixture(t, "successful-execution-effect-containment")
-	result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true})
+	proposal, activation, action, readiness, records, public, validator := loadConformanceFixture(t, "successful-execution-effect-containment")
+	result := VerifyLifecycleConformance(LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true})
 	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceInputMissing) {
 		t.Fatalf("missing evaluation time accepted: %+v", result)
 	}
 }
 
 func TestLifecycleConformanceBindsExactRuntimeAndReadinessArtifacts(t *testing.T) {
-	proposal, activation, action, readiness, records, public := loadConformanceFixture(t, "successful-execution-effect-containment")
-	base := LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)}
+	proposal, activation, action, readiness, records, public, validator := loadConformanceFixture(t, "successful-execution-effect-containment")
+	base := LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)}
 	wrongAction := base
 	wrongAction.RuntimeAction.ActionID = "runtime-action-mismatch"
 	result := VerifyLifecycleConformance(wrongAction)
 	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceLineageMismatch) {
 		t.Fatalf("mismatched runtime action accepted: %+v", result)
 	}
+	wrongTarget := base
+	wrongTarget.RuntimeAction.TargetRef = "target:outside-activation"
+	result = VerifyLifecycleConformance(wrongTarget)
+	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceLineageMismatch) {
+		t.Fatalf("runtime target outside activation accepted: %+v", result)
+	}
 	wrongReadiness := base
 	wrongReadiness.Readiness.PolicyDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	result = VerifyLifecycleConformance(wrongReadiness)
-	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceLineageMismatch) {
+	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceReadinessInvalid) {
 		t.Fatalf("mismatched readiness accepted: %+v", result)
 	}
 	missingRuntime := base
@@ -288,11 +318,17 @@ func TestLifecycleConformanceBindsExactRuntimeAndReadinessArtifacts(t *testing.T
 	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceInputMissing) {
 		t.Fatalf("missing runtime action accepted: %+v", result)
 	}
+	wrongValidator := base
+	wrongValidator.ReadinessTrustedValidatorKeys = map[string]ed25519.PublicKey{"validator": make(ed25519.PublicKey, ed25519.PublicKeySize)}
+	result = VerifyLifecycleConformance(wrongValidator)
+	if result.Valid || !containsString(result.ReasonCodes, ReasonConformanceReadinessInvalid) {
+		t.Fatalf("readiness signed by an untrusted key accepted: %+v", result)
+	}
 }
 
 func TestLifecycleConformanceStableFailureBranchesAndAlias(t *testing.T) {
-	proposal, activation, action, readiness, records, public := loadConformanceFixture(t, "successful-execution-effect-containment")
-	base := LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)}
+	proposal, activation, action, readiness, records, public, validator := loadConformanceFixture(t, "successful-execution-effect-containment")
+	base := LifecycleConformanceInput{Proposal: proposal, Activation: activation, RuntimeAction: action, Readiness: readiness, ReadinessTrustedValidatorRefs: []string{"validator"}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{"validator": validator}, ActivationPublicKey: public, LifecycleRecords: records, LifecyclePublicKey: public, AllowDevelopmentSign: true, EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)}
 	if result := GradeLifecycleConformance(base); !result.Valid || !result.AuthoritativeSuccess {
 		t.Fatalf("grader alias rejected valid lineage: %+v", result)
 	}

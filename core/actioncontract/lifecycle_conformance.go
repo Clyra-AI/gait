@@ -8,6 +8,8 @@ package actioncontract
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,16 +49,18 @@ type LifecycleConformanceExpectation struct {
 // LifecycleConformanceInput is deliberately composed of already parsed
 // artifacts. File loading and execution are outside this API.
 type LifecycleConformanceInput struct {
-	Proposal             Artifact
-	Activation           ActivatedArtifact
-	ActivationPublicKey  ed25519.PublicKey
-	RuntimeAction        RuntimeAction
-	Readiness            ReadinessResult
-	LifecycleRecords     []LifecycleRecord
-	LifecyclePublicKey   ed25519.PublicKey
-	EvaluationTime       time.Time
-	AllowDevelopmentSign bool
-	Expectation          LifecycleConformanceExpectation
+	Proposal                      Artifact
+	Activation                    ActivatedArtifact
+	ActivationPublicKey           ed25519.PublicKey
+	RuntimeAction                 RuntimeAction
+	Readiness                     ReadinessResult
+	ReadinessTrustedValidatorRefs []string
+	ReadinessTrustedValidatorKeys map[string]ed25519.PublicKey
+	LifecycleRecords              []LifecycleRecord
+	LifecyclePublicKey            ed25519.PublicKey
+	EvaluationTime                time.Time
+	AllowDevelopmentSign          bool
+	Expectation                   LifecycleConformanceExpectation
 }
 
 type LifecycleConformanceResult struct {
@@ -81,7 +85,7 @@ func conformanceReason(result *LifecycleConformanceResult, reason string) {
 // identifier-only correlation as a successful partial result.
 func VerifyLifecycleConformance(input LifecycleConformanceInput) LifecycleConformanceResult {
 	result := LifecycleConformanceResult{}
-	if strings.TrimSpace(input.Proposal.ContractID) == "" || strings.TrimSpace(input.Activation.ArtifactID) == "" || strings.TrimSpace(input.RuntimeAction.ActionID) == "" || strings.TrimSpace(input.Readiness.ContractID) == "" || len(input.LifecycleRecords) == 0 {
+	if strings.TrimSpace(input.Proposal.ContractID) == "" || strings.TrimSpace(input.Activation.ArtifactID) == "" || strings.TrimSpace(input.RuntimeAction.ActionID) == "" || strings.TrimSpace(input.Readiness.ContractID) == "" || len(input.ReadinessTrustedValidatorRefs) == 0 || len(input.ReadinessTrustedValidatorKeys) == 0 || len(input.LifecycleRecords) == 0 {
 		conformanceReason(&result, ReasonConformanceInputMissing)
 		return result
 	}
@@ -121,9 +125,44 @@ func VerifyLifecycleConformance(input LifecycleConformanceInput) LifecycleConfor
 		conformanceReason(&result, ReasonConformanceReadinessInvalid)
 		return result
 	}
+	decisionTime := time.Time{}
+	for _, record := range input.LifecycleRecords {
+		if record.Kind != LifecycleDecisionReady {
+			continue
+		}
+		if !decisionTime.IsZero() {
+			conformanceReason(&result, ReasonConformanceReadinessInvalid)
+			return result
+		}
+		parsed, err := time.Parse(time.RFC3339Nano, record.OccurredAt)
+		if err != nil {
+			conformanceReason(&result, ReasonConformanceReadinessInvalid)
+			return result
+		}
+		decisionTime = parsed
+	}
+	if decisionTime.IsZero() {
+		conformanceReason(&result, ReasonConformanceReadinessInvalid)
+		return result
+	}
+	revalidatedReadiness := EvaluateReadiness(ReadinessInput{Now: decisionTime, ContractID: input.Readiness.ContractID, Preconditions: input.Readiness.Preconditions, TrustedValidatorRefs: input.ReadinessTrustedValidatorRefs, TrustedValidatorKeys: input.ReadinessTrustedValidatorKeys, PolicyDigest: input.Readiness.PolicyDigest})
+	if !revalidatedReadiness.Ready || revalidatedReadiness.Status != ReadinessSatisfied {
+		conformanceReason(&result, ReasonConformanceReadinessInvalid)
+		for _, reason := range revalidatedReadiness.ReasonCodes {
+			conformanceReason(&result, reason)
+		}
+		return result
+	}
+	for _, precondition := range revalidatedReadiness.Preconditions {
+		if (precondition.Environment != "" && precondition.Environment != input.Activation.Environment) || (precondition.Target != "" && precondition.Target != input.Activation.Target) {
+			conformanceReason(&result, ReasonConformanceLineageMismatch)
+			return result
+		}
+	}
 	runtimeDigest, runtimeDigestErr := conformanceDigest(input.RuntimeAction)
 	readinessDigest, readinessDigestErr := conformanceDigest(input.Readiness)
-	if runtimeDigestErr != nil || readinessDigestErr != nil {
+	revalidatedReadinessDigest, revalidatedDigestErr := conformanceDigest(revalidatedReadiness)
+	if runtimeDigestErr != nil || readinessDigestErr != nil || revalidatedDigestErr != nil || readinessDigest != revalidatedReadinessDigest {
 		conformanceReason(&result, ReasonConformanceVerification)
 		return result
 	}
@@ -151,7 +190,7 @@ func VerifyLifecycleConformance(input LifecycleConformanceInput) LifecycleConfor
 			}
 		}
 		binding := lifecycleEvidenceBinding(record)
-		if binding != nil && (binding.RuntimeActionRef.ID != input.RuntimeAction.ActionID || binding.RuntimeActionRef.Digest != runtimeDigest || binding.ReadinessRef.Digest != readinessDigest || binding.DecisionRef.Digest != readinessDigest || binding.PolicyRef.Digest != input.Readiness.PolicyDigest) {
+		if binding != nil && (binding.RuntimeActionRef.ID != input.RuntimeAction.ActionID || binding.RuntimeActionRef.Digest != runtimeDigest || binding.ReadinessRef.Digest != readinessDigest || binding.DecisionRef.Digest != readinessDigest || binding.PolicyRef.Kind != "policy" || binding.PolicyRef.Digest != input.Readiness.PolicyDigest || binding.PolicyRef.Digest != input.Activation.PolicyDigest || binding.TargetRef.Kind != "target" || binding.TargetRef.ID != input.Activation.Target || binding.TargetRef.Digest != conformanceTextDigest(input.Activation.Target) || binding.EnvironmentRef.Kind != "environment" || binding.EnvironmentRef.ID != input.Activation.Environment || binding.EnvironmentRef.Digest != conformanceTextDigest(input.Activation.Environment) || input.RuntimeAction.TargetRef != input.Activation.Target) {
 			conformanceReason(&result, ReasonConformanceLineageMismatch)
 			return result
 		}
@@ -209,6 +248,11 @@ func conformanceDigest(value any) (string, error) {
 		return "", err
 	}
 	return "sha256:" + strings.TrimPrefix(digest, "sha256:"), nil
+}
+
+func conformanceTextDigest(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 // GradeLifecycleConformance is the verb-oriented alias used by regression
