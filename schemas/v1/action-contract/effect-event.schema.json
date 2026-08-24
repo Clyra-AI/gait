@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json",
+  "title": "Gait effect event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "evidence_id", "binding", "event_ref", "execution_ref", "effect_ref", "occurred_at", "fresh_until", "outcome", "reason_code", "provenance", "canonical_content_digest"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json"},
+    "schema_version": {"const": "1"},
+    "evidence_id": {"type": "string", "pattern": "^gait-effect-[a-f0-9]{16}$"},
+    "binding": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/binding"},
+    "event_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
+    "execution_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/execution_artifact_ref"},
+    "effect_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "fresh_until": {"type": "string", "format": "date-time"},
+    "outcome": {"enum": ["recorded", "validated"]},
+    "reason_code": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"},
+    "provenance": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/provenance"},
+    "canonical_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+  }
+}

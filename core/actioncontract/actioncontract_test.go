@@ -279,7 +279,7 @@ func TestReadArtifactNeverScansRecommendations(t *testing.T) {
 }
 
 func TestEmbeddedSchemasRemainAlignedWithCheckedInSchemas(t *testing.T) {
-	for _, name := range []string{"activated-action-contract-artifact.schema.json", "consumer-receipt.schema.json", "proposed-action-contract-artifact.schema.json", "proposed-action-contract-v3.schema.json", "runtime-action.schema.json", "runtime-classification-input.schema.json", "runtime-readiness.schema.json", "runtime-lifecycle-record.schema.json", "control-containment-telemetry-profile-v1.schema.json"} {
+	for _, name := range []string{"activated-action-contract-artifact.schema.json", "consumer-receipt.schema.json", "proposed-action-contract-artifact.schema.json", "proposed-action-contract-v3.schema.json", "runtime-action.schema.json", "runtime-classification-input.schema.json", "runtime-readiness.schema.json", "runtime-lifecycle-record.schema.json", "execution-evidence.schema.json", "effect-event.schema.json", "containment-evidence.schema.json", "compensation-evidence.schema.json", "control-containment-telemetry-profile-v1.schema.json"} {
 		embedded, err := schemaAssets.ReadFile("schemaassets/" + name)
 		if err != nil {
 			t.Fatal(err)
@@ -291,6 +291,13 @@ func TestEmbeddedSchemasRemainAlignedWithCheckedInSchemas(t *testing.T) {
 		if string(embedded) != string(checkedIn) {
 			t.Fatalf("embedded schema drift: %s", name)
 		}
+	}
+	lifecycleSchema, err := os.ReadFile(filepath.Join("..", "..", "schemas", "v1", "action-contract", "runtime-lifecycle-record.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(lifecycleSchema), "github.com/Clyra-AI/proof/schemas") {
+		t.Fatal("runtime lifecycle schema requires a network-only Proof schema reference")
 	}
 }
 
