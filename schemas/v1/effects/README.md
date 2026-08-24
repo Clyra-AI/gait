@@ -20,4 +20,5 @@ action, activation, or Proof digest matching the signed correlation. Snapshot
 times must satisfy `before <= after <= captured_at`; this is historical
 ordering, not a freshness or current-time authorization check. The committed
 fixture pack uses `fixture_test_only` provenance and is never a production
-authority.
+authority. Its manifest also pins the exact released activation and merged
+runtime action/lifecycle artifact digests used by the snapshot correlation.

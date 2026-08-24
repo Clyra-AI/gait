@@ -41,6 +41,9 @@ func TestEffectContractGraderMapsPureStatusesToFailClosedRegressResults(t *testi
 	write(snapshotPath, snapshot)
 	write(contractPath, contract)
 	grader := effectContractGrader{}
+	if grader.Name() != "effect_contract" || !grader.Deterministic() {
+		t.Fatalf("effect grader metadata drifted: name=%q deterministic=%t", grader.Name(), grader.Deterministic())
+	}
 	fixture := fixtureSpec{EffectSnapshotPath: snapshotPath, EffectContractPath: contractPath, EffectPublicKeyPath: publicPath, Meta: fixtureMeta{EffectExpectedActionDigest: snapshot.Correlation.ActionDigest}}
 	result, err := grader.Grade(FixtureContext{Fixture: fixture})
 	if err != nil || result.Status != regressStatusPass {

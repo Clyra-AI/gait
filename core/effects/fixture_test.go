@@ -25,6 +25,17 @@ type effectFixtureManifest struct {
 		Contract string `json:"contract"`
 		Grade    string `json:"grade"`
 	} `json:"schemas"`
+	Bindings struct {
+		RuntimeActionPath      string `json:"runtime_action_path"`
+		RuntimeActionSHA256    string `json:"runtime_action_sha256"`
+		ActivationPath         string `json:"activation_path"`
+		ActivationSHA256       string `json:"activation_sha256"`
+		RuntimeLifecyclePath   string `json:"runtime_lifecycle_path"`
+		RuntimeLifecycleSHA256 string `json:"runtime_lifecycle_sha256"`
+		RuntimeRecordPath      string `json:"runtime_record_path"`
+		RuntimeRecordSHA256    string `json:"runtime_record_sha256"`
+		RuntimeLifecycleID     string `json:"runtime_lifecycle_id"`
+	} `json:"bindings"`
 	Signing struct {
 		Mode             string `json:"mode"`
 		Development      bool   `json:"development_signing"`
@@ -57,6 +68,24 @@ func TestCommittedEffectFixturePackHasNoDigestOrGradingDrift(t *testing.T) {
 	}
 	if manifest.Signing.Mode != "fixture_test_only" || !manifest.Signing.Development || !manifest.Signing.NonAuthoritative || manifest.Signing.PublicKeyPath == "" || !strings.Contains(manifest.Signing.Derivation, "never used by production") {
 		t.Fatalf("fixture signing provenance missing: %+v", manifest.Signing)
+	}
+	boundFiles := map[string]string{
+		manifest.Bindings.RuntimeActionPath:    manifest.Bindings.RuntimeActionSHA256,
+		manifest.Bindings.ActivationPath:       manifest.Bindings.ActivationSHA256,
+		manifest.Bindings.RuntimeLifecyclePath: manifest.Bindings.RuntimeLifecycleSHA256,
+		manifest.Bindings.RuntimeRecordPath:    manifest.Bindings.RuntimeRecordSHA256,
+	}
+	if manifest.Bindings.RuntimeLifecycleID == "" || len(boundFiles) != 4 {
+		t.Fatalf("fixture producer bindings missing: %+v", manifest.Bindings)
+	}
+	for path, want := range boundFiles {
+		raw, readErr := os.ReadFile(filepath.Join("..", "..", path))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if got := rawDigest(raw); got != want {
+			t.Fatalf("bound producer drift for %s: got %s want %s", path, got, want)
+		}
 	}
 	publicRaw, err := os.ReadFile(filepath.Join("..", "..", manifest.Signing.PublicKeyPath))
 	if err != nil {
@@ -99,6 +128,9 @@ func TestCommittedEffectFixturePackHasNoDigestOrGradingDrift(t *testing.T) {
 	}
 	if result := ValidateSnapshot(snapshot); !result.Valid {
 		t.Fatalf("fixture snapshot invalid: %+v", result)
+	}
+	if snapshot.Correlation.ActionDigest != manifest.Bindings.RuntimeActionSHA256 || snapshot.Correlation.ActivationDigest != manifest.Bindings.ActivationSHA256 || snapshot.Correlation.ProofDigest != manifest.Bindings.RuntimeLifecycleSHA256 || snapshot.Correlation.LifecycleID != manifest.Bindings.RuntimeLifecycleID {
+		t.Fatalf("effect fixture correlation does not match released runtime bindings: %+v", snapshot.Correlation)
 	}
 	if result := ValidateContract(contract); !result.Valid {
 		t.Fatalf("fixture contract invalid: %+v", result)

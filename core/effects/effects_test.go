@@ -3,7 +3,9 @@ package effects
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +13,183 @@ import (
 
 	proofschema "github.com/Clyra-AI/proof/schema"
 )
+
+func TestLoadPublicKeyAndNumericConversions(t *testing.T) {
+	seed := sha256.Sum256([]byte("effects-public-key-coverage"))
+	want := ed25519.NewKeyFromSeed(seed[:]).Public().(ed25519.PublicKey)
+	root := t.TempDir()
+	keyPath := filepath.Join(root, "collector.pub")
+	if err := os.WriteFile(keyPath, []byte(base64.StdEncoding.EncodeToString(want)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadPublicKey(keyPath)
+	if err != nil || !got.Equal(want) {
+		t.Fatalf("load public key: got=%v err=%v", got, err)
+	}
+	badPath := filepath.Join(root, "bad.pub")
+	if err := os.WriteFile(badPath, []byte("not-base64\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadPublicKey(badPath); err == nil {
+		t.Fatal("invalid public key accepted")
+	}
+	if _, err := LoadPublicKey(filepath.Join(root, "missing.pub")); err == nil {
+		t.Fatal("missing public key accepted")
+	}
+	if _, err := LoadPublicKey(""); err == nil {
+		t.Fatal("empty public key path accepted")
+	}
+	if _, err := LoadPublicKey(root); err == nil {
+		t.Fatal("public key directory accepted")
+	}
+
+	for _, test := range []struct {
+		value any
+		ok    bool
+	}{
+		{value: int64(2), ok: true}, {value: int(2), ok: true},
+		{value: float64(2), ok: true}, {value: math.NaN(), ok: false},
+		{value: json.Number("2.5"), ok: true}, {value: json.Number("bad"), ok: false},
+		{value: "2", ok: false},
+	} {
+		_, ok := numberValue(test.value)
+		if ok != test.ok {
+			t.Fatalf("numberValue(%v) ok=%t want=%t", test.value, ok, test.ok)
+		}
+	}
+
+	snapshot := validSnapshot(t)
+	if err := snapshot.VerifyProvenance(); err != nil {
+		t.Fatalf("self-contained provenance verification failed: %v", err)
+	}
+	badProvenance := snapshot
+	badProvenance.Provenance.PublicKey = "not-base64"
+	if err := badProvenance.VerifyProvenance(); err == nil {
+		t.Fatal("malformed embedded provenance key accepted")
+	}
+	if _, err := snapshot.Sign(nil, "collector_signed"); err == nil {
+		t.Fatal("invalid private key accepted")
+	}
+	if _, err := snapshot.Sign(testPrivateKey(), "unknown_mode"); err == nil {
+		t.Fatal("unknown provenance mode accepted")
+	}
+}
+
+func TestEffectMetadataPredicatesAndJUnitErrors(t *testing.T) {
+	snapshot := validSnapshot(t)
+	contract := Contract{SchemaID: ContractSchemaID, SchemaVersion: SchemaVersion, ContractID: "contract:metadata", Name: "metadata", Predicates: []Predicate{
+		{ID: "resource", Kind: PredicateExpect, Field: "resource_kind", Operator: "equals", Expected: ResourcePostgres},
+		{ID: "complete", Kind: PredicateExpect, Field: "completeness", Operator: "equals", Expected: CompletenessComplete},
+		{ID: "verified", Kind: PredicateExpect, Field: "enforcement", Operator: "equals", Expected: EnforcementVerified},
+		{ID: "selector-resource", Kind: PredicateExpect, Field: "selector.resource", Operator: "equals", Expected: "postgres.table"},
+		{ID: "selector-scope", Kind: PredicateExpect, Field: "selector.scope", Operator: "equals", Expected: "public"},
+		{ID: "selector-name", Kind: PredicateExpect, Field: "selector.name", Operator: "equals", Expected: "orders"},
+		{ID: "digest", Kind: PredicateExpect, Field: "after.digest", Operator: "equals", Expected: testDigest},
+		{ID: "ttl", Kind: PredicateExpect, Field: "after.ttl_seconds", Operator: "equals", Expected: int64(3600)},
+	}}
+	if result := testGrade(snapshot, contract); result.Status != GradePass {
+		t.Fatalf("metadata predicates did not pass: %+v", result)
+	}
+
+	result := testGrade(snapshot, validContract())
+	if err := WriteJUnit("", result); err == nil {
+		t.Fatal("empty JUnit output path accepted")
+	}
+	missingParent := filepath.Join(t.TempDir(), "missing", "result.xml")
+	if err := WriteJUnit(missingParent, result); err == nil {
+		t.Fatal("missing JUnit parent directory accepted")
+	}
+	for name, emptyResult := range map[string]GradeResult{
+		"empty-pass": {Status: GradePass},
+		"empty-fail": {Status: GradeInconclusive, ReasonCodes: []string{ReasonEvidenceIncomplete}},
+	} {
+		path := filepath.Join(t.TempDir(), name+".xml")
+		if err := WriteJUnit(path, emptyResult); err != nil {
+			t.Fatalf("write empty-evaluation JUnit %s: %v", name, err)
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if name == "empty-fail" && !strings.Contains(string(raw), "failure") {
+			t.Fatalf("fail-closed empty JUnit missing failure: %s", raw)
+		}
+	}
+	root := t.TempDir()
+	target := filepath.Join(root, "target.xml")
+	if err := os.WriteFile(target, []byte("target"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link.xml")
+	if err := os.Symlink(target, link); err == nil {
+		if err := WriteJUnit(link, result); err == nil {
+			t.Fatal("symlink JUnit output accepted")
+		}
+	}
+}
+
+func TestEffectProvenanceAndSchemaErrorBranches(t *testing.T) {
+	snapshot := validSnapshot(t)
+	if err := snapshot.VerifyProvenanceAgainst(nil); err == nil {
+		t.Fatal("missing trusted provenance key accepted")
+	}
+	otherSeed := sha256.Sum256([]byte("other-effects-key"))
+	otherKey := ed25519.NewKeyFromSeed(otherSeed[:]).Public().(ed25519.PublicKey)
+	if err := snapshot.VerifyProvenanceAgainst(otherKey); err == nil {
+		t.Fatal("mismatched trusted provenance key accepted")
+	}
+	tampered := snapshot
+	tampered.Provenance.Signature.SignedDigest = strings.Repeat("0", 64)
+	if err := tampered.VerifyProvenanceAgainst(testPrivateKey().Public().(ed25519.PublicKey)); err == nil {
+		t.Fatal("mismatched provenance digest accepted")
+	}
+	tampered = snapshot
+	tampered.Provenance.Signature.KeyID = strings.Repeat("0", 64)
+	if err := tampered.VerifyProvenance(); err == nil {
+		t.Fatal("mismatched embedded provenance key id accepted")
+	}
+	if err := validateEmbeddedSchema([]byte("{"), SnapshotSchemaID); err == nil {
+		t.Fatal("malformed embedded-schema document accepted")
+	}
+	if err := validateEmbeddedSchema([]byte("{}"), "https://gait.dev/schemas/v1/effects/missing.schema.json"); err == nil {
+		t.Fatal("missing embedded schema accepted")
+	}
+
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "trailing.json")
+	if err := os.WriteFile(path, append(raw, []byte("\n{}")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadSnapshot(path); err == nil {
+		t.Fatal("trailing snapshot JSON accepted")
+	}
+}
+
+func TestObservationValidationBranches(t *testing.T) {
+	negative := int64(-1)
+	for _, observation := range []Observation{
+		{State: "invalid", ObservedAt: "2026-08-19T00:00:00Z"},
+		{State: ObservationPresent, Digest: "bad", ObservedAt: "2026-08-19T00:00:00Z"},
+		{State: ObservationPresent, TTLSeconds: &negative, ObservedAt: "2026-08-19T00:00:00Z"},
+		{State: ObservationPresent, ObservedAt: ""},
+		{State: ObservationPresent, ObservedAt: "not-a-time"},
+	} {
+		reasons := []string{}
+		validateObservation(&reasons, observation)
+		if len(reasons) == 0 {
+			t.Fatalf("invalid observation produced no reasons: %+v", observation)
+		}
+	}
+	if matched, supported := matches("value", "contains", 3); matched || supported {
+		t.Fatal("non-string contains operand was supported")
+	}
+	if matched, supported := matches("value", "unsupported", "value"); matched || supported {
+		t.Fatal("unknown effect predicate operator was supported")
+	}
+}
 
 const testDigest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
@@ -76,6 +255,37 @@ func TestValidateSnapshotAndCanonicalDigest(t *testing.T) {
 	snapshot.Redaction.Mode = "invalid"
 	if result := ValidateSnapshot(snapshot); result.Valid || !hasReason(result, ReasonRedactionInvalid) {
 		t.Fatalf("invalid redaction accepted: %+v", result)
+	}
+}
+
+func TestValidateSnapshotRejectsMalformedBoundaryFields(t *testing.T) {
+	negative := int64(-1)
+	for _, test := range []struct {
+		name   string
+		reason string
+		edit   func(*Snapshot)
+	}{
+		{name: "whitespace", reason: ReasonWhitespaceInvalid, edit: func(s *Snapshot) { s.SnapshotID = " effect-snapshot:demo " }},
+		{name: "resource kind", reason: ReasonResourceKindInvalid, edit: func(s *Snapshot) { s.ResourceKind = "unknown-kind" }},
+		{name: "selector", reason: ReasonSelectorMissing, edit: func(s *Snapshot) { s.Selector.Resource = "" }},
+		{name: "correlation", reason: ReasonEvidenceMissing, edit: func(s *Snapshot) { s.Correlation = Correlation{} }},
+		{name: "correlation digest", reason: ReasonDigestInvalid, edit: func(s *Snapshot) { s.Correlation.ActionDigest = "bad" }},
+		{name: "observation", reason: ReasonObservationInvalid, edit: func(s *Snapshot) { s.After.Count = &negative }},
+		{name: "collector", reason: ReasonCollectorMissing, edit: func(s *Snapshot) { s.Collector.Name = "" }},
+		{name: "capture", reason: ReasonCaptureInvalid, edit: func(s *Snapshot) { s.Capture.Mode = "invalid" }},
+		{name: "completeness", reason: ReasonCompletenessInvalid, edit: func(s *Snapshot) { s.Completeness = "invalid" }},
+		{name: "enforcement", reason: ReasonEnforcementInvalid, edit: func(s *Snapshot) { s.Enforcement = "invalid" }},
+		{name: "evidence refs", reason: ReasonEvidenceMissing, edit: func(s *Snapshot) { s.EvidenceRefs = nil }},
+		{name: "provenance", reason: ReasonProvenanceMissing, edit: func(s *Snapshot) { s.Provenance.Mode = "" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := validSnapshot(t)
+			test.edit(&snapshot)
+			result := ValidateSnapshot(snapshot)
+			if result.Valid || !hasReason(result, test.reason) {
+				t.Fatalf("malformed snapshot missing %s: %+v", test.reason, result)
+			}
+		})
 	}
 }
 
@@ -194,6 +404,33 @@ func TestEffectContractValidationRejectsDuplicatesAndUnknownKinds(t *testing.T) 
 	contract.Predicates[1].Operator = "unchanged"
 	if result := ValidateContract(contract); result.Valid || !hasReason(result, ReasonPredicateInvalid) {
 		t.Fatalf("unchanged expect predicate accepted: %+v", result)
+	}
+}
+
+func TestEffectContractValidationRejectsMalformedBoundaries(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		reason string
+		edit   func(*Contract)
+	}{
+		{name: "schema", reason: ReasonSchemaUnsupported, edit: func(c *Contract) { c.SchemaVersion = "9" }},
+		{name: "contract id", reason: ReasonContractIDMissing, edit: func(c *Contract) { c.ContractID = "" }},
+		{name: "whitespace", reason: ReasonWhitespaceInvalid, edit: func(c *Contract) { c.Name = " orders " }},
+		{name: "predicates missing", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates = nil }},
+		{name: "predicate id", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[0].ID = "" }},
+		{name: "field", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[1].Field = "" }},
+		{name: "operator missing", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[1].Operator = "" }},
+		{name: "operator unsupported", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[1].Operator = "execute" }},
+		{name: "invariant operator", reason: ReasonPredicateInvalid, edit: func(c *Contract) { c.Predicates[0].Operator = "equals" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			contract := validContract()
+			test.edit(&contract)
+			result := ValidateContract(contract)
+			if result.Valid || !hasReason(result, test.reason) {
+				t.Fatalf("malformed contract missing %s: %+v", test.reason, result)
+			}
+		})
 	}
 }
 

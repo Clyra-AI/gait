@@ -9,6 +9,17 @@
     "contract": "1.0.0",
     "grade": "1.0.0"
   },
+  "bindings": {
+    "runtime_action_path": "testdata/runtime-goldens/runtime-action.json",
+    "runtime_action_sha256": "sha256:9b139b2071467a12b8bf2ab9e6e43dec82b93be018169faef311678bc7b8a424",
+    "activation_path": "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json",
+    "activation_sha256": "sha256:5d4e7a8386ca3ea87b3426c04baf87e2303e709870b572dfa0b01087fc06ad6f",
+    "runtime_lifecycle_path": "testdata/runtime-goldens/runtime-lifecycle-chain.jsonl",
+    "runtime_lifecycle_sha256": "sha256:481bbc0c38b1cdabdbf3b80004fdd34f0b538df72ff49a9250cea7bc48c1b884",
+    "runtime_record_path": "testdata/runtime-goldens/runtime-lifecycle-record.json",
+    "runtime_record_sha256": "sha256:e33d10eb5efb3370c01eae8b3838419baa2700bd14662e15464992a72ccc1320",
+    "runtime_lifecycle_id": "gait-lr-637e1cb66df46b95"
+  },
   "signing": {
     "mode": "fixture_test_only",
     "development_signing": true,
@@ -21,7 +32,7 @@
   "files": [
     {
       "path": "effect_snapshot.json",
-      "sha256": "sha256:c6dc2078fd36da68b57b6c63a335109115c8c041cba07f6dd76f3cae29931ef1",
+      "sha256": "sha256:ba3dbded6ed13c887f7225bd5decb5aa116bc94811fc2e44271b4a026c9bbd36",
       "schema_id": "https://gait.dev/schemas/v1/effects/effect-snapshot.schema.json",
       "schema_version": "1.0.0"
     },
