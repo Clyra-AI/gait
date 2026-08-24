@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/effects/effect-contract.schema.json",
+  "title": "Gait Effect Contract",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "contract_id", "name", "predicates"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/effects/effect-contract.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "contract_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
+    "name": {"type": "string", "minLength": 1},
+    "predicates": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/predicate"}}
+  },
+  "$defs": {
+    "predicate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "field"],
+      "allOf": [
+        {"if": {"properties": {"kind": {"enum": ["expect", "forbid"]}}}, "then": {"required": ["operator"], "properties": {"operator": {"enum": ["equals", "not_equals", "contains", "exists", "gte", "lte"]}}, "allOf": [{"if": {"properties": {"operator": {"const": "exists"}}}, "then": {}, "else": {"required": ["expected"]}}]}},
+        {"if": {"properties": {"kind": {"const": "invariant"}}}, "then": {"properties": {"operator": {"const": "unchanged"}}}}
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
+        "kind": {"enum": ["expect", "forbid", "invariant"]},
+        "field": {"type": "string", "minLength": 1},
+        "operator": {"enum": ["equals", "not_equals", "contains", "exists", "gte", "lte", "unchanged"]},
+        "expected": {"not": {"type": "null"}}
+      }
+    }
+  }
+}

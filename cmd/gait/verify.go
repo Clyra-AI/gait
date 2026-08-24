@@ -661,6 +661,7 @@ func printUsage() {
 	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait test [--cwd .] [--timeout 30s] [--json] -- <child command...>")
 	fmt.Println("  gait enforce [--cwd .] [--timeout 30s] [--json] -- <child command...>")
+	fmt.Println("  gait effects grade --snapshot <effect_snapshot.json> --contract <effect_contract.json> --trusted-collector-key <public-key> [--expected-action-digest sha256:<hex>] [--expected-activation-digest sha256:<hex>] [--expected-proof-digest sha256:<hex>] [--junit <junit.xml>] [--json] [--explain]")
 	fmt.Println("  gait capture --from <run_id|runpack.zip|trace.json|session_chain.json> [--checkpoint latest|<index>] [--out ./gait-out/capture.json] [--json] [--explain]")
 	fmt.Println("  gait regress init --from <run_id|path> [--json] [--explain]")
 	fmt.Println("  gait regress add --from <capture.json|run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--json] [--explain]")

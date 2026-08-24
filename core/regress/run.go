@@ -85,12 +85,15 @@ type FixtureContext struct {
 }
 
 type fixtureSpec struct {
-	Name         string
-	RunID        string
-	FixtureDir   string
-	RunpackPath  string
-	RunCreatedAt time.Time
-	Meta         fixtureMeta
+	Name                string
+	RunID               string
+	FixtureDir          string
+	RunpackPath         string
+	EffectSnapshotPath  string
+	EffectContractPath  string
+	EffectPublicKeyPath string
+	RunCreatedAt        time.Time
+	Meta                fixtureMeta
 }
 
 func Run(opts RunOptions) (RunResult, error) {
@@ -126,28 +129,37 @@ func Run(opts RunOptions) (RunResult, error) {
 		return RunResult{}, fmt.Errorf("no fixtures configured")
 	}
 
-	graders := []Grader{
+	baseGraders := []Grader{
 		schemaValidationGrader{},
 		expectedReplayExitCodeGrader{},
 		trajectoryGrader{},
 		diffGrader{},
 	}
 	if shouldRunContextConformance(opts, fixtures) {
-		graders = append(graders, contextConformanceGrader{
+		baseGraders = append(baseGraders, contextConformanceGrader{
 			enforce:           opts.ContextConformance,
 			allowRuntimeDrift: opts.AllowContextRuntimeDrift,
 		})
 	}
-	for _, grader := range graders {
+	for _, grader := range baseGraders {
 		if !grader.Deterministic() && !opts.AllowNondeterministic {
 			return RunResult{}, fmt.Errorf("non-deterministic grader blocked: %s", grader.Name())
 		}
 	}
 
-	graderResults := make([]schemaregress.GraderResult, 0, len(fixtures)*len(graders))
+	graderResults := make([]schemaregress.GraderResult, 0, len(fixtures)*(len(baseGraders)+1))
 	failedGraders := 0
 	for _, fixture := range fixtures {
 		ctx := FixtureContext{Fixture: fixture}
+		graders := append([]Grader(nil), baseGraders...)
+		// Any effect metadata opts this fixture into the effect grader. This is
+		// deliberately broader than checking only the three resolved paths:
+		// expected correlations and a trusted key are evidence requirements too.
+		// The grader then fails closed when the metadata is incomplete instead of
+		// allowing an otherwise ordinary fixture to bypass effect validation.
+		if hasEffectMetadata(fixture) {
+			graders = append(graders, effectContractGrader{})
+		}
 		for _, grader := range graders {
 			graderResult, gradeErr := grader.Grade(ctx)
 			if gradeErr != nil {
@@ -222,6 +234,15 @@ func Run(opts RunOptions) (RunResult, error) {
 	}, nil
 }
 
+func hasEffectMetadata(fixture fixtureSpec) bool {
+	return strings.TrimSpace(fixture.EffectSnapshotPath) != "" ||
+		strings.TrimSpace(fixture.EffectContractPath) != "" ||
+		strings.TrimSpace(fixture.EffectPublicKeyPath) != "" ||
+		strings.TrimSpace(fixture.Meta.EffectExpectedActionDigest) != "" ||
+		strings.TrimSpace(fixture.Meta.EffectExpectedActivationDigest) != "" ||
+		strings.TrimSpace(fixture.Meta.EffectExpectedProofDigest) != ""
+}
+
 func readRegressConfig(configPath string) (configFile, error) {
 	// #nosec G304 -- config path is provided by the caller.
 	content, err := os.ReadFile(configPath)
@@ -288,19 +309,65 @@ func loadFixtureSpecs(cfg configFile, workDir string) ([]fixtureSpec, error) {
 		}
 		meta.DiffAllowChangedFiles = uniqueSortedStrings(meta.DiffAllowChangedFiles)
 
+		effectSnapshotPath, pathErr := resolveOptionalFixturePath(meta.EffectSnapshot, fixtureDir)
+		if pathErr != nil {
+			return nil, fmt.Errorf("invalid effect snapshot path for %s: %w", fixture.Name, pathErr)
+		}
+		effectContractPath, pathErr := resolveOptionalFixturePath(meta.EffectContract, fixtureDir)
+		if pathErr != nil {
+			return nil, fmt.Errorf("invalid effect contract path for %s: %w", fixture.Name, pathErr)
+		}
+		effectPublicKeyPath, pathErr := resolveOptionalFixturePath(meta.EffectPublicKey, fixtureDir)
+		if pathErr != nil {
+			return nil, fmt.Errorf("invalid effect public key path for %s: %w", fixture.Name, pathErr)
+		}
+		if meta.EffectSnapshot != "" || meta.EffectContract != "" || meta.EffectPublicKey != "" {
+			for label, value := range map[string]string{
+				"effect_expected_action_digest":     meta.EffectExpectedActionDigest,
+				"effect_expected_activation_digest": meta.EffectExpectedActivationDigest,
+				"effect_expected_proof_digest":      meta.EffectExpectedProofDigest,
+			} {
+				if value != "" && !effectDigestPattern.MatchString(value) {
+					return nil, fmt.Errorf("invalid %s for %s", label, fixture.Name)
+				}
+			}
+			if meta.EffectExpectedActionDigest == "" && meta.EffectExpectedActivationDigest == "" && meta.EffectExpectedProofDigest == "" {
+				return nil, fmt.Errorf("effect expected correlation digest is required for %s", fixture.Name)
+			}
+		}
+
 		specs = append(specs, fixtureSpec{
-			Name:         fixture.Name,
-			RunID:        meta.RunID,
-			FixtureDir:   fixtureDir,
-			RunpackPath:  runpackPath,
-			RunCreatedAt: pack.Run.CreatedAt,
-			Meta:         meta,
+			Name:                fixture.Name,
+			RunID:               meta.RunID,
+			FixtureDir:          fixtureDir,
+			RunpackPath:         runpackPath,
+			EffectSnapshotPath:  effectSnapshotPath,
+			EffectContractPath:  effectContractPath,
+			EffectPublicKeyPath: effectPublicKeyPath,
+			RunCreatedAt:        pack.Run.CreatedAt,
+			Meta:                meta,
 		})
 	}
 	sort.Slice(specs, func(i, j int) bool {
 		return specs[i].Name < specs[j].Name
 	})
 	return specs, nil
+}
+
+func resolveOptionalFixturePath(value, fixtureDir string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if filepath.IsAbs(value) {
+		return "", fmt.Errorf("absolute paths are not allowed")
+	}
+	candidate := filepath.Clean(filepath.Join(fixtureDir, filepath.FromSlash(value)))
+	relative, err := filepath.Rel(fixtureDir, candidate)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path escapes fixture directory")
+	}
+	return candidate, nil
 }
 
 func shouldRunContextConformance(opts RunOptions, fixtures []fixtureSpec) bool {

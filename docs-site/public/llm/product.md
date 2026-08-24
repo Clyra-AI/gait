@@ -21,6 +21,7 @@ Secondary boundary surfaces:
 - **Voice**: gate high-stakes spoken commitments before they are uttered with SayToken capability tokens and callpack artifacts.
 - **Context Evidence**: deterministic proof of what context the model was working from at decision time, with fail-closed checks bound to a verified `--context-envelope`.
 - **MCP Trust**: evaluate local trust snapshots for MCP server admission with `gait mcp verify`, `gait mcp proxy`, and `gait mcp serve`.
+- **Effect Evidence**: grade signed, bounded before/after `effect_snapshot` evidence against typed `effect_contract` predicates with `gait effects grade`; authoritative passes require a trusted collector public key.
 - **Trace**: observe-only wrapper mode with `gait trace` for integrations that already emit Gait trace references.
 - **LangChain Middleware**: official Python middleware with optional callback correlation; callbacks never decide allow or block behavior, and demo capture stays bound to `gait demo --json`.
 - **OpenAI Agents Reference Demo**: in-repo boundary demo showing the wrapper contract with deterministic allow, block, and approval outcomes. It is not a package-backed official SDK lane.

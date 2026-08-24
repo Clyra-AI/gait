@@ -54,6 +54,7 @@ export const navigation: NavItem[] = [
       { title: 'Pack Producer Kit', href: '/docs/contracts/pack_producer_kit' },
       { title: 'Compatibility Matrix', href: '/docs/contracts/compatibility_matrix' },
       { title: 'Action Contract Activation', href: '/docs/contracts/action_contract_activation' },
+      { title: 'Effect Evidence and Contracts', href: '/docs/contracts/effects' },
       { title: 'Artifact Graph', href: '/docs/contracts/artifact_graph' },
       { title: 'Skill Provenance', href: '/docs/contracts/skill_provenance' },
     ],

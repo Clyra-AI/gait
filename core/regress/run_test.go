@@ -73,6 +73,27 @@ func TestRunPassesWithDefaultFixture(t *testing.T) {
 	}
 }
 
+func TestRunDoesNotBypassEffectGradingForMetadataOnly(t *testing.T) {
+	workDir := t.TempDir()
+	sourceRunpack := createRunpack(t, workDir, "run_effect_metadata")
+	if _, err := InitFixture(InitOptions{SourceRunpackPath: sourceRunpack, WorkDir: workDir}); err != nil {
+		t.Fatalf("init fixture: %v", err)
+	}
+	metaPath := filepath.Join(workDir, "fixtures", "run_effect_metadata", "fixture.json")
+	meta := mustReadFixtureMeta(t, metaPath)
+	meta.EffectExpectedActionDigest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	if err := writeJSON(metaPath, meta); err != nil {
+		t.Fatalf("write fixture metadata: %v", err)
+	}
+	result, err := Run(RunOptions{ConfigPath: filepath.Join(workDir, "gait.yaml"), OutputPath: filepath.Join(workDir, "regress_result.json"), WorkDir: workDir})
+	if err != nil {
+		t.Fatalf("run regress: %v", err)
+	}
+	if result.Result.Status != regressStatusFail || !hasFailedReason(result.Result.Graders, "run_effect_metadata/effect_contract", "effect_evidence_missing") {
+		t.Fatalf("effect metadata bypassed fail-closed grading: status=%s graders=%#v", result.Result.Status, result.Result.Graders)
+	}
+}
+
 func TestRunFailsOnExpectedExitMismatch(t *testing.T) {
 	workDir := t.TempDir()
 	sourceRunpack := createRunpack(t, workDir, "run_demo")

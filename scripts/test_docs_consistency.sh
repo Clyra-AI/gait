@@ -44,7 +44,11 @@ for path in \
   "${REPO_ROOT}/docs/slo/runtime_slo.md" \
   "${REPO_ROOT}/docs/contracts/compatibility_matrix.md" \
   "${REPO_ROOT}/docs/contracts/action_contract_activation.md" \
+  "${REPO_ROOT}/docs/contracts/effects.md" \
   "${REPO_ROOT}/schemas/v1/action-contract/README.md" \
+  "${REPO_ROOT}/schemas/v1/effects/effect_snapshot.schema.json" \
+  "${REPO_ROOT}/schemas/v1/effects/effect_contract.schema.json" \
+  "${REPO_ROOT}/schemas/v1/effects/README.md" \
   "${REPO_ROOT}/docs/contracts/pack_producer_kit.md" \
   "${REPO_ROOT}/docs-site/src/lib/navigation.ts" \
   "${REPO_ROOT}/docs-site/src/app/docs/page.tsx" \
@@ -75,7 +79,7 @@ for path in \
 done
 
 for cmd in "gait job" "gait pack" "gait gate eval" "gait regress" "gait doctor" \
-  "gait contract validate" "gait contract activate" "gait contract verify" "gait contract consume"; do
+  "gait contract validate" "gait contract activate" "gait contract verify" "gait contract consume" "gait effects grade"; do
   if ! rg -qi --fixed-strings "${cmd}" "${REPO_ROOT}/docs-site/public/llms.txt"; then
     fail "llms command surface missing '${cmd}'"
   fi
@@ -96,6 +100,17 @@ require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "gait contract activate
 require_pattern "${REPO_ROOT}/cmd/gait/verify.go" "gait contract activate .*--valid-from <rfc3339>" "top-level CLI help must require Action Contract activation validity"
 require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "artifact schema \x601\x60(?:,|$)" "Action Contract artifact schema version missing or malformed"
 require_pattern "${REPO_ROOT}/schemas/v1/action-contract/README.md" "contract schema \x603\x60(?:[.,]|$)" "Action Contract contract schema version missing or malformed"
+for path in "${REPO_ROOT}/README.md" "${REPO_ROOT}/docs/contracts/effects.md" "${REPO_ROOT}/docs-site/public/llms.txt" "${REPO_ROOT}/docs-site/public/llms-full.txt" "${REPO_ROOT}/docs-site/public/llm/contracts.md"; do
+  require_pattern "${path}" "effect_snapshot" "Effect snapshot contract term missing"
+  require_pattern "${path}" "effect_contract" "Effect contract term missing"
+done
+require_pattern "${REPO_ROOT}/docs-site/public/llms-full.txt" "trusted-collector-key" "full LLM effects trusted-key command missing"
+require_pattern "${REPO_ROOT}/schemas/v1/effects/effect_snapshot.schema.json" '"schema_version": \{"const": "1\.0\.0"\}' "Effect snapshot schema version missing"
+require_pattern "${REPO_ROOT}/schemas/v1/effects/effect_contract.schema.json" '"schema_version": \{"const": "1\.0\.0"\}' "Effect contract schema version missing"
+require_pattern "${REPO_ROOT}/cmd/gait/verify.go" "gait effects grade .*--trusted-collector-key" "effects trusted-key CLI help missing"
+require_pattern "${REPO_ROOT}/cmd/gait/verify.go" "gait effects grade .*--expected-action-digest" "effects expected-correlation CLI help missing"
+require_pattern "${REPO_ROOT}/docs/contracts/effects.md" "trusted collector public key" "effects trusted-key documentation missing"
+require_pattern "${REPO_ROOT}/docs/contracts/effects.md" "expected correlation digest" "effects expected-correlation documentation missing"
 
 # Main and PR-fast CI must enforce the same Go package/aggregate coverage contract.
 for workflow in \
@@ -148,7 +163,8 @@ for route in \
   "/docs/threat_model" \
   "/docs/contracts/pack_producer_kit" \
   "/docs/contracts/compatibility_matrix" \
-  "/docs/contracts/action_contract_activation"; do
+  "/docs/contracts/action_contract_activation" \
+  "/docs/contracts/effects"; do
   require_pattern "${REPO_ROOT}/docs-site/src/lib/navigation.ts" "${route}" "required docs route missing from side nav"
 done
 
@@ -157,7 +173,8 @@ for route in \
   "/docs/durable_jobs" \
   "/docs/failure_taxonomy_exit_codes" \
   "/docs/threat_model" \
-  "/docs/contracts/action_contract_activation"; do
+  "/docs/contracts/action_contract_activation" \
+  "/docs/contracts/effects"; do
   require_pattern "${REPO_ROOT}/docs-site/src/app/docs/page.tsx" "${route}" "required docs route missing from docs home tracks"
 done
 
@@ -169,6 +186,7 @@ for route in \
   "https://clyra-ai.github.io/gait/docs/contracts/pack_producer_kit/" \
   "https://clyra-ai.github.io/gait/docs/contracts/compatibility_matrix/" \
   "https://clyra-ai.github.io/gait/docs/contracts/action_contract_activation/" \
+  "https://clyra-ai.github.io/gait/docs/contracts/effects/" \
   "https://clyra-ai.github.io/gait/llms.txt" \
   "https://clyra-ai.github.io/gait/llms-full.txt"; do
   require_pattern "${REPO_ROOT}/docs-site/public/sitemap.xml" "${route}" "required URL missing from sitemap.xml"

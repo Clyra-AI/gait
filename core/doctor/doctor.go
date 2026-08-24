@@ -107,6 +107,9 @@ var requiredSchemaPaths = []string{
 	"schemas/v1/registry/registry_pack.schema.json",
 	"schemas/v1/scout/adoption_event.schema.json",
 	"schemas/v1/scout/operational_event.schema.json",
+	"schemas/v1/effects/effect_snapshot.schema.json",
+	"schemas/v1/effects/effect_contract.schema.json",
+	"schemas/v1/effects/effect-grading-result.schema.json",
 }
 
 var requiredOnboardingPaths = []string{
