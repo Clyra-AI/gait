@@ -4,7 +4,7 @@
   "quarantine": true,
   "authoritative": false,
   "base_commit": "eb4c599a5c1a24dbb270c39a5a513d78f253506d",
-  "generator_sha256": "sha256:0601f41490f9e213f5b538f65779b21be920ad57717d7b47a83e23422df7df1e",
+  "generator_sha256": "sha256:cc328ff49b3ccccca27eca0b870b46877225c9a26a6fc0418c6c0454fa09f9f4",
   "approval_schema_sha256": "sha256:d95b9920068d16041e1871eaa5e94163d949a5e0e899a589171e415fb2727118",
   "delegation_schema_sha256": "sha256:ba89960f37fd48a948f6976098fa0b3087772537c8947e061afa1eafe5b87e53",
   "public_key_sha256": "sha256:ecd40e8a5fbcd1e73bfbd4bac1ad7693f1cacc1cb2ef8d51844fa675e61b78ee",
