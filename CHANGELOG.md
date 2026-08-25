@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-25
+
+### Added
+
+- [semver:minor] Added bounded local effect observation and paired before/after capture for signed, reference-first effect snapshots across filesystem, HTTP, and generic resources.
+- [semver:minor] Added deterministic stateful Action Contract chain evaluation and a fail-closed circuit-breaker evaluator for chain, effect, containment, stop, revocation, and invalidation decisions.
+- [semver:minor] Added signed offline advisory evaluator reports, control-event lifecycle evidence, deterministic OTEL-style lifecycle export, signed lifecycle receipts, and receipt-to-regression promotion.
+- [semver:minor] Added contract-bound approval/JIT, broker credential, and delegated capability lineage fields with exact Action Contract, scope, limit, and digest bindings while preserving legacy unbound compatibility.
+- Added portable lifecycle and gate fixture coverage, schema parity checks, deterministic generators, and expanded Action Contract documentation.
+
+### Security
+
+- Tightened fail-closed validation for approval/delegation lineage, brokered credential bindings, effect-capture SSRF/filesystem boundaries, lifecycle control transitions, receipt provenance, and advisory evidence integrity.
+- Synthetic stop, revocation, invalidation, out-of-scope, and related control-extension fixtures are explicitly quarantine-only and non-authoritative; they do not grant execution authority.
+
 ## [1.5.0] - 2026-08-24
 
 ### Added
