@@ -35,7 +35,7 @@ func readTokenFile(path string) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return io.ReadAll(io.LimitReader(f, 4<<20))
 }
 func strictTokenDecode(raw []byte, v any) error {

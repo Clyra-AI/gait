@@ -102,6 +102,14 @@ func ValidateChainState(s ChainState) []string {
 	if s.StepCount < 0 || s.StepCount > 1024 {
 		r = append(r, "chain_state_step_count_invalid")
 	}
+	if s.StepCount != len(s.StepIDs) || hasDup(s.StepIDs) {
+		r = append(r, "chain_state_inconsistent")
+	}
+	for _, id := range s.StepIDs {
+		if validateChainID(id) != nil {
+			r = append(r, "chain_step_id_invalid")
+		}
+	}
 	if !sort.StringsAreSorted(s.Classes) || !sort.StringsAreSorted(s.Targets) {
 		r = append(r, "chain_state_not_canonical")
 	}

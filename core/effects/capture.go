@@ -70,7 +70,7 @@ func LoadCaptureResult(path string) (CaptureResult, error) {
 		return CaptureResult{}, e
 	}
 	var r CaptureResult
-	if e = json.Unmarshal(raw, &r); e != nil {
+	if e = decodeStrict(raw, &r); e != nil {
 		return r, e
 	}
 	if len(raw) > maxEffectInputBytes {
@@ -201,7 +201,7 @@ func captureHTTP(req CaptureRequest, now time.Time) (CaptureResult, error) {
 	}
 	if !req.AllowUnsafeLocal {
 		host := parsed.Hostname()
-		ips := []net.IP{}
+		var ips []net.IP
 		if ip := net.ParseIP(host); ip != nil {
 			ips = []net.IP{ip}
 		} else if req.Resolve != nil {
@@ -233,12 +233,7 @@ func captureHTTP(req CaptureRequest, now time.Time) (CaptureResult, error) {
 	if client == nil {
 		client = &http.Client{Timeout: 5 * time.Second}
 	}
-	tr := client.Transport
-	if tr == nil {
-		tr = http.DefaultTransport
-	}
-	base := tr
-	tr = &http.Transport{Proxy: nil, ResponseHeaderTimeout: client.Timeout, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+	tr := &http.Transport{Proxy: nil, ResponseHeaderTimeout: client.Timeout, DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 		host, port, e := net.SplitHostPort(address)
 		if e != nil {
 			return nil, e
@@ -263,13 +258,12 @@ func captureHTTP(req CaptureRequest, now time.Time) (CaptureResult, error) {
 		}
 		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, target)
 	}}
-	_ = base
 	client = &http.Client{Transport: tr, Timeout: client.Timeout, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Get(rawURL)
 	if err != nil {
 		return CaptureResult{}, fmt.Errorf("http capture: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.ContentLength > MaxCaptureURLBytes {
 		return CaptureResult{}, errors.New("http capture byte limit exceeded")
 	}
@@ -289,7 +283,7 @@ func captureHTTP(req CaptureRequest, now time.Time) (CaptureResult, error) {
 	return CaptureResult{Observation: Observation{State: state, Digest: "sha256:" + hex.EncodeToString(h[:]), Count: &count, Identity: rawURL, ObservedAt: now.Format(time.RFC3339Nano)}, Complete: resp.StatusCode < 400, Reason: fmt.Sprintf("http_status_%d", resp.StatusCode)}, nil
 }
 func validCaptureIP(ip net.IP) bool {
-	return ip != nil && !(ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast())
+	return ip != nil && !ip.IsLoopback() && !ip.IsPrivate() && !ip.IsUnspecified() && !ip.IsLinkLocalUnicast() && !ip.IsLinkLocalMulticast() && !ip.IsMulticast()
 }
 func resolveCaptureHost(req CaptureRequest, host string) ([]net.IP, error) {
 	var ips []net.IP

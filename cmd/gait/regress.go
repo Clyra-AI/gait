@@ -178,7 +178,7 @@ func runRegressAdd(arguments []string) int {
 			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: te.Error()}, exitInternalFailure)
 		}
 		tmpPath := tmp.Name()
-		defer os.Remove(tmpPath)
+		defer func() { _ = os.Remove(tmpPath) }()
 		if _, te = tmp.Write(rr.ZipBytes); te == nil {
 			te = tmp.Close()
 		}
