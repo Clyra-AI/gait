@@ -66,7 +66,11 @@ func TestMaterializeLifecycleReceiptVerifyReplayAndSourceMetadata(t *testing.T) 
 		t.Fatalf("materialized runpack verification: %#v %v", verified, err)
 	}
 	replayed, err := runpack.ReplayStub(path)
-	if err != nil || len(replayed.Steps) != 1 || replayed.Steps[0].Status != receipt.Outcome {
+	expectedStatus := "error"
+	if receipt.Outcome == "succeeded" || receipt.Outcome == "pass" {
+		expectedStatus = "ok"
+	}
+	if err != nil || len(replayed.Steps) != 1 || replayed.Steps[0].Status != expectedStatus {
 		t.Fatalf("materialized runpack replay: %#v %v", replayed, err)
 	}
 	pack, err := runpack.ReadRunpack(path)
