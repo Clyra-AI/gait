@@ -495,6 +495,10 @@ func printActionContractUsage() {
 	fmt.Println("  gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> [--valid-until <rfc3339>] [--out <activated.json>] [--overwrite] [--json]")
 	fmt.Println("  gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> [--evaluation-time <rfc3339>] [--json]")
 	fmt.Println("  gait contract consume <artifact.json> [--selection <manifest.json>]")
+	fmt.Println("  gait action-contract advisory evaluate|verify")
+	fmt.Println("  gait action-contract chain evaluate --policy policy.json --state state.json --candidate candidate.json [--out decision.json] [--json]")
+	fmt.Println("  gait action-contract circuit evaluate --input input.json [--out decision.json] [--json]")
+	fmt.Println("  gait action-contract otel --lifecycle lifecycle.json --otel-out events.jsonl --trusted-key public-key --source-version version")
 }
 func printActionContractValidateUsage() {
 	fmt.Println("Usage: gait contract validate --proposal <artifact.json> [--evaluation-time <rfc3339>] [--json]")

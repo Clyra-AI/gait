@@ -307,7 +307,8 @@ func ExportLifecycleOTelWithOptions(path string, records []LifecycleRecord, opts
 			e.ResourceID = r.Control.ResourceID
 			e.AffectedScope = append(e.AffectedScope, r.Control.AffectedScope...)
 		}
-		e.AffectedScope = append([]string{}, r.AffectedScope...)
+		e.AffectedScope = append(e.AffectedScope, r.AffectedScope...)
+		e.AffectedScope = unique(e.AffectedScope)
 		sort.Strings(e.AffectedScope)
 		events = append(events, e)
 	}

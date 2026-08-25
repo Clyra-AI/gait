@@ -157,13 +157,13 @@ func runRegressAdd(arguments []string) int {
 			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_key_invalid"}, exitVerifyFailed)
 		}
 		if verifyAt == "" {
-			verifyAt = receipt.FreshUntil
+			verifyAt = time.Now().UTC().Format(time.RFC3339Nano)
 		}
 		vt, te := time.Parse(time.RFC3339Nano, verifyAt)
 		if te != nil || actioncontract.VerifyLifecycleReceiptAt(receipt, pub, vt) != nil {
 			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_verification_failed"}, exitVerifyFailed)
 		}
-		if expectedContract != "" && receipt.ContractID != expectedContract {
+		if expectedContract != "" && (receipt.Correlation.ContractRef == nil || receipt.Correlation.ContractRef.Digest != expectedContract) {
 			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_lineage_mismatch"}, exitVerifyFailed)
 		}
 		if expectedCorrelation != "" && receipt.Correlation.ContentDigest != expectedCorrelation {
