@@ -68,3 +68,12 @@ References:
 - `docs/contracts/action_contract_activation.md`
 - `schemas/v1/action-contract/README.md`
 - `docs/failure_taxonomy_exit_codes.md`
+## Action Contract evidence additions
+
+- `gait effects observe` captures one bounded observation; paired `gait effects capture` consumes `--before-observation` and `--after-observation` to produce a complete signed snapshot.
+- `gait action-contract advisory evaluate|verify` is advisory-only and offline by default.
+- `gait action-contract otel` requires `--trusted-key` and `--source-version`; local signed evidence remains authoritative if export fails.
+- `gait regress add --from lifecycle-receipt.json` requires receipt verification, a runpack `--private-key`, and optional explicit `--verify-at`.
+- `gait action-contract chain evaluate` advances state only on allow; `gait action-contract circuit evaluate` exits fail-closed for denied chains, non-authoritative effects, unresolved containment, stop/revocation, invalidation, and out-of-scope boundaries.
+- Chain policy/state/candidate evaluation is deterministic and pre-execution. Contract-bound approval/delegation/JIT fields are exact-binding extensions; legacy unbound flows remain compatible.
+- v1.5.0 released fixtures are distinct from unreleased synthetic stop/revocation/invalidation/out-of-scope control extensions, which are quarantine-only and non-authoritative.

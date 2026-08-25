@@ -369,7 +369,7 @@ func validateContainmentEvidence(item ContainmentEvidence) error {
 	if err := validateEvidenceIdentity("gait-containment-", item.EvidenceID, item.CanonicalContentDigest); err != nil {
 		return err
 	}
-	if item.SchemaID != ContainmentEvidenceSchemaID || (item.Outcome != "requested" && item.Outcome != "completed" && item.Outcome != "partial" && item.Outcome != "unresolved") || !digestBoundRef(item.EventRef) {
+	if item.SchemaID != ContainmentEvidenceSchemaID || (item.Outcome != "requested" && item.Outcome != "completed" && item.Outcome != "partial" && item.Outcome != "unresolved" && item.Outcome != "out_of_scope") || !digestBoundRef(item.EventRef) {
 		return errors.New("containment evidence shape invalid")
 	}
 	if !validExecutionEvidenceRef(item.ExecutionRef) || !digestBoundRef(item.ContainmentRef) {

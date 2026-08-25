@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/fsx"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	jcs "github.com/Clyra-AI/proof/canon"
 	sign "github.com/Clyra-AI/proof/signing"
 )
 
@@ -37,19 +39,25 @@ const (
 )
 
 type MintApprovalTokenOptions struct {
-	ProducerVersion         string
-	ApproverIdentity        string
-	ReasonCode              string
-	IntentDigest            string
-	PolicyDigest            string
-	DelegationBindingDigest string
-	Scope                   []string
-	MaxTargets              int
-	MaxOps                  int
-	TTL                     time.Duration
-	Now                     time.Time
-	SigningPrivateKey       ed25519.PrivateKey
-	TokenPath               string
+	ProducerVersion                                                            string
+	ApproverIdentity                                                           string
+	ReasonCode                                                                 string
+	IntentDigest                                                               string
+	PolicyDigest                                                               string
+	DelegationBindingDigest                                                    string
+	Scope                                                                      []string
+	MaxTargets                                                                 int
+	MaxOps                                                                     int
+	TTL                                                                        time.Duration
+	Now                                                                        time.Time
+	SigningPrivateKey                                                          ed25519.PrivateKey
+	TokenPath                                                                  string
+	ContractFamilyID                                                           string
+	ContractID                                                                 string
+	ContractRevision                                                           int
+	ProposalDigest                                                             string
+	ActivationDigest                                                           string
+	TargetScope, EnvironmentScope, OutcomeScope, EffectScope, ContainmentScope []string
 }
 
 type MintApprovalTokenResult struct {
@@ -58,13 +66,19 @@ type MintApprovalTokenResult struct {
 }
 
 type ApprovalValidationOptions struct {
-	Now                             time.Time
-	ExpectedIntentDigest            string
-	ExpectedPolicyDigest            string
-	ExpectedDelegationBindingDigest string
-	RequiredScope                   []string
-	TargetCount                     int
-	OperationCount                  int
+	Now                                                                                                                time.Time
+	ExpectedIntentDigest                                                                                               string
+	ExpectedPolicyDigest                                                                                               string
+	ExpectedDelegationBindingDigest                                                                                    string
+	RequiredScope                                                                                                      []string
+	TargetCount                                                                                                        int
+	OperationCount                                                                                                     int
+	ExpectedContractFamilyID                                                                                           string
+	ExpectedContractID                                                                                                 string
+	ExpectedContractRevision                                                                                           int
+	ExpectedProposalDigest                                                                                             string
+	ExpectedActivationDigest                                                                                           string
+	ExpectedTargetScope, ExpectedEnvironmentScope, ExpectedOutcomeScope, ExpectedEffectScope, ExpectedContainmentScope []string
 }
 
 type ApprovalTokenError struct {
@@ -151,10 +165,28 @@ func MintApprovalToken(opts MintApprovalTokenOptions) (MintApprovalTokenResult, 
 		MaxTargets:              opts.MaxTargets,
 		MaxOps:                  opts.MaxOps,
 		ExpiresAt:               createdAt.Add(opts.TTL),
+		ContractFamilyID:        opts.ContractFamilyID, ContractID: opts.ContractID, ContractRevision: opts.ContractRevision, ProposalDigest: opts.ProposalDigest, ActivationDigest: opts.ActivationDigest,
+		TargetScope: normalizeStringListLower(opts.TargetScope), EnvironmentScope: normalizeStringListLower(opts.EnvironmentScope), OutcomeScope: normalizeStringListLower(opts.OutcomeScope), EffectScope: normalizeStringListLower(opts.EffectScope), ContainmentScope: normalizeStringListLower(opts.ContainmentScope),
+	}
+	var normalizeErr error
+	token, normalizeErr = normalizeApprovalToken(token)
+	if normalizeErr != nil {
+		return MintApprovalTokenResult{}, normalizeErr
 	}
 
 	signable := token
 	signable.Signature = nil
+	if isContractBoundApproval(token) {
+		signable.TokenID = ""
+		raw, _ := json.Marshal(signable)
+		digest, digestErr := jcs.DigestJCS(raw)
+		if digestErr != nil {
+			return MintApprovalTokenResult{}, fmt.Errorf("digest approval token: %w", digestErr)
+		}
+		token.TokenID = strings.TrimPrefix(digest, "sha256:")[:24]
+		signable = token
+		signable.Signature = nil
+	}
 	signableRaw, err := json.Marshal(signable)
 	if err != nil {
 		return MintApprovalTokenResult{}, fmt.Errorf("marshal signable approval token: %w", err)
@@ -195,7 +227,10 @@ func WriteApprovalToken(path string, token schemagate.ApprovalToken) error {
 		return fmt.Errorf("marshal approval token: %w", err)
 	}
 	encoded = append(encoded, '\n')
-	if err := os.WriteFile(path, encoded, 0o600); err != nil {
+	if err := safeTokenPath(path); err != nil {
+		return err
+	}
+	if err := fsx.WriteFileAtomic(path, encoded, 0o600); err != nil {
 		return fmt.Errorf("write approval token: %w", err)
 	}
 	return nil
@@ -203,12 +238,12 @@ func WriteApprovalToken(path string, token schemagate.ApprovalToken) error {
 
 func ReadApprovalToken(path string) (schemagate.ApprovalToken, error) {
 	// #nosec G304 -- approval token path is explicit local user input.
-	content, err := os.ReadFile(path)
+	content, err := readTokenFile(path)
 	if err != nil {
 		return schemagate.ApprovalToken{}, fmt.Errorf("read approval token: %w", err)
 	}
 	var token schemagate.ApprovalToken
-	if err := json.Unmarshal(content, &token); err != nil {
+	if err := strictTokenDecode(content, &token); err != nil {
 		return schemagate.ApprovalToken{}, fmt.Errorf("parse approval token: %w", err)
 	}
 	return token, nil
@@ -221,6 +256,10 @@ func ValidateApprovalToken(token schemagate.ApprovalToken, publicKey ed25519.Pub
 	}
 	if len(publicKey) == 0 {
 		return &ApprovalTokenError{Code: ApprovalCodeSignatureFailed, Err: fmt.Errorf("verification public key is required")}
+	}
+	expectsBound := opts.ExpectedContractFamilyID != "" || opts.ExpectedContractID != "" || opts.ExpectedContractRevision > 0 || opts.ExpectedProposalDigest != "" || opts.ExpectedActivationDigest != "" || len(opts.ExpectedTargetScope) > 0 || len(opts.ExpectedEnvironmentScope) > 0 || len(opts.ExpectedOutcomeScope) > 0 || len(opts.ExpectedEffectScope) > 0 || len(opts.ExpectedContainmentScope) > 0
+	if expectsBound && (!isContractBoundApproval(normalized) || normalized.MaxOps <= 0 || normalized.MaxTargets <= 0) {
+		return &ApprovalTokenError{Code: ApprovalCodeScopeMismatch, Err: fmt.Errorf("contract-bound token required")}
 	}
 	if normalized.Signature == nil {
 		return &ApprovalTokenError{Code: ApprovalCodeSignatureMiss, Err: fmt.Errorf("signature missing")}
@@ -256,6 +295,26 @@ func ValidateApprovalToken(token schemagate.ApprovalToken, publicKey ed25519.Pub
 	expectedDelegationBindingDigest := strings.ToLower(strings.TrimSpace(opts.ExpectedDelegationBindingDigest))
 	if expectedDelegationBindingDigest != "" && normalized.DelegationBindingDigest != expectedDelegationBindingDigest {
 		return &ApprovalTokenError{Code: ApprovalCodeDelegationMismatch, Err: fmt.Errorf("delegation binding digest mismatch")}
+	}
+	if opts.ExpectedContractFamilyID != "" && normalized.ContractFamilyID != opts.ExpectedContractFamilyID {
+		return &ApprovalTokenError{Code: ApprovalCodeScopeMismatch, Err: fmt.Errorf("contract family mismatch")}
+	}
+	if opts.ExpectedContractID != "" && normalized.ContractID != opts.ExpectedContractID {
+		return &ApprovalTokenError{Code: ApprovalCodeScopeMismatch, Err: fmt.Errorf("contract id mismatch")}
+	}
+	if opts.ExpectedContractRevision > 0 && normalized.ContractRevision != opts.ExpectedContractRevision {
+		return &ApprovalTokenError{Code: ApprovalCodeScopeMismatch, Err: fmt.Errorf("contract revision mismatch")}
+	}
+	if opts.ExpectedProposalDigest != "" && normalized.ProposalDigest != opts.ExpectedProposalDigest {
+		return &ApprovalTokenError{Code: ApprovalCodeScopeMismatch, Err: fmt.Errorf("proposal digest mismatch")}
+	}
+	if opts.ExpectedActivationDigest != "" && normalized.ActivationDigest != opts.ExpectedActivationDigest {
+		return &ApprovalTokenError{Code: ApprovalCodeScopeMismatch, Err: fmt.Errorf("activation digest mismatch")}
+	}
+	for _, pair := range []struct{ want, got []string }{{opts.ExpectedTargetScope, normalized.TargetScope}, {opts.ExpectedEnvironmentScope, normalized.EnvironmentScope}, {opts.ExpectedOutcomeScope, normalized.OutcomeScope}, {opts.ExpectedEffectScope, normalized.EffectScope}, {opts.ExpectedContainmentScope, normalized.ContainmentScope}} {
+		if len(pair.want) > 0 && !matchesApprovalScope(pair.want, pair.got) {
+			return &ApprovalTokenError{Code: ApprovalCodeScopeMismatch, Err: fmt.Errorf("contract axis scope mismatch")}
+		}
 	}
 	now := opts.Now.UTC()
 	if now.IsZero() {
@@ -346,6 +405,31 @@ func normalizeApprovalToken(token schemagate.ApprovalToken) (schemagate.Approval
 	if normalized.MaxOps < 0 {
 		return schemagate.ApprovalToken{}, fmt.Errorf("max_ops must be >= 0")
 	}
+	normalized.ContractFamilyID = strings.TrimSpace(normalized.ContractFamilyID)
+	normalized.ContractID = strings.TrimSpace(normalized.ContractID)
+	normalized.ProposalDigest = strings.ToLower(strings.TrimSpace(normalized.ProposalDigest))
+	normalized.ActivationDigest = strings.ToLower(strings.TrimSpace(normalized.ActivationDigest))
+	normalized.TargetScope = normalizeStringListLower(normalized.TargetScope)
+	normalized.EnvironmentScope = normalizeStringListLower(normalized.EnvironmentScope)
+	normalized.OutcomeScope = normalizeStringListLower(normalized.OutcomeScope)
+	normalized.EffectScope = normalizeStringListLower(normalized.EffectScope)
+	normalized.ContainmentScope = normalizeStringListLower(normalized.ContainmentScope)
+	bound := normalized.ContractFamilyID != "" || normalized.ContractID != "" || normalized.ContractRevision > 0 || normalized.ProposalDigest != "" || normalized.ActivationDigest != "" || len(normalized.TargetScope) > 0 || len(normalized.EnvironmentScope) > 0 || len(normalized.OutcomeScope) > 0 || len(normalized.EffectScope) > 0 || len(normalized.ContainmentScope) > 0
+	if bound {
+		if normalized.ContractFamilyID == "" || normalized.ContractID == "" || normalized.ContractRevision < 1 || !isDigestHex(normalized.ProposalDigest) || !isDigestHex(normalized.ActivationDigest) || normalized.MaxOps <= 0 || normalized.MaxTargets <= 0 || len(normalized.TargetScope) == 0 || len(normalized.EnvironmentScope) == 0 || len(normalized.OutcomeScope) == 0 || len(normalized.EffectScope) == 0 || len(normalized.ContainmentScope) == 0 {
+			return schemagate.ApprovalToken{}, fmt.Errorf("incomplete contract binding")
+		}
+		for _, v := range [][]string{normalized.TargetScope, normalized.EnvironmentScope, normalized.OutcomeScope, normalized.EffectScope, normalized.ContainmentScope} {
+			if hasDuplicate(v) {
+				return schemagate.ApprovalToken{}, fmt.Errorf("duplicate contract scope")
+			}
+			for _, x := range v {
+				if x == "*" || x == "" {
+					return schemagate.ApprovalToken{}, fmt.Errorf("invalid contract scope")
+				}
+			}
+		}
+	}
 	if normalized.CreatedAt.IsZero() {
 		return schemagate.ApprovalToken{}, fmt.Errorf("created_at is required")
 	}
@@ -353,6 +437,19 @@ func normalizeApprovalToken(token schemagate.ApprovalToken) (schemagate.Approval
 		return schemagate.ApprovalToken{}, fmt.Errorf("expires_at is required")
 	}
 	return normalized, nil
+}
+func hasDuplicate(v []string) bool {
+	m := map[string]bool{}
+	for _, x := range v {
+		if m[x] {
+			return true
+		}
+		m[x] = true
+	}
+	return false
+}
+func isContractBoundApproval(t schemagate.ApprovalToken) bool {
+	return t.ContractFamilyID != "" || t.ContractID != "" || t.ContractRevision > 0 || t.ProposalDigest != "" || t.ActivationDigest != "" || len(t.TargetScope) > 0 || len(t.EnvironmentScope) > 0 || len(t.OutcomeScope) > 0 || len(t.EffectScope) > 0 || len(t.ContainmentScope) > 0
 }
 
 func matchesApprovalScope(requiredScope []string, tokenScope []string) bool {

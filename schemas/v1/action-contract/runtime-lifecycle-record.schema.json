@@ -4,72 +4,1076 @@
   "title": "Gait Runtime Lifecycle Record",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "schema_version", "record_id", "revision", "kind", "occurred_at", "contract_ref", "correlation", "signature"],
+  "required": [
+    "schema_id",
+    "schema_version",
+    "record_id",
+    "revision",
+    "kind",
+    "occurred_at",
+    "contract_ref",
+    "correlation",
+    "signature"
+  ],
   "properties": {
-    "schema_id": {"const": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json"}, "schema_version": {"const": "1"},
-    "record_id": {"type": "string", "pattern": "^gait-lr-[a-f0-9]{16}$"}, "revision": {"type": "integer", "minimum": 1}, "kind": {"enum": ["proposal_ingested", "activation_requested", "activated", "rejected", "revoked", "superseded", "precondition_evaluated", "decision_ready", "execution_started", "execution_succeeded", "execution_failed", "execution_blocked", "effect_recorded", "effect_validated", "containment_requested", "containment_completed", "containment_partial", "containment_unresolved", "compensation_required", "compensation_started", "compensation_completed"]},
-    "occurred_at": {"type": "string", "format": "date-time"}, "contract_ref": {"$ref": "#/$defs/relationship_ref"}, "contract_family_id": {"type": "string", "minLength": 1},
-    "proposal_ref": {"$ref": "#/$defs/relationship_ref"}, "activation_ref": {"$ref": "#/$defs/relationship_ref"}, "precondition_refs": {"type": "array", "items": {"$ref": "#/$defs/relationship_ref"}},
-    "decision": {"allOf": [{"$ref": "runtime-readiness.schema.json"}, {"type": "object", "required": ["status", "policy_digest", "preconditions"], "properties": {"status": {"const": "satisfied"}, "preconditions": {"contains": {"type": "object", "required": ["required", "status"], "properties": {"required": {"const": true}, "status": {"const": "satisfied"}}}}}}]}, "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/relationship_ref"}}, "execution": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json"}, "effect": {"$ref": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json"}, "containment": {"$ref": "https://gait.dev/schemas/v1/action-contract/containment-evidence.schema.json"}, "compensation": {"$ref": "https://gait.dev/schemas/v1/action-contract/compensation-evidence.schema.json"}, "reason_codes": {"type": "array", "items": {"type": "string"}},
-    "correlation": {"$ref": "#/$defs/correlation_profile"}, "immutable_object": {}, "signature": {"$ref": "#/$defs/signature"}
+    "schema_id": {
+      "const": "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json"
+    },
+    "schema_version": {
+      "const": "1"
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^gait-lr-[a-f0-9]{16}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "enum": [
+        "proposal_ingested",
+        "activation_requested",
+        "activated",
+        "rejected",
+        "revoked",
+        "superseded",
+        "precondition_evaluated",
+        "decision_ready",
+        "execution_started",
+        "execution_succeeded",
+        "execution_failed",
+        "execution_blocked",
+        "effect_recorded",
+        "effect_validated",
+        "containment_requested",
+        "containment_completed",
+        "containment_partial",
+        "containment_unresolved",
+        "containment_out_of_scope",
+        "stop_requested",
+        "stop_acknowledged",
+        "stop_denied",
+        "stop_failed",
+        "external_revocation_attempted",
+        "external_revocation_acknowledged",
+        "external_revocation_failed",
+        "capability_invalidated",
+        "descendant_invalidated",
+        "compensation_required",
+        "compensation_started",
+        "compensation_completed"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "contract_ref": {
+      "$ref": "#/$defs/relationship_ref"
+    },
+    "contract_family_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "proposal_ref": {
+      "$ref": "#/$defs/relationship_ref"
+    },
+    "activation_ref": {
+      "$ref": "#/$defs/relationship_ref"
+    },
+    "precondition_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationship_ref"
+      }
+    },
+    "decision": {
+      "allOf": [
+        {
+          "$ref": "runtime-readiness.schema.json"
+        },
+        {
+          "type": "object",
+          "required": [
+            "status",
+            "policy_digest",
+            "preconditions"
+          ],
+          "properties": {
+            "status": {
+              "const": "satisfied"
+            },
+            "preconditions": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "required",
+                  "status"
+                ],
+                "properties": {
+                  "required": {
+                    "const": true
+                  },
+                  "status": {
+                    "const": "satisfied"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/relationship_ref"
+      }
+    },
+    "execution": {
+      "$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json"
+    },
+    "effect": {
+      "$ref": "https://gait.dev/schemas/v1/action-contract/effect-event.schema.json"
+    },
+    "containment": {
+      "$ref": "https://gait.dev/schemas/v1/action-contract/containment-evidence.schema.json"
+    },
+    "compensation": {
+      "$ref": "https://gait.dev/schemas/v1/action-contract/compensation-evidence.schema.json"
+    },
+    "control": {
+      "$ref": "https://gait.dev/schemas/v1/action-contract/control-event-evidence.schema.json"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "correlation": {
+      "$ref": "#/$defs/correlation_profile"
+    },
+    "immutable_object": {},
+    "signature": {
+      "$ref": "#/$defs/signature"
+    }
   },
   "$defs": {
     "relationship_ref": {
-      "type": "object", "additionalProperties": false, "required": ["kind", "id", "digest"],
-      "properties": {"kind": {"type": "string", "minLength": 1}, "id": {"type": "string", "minLength": 1}, "digest": {"type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$"}, "schema_id": {"type": "string"}, "schema_version": {"type": "string"}, "source_product": {"type": "string"}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "digest"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^(sha256:)?[a-f0-9]{64}$"
+        },
+        "schema_id": {
+          "type": "string"
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "source_product": {
+          "type": "string"
+        }
+      }
     },
     "correlation_ref": {
-      "type": "object", "additionalProperties": false, "required": ["kind", "id"],
-      "properties": {"kind": {"type": "string", "minLength": 1}, "id": {"type": "string", "minLength": 1}, "digest": {"type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$"}, "schema_id": {"type": "string", "minLength": 1}, "schema_version": {"type": "string", "minLength": 1}, "source_product": {"type": "string", "minLength": 1}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^(sha256:)?[a-f0-9]{64}$"
+        },
+        "schema_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_product": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     },
     "signature": {
-      "type": "object", "additionalProperties": false, "required": ["alg", "key_id", "sig", "signed_digest"],
-      "properties": {"alg": {"const": "ed25519"}, "key_id": {"type": "string", "minLength": 1}, "sig": {"type": "string", "minLength": 1}, "signed_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alg",
+        "key_id",
+        "sig",
+        "signed_digest"
+      ],
+      "properties": {
+        "alg": {
+          "const": "ed25519"
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sig": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signed_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
     },
     "redaction_metadata": {
-      "type": "object", "additionalProperties": false, "required": ["applied"],
-      "properties": {"applied": {"type": "boolean"}, "fields": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "reason": {"type": "string", "minLength": 1}, "method": {"type": "string", "minLength": 1}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applied"
+      ],
+      "properties": {
+        "applied": {
+          "type": "boolean"
+        },
+        "fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     },
     "correlation_profile": {
-      "type": "object", "additionalProperties": false, "required": ["profile_version", "binding_mode", "contract_ref", "content_digest"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_version",
+        "binding_mode",
+        "contract_ref",
+        "content_digest"
+      ],
       "properties": {
-        "profile_version": {"enum": ["1", "1.0"]}, "binding_mode": {"const": "digest_bound"}, "content_digest": {"type": "string", "pattern": "^(sha256:)?[a-f0-9]{64}$"},
-        "event_ref": {"$ref": "#/$defs/correlation_ref"}, "action_ref": {"$ref": "#/$defs/correlation_ref"}, "contract_ref": {"$ref": "#/$defs/relationship_ref"}, "run_ref": {"$ref": "#/$defs/correlation_ref"}, "session_ref": {"$ref": "#/$defs/correlation_ref"}, "policy_ref": {"$ref": "#/$defs/correlation_ref"}, "decision_ref": {"$ref": "#/$defs/correlation_ref"}, "proof_ref": {"$ref": "#/$defs/correlation_ref"}, "causal_ref": {"$ref": "#/$defs/correlation_ref"}, "containment_ref": {"$ref": "#/$defs/correlation_ref"}, "boundary_ref": {"$ref": "#/$defs/correlation_ref"}, "revocation_ref": {"$ref": "#/$defs/correlation_ref"}, "acknowledgement_ref": {"$ref": "#/$defs/correlation_ref"},
-        "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$", "not": {"const": "00000000000000000000000000000000"}}, "span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$", "not": {"const": "0000000000000000"}}, "parent_span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$", "not": {"const": "0000000000000000"}}, "redaction": {"$ref": "#/$defs/redaction_metadata"}, "redaction_metadata": {"$ref": "#/$defs/redaction_metadata"}
+        "profile_version": {
+          "enum": [
+            "1",
+            "1.0"
+          ]
+        },
+        "binding_mode": {
+          "const": "digest_bound"
+        },
+        "content_digest": {
+          "type": "string",
+          "pattern": "^(sha256:)?[a-f0-9]{64}$"
+        },
+        "event_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "action_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "contract_ref": {
+          "$ref": "#/$defs/relationship_ref"
+        },
+        "run_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "session_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "decision_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "proof_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "causal_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "containment_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "boundary_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "revocation_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "acknowledgement_ref": {
+          "$ref": "#/$defs/correlation_ref"
+        },
+        "trace_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$",
+          "not": {
+            "const": "00000000000000000000000000000000"
+          }
+        },
+        "span_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "not": {
+            "const": "0000000000000000"
+          }
+        },
+        "parent_span_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$",
+          "not": {
+            "const": "0000000000000000"
+          }
+        },
+        "redaction": {
+          "$ref": "#/$defs/redaction_metadata"
+        },
+        "redaction_metadata": {
+          "$ref": "#/$defs/redaction_metadata"
+        }
       }
     },
     "typed_evidence_exclusive": {
       "oneOf": [
-        {"not": {"anyOf": [{"required": ["execution"]}, {"required": ["effect"]}, {"required": ["containment"]}, {"required": ["compensation"]}]}},
-        {"required": ["execution"], "not": {"anyOf": [{"required": ["effect"]}, {"required": ["containment"]}, {"required": ["compensation"]}]}},
-        {"required": ["effect"], "not": {"anyOf": [{"required": ["execution"]}, {"required": ["containment"]}, {"required": ["compensation"]}]}},
-        {"required": ["containment"], "not": {"anyOf": [{"required": ["execution"]}, {"required": ["effect"]}, {"required": ["compensation"]}]}},
-        {"required": ["compensation"], "not": {"anyOf": [{"required": ["execution"]}, {"required": ["effect"]}, {"required": ["containment"]}]}}
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "execution"
+                ]
+              },
+              {
+                "required": [
+                  "effect"
+                ]
+              },
+              {
+                "required": [
+                  "containment"
+                ]
+              },
+              {
+                "required": [
+                  "compensation"
+                ]
+              },
+              {
+                "required": [
+                  "control"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "execution"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "effect"
+                ]
+              },
+              {
+                "required": [
+                  "containment"
+                ]
+              },
+              {
+                "required": [
+                  "compensation"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "effect"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "execution"
+                ]
+              },
+              {
+                "required": [
+                  "containment"
+                ]
+              },
+              {
+                "required": [
+                  "compensation"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "containment"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "execution"
+                ]
+              },
+              {
+                "required": [
+                  "effect"
+                ]
+              },
+              {
+                "required": [
+                  "compensation"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "compensation"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "execution"
+                ]
+              },
+              {
+                "required": [
+                  "effect"
+                ]
+              },
+              {
+                "required": [
+                  "containment"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "control"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "execution"
+                ]
+              },
+              {
+                "required": [
+                  "effect"
+                ]
+              },
+              {
+                "required": [
+                  "containment"
+                ]
+              },
+              {
+                "required": [
+                  "compensation"
+                ]
+              }
+            ]
+          }
+        }
       ]
     },
     "event_requirements": {
       "allOf": [
-        {"if": {"properties": {"kind": {"enum": ["proposal_ingested", "activation_requested", "activated", "rejected", "revoked", "superseded", "precondition_evaluated", "decision_ready"]}}}, "then": {"not": {"anyOf": [{"required": ["execution"]}, {"required": ["effect"]}, {"required": ["containment"]}, {"required": ["compensation"]}]}}},
-        {"if": {"properties": {"kind": {"const": "proposal_ingested"}}}, "then": {"required": ["proposal_ref"]}},
-        {"if": {"properties": {"kind": {"const": "activation_requested"}}}, "then": {"required": ["proposal_ref"]}},
-        {"if": {"properties": {"kind": {"const": "activated"}}}, "then": {"required": ["proposal_ref", "activation_ref"]}},
-        {"if": {"properties": {"kind": {"const": "precondition_evaluated"}}}, "then": {"required": ["precondition_refs"]}},
-        {"if": {"properties": {"kind": {"const": "decision_ready"}}}, "then": {"required": ["decision"]}},
-        {"if": {"properties": {"kind": {"const": "execution_started"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "execution"], "properties": {"execution": {"properties": {"outcome": {"const": "started"}}}}}},
-        {"if": {"properties": {"kind": {"const": "execution_succeeded"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "execution"], "properties": {"execution": {"properties": {"outcome": {"const": "succeeded"}}}}}},
-        {"if": {"properties": {"kind": {"const": "execution_failed"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "execution"], "properties": {"execution": {"properties": {"outcome": {"const": "failed"}}}}}},
-        {"if": {"properties": {"kind": {"const": "execution_blocked"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "execution"], "properties": {"execution": {"properties": {"outcome": {"const": "blocked"}}}}}},
-        {"if": {"properties": {"kind": {"const": "effect_recorded"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "effect"], "properties": {"effect": {"properties": {"outcome": {"const": "recorded"}}}}}},
-        {"if": {"properties": {"kind": {"const": "effect_validated"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "effect"], "properties": {"effect": {"properties": {"outcome": {"const": "validated"}}}}}},
-        {"if": {"properties": {"kind": {"const": "containment_requested"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "containment"], "properties": {"containment": {"properties": {"outcome": {"const": "requested"}}}}}},
-        {"if": {"properties": {"kind": {"const": "containment_completed"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "containment"], "properties": {"containment": {"properties": {"outcome": {"const": "completed"}}}}}},
-        {"if": {"properties": {"kind": {"const": "containment_partial"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "containment"], "properties": {"containment": {"properties": {"outcome": {"const": "partial"}}}}}},
-        {"if": {"properties": {"kind": {"const": "containment_unresolved"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "containment"], "properties": {"containment": {"properties": {"outcome": {"const": "unresolved"}}}}}},
-        {"if": {"properties": {"kind": {"const": "compensation_required"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "compensation"], "properties": {"compensation": {"properties": {"outcome": {"const": "required"}}}}}},
-        {"if": {"properties": {"kind": {"const": "compensation_started"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "compensation"], "properties": {"compensation": {"properties": {"outcome": {"const": "started"}}}}}},
-        {"if": {"properties": {"kind": {"const": "compensation_completed"}}}, "then": {"required": ["contract_family_id", "proposal_ref", "activation_ref", "evidence_refs", "compensation"], "properties": {"compensation": {"properties": {"outcome": {"const": "completed"}}}}}}
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "proposal_ingested",
+                  "activation_requested",
+                  "activated",
+                  "rejected",
+                  "revoked",
+                  "superseded",
+                  "precondition_evaluated",
+                  "decision_ready"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "execution"
+                  ]
+                },
+                {
+                  "required": [
+                    "effect"
+                  ]
+                },
+                {
+                  "required": [
+                    "containment"
+                  ]
+                },
+                {
+                  "required": [
+                    "compensation"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "proposal_ingested"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "proposal_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "activation_requested"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "proposal_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "activated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "proposal_ref",
+              "activation_ref"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "precondition_evaluated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "precondition_refs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "decision_ready"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "decision"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "execution_started"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "execution"
+            ],
+            "properties": {
+              "execution": {
+                "properties": {
+                  "outcome": {
+                    "const": "started"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "execution_succeeded"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "execution"
+            ],
+            "properties": {
+              "execution": {
+                "properties": {
+                  "outcome": {
+                    "const": "succeeded"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "execution_failed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "execution"
+            ],
+            "properties": {
+              "execution": {
+                "properties": {
+                  "outcome": {
+                    "const": "failed"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "execution_blocked"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "execution"
+            ],
+            "properties": {
+              "execution": {
+                "properties": {
+                  "outcome": {
+                    "const": "blocked"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "effect_recorded"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "effect"
+            ],
+            "properties": {
+              "effect": {
+                "properties": {
+                  "outcome": {
+                    "const": "recorded"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "effect_validated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "effect"
+            ],
+            "properties": {
+              "effect": {
+                "properties": {
+                  "outcome": {
+                    "const": "validated"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "containment_requested"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "containment"
+            ],
+            "properties": {
+              "containment": {
+                "properties": {
+                  "outcome": {
+                    "const": "requested"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "containment_completed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "containment"
+            ],
+            "properties": {
+              "containment": {
+                "properties": {
+                  "outcome": {
+                    "const": "completed"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "containment_partial"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "containment"
+            ],
+            "properties": {
+              "containment": {
+                "properties": {
+                  "outcome": {
+                    "const": "partial"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "containment_unresolved"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "containment"
+            ],
+            "properties": {
+              "containment": {
+                "properties": {
+                  "outcome": {
+                    "const": "unresolved"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "containment_out_of_scope"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "containment"
+            ],
+            "properties": {
+              "containment": {
+                "properties": {
+                  "outcome": {
+                    "const": "out_of_scope"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "stop_requested",
+                  "stop_acknowledged",
+                  "stop_denied",
+                  "stop_failed",
+                  "external_revocation_attempted",
+                  "external_revocation_acknowledged",
+                  "external_revocation_failed",
+                  "capability_invalidated",
+                  "descendant_invalidated"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "control"
+            ],
+            "properties": {
+              "control": {
+                "required": [
+                  "command",
+                  "phase"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "compensation_required"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "compensation"
+            ],
+            "properties": {
+              "compensation": {
+                "properties": {
+                  "outcome": {
+                    "const": "required"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "compensation_started"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "compensation"
+            ],
+            "properties": {
+              "compensation": {
+                "properties": {
+                  "outcome": {
+                    "const": "started"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "compensation_completed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "contract_family_id",
+              "proposal_ref",
+              "activation_ref",
+              "evidence_refs",
+              "compensation"
+            ],
+            "properties": {
+              "compensation": {
+                "properties": {
+                  "outcome": {
+                    "const": "completed"
+                  }
+                }
+              }
+            }
+          }
+        }
       ]
     }
   },
-  "allOf": [{"$ref": "#/$defs/event_requirements"}, {"$ref": "#/$defs/typed_evidence_exclusive"}]
+  "allOf": [
+    {
+      "$ref": "#/$defs/event_requirements"
+    },
+    {
+      "$ref": "#/$defs/typed_evidence_exclusive"
+    }
+  ]
 }

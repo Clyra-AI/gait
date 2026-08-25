@@ -18,27 +18,37 @@ const (
 )
 
 type BuildBrokerCredentialRecordOptions struct {
-	CreatedAt            time.Time
-	ProducerVersion      string
-	TraceID              string
-	ToolName             string
-	Identity             string
-	Broker               string
-	Reference            string
-	CredentialSource     string
-	CredentialAccessType string
-	CredentialIssuer     string
-	CredentialSubject    string
-	CredentialOwner      string
-	Scope                []string
-	CredentialRef        string
-	TargetBinding        string
-	RunBinding           string
-	JobBinding           string
-	RequestDigest        string
-	IssuedAt             time.Time
-	ExpiresAt            time.Time
-	TTLSeconds           int64
+	CreatedAt                     time.Time
+	ProducerVersion               string
+	TraceID                       string
+	ToolName                      string
+	Identity                      string
+	Broker                        string
+	Reference                     string
+	CredentialSource              string
+	CredentialAccessType          string
+	CredentialIssuer              string
+	CredentialSubject             string
+	CredentialOwner               string
+	Scope                         []string
+	CredentialRef                 string
+	TargetBinding                 string
+	RunBinding                    string
+	JobBinding                    string
+	RequestDigest                 string
+	IssuedAt                      time.Time
+	ExpiresAt                     time.Time
+	TTLSeconds                    int64
+	ContractFamilyID              string
+	ContractID                    string
+	ContractRevision              int
+	ProposalDigest                string
+	ActivationDigest              string
+	PolicyDigest                  string
+	ApprovalTokenDigest           string
+	DelegationDigest              string
+	ExpectedOutcome               string
+	EffectScope, ContainmentScope []string
 }
 
 func BuildBrokerCredentialRecord(opts BuildBrokerCredentialRecordOptions) schemagate.BrokerCredentialRecord {
@@ -75,6 +85,7 @@ func BuildBrokerCredentialRecord(opts BuildBrokerCredentialRecordOptions) schema
 		IssuedAt:             opts.IssuedAt.UTC(),
 		ExpiresAt:            opts.ExpiresAt.UTC(),
 		TTLSeconds:           opts.TTLSeconds,
+		ContractFamilyID:     opts.ContractFamilyID, ContractID: opts.ContractID, ContractRevision: opts.ContractRevision, ProposalDigest: opts.ProposalDigest, ActivationDigest: opts.ActivationDigest, PolicyDigest: opts.PolicyDigest, ApprovalTokenDigest: opts.ApprovalTokenDigest, DelegationDigest: opts.DelegationDigest, ExpectedOutcome: opts.ExpectedOutcome, EffectScope: uniqueSorted(opts.EffectScope), ContainmentScope: uniqueSorted(opts.ContainmentScope),
 	}
 }
 

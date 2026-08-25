@@ -91,3 +91,37 @@ private key is committed or read by production/default activation. Generated
 activations carry `development_signing: true` and are non-authoritative by
 default. The pack is a compatibility/conformance fixture, not a production
 approval or execution authority source.
+# Lifecycle and advisory evidence
+
+Activated Action Contracts can be paired with deterministic stateful chain
+checks, signed advisory evaluate/verify reports, control lifecycle evidence,
+and signed lifecycle receipts. Receipt promotion into regress is reference-
+first and preserves quarantine/non-authoritative status. None of these
+artifacts grants execution authority.
+
+Current companion commands:
+
+```text
+gait action-contract advisory evaluate|verify
+gait action-contract otel --lifecycle lifecycle.json --otel-out events.jsonl --trusted-key public-key --source-version v1.5.0
+gait regress add --from lifecycle-receipt.json --trusted-key receipt-public-key --private-key runpack-private-key --verify-at RFC3339
+```
+
+Stateful chain policy/state/candidate APIs are deterministic and pre-execution.
+Contract-bound approval, delegation, and brokered JIT evidence preserve exact
+Action Contract bindings while legacy unbound flows remain compatible. The
+v1.5.0 released base is distinct from stop/revocation/invalidation/out-of-scope
+synthetic control extensions, which remain quarantine-only and non-authoritative
+until released.
+
+Portable contract-bound approval/JIT and delegation fixtures are checked with:
+
+```bash
+go run ./scripts/action_contract_gate_fixture_generator --check
+```
+
+The signed corpus covers exact and expired approvals, a bound root and
+tightened child delegation, and non-expansion failures across action, target,
+environment, data, network, operation, target-count, depth, TTL, parent,
+origin, and revocation boundaries. Its key is fixture-only; every artifact is
+quarantined and non-authoritative.

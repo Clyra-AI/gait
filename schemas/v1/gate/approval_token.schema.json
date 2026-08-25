@@ -27,6 +27,9 @@
     "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "delegation_binding_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+	"contract_family_id": { "type": "string", "minLength": 1 }, "contract_id": { "type": "string", "minLength": 1 }, "contract_revision": { "type": "integer", "minimum": 1 },
+	"proposal_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "activation_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+	"target_scope": { "$ref": "#/$defs/axis" }, "environment_scope": { "$ref": "#/$defs/axis" }, "outcome_scope": { "$ref": "#/$defs/axis" }, "effect_scope": { "$ref": "#/$defs/axis" }, "containment_scope": { "$ref": "#/$defs/axis" },
     "scope": {
       "type": "array",
       "minItems": 1,
@@ -47,5 +50,7 @@
       "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": { "axis": { "type":"array", "minItems":1, "uniqueItems":true, "items":{"type":"string","minLength":1,"pattern":"^(?!\\*$).+"} } },
+  "allOf": [{ "if": { "anyOf": [{"required":["contract_family_id"]},{"required":["contract_id"]},{"required":["contract_revision"]},{"required":["proposal_digest"]},{"required":["activation_digest"]},{"required":["target_scope"]},{"required":["environment_scope"]},{"required":["outcome_scope"]},{"required":["effect_scope"]},{"required":["containment_scope"]}] }, "then": { "required":["contract_family_id","contract_id","contract_revision","proposal_digest","activation_digest","target_scope","environment_scope","outcome_scope","effect_scope","containment_scope"] } }]
 }

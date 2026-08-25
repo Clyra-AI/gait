@@ -287,6 +287,14 @@ func validateSchema(raw []byte, schemaFile, schemaRoot string) error {
 		EffectEventSchemaID:                "effect-event.schema.json",
 		ContainmentEvidenceSchemaID:        "containment-evidence.schema.json",
 		CompensationEvidenceSchemaID:       "compensation-evidence.schema.json",
+		ControlEventEvidenceSchemaID:       "control-event-evidence.schema.json",
+		AdvisoryReportSchemaID:             "advisory-evaluator-report.schema.json",
+		LifecycleReceiptSchemaID:           "lifecycle-receipt.schema.json",
+		ChainPolicySchemaID:                "chain-policy.schema.json",
+		ChainStateSchemaID:                 "chain-state.schema.json",
+		ChainDecisionSchemaID:              "chain-decision.schema.json",
+		CircuitInputSchemaID:               "circuit-breaker-input.schema.json",
+		CircuitDecisionSchemaID:            "circuit-breaker-decision.schema.json",
 		"https://github.com/Clyra-AI/proof/schemas/v1/control-containment-telemetry-profile-v1.schema.json": "control-containment-telemetry-profile-v1.schema.json",
 	}
 	for uri, filename := range resources {

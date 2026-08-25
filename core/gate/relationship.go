@@ -34,11 +34,11 @@ var (
 		"delegate":  {},
 	}
 	allowedRelationshipEdgeKinds = map[string]struct{}{
-		"delegates_to": {},
-		"calls":        {},
-		"governed_by":  {},
-		"targets":      {},
-		"derived_from": {},
+		"delegates_to":   {},
+		"calls":          {},
+		"governed_by":    {},
+		"targets":        {},
+		"derived_from":   {},
 		"emits_evidence": {},
 	}
 )

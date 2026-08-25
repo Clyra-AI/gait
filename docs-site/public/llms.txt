@@ -38,6 +38,7 @@
 - Action Contract input is one explicitly selected Wrkr `proposed_action_contract`; activation emits a distinct signed artifact and never claims execution or effects.
 - Runtime classification/readiness is pre-execution only: inference can preserve or raise action posture, required readiness evidence fails closed, validator signatures bind the normalized typed claim digest, and intended outcomes remain separate from observed effects.
 - Full-lineage conformance fixtures under `testdata/action-contract-evidence/v1` bind proposal → activation → readiness → execution → effect → containment/compensation; `VerifyLifecycleConformance` revalidates readiness with trusted validator keys at decision time, enforces activation scope, is pure/fail-closed, and never executes tools.
+- Signed approval/JIT and delegation non-expansion fixtures under `testdata/action-contract-gate/v1` are checked with `go run ./scripts/action_contract_gate_fixture_generator --check`; all are fixture-only, quarantined, and non-authoritative.
 - A lifecycle success gate requires both `valid` and `authoritative_success`; blocked, failed, partial, and unresolved fixtures never set authoritative success.
 - gait pack export <pack.zip> --otel-out <otel.jsonl>
 - gait run replay <run_id>
@@ -121,3 +122,11 @@
 - /llm/security.md
 - /llm/faq.md
 - /llm/contracts.md
+
+Current evidence commands include `gait effects observe`, paired
+`gait effects capture`, `gait action-contract advisory evaluate|verify`,
+trusted-key `gait action-contract otel`, and verified lifecycle-receipt
+promotion via `gait regress add`. Pre-execution enforcement commands are
+`gait action-contract chain evaluate` and `gait action-contract circuit
+evaluate`. Synthetic control extensions remain
+quarantined and non-authoritative until release.

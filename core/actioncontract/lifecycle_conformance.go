@@ -42,6 +42,9 @@ type LifecycleConformanceExpectation struct {
 	ExecutionOutcome    string `json:"execution_outcome,omitempty"`
 	EffectOutcome       string `json:"effect_outcome,omitempty"`
 	ContainmentOutcome  string `json:"containment_outcome,omitempty"`
+	StopOutcome         string `json:"stop_outcome,omitempty"`
+	RevocationOutcome   string `json:"revocation_outcome,omitempty"`
+	InvalidationOutcome string `json:"invalidation_outcome,omitempty"`
 	CompensationOutcome string `json:"compensation_outcome,omitempty"`
 	RequireComplete     bool   `json:"require_complete,omitempty"`
 }
@@ -261,6 +264,9 @@ func conformanceTextDigest(value string) string {
 }
 
 func checkConformanceTerminalCompleteness(snapshot LifecycleSnapshot) error {
+	if snapshot.StopStatus != "" || snapshot.RevocationStatus != "" || snapshot.InvalidationStatus != "" {
+		return nil
+	}
 	switch snapshot.ExecutionStatus {
 	case "blocked", "failed":
 		if snapshot.EffectStatus != "" || snapshot.ContainmentStatus != "" {
@@ -271,7 +277,7 @@ func checkConformanceTerminalCompleteness(snapshot LifecycleSnapshot) error {
 		if snapshot.EffectStatus != "validated" {
 			return errors.New("validated_effect_required")
 		}
-		if snapshot.ContainmentStatus != "completed" && snapshot.ContainmentStatus != "partial" && snapshot.ContainmentStatus != "unresolved" {
+		if snapshot.ContainmentStatus != "completed" && snapshot.ContainmentStatus != "partial" && snapshot.ContainmentStatus != "unresolved" && snapshot.ContainmentStatus != "out_of_scope" {
 			return errors.New("terminal_containment_required")
 		}
 		return nil
@@ -295,6 +301,15 @@ func checkConformanceExpectation(snapshot LifecycleSnapshot, expected LifecycleC
 	}
 	if expected.ContainmentOutcome != "" && snapshot.ContainmentStatus != expected.ContainmentOutcome {
 		return fmt.Errorf("containment_outcome_mismatch")
+	}
+	if expected.StopOutcome != "" && snapshot.StopStatus != expected.StopOutcome {
+		return fmt.Errorf("stop_outcome_mismatch")
+	}
+	if expected.RevocationOutcome != "" && snapshot.RevocationStatus != expected.RevocationOutcome {
+		return fmt.Errorf("revocation_outcome_mismatch")
+	}
+	if expected.InvalidationOutcome != "" && snapshot.InvalidationStatus != expected.InvalidationOutcome {
+		return fmt.Errorf("invalidation_outcome_mismatch")
 	}
 	if expected.CompensationOutcome != "" && snapshot.CompensationStatus != expected.CompensationOutcome {
 		return fmt.Errorf("compensation_outcome_mismatch")

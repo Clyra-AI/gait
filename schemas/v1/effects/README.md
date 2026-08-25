@@ -14,6 +14,12 @@ Snapshots are reference-first and carry Proof RFC 8785 JCS content digests.
 explicit; grading never executes an external effect. Schema changes are
 additive within `1.0.0` and breaking changes require a major version.
 
+`gait effects capture` provides bounded local observations for filesystem,
+HTTP, and generic references. It emits digest-only evidence, caps input,
+refuses filesystem symlinks and HTTP redirects, and never executes commands.
+Generic capture is reference-only. Capture is evidence, not authorization;
+signed collector provenance remains required for authoritative grading.
+
 An effect snapshot carries Ed25519 collector provenance. Authoritative grading
 requires an externally configured trusted public key and a caller-expected
 action, activation, or Proof digest matching the signed correlation. Snapshot

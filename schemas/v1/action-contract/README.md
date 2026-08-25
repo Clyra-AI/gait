@@ -38,3 +38,15 @@ digest. The signed digest is the exported JCS digest of the normalized typed
 precondition with verification metadata and derived status/reasons cleared;
 mutating any semantic claim invalidates it. Boundary references remain
 separate from evidence references.
+
+Stateful action chains are evaluated before execution with deterministic
+accumulated state (`core/actioncontract.EvaluateActionChain`). Limits and
+forbidden/required classes fail closed. Optional evaluator/Judge reports use a
+replaceable offline provider interface and are advisory-only; they never
+change Gate enforcement or grant authority.
+
+Action Contract lifecycle evidence also supports signed advisory reports,
+control-event evidence (stop, revocation, and capability invalidation), and
+signed lifecycle receipts. These artifacts are evidence only; synthetic
+fixtures are quarantined and non-authoritative. Optional OTEL export requires
+an explicitly trusted lifecycle key and never replaces local signed evidence.
