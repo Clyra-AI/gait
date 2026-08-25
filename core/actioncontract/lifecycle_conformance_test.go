@@ -36,13 +36,40 @@ type conformanceFixtureManifest struct {
 		KeyID            string `json:"key_id"`
 	} `json:"signing"`
 	Scenarios []struct {
-		ScenarioID     string `json:"scenario_id"`
-		Path           string `json:"path"`
-		SHA256         string `json:"sha256"`
-		ExpectedValid  bool   `json:"expected_valid"`
-		ExpectedReason string `json:"expected_reason"`
-		EvaluationTime string `json:"evaluation_time"`
+		ScenarioID         string `json:"scenario_id"`
+		Path               string `json:"path"`
+		SHA256             string `json:"sha256"`
+		ExpectedValid      bool   `json:"expected_valid"`
+		ExpectedReason     string `json:"expected_reason"`
+		EvaluationTime     string `json:"evaluation_time"`
+		SyntheticExtension bool   `json:"synthetic_extension"`
+		Quarantine         bool   `json:"quarantine"`
+		Authoritative      *bool  `json:"authoritative"`
 	} `json:"scenarios"`
+}
+
+func TestSyntheticControlFixturesRemainQuarantined(t *testing.T) {
+	manifestRaw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "action-contract-evidence", "v1", "fixture-manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest conformanceFixtureManifest
+	if err := json.Unmarshal(manifestRaw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	checked := 0
+	for _, scenario := range manifest.Scenarios {
+		if !scenario.SyntheticExtension {
+			continue
+		}
+		checked++
+		if !scenario.Quarantine || scenario.Authoritative == nil || *scenario.Authoritative {
+			t.Fatalf("synthetic scenario escaped quarantine: %+v", scenario)
+		}
+	}
+	if checked != 7 {
+		t.Fatalf("synthetic scenario count drift: got %d want 7", checked)
+	}
 }
 
 func loadConformanceFixture(t *testing.T, scenario string) (Artifact, ActivatedArtifact, RuntimeAction, ReadinessResult, []LifecycleRecord, ed25519.PublicKey, ed25519.PublicKey) {
@@ -113,7 +140,7 @@ func TestLifecycleConformanceManifestPinsExactBytes(t *testing.T) {
 	if err := json.Unmarshal(manifestRaw, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.FixtureVersion != "1" || manifest.FoundationCommit != "4177f1e575441975b5a8979e6350e988c2f71d70" || manifest.SourceCommit != "eb4c599a5c1a24dbb270c39a5a513d78f253506d" || manifest.Producer.Name != "gait" || manifest.Producer.Version != "v1.5.0" || !manifest.Signing.FixtureTestOnly || !manifest.Signing.NonAuthoritative || len(manifest.Scenarios) != 9 {
+	if manifest.FixtureVersion != "1" || manifest.FoundationCommit != "4177f1e575441975b5a8979e6350e988c2f71d70" || manifest.SourceCommit != "eb4c599a5c1a24dbb270c39a5a513d78f253506d" || manifest.Producer.Name != "gait" || manifest.Producer.Version != "v1.5.0" || !manifest.Signing.FixtureTestOnly || !manifest.Signing.NonAuthoritative || len(manifest.Scenarios) != 16 {
 		t.Fatalf("unexpected conformance fixture manifest: %+v", manifest)
 	}
 	for _, prefix := range []string{"proposal", "activation", "runtime_action", "runtime_readiness", "runtime_action_source", "runtime_readiness_source"} {
@@ -202,6 +229,13 @@ func TestLifecycleConformanceFixtureScenarioMatrix(t *testing.T) {
 		{"failed-execution-compensation", LifecycleConformanceExpectation{ExecutionOutcome: "failed", CompensationOutcome: "completed"}, false},
 		{"partial-containment", LifecycleConformanceExpectation{ExecutionOutcome: "succeeded", EffectOutcome: "validated", ContainmentOutcome: "partial"}, false},
 		{"unresolved-containment", LifecycleConformanceExpectation{ExecutionOutcome: "succeeded", EffectOutcome: "validated", ContainmentOutcome: "unresolved"}, false},
+		{"out-of-scope-containment", LifecycleConformanceExpectation{ExecutionOutcome: "succeeded", EffectOutcome: "validated", ContainmentOutcome: "out_of_scope"}, false},
+		{"stop-requested-acknowledged", LifecycleConformanceExpectation{StopOutcome: "acknowledged"}, false},
+		{"stop-requested-failed", LifecycleConformanceExpectation{StopOutcome: "failed"}, false},
+		{"external-revocation-acknowledged", LifecycleConformanceExpectation{RevocationOutcome: "acknowledged"}, false},
+		{"external-revocation-failed", LifecycleConformanceExpectation{RevocationOutcome: "failed"}, false},
+		{"capability-invalidation", LifecycleConformanceExpectation{RevocationOutcome: "acknowledged", InvalidationOutcome: "capability_invalidated"}, false},
+		{"descendant-invalidation", LifecycleConformanceExpectation{RevocationOutcome: "acknowledged", InvalidationOutcome: "descendant_invalidated"}, false},
 		{"compensation-required-started-completed", LifecycleConformanceExpectation{ExecutionOutcome: "succeeded", EffectOutcome: "validated", ContainmentOutcome: "completed", CompensationOutcome: "completed", RequireComplete: true}, true},
 	}
 	for _, tc := range cases {

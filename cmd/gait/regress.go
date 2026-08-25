@@ -1,13 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"strings"
+	"time"
 
+	"github.com/Clyra-AI/gait/core/actioncontract"
 	"github.com/Clyra-AI/gait/core/regress"
 	"github.com/Clyra-AI/gait/core/runpack"
+	proofsign "github.com/Clyra-AI/proof/signing"
 )
 
 const regressStatusPass = "pass"
@@ -101,12 +106,19 @@ func runRegressAdd(arguments []string) int {
 	var checkpointRef string
 	var jsonOutput bool
 	var helpFlag bool
+	var receiptKey, runpackKey, verifyAt string
+	var expectedContract, expectedCorrelation string
 
 	flagSet.StringVar(&from, "from", "", "capture receipt path, run_id, or path")
 	flagSet.StringVar(&name, "name", "", "fixture name override")
 	flagSet.StringVar(&checkpointRef, "checkpoint", "latest", "checkpoint index or latest when --from is session_chain.json")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+	flagSet.StringVar(&receiptKey, "trusted-key", "", "trusted receipt public key")
+	flagSet.StringVar(&runpackKey, "private-key", "", "runpack signing private key")
+	flagSet.StringVar(&verifyAt, "verify-at", "", "receipt verification time")
+	flagSet.StringVar(&expectedContract, "expected-contract-digest", "", "expected contract digest")
+	flagSet.StringVar(&expectedCorrelation, "expected-correlation-digest", "", "expected correlation digest")
 
 	if err := flagSet.Parse(arguments); err != nil {
 		return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -126,6 +138,58 @@ func runRegressAdd(arguments []string) int {
 			OK:    false,
 			Error: "missing required --from <capture.json|run_id|path>",
 		}, exitInvalidInput)
+	}
+	if rawProbe, e := os.ReadFile(from); e == nil && strings.Contains(string(rawProbe), `"schema_id":"`+actioncontract.LifecycleReceiptSchemaID+`"`) {
+		raw, readErr := os.ReadFile(from)
+		if readErr != nil {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: readErr.Error()}, exitInvalidInput)
+		}
+		var receipt actioncontract.LifecycleReceipt
+		if json.Unmarshal(raw, &receipt) != nil {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_schema_invalid"}, exitInvalidInput)
+		}
+		if receiptKey == "" || runpackKey == "" {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_trusted_key_required"}, exitInvalidInput)
+		}
+		pub, keyErr := proofsign.LoadPublicKeyBase64(receiptKey)
+		priv, keyErr2 := proofsign.LoadPrivateKeyBase64(runpackKey)
+		if keyErr != nil || keyErr2 != nil {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_key_invalid"}, exitVerifyFailed)
+		}
+		if verifyAt == "" {
+			verifyAt = receipt.FreshUntil
+		}
+		vt, te := time.Parse(time.RFC3339Nano, verifyAt)
+		if te != nil || actioncontract.VerifyLifecycleReceiptAt(receipt, pub, vt) != nil {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_verification_failed"}, exitVerifyFailed)
+		}
+		if expectedContract != "" && receipt.ContractID != expectedContract {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_lineage_mismatch"}, exitVerifyFailed)
+		}
+		if expectedCorrelation != "" && receipt.Correlation.ContentDigest != expectedCorrelation {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: "lifecycle_receipt_correlation_mismatch"}, exitVerifyFailed)
+		}
+		rr, matErr := regress.MaterializeLifecycleReceipt(receipt, regress.LifecycleReceiptMaterializeOptions{SigningPrivateKey: priv})
+		if matErr != nil {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: matErr.Error()}, exitInvalidInput)
+		}
+		tmp, te := os.CreateTemp("", "gait-lifecycle-*.zip")
+		if te != nil {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: te.Error()}, exitInternalFailure)
+		}
+		tmpPath := tmp.Name()
+		defer os.Remove(tmpPath)
+		if _, te = tmp.Write(rr.ZipBytes); te == nil {
+			te = tmp.Close()
+		}
+		if te != nil {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: te.Error()}, exitInternalFailure)
+		}
+		result, te := regress.InitFixture(regress.InitOptions{SourceRunpackPath: tmpPath, FixtureName: name, WorkDir: "."})
+		if te != nil {
+			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: te.Error()}, exitInvalidInput)
+		}
+		return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: true, Source: from, RunID: result.RunID, FixtureName: result.FixtureName, FixtureDir: result.FixtureDir, RunpackPath: result.RunpackPath, ConfigPath: result.ConfigPath, NextCommands: result.NextCommands}, exitOK)
 	}
 
 	runpackPath, sessionChainPath, sourceLabel, err := resolveRegressAddSource(from, checkpointRef)

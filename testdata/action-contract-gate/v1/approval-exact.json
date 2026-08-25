@@ -1,0 +1,43 @@
+{
+  "schema_id": "gait.gate.approval_token",
+  "schema_version": "1.0.0",
+  "created_at": "2026-08-01T12:00:00Z",
+  "producer_version": "v1.5.0",
+  "token_id": "d2b27b6d9992e51ac9660de5",
+  "approver_identity": "owner@example",
+  "reason_code": "action_contract",
+  "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "policy_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "scope": [
+    "write"
+  ],
+  "max_targets": 2,
+  "max_ops": 4,
+  "expires_at": "2026-08-01T13:00:00Z",
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "ec7805c87586f0415bba3377d1faad498e48f3165832f3522eca61d7d5926a3f",
+    "sig": "ZVRy739lynmsG++oG8E1VhRdPhH2s/nEp3zm1xiY+uhA8XLZrLbVZS5zlui5oCFhfPQPy46bYCNoQOaCpkFJAA==",
+    "signed_digest": "752c77c1283ae90ae91745e30825ca8d5d598b4bd3b9f636877245fe0cb891c9"
+  },
+  "contract_family_id": "pacf-fixture",
+  "contract_id": "pac-fixture",
+  "contract_revision": 1,
+  "proposal_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "activation_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "target_scope": [
+    "repo:fixture"
+  ],
+  "environment_scope": [
+    "prod"
+  ],
+  "outcome_scope": [
+    "succeeded"
+  ],
+  "effect_scope": [
+    "validated"
+  ],
+  "containment_scope": [
+    "completed"
+  ]
+}

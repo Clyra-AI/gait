@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/fsx"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	jcs "github.com/Clyra-AI/proof/canon"
 	sign "github.com/Clyra-AI/proof/signing"
@@ -35,17 +36,22 @@ const (
 )
 
 type MintDelegationTokenOptions struct {
-	ProducerVersion   string
-	DelegatorIdentity string
-	DelegateIdentity  string
-	Scope             []string
-	ScopeClass        string
-	IntentDigest      string
-	PolicyDigest      string
-	TTL               time.Duration
-	Now               time.Time
-	SigningPrivateKey ed25519.PrivateKey
-	TokenPath         string
+	ProducerVersion                                                                string
+	DelegatorIdentity                                                              string
+	DelegateIdentity                                                               string
+	Scope                                                                          []string
+	ScopeClass                                                                     string
+	IntentDigest                                                                   string
+	PolicyDigest                                                                   string
+	TTL                                                                            time.Duration
+	Now                                                                            time.Time
+	SigningPrivateKey                                                              ed25519.PrivateKey
+	TokenPath                                                                      string
+	ActionClasses, TargetScope, EnvironmentScope, DataClasses, NetworkDestinations []string
+	MaxOperations, MaxTargets, MaxDescendantDepth                                  int
+	ContractDigest                                                                 string
+	ParentTokenID, ParentTokenDigest, OriginAuthorityDigest                        string
+	Depth                                                                          int
 }
 
 type MintDelegationTokenResult struct {
@@ -54,12 +60,16 @@ type MintDelegationTokenResult struct {
 }
 
 type DelegationValidationOptions struct {
-	Now                  time.Time
-	ExpectedDelegator    string
-	ExpectedDelegate     string
-	RequiredScope        []string
-	ExpectedIntentDigest string
-	ExpectedPolicyDigest string
+	Now                                                                                                                    time.Time
+	ExpectedDelegator                                                                                                      string
+	ExpectedDelegate                                                                                                       string
+	RequiredScope                                                                                                          []string
+	ExpectedIntentDigest                                                                                                   string
+	ExpectedPolicyDigest                                                                                                   string
+	ExpectedContractDigest                                                                                                 string
+	RequiredActionClasses, RequiredTargetScope, RequiredEnvironmentScope, RequiredDataClasses, RequiredNetworkDestinations []string
+	OperationCount, TargetCount, DescendantDepth                                                                           int
+	RequireExactBindings                                                                                                   bool
 }
 
 type DelegationTokenError struct {
@@ -72,6 +82,7 @@ type DelegationChainValidationOptions struct {
 	RequiredScope        []string
 	ExpectedIntentDigest string
 	ExpectedPolicyDigest string
+	RequireExactBindings bool
 }
 
 type DelegationChainValidationResult struct {
@@ -148,10 +159,28 @@ func MintDelegationToken(opts MintDelegationTokenOptions) (MintDelegationTokenRe
 		IntentDigest:      intentDigest,
 		PolicyDigest:      policyDigest,
 		ExpiresAt:         expiresAt,
+		ActionClasses:     normalizeStringListLower(opts.ActionClasses), TargetScope: normalizeStringListLower(opts.TargetScope), EnvironmentScope: normalizeStringListLower(opts.EnvironmentScope), DataClasses: normalizeStringListLower(opts.DataClasses), NetworkDestinations: normalizeStringListLower(opts.NetworkDestinations), MaxOperations: opts.MaxOperations, MaxTargets: opts.MaxTargets, MaxDescendantDepth: opts.MaxDescendantDepth, ContractDigest: opts.ContractDigest,
+		ParentTokenID: opts.ParentTokenID, ParentTokenDigest: opts.ParentTokenDigest, OriginAuthorityDigest: opts.OriginAuthorityDigest, Depth: opts.Depth,
 	}
+	normalizedToken, normalizeErr := normalizeDelegationToken(token)
+	if normalizeErr != nil {
+		return MintDelegationTokenResult{}, normalizeErr
+	}
+	token = normalizedToken
 
 	signable := token
 	signable.Signature = nil
+	if token.ContractDigest != "" {
+		signable.TokenID = ""
+		raw, _ := json.Marshal(signable)
+		digest, digestErr := jcs.DigestJCS(raw)
+		if digestErr != nil {
+			return MintDelegationTokenResult{}, fmt.Errorf("digest delegation token: %w", digestErr)
+		}
+		token.TokenID = strings.TrimPrefix(digest, "sha256:")[:24]
+		signable = token
+		signable.Signature = nil
+	}
 	signableRaw, err := json.Marshal(signable)
 	if err != nil {
 		return MintDelegationTokenResult{}, fmt.Errorf("marshal signable delegation token: %w", err)
@@ -192,7 +221,10 @@ func WriteDelegationToken(path string, token schemagate.DelegationToken) error {
 		return fmt.Errorf("marshal delegation token: %w", err)
 	}
 	encoded = append(encoded, '\n')
-	if err := os.WriteFile(path, encoded, 0o600); err != nil {
+	if err := safeTokenPath(path); err != nil {
+		return err
+	}
+	if err := fsx.WriteFileAtomic(path, encoded, 0o600); err != nil {
 		return fmt.Errorf("write delegation token: %w", err)
 	}
 	return nil
@@ -200,12 +232,12 @@ func WriteDelegationToken(path string, token schemagate.DelegationToken) error {
 
 func ReadDelegationToken(path string) (schemagate.DelegationToken, error) {
 	// #nosec G304 -- delegation token path is explicit local user input.
-	content, err := os.ReadFile(path)
+	content, err := readTokenFile(path)
 	if err != nil {
 		return schemagate.DelegationToken{}, fmt.Errorf("read delegation token: %w", err)
 	}
 	var token schemagate.DelegationToken
-	if err := json.Unmarshal(content, &token); err != nil {
+	if err := strictTokenDecode(content, &token); err != nil {
 		return schemagate.DelegationToken{}, fmt.Errorf("parse delegation token: %w", err)
 	}
 	return token, nil
@@ -218,6 +250,9 @@ func ValidateDelegationToken(token schemagate.DelegationToken, publicKey ed25519
 	}
 	if len(publicKey) == 0 {
 		return &DelegationTokenError{Code: DelegationCodeSignatureFailed, Err: fmt.Errorf("verification public key is required")}
+	}
+	if normalized.Revoked {
+		return &DelegationTokenError{Code: DelegationCodeChainMismatch, Err: fmt.Errorf("delegation revoked")}
 	}
 	if normalized.Signature == nil {
 		return &DelegationTokenError{Code: DelegationCodeSignatureMiss, Err: fmt.Errorf("signature missing")}
@@ -259,13 +294,28 @@ func ValidateDelegationToken(token schemagate.DelegationToken, publicKey ed25519
 		return &DelegationTokenError{Code: DelegationCodeDelegateMis, Err: fmt.Errorf("delegate mismatch")}
 	}
 
-	expectedIntent := strings.ToLower(strings.TrimSpace(opts.ExpectedIntentDigest))
-	if expectedIntent != "" && normalized.IntentDigest != "" && normalized.IntentDigest != expectedIntent {
+	expectedIntent := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(opts.ExpectedIntentDigest)), "sha256:")
+	if (opts.RequireExactBindings || (expectedIntent != "" && (isContractBoundDelegation(normalized) || normalized.IntentDigest != ""))) && normalized.IntentDigest != expectedIntent {
 		return &DelegationTokenError{Code: DelegationCodeIntentMismatch, Err: fmt.Errorf("intent digest mismatch")}
 	}
-	expectedPolicy := strings.ToLower(strings.TrimSpace(opts.ExpectedPolicyDigest))
-	if expectedPolicy != "" && normalized.PolicyDigest != "" && normalized.PolicyDigest != expectedPolicy {
+	expectedPolicy := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(opts.ExpectedPolicyDigest)), "sha256:")
+	if (opts.RequireExactBindings || (expectedPolicy != "" && (isContractBoundDelegation(normalized) || normalized.PolicyDigest != ""))) && normalized.PolicyDigest != expectedPolicy {
 		return &DelegationTokenError{Code: DelegationCodePolicyMismatch, Err: fmt.Errorf("policy digest mismatch")}
+	}
+	if opts.ExpectedContractDigest != "" && normalized.ContractDigest != strings.ToLower(strings.TrimSpace(opts.ExpectedContractDigest)) {
+		return &DelegationTokenError{Code: DelegationCodePolicyMismatch, Err: fmt.Errorf("contract digest mismatch")}
+	}
+	if opts.OperationCount > 0 && (normalized.MaxOperations <= 0 || opts.OperationCount > normalized.MaxOperations) {
+		return &DelegationTokenError{Code: DelegationCodeScopeMismatch, Err: fmt.Errorf("operation limit exceeded")}
+	}
+	if opts.TargetCount > 0 && (normalized.MaxTargets <= 0 || opts.TargetCount > normalized.MaxTargets) {
+		return &DelegationTokenError{Code: DelegationCodeScopeMismatch, Err: fmt.Errorf("target limit exceeded")}
+	}
+	if opts.DescendantDepth > 0 && (normalized.MaxDescendantDepth <= 0 || opts.DescendantDepth > normalized.MaxDescendantDepth) {
+		return &DelegationTokenError{Code: DelegationCodeChainMismatch, Err: fmt.Errorf("descendant depth exceeded")}
+	}
+	if (len(opts.RequiredActionClasses) > 0 && len(normalized.ActionClasses) == 0) || (len(opts.RequiredTargetScope) > 0 && len(normalized.TargetScope) == 0) || (len(opts.RequiredEnvironmentScope) > 0 && len(normalized.EnvironmentScope) == 0) || (len(opts.RequiredDataClasses) > 0 && len(normalized.DataClasses) == 0) || (len(opts.RequiredNetworkDestinations) > 0 && len(normalized.NetworkDestinations) == 0) || !matchesDelegationScope(opts.RequiredActionClasses, normalized.ActionClasses, "") || !matchesDelegationScope(opts.RequiredTargetScope, normalized.TargetScope, "") || !matchesDelegationScope(opts.RequiredEnvironmentScope, normalized.EnvironmentScope, "") || !matchesDelegationScope(opts.RequiredDataClasses, normalized.DataClasses, "") || !matchesDelegationScope(opts.RequiredNetworkDestinations, normalized.NetworkDestinations, "") {
+		return &DelegationTokenError{Code: DelegationCodeScopeMismatch, Err: fmt.Errorf("capability axis expanded")}
 	}
 
 	requiredScope := normalizeStringListLower(opts.RequiredScope)
@@ -297,6 +347,7 @@ func ValidateDelegationChain(delegation *schemagate.IntentDelegation, tokens []s
 	entries := make([]schemagate.DelegationAuditEntry, 0, len(tokens)+len(requiredLinks))
 	validTokenIDs := make([]string, 0, len(requiredLinks))
 	validDelegations := 0
+	matchedTokens := make([]schemagate.DelegationToken, 0, len(requiredLinks))
 	requiredScope := normalizeStringListLower(opts.RequiredScope)
 
 	for linkIndex, link := range requiredLinks {
@@ -312,6 +363,7 @@ func ValidateDelegationChain(delegation *schemagate.IntentDelegation, tokens []s
 				RequiredScope:        requiredScope,
 				ExpectedIntentDigest: opts.ExpectedIntentDigest,
 				ExpectedPolicyDigest: opts.ExpectedPolicyDigest,
+				RequireExactBindings: opts.RequireExactBindings,
 			})
 			if validateErr != nil {
 				continue
@@ -320,6 +372,7 @@ func ValidateDelegationChain(delegation *schemagate.IntentDelegation, tokens []s
 			matchedLinks[linkIndex] = true
 			matched = true
 			validDelegations++
+			matchedTokens = append(matchedTokens, token)
 			if token.TokenID != "" {
 				validTokenIDs = append(validTokenIDs, token.TokenID)
 			}
@@ -342,6 +395,16 @@ func ValidateDelegationChain(delegation *schemagate.IntentDelegation, tokens []s
 			Valid:             false,
 			ErrorCode:         "delegation_token_missing",
 		})
+	}
+	for i := 1; i < len(matchedTokens); i++ {
+		if isContractBoundDelegation(matchedTokens[i-1]) || isContractBoundDelegation(matchedTokens[i]) {
+			if !isContractBoundDelegation(matchedTokens[i-1]) || !isContractBoundDelegation(matchedTokens[i]) {
+				return DelegationChainValidationResult{Complete: false, RequiredDelegations: len(requiredLinks), ValidDelegations: validDelegations, Entries: entries}, &DelegationTokenError{Code: DelegationCodeChainMismatch, Err: fmt.Errorf("mixed bound and unbound delegation chain")}
+			}
+			if err := ValidateDelegationNonExpansion(matchedTokens[i-1], matchedTokens[i]); err != nil {
+				return DelegationChainValidationResult{Complete: false, RequiredDelegations: len(requiredLinks), ValidDelegations: validDelegations, Entries: entries}, &DelegationTokenError{Code: DelegationCodeChainMismatch, Err: err}
+			}
+		}
 	}
 
 	for index, token := range tokens {
@@ -430,6 +493,31 @@ func normalizeDelegationToken(token schemagate.DelegationToken) (schemagate.Dele
 	if normalized.PolicyDigest != "" && !isDigestHex(normalized.PolicyDigest) {
 		return schemagate.DelegationToken{}, fmt.Errorf("policy_digest must be sha256 hex when set")
 	}
+	normalized.ContractDigest = strings.ToLower(strings.TrimSpace(normalized.ContractDigest))
+	normalized.ParentTokenID = strings.TrimSpace(normalized.ParentTokenID)
+	normalized.ParentTokenDigest = strings.ToLower(strings.TrimSpace(normalized.ParentTokenDigest))
+	normalized.OriginAuthorityDigest = strings.ToLower(strings.TrimSpace(normalized.OriginAuthorityDigest))
+	for _, v := range [][]string{normalized.ActionClasses, normalized.TargetScope, normalized.EnvironmentScope, normalized.DataClasses, normalized.NetworkDestinations} {
+		for i := range v {
+			v[i] = strings.ToLower(strings.TrimSpace(v[i]))
+		}
+	}
+	for _, v := range [][]string{normalized.ActionClasses, normalized.TargetScope, normalized.EnvironmentScope, normalized.DataClasses, normalized.NetworkDestinations} {
+		if len(v) > 0 {
+			if hasDuplicate(v) {
+				return schemagate.DelegationToken{}, fmt.Errorf("delegation axis duplicate")
+			}
+			for _, x := range v {
+				if x == "" || x == "*" {
+					return schemagate.DelegationToken{}, fmt.Errorf("delegation axis invalid")
+				}
+			}
+		}
+	}
+	bound := normalized.ContractDigest != "" || len(normalized.ActionClasses) > 0 || len(normalized.TargetScope) > 0 || len(normalized.EnvironmentScope) > 0 || len(normalized.DataClasses) > 0 || len(normalized.NetworkDestinations) > 0 || normalized.MaxOperations > 0 || normalized.MaxTargets > 0 || normalized.MaxDescendantDepth > 0
+	if bound && (!isDigestHex(normalized.ContractDigest) || len(normalized.ActionClasses) == 0 || len(normalized.TargetScope) == 0 || len(normalized.EnvironmentScope) == 0 || len(normalized.DataClasses) == 0 || len(normalized.NetworkDestinations) == 0 || normalized.MaxOperations < 1 || normalized.MaxTargets < 1 || normalized.MaxDescendantDepth < 1 || (normalized.Depth == 0 && (normalized.ParentTokenID != "" || normalized.ParentTokenDigest != "")) || (normalized.Depth > 0 && (normalized.ParentTokenID == "" || !validParentTokenDigest(normalized.ParentTokenDigest)))) {
+		return schemagate.DelegationToken{}, fmt.Errorf("incomplete delegation binding")
+	}
 	if normalized.CreatedAt.IsZero() {
 		return schemagate.DelegationToken{}, fmt.Errorf("created_at is required")
 	}
@@ -437,6 +525,10 @@ func normalizeDelegationToken(token schemagate.DelegationToken) (schemagate.Dele
 		return schemagate.DelegationToken{}, fmt.Errorf("expires_at is required")
 	}
 	return normalized, nil
+}
+
+func validParentTokenDigest(value string) bool {
+	return isDigestHex(strings.TrimPrefix(strings.TrimSpace(value), "sha256:"))
 }
 
 func computeDelegationTokenID(delegator, delegate string, scope []string, scopeClass, intentDigest, policyDigest string, expiresAt time.Time) string {
@@ -451,6 +543,54 @@ func computeDelegationTokenID(delegator, delegate string, scope []string, scopeC
 	}, ":")
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:12])
+}
+
+func DelegationTokenDigest(t schemagate.DelegationToken) (string, error) {
+	t.Signature = nil
+	raw, e := json.Marshal(t)
+	if e != nil {
+		return "", e
+	}
+	d, e := jcs.DigestJCS(raw)
+	if e != nil {
+		return "", e
+	}
+	return "sha256:" + strings.TrimPrefix(d, "sha256:"), nil
+}
+func isContractBoundDelegation(t schemagate.DelegationToken) bool {
+	return t.ContractDigest != "" || len(t.ActionClasses) > 0 || t.ParentTokenID != "" || t.Depth > 0
+}
+func ValidateDelegationNonExpansion(parent, child schemagate.DelegationToken) error {
+	if parent.Revoked || child.Revoked {
+		return fmt.Errorf("delegation_token_revoked")
+	}
+	if child.DelegatorIdentity != parent.DelegateIdentity || child.ParentTokenID != parent.TokenID {
+		return fmt.Errorf("delegation_parent_mismatch")
+	}
+	pd, _ := DelegationTokenDigest(parent)
+	if child.ParentTokenDigest != pd {
+		return fmt.Errorf("delegation_parent_digest_mismatch")
+	}
+	if child.OriginAuthorityDigest != parent.OriginAuthorityDigest || child.ContractDigest != parent.ContractDigest || child.IntentDigest != parent.IntentDigest || child.PolicyDigest != parent.PolicyDigest {
+		return fmt.Errorf("delegation_inherited_binding_mismatch")
+	}
+	if child.Depth != parent.Depth+1 || child.ExpiresAt.After(parent.ExpiresAt) || child.MaxOperations > parent.MaxOperations || child.MaxTargets > parent.MaxTargets || child.MaxDescendantDepth > parent.MaxDescendantDepth {
+		return fmt.Errorf("delegation_authority_expanded")
+	}
+	for _, pair := range [][2][]string{{parent.Scope, child.Scope}, {parent.ActionClasses, child.ActionClasses}, {parent.TargetScope, child.TargetScope}, {parent.EnvironmentScope, child.EnvironmentScope}, {parent.DataClasses, child.DataClasses}, {parent.NetworkDestinations, child.NetworkDestinations}} {
+		for _, v := range pair[1] {
+			found := false
+			for _, p := range pair[0] {
+				if p == v {
+					found = true
+				}
+			}
+			if !found {
+				return fmt.Errorf("delegation_scope_expanded")
+			}
+		}
+	}
+	return nil
 }
 
 func matchesDelegationScope(requiredScope []string, tokenScope []string, scopeClass string) bool {

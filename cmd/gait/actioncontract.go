@@ -84,6 +84,14 @@ func runActionContract(arguments []string) int {
 		return runActionContractVerify(arguments[1:])
 	case "consume", "consumer":
 		return runActionContractConsume(arguments[1:])
+	case "advisory":
+		return runActionContractAdvisory(arguments[1:])
+	case "chain":
+		return runActionContractChain(arguments[1:])
+	case "circuit":
+		return runActionContractCircuit(arguments[1:])
+	case "otel":
+		return runActionContractOTel(arguments[1:])
 	default:
 		printActionContractUsage()
 		return exitInvalidInput

@@ -60,3 +60,20 @@ can verify the complete proposal-to-activation-to-runtime-to-effect lineage.
 Regenerate/check exact bytes with
 `go run ./scripts/effects_fixture_generator --update` and
 `go run ./scripts/effects_fixture_generator --check`.
+## Local effect capture
+
+`gait effects observe` records one bounded filesystem, HTTP, or generic
+observation. `gait effects capture` combines fixed before/after observations
+into a signed complete snapshot; one-shot observations remain partial and
+observed-only. HTTP capture is offline-safe by default and requires explicit
+unsafe-local opt-in for local targets.
+
+Current commands:
+
+```text
+gait effects observe --resource filesystem|http|resource [--path path|--url url|--reference ref] --out observation.json [--observed-at RFC3339] [--allow-unsafe-local] [--json]
+gait effects capture --resource filesystem|http|resource --before-observation before.json --after-observation after.json [--path path|--url url|--reference ref] --private-key key --out snapshot.json --action-digest sha256:<hex> [--json]
+```
+
+Paired capture produces the complete signed snapshot path. A single
+observation remains partial and observed-only.

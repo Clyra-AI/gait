@@ -66,12 +66,46 @@ func ValidateBrokerCredentialReceipt(rule PolicyRule, request credential.Request
 		reasons = append(reasons, "broker_job_binding_mismatch")
 		violations = append(violations, "broker_job_binding_mismatch")
 	}
+	for _, x := range []struct {
+		name      string
+		want, got string
+	}{{"contract_family", intentBinding.ContractFamilyID, response.ContractFamilyID}, {"contract_id", intentBinding.ContractID, response.ContractID}, {"proposal_digest", intentBinding.ProposalDigest, response.ProposalDigest}, {"activation_digest", intentBinding.ActivationDigest, response.ActivationDigest}, {"policy_digest", intentBinding.PolicyDigest, response.PolicyDigest}, {"approval_digest", intentBinding.ApprovalTokenDigest, response.ApprovalTokenDigest}, {"delegation_digest", intentBinding.DelegationDigest, response.DelegationDigest}, {"expected_outcome", intentBinding.ExpectedOutcome, response.ExpectedOutcome}} {
+		if x.want != "" && x.got != x.want {
+			code := "broker_" + x.name + "_mismatch"
+			reasons = append(reasons, code)
+			violations = append(violations, code)
+		}
+	}
+	if intentBinding.ContractRevision > 0 && response.ContractRevision != intentBinding.ContractRevision {
+		reasons = append(reasons, "broker_contract_revision_mismatch")
+		violations = append(violations, "broker_contract_revision_mismatch")
+	}
+	for _, x := range []struct {
+		name      string
+		want, got []string
+	}{{"effect_scope", intentBinding.EffectScope, response.EffectScope}, {"containment_scope", intentBinding.ContainmentScope, response.ContainmentScope}} {
+		if len(x.want) > 0 && !containsAll(x.got, x.want) {
+			code := "broker_" + x.name + "_mismatch"
+			reasons = append(reasons, code)
+			violations = append(violations, code)
+		}
+	}
 	return uniqueSorted(reasons), uniqueSorted(violations)
 }
 
 type IntentBrokerBinding struct {
-	ExpectedCredentialRef string
-	TargetBinding         string
-	RunBinding            string
-	JobBinding            string
+	ExpectedCredentialRef         string
+	TargetBinding                 string
+	RunBinding                    string
+	JobBinding                    string
+	ContractFamilyID              string
+	ContractID                    string
+	ContractRevision              int
+	ProposalDigest                string
+	ActivationDigest              string
+	PolicyDigest                  string
+	ApprovalTokenDigest           string
+	DelegationDigest              string
+	ExpectedOutcome               string
+	EffectScope, ContainmentScope []string
 }

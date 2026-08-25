@@ -1159,51 +1159,66 @@ func objectValue(object map[string]any, key string) map[string]any {
 type LifecycleEventKind string
 
 const (
-	LifecycleProposalIngested      LifecycleEventKind = "proposal_ingested"
-	LifecycleActivationRequested   LifecycleEventKind = "activation_requested"
-	LifecycleActivated             LifecycleEventKind = "activated"
-	LifecycleRejected              LifecycleEventKind = "rejected"
-	LifecycleRevoked               LifecycleEventKind = "revoked"
-	LifecycleSuperseded            LifecycleEventKind = "superseded"
-	LifecyclePreconditionEvaluated LifecycleEventKind = "precondition_evaluated"
-	LifecycleDecisionReady         LifecycleEventKind = "decision_ready"
-	LifecycleExecutionStarted      LifecycleEventKind = "execution_started"
-	LifecycleExecutionSucceeded    LifecycleEventKind = "execution_succeeded"
-	LifecycleExecutionFailed       LifecycleEventKind = "execution_failed"
-	LifecycleExecutionBlocked      LifecycleEventKind = "execution_blocked"
-	LifecycleEffectRecorded        LifecycleEventKind = "effect_recorded"
-	LifecycleEffectValidated       LifecycleEventKind = "effect_validated"
-	LifecycleContainmentRequested  LifecycleEventKind = "containment_requested"
-	LifecycleContainmentCompleted  LifecycleEventKind = "containment_completed"
-	LifecycleContainmentPartial    LifecycleEventKind = "containment_partial"
-	LifecycleContainmentUnresolved LifecycleEventKind = "containment_unresolved"
-	LifecycleCompensationRequired  LifecycleEventKind = "compensation_required"
-	LifecycleCompensationStarted   LifecycleEventKind = "compensation_started"
-	LifecycleCompensationCompleted LifecycleEventKind = "compensation_completed"
+	LifecycleProposalIngested       LifecycleEventKind = "proposal_ingested"
+	LifecycleActivationRequested    LifecycleEventKind = "activation_requested"
+	LifecycleActivated              LifecycleEventKind = "activated"
+	LifecycleRejected               LifecycleEventKind = "rejected"
+	LifecycleRevoked                LifecycleEventKind = "revoked"
+	LifecycleSuperseded             LifecycleEventKind = "superseded"
+	LifecyclePreconditionEvaluated  LifecycleEventKind = "precondition_evaluated"
+	LifecycleDecisionReady          LifecycleEventKind = "decision_ready"
+	LifecycleExecutionStarted       LifecycleEventKind = "execution_started"
+	LifecycleExecutionSucceeded     LifecycleEventKind = "execution_succeeded"
+	LifecycleExecutionFailed        LifecycleEventKind = "execution_failed"
+	LifecycleExecutionBlocked       LifecycleEventKind = "execution_blocked"
+	LifecycleEffectRecorded         LifecycleEventKind = "effect_recorded"
+	LifecycleEffectValidated        LifecycleEventKind = "effect_validated"
+	LifecycleContainmentRequested   LifecycleEventKind = "containment_requested"
+	LifecycleContainmentCompleted   LifecycleEventKind = "containment_completed"
+	LifecycleContainmentPartial     LifecycleEventKind = "containment_partial"
+	LifecycleContainmentUnresolved  LifecycleEventKind = "containment_unresolved"
+	LifecycleContainmentOutOfScope  LifecycleEventKind = "containment_out_of_scope"
+	LifecycleStopRequested          LifecycleEventKind = "stop_requested"
+	LifecycleStopAcknowledged       LifecycleEventKind = "stop_acknowledged"
+	LifecycleStopDenied             LifecycleEventKind = "stop_denied"
+	LifecycleStopFailed             LifecycleEventKind = "stop_failed"
+	LifecycleRevocationAttempted    LifecycleEventKind = "external_revocation_attempted"
+	LifecycleRevocationAcknowledged LifecycleEventKind = "external_revocation_acknowledged"
+	LifecycleRevocationFailed       LifecycleEventKind = "external_revocation_failed"
+	LifecycleCapabilityInvalidated  LifecycleEventKind = "capability_invalidated"
+	LifecycleDescendantInvalidated  LifecycleEventKind = "descendant_invalidated"
+	LifecycleCompensationRequired   LifecycleEventKind = "compensation_required"
+	LifecycleCompensationStarted    LifecycleEventKind = "compensation_started"
+	LifecycleCompensationCompleted  LifecycleEventKind = "compensation_completed"
 )
 
 type LifecycleRecord struct {
-	SchemaID         string                                   `json:"schema_id"`
-	SchemaVersion    string                                   `json:"schema_version"`
-	RecordID         string                                   `json:"record_id"`
-	Kind             LifecycleEventKind                       `json:"kind"`
-	OccurredAt       string                                   `json:"occurred_at"`
-	ContractRef      proof.RelationshipRef                    `json:"contract_ref"`
-	ContractFamilyID string                                   `json:"contract_family_id,omitempty"`
-	Revision         int                                      `json:"revision"`
-	ProposalRef      *proof.RelationshipRef                   `json:"proposal_ref,omitempty"`
-	ActivationRef    *proof.RelationshipRef                   `json:"activation_ref,omitempty"`
-	PreconditionRefs []proof.RelationshipRef                  `json:"precondition_refs,omitempty"`
-	Decision         *ReadinessResult                         `json:"decision,omitempty"`
-	EvidenceRefs     []proof.RelationshipRef                  `json:"evidence_refs,omitempty"`
-	Execution        *ExecutionEvidence                       `json:"execution,omitempty"`
-	Effect           *EffectEvent                             `json:"effect,omitempty"`
-	Containment      *ContainmentEvidence                     `json:"containment,omitempty"`
-	Compensation     *CompensationEvidence                    `json:"compensation,omitempty"`
-	ReasonCodes      []string                                 `json:"reason_codes,omitempty"`
-	Correlation      proof.ControlContainmentTelemetryProfile `json:"correlation"`
-	ImmutableObject  json.RawMessage                          `json:"immutable_object,omitempty"`
-	Signature        proofsign.Signature                      `json:"signature"`
+	SchemaID            string                                   `json:"schema_id"`
+	SchemaVersion       string                                   `json:"schema_version"`
+	RecordID            string                                   `json:"record_id"`
+	Kind                LifecycleEventKind                       `json:"kind"`
+	OccurredAt          string                                   `json:"occurred_at"`
+	ContractRef         proof.RelationshipRef                    `json:"contract_ref"`
+	ContractFamilyID    string                                   `json:"contract_family_id,omitempty"`
+	Revision            int                                      `json:"revision"`
+	ProposalRef         *proof.RelationshipRef                   `json:"proposal_ref,omitempty"`
+	ActivationRef       *proof.RelationshipRef                   `json:"activation_ref,omitempty"`
+	PreconditionRefs    []proof.RelationshipRef                  `json:"precondition_refs,omitempty"`
+	Decision            *ReadinessResult                         `json:"decision,omitempty"`
+	EvidenceRefs        []proof.RelationshipRef                  `json:"evidence_refs,omitempty"`
+	Execution           *ExecutionEvidence                       `json:"execution,omitempty"`
+	Effect              *EffectEvent                             `json:"effect,omitempty"`
+	Containment         *ContainmentEvidence                     `json:"containment,omitempty"`
+	BoundaryID          string                                   `json:"boundary_id,omitempty"`
+	ResourceID          string                                   `json:"resource_id,omitempty"`
+	AffectedScope       []string                                 `json:"affected_scope,omitempty"`
+	AdapterAcknowledged bool                                     `json:"adapter_acknowledged,omitempty"`
+	Compensation        *CompensationEvidence                    `json:"compensation,omitempty"`
+	Control             *ControlEventEvidence                    `json:"control,omitempty"`
+	ReasonCodes         []string                                 `json:"reason_codes,omitempty"`
+	Correlation         proof.ControlContainmentTelemetryProfile `json:"correlation"`
+	ImmutableObject     json.RawMessage                          `json:"immutable_object,omitempty"`
+	Signature           proofsign.Signature                      `json:"signature"`
 }
 
 type LifecycleRecordOptions struct {
@@ -1221,6 +1236,7 @@ type LifecycleRecordOptions struct {
 	Effect            *EffectEvent
 	Containment       *ContainmentEvidence
 	Compensation      *CompensationEvidence
+	Control           *ControlEventEvidence
 	ReasonCodes       []string
 	Correlation       proof.ControlContainmentTelemetryProfile
 	ImmutableObject   json.RawMessage
@@ -1267,7 +1283,7 @@ func NewLifecycleRecord(options LifecycleRecordOptions) (LifecycleRecord, error)
 		}
 		decision = &copyDecision
 	}
-	record := LifecycleRecord{SchemaID: RuntimeLifecycleSchemaID, SchemaVersion: RuntimeLifecycleVersion, Kind: options.Kind, OccurredAt: options.OccurredAt.UTC().Format(time.RFC3339Nano), ContractRef: options.ContractRef, ContractFamilyID: strings.TrimSpace(options.ContractFamilyID), Revision: options.Revision, ProposalRef: options.ProposalRef, ActivationRef: options.ActivationRef, PreconditionRefs: append([]proof.RelationshipRef(nil), options.PreconditionRefs...), Decision: decision, EvidenceRefs: append([]proof.RelationshipRef(nil), options.EvidenceRefs...), Execution: options.Execution, Effect: options.Effect, Containment: options.Containment, Compensation: options.Compensation, ReasonCodes: sortedUnique(options.ReasonCodes), Correlation: correlation, ImmutableObject: append([]byte(nil), options.ImmutableObject...)}
+	record := LifecycleRecord{SchemaID: RuntimeLifecycleSchemaID, SchemaVersion: RuntimeLifecycleVersion, Kind: options.Kind, OccurredAt: options.OccurredAt.UTC().Format(time.RFC3339Nano), ContractRef: options.ContractRef, ContractFamilyID: strings.TrimSpace(options.ContractFamilyID), Revision: options.Revision, ProposalRef: options.ProposalRef, ActivationRef: options.ActivationRef, PreconditionRefs: append([]proof.RelationshipRef(nil), options.PreconditionRefs...), Decision: decision, EvidenceRefs: append([]proof.RelationshipRef(nil), options.EvidenceRefs...), Execution: options.Execution, Effect: options.Effect, Containment: options.Containment, Compensation: options.Compensation, Control: options.Control, ReasonCodes: sortedUnique(options.ReasonCodes), Correlation: correlation, ImmutableObject: append([]byte(nil), options.ImmutableObject...)}
 	if record.Execution != nil {
 		record.EvidenceRefs = append(record.EvidenceRefs, evidenceRefForExecution(*record.Execution))
 	}
@@ -1279,6 +1295,9 @@ func NewLifecycleRecord(options LifecycleRecordOptions) (LifecycleRecord, error)
 	}
 	if record.Compensation != nil {
 		record.EvidenceRefs = append(record.EvidenceRefs, evidenceRefForCompensation(*record.Compensation))
+	}
+	if record.Control != nil {
+		record.EvidenceRefs = append(record.EvidenceRefs, evidenceRefForControl(*record.Control))
 	}
 	if options.OccurredAt.IsZero() {
 		return LifecycleRecord{}, errors.New("lifecycle timestamp is required")
@@ -1471,6 +1490,9 @@ func validateLifecycleEvent(record LifecycleRecord) error {
 	if record.Compensation != nil {
 		typedEvidenceCount++
 	}
+	if record.Control != nil {
+		typedEvidenceCount++
+	}
 	if typedEvidenceCount > 1 {
 		return errors.New("lifecycle_typed_evidence_ambiguous")
 	}
@@ -1483,13 +1505,17 @@ func validateLifecycleEvent(record LifecycleRecord) error {
 		if record.Effect == nil || typedEvidenceCount != 1 {
 			return errors.New("lifecycle_effect_evidence_required")
 		}
-	case LifecycleContainmentRequested, LifecycleContainmentCompleted, LifecycleContainmentPartial, LifecycleContainmentUnresolved:
+	case LifecycleContainmentRequested, LifecycleContainmentCompleted, LifecycleContainmentPartial, LifecycleContainmentUnresolved, LifecycleContainmentOutOfScope:
 		if record.Containment == nil || typedEvidenceCount != 1 {
 			return errors.New("lifecycle_containment_evidence_required")
 		}
 	case LifecycleCompensationRequired, LifecycleCompensationStarted, LifecycleCompensationCompleted:
 		if record.Compensation == nil || typedEvidenceCount != 1 {
 			return errors.New("lifecycle_compensation_evidence_required")
+		}
+	case LifecycleStopRequested, LifecycleStopAcknowledged, LifecycleStopDenied, LifecycleStopFailed, LifecycleRevocationAttempted, LifecycleRevocationAcknowledged, LifecycleRevocationFailed, LifecycleCapabilityInvalidated, LifecycleDescendantInvalidated:
+		if record.Control == nil || typedEvidenceCount != 1 {
+			return errors.New("lifecycle_control_evidence_required")
 		}
 	default:
 		if typedEvidenceCount != 0 {
@@ -1572,12 +1598,20 @@ func validateLifecycleEvent(record LifecycleRecord) error {
 		if record.Containment == nil || record.Containment.Outcome != "unresolved" {
 			return errors.New("lifecycle_containment_unresolved_evidence_required")
 		}
+	case LifecycleContainmentOutOfScope:
+		if record.Containment == nil || record.Containment.Outcome != "out_of_scope" {
+			return errors.New("lifecycle_containment_out_of_scope_evidence_required")
+		}
 	case LifecycleCompensationRequired, LifecycleCompensationStarted, LifecycleCompensationCompleted:
 		if record.Compensation == nil {
 			return errors.New("lifecycle_compensation_evidence_required")
 		}
 		if record.Kind == LifecycleCompensationRequired && record.Compensation.Outcome != "required" || record.Kind == LifecycleCompensationStarted && record.Compensation.Outcome != "started" || record.Kind == LifecycleCompensationCompleted && record.Compensation.Outcome != "completed" {
 			return errors.New("lifecycle_compensation_outcome_mismatch")
+		}
+	case LifecycleStopRequested, LifecycleStopAcknowledged, LifecycleStopDenied, LifecycleStopFailed, LifecycleRevocationAttempted, LifecycleRevocationAcknowledged, LifecycleRevocationFailed, LifecycleCapabilityInvalidated, LifecycleDescendantInvalidated:
+		if record.Control == nil || typedEvidenceCount != 1 {
+			return errors.New("lifecycle_control_evidence_required")
 		}
 	}
 	return nil
@@ -1623,6 +1657,13 @@ func validateLifecycleEvidenceBinding(record LifecycleRecord) error {
 		}
 		binding = &b
 	}
+	if record.Control != nil {
+		b := record.Control.Binding
+		if binding != nil && !binding.sameIdentity(b) {
+			return errors.New("lifecycle evidence binding mismatch")
+		}
+		binding = &b
+	}
 	if binding == nil {
 		return nil
 	}
@@ -1650,6 +1691,9 @@ func validateLifecycleEvidenceBinding(record LifecycleRecord) error {
 	}
 	if record.Compensation != nil {
 		expectedRefs = append(expectedRefs, evidenceRefForCompensation(*record.Compensation))
+	}
+	if record.Control != nil {
+		expectedRefs = append(expectedRefs, evidenceRefForControl(*record.Control))
 	}
 	for _, expected := range expectedRefs {
 		found := false
@@ -1692,6 +1736,9 @@ func validateLifecycleEvidence(record LifecycleRecord) error {
 		}
 		evidenceOccurredAt, evidenceFreshUntil = record.Compensation.OccurredAt, record.Compensation.FreshUntil
 	}
+	if record.Control != nil {
+		evidenceOccurredAt, evidenceFreshUntil = record.Control.OccurredAt, record.Control.FreshUntil
+	}
 	if evidenceOccurredAt != "" {
 		recordTime, recordErr := time.Parse(time.RFC3339Nano, record.OccurredAt)
 		evidenceTime, evidenceErr := time.Parse(time.RFC3339Nano, evidenceOccurredAt)
@@ -1724,6 +1771,11 @@ func verifyLifecycleEmbeddedEvidence(record LifecycleRecord, publicKey ed25519.P
 			return errors.New("compensation evidence verification failed")
 		}
 	}
+	if record.Control != nil {
+		if ok, err := VerifyControlEventEvidence(*record.Control, publicKey); err != nil || !ok {
+			return errors.New("control evidence verification failed")
+		}
+	}
 	return nil
 }
 
@@ -1739,6 +1791,9 @@ type LifecycleSnapshot struct {
 	ExecutionStatus        string            `json:"execution_status,omitempty"`
 	EffectStatus           string            `json:"effect_status,omitempty"`
 	ContainmentStatus      string            `json:"containment_status,omitempty"`
+	StopStatus             string            `json:"stop_status,omitempty"`
+	RevocationStatus       string            `json:"revocation_status,omitempty"`
+	InvalidationStatus     string            `json:"invalidation_status,omitempty"`
 	CompensationStatus     string            `json:"compensation_status,omitempty"`
 	CurrentStatus          string            `json:"current_status"`
 	ReasonCodes            []string          `json:"reason_codes,omitempty"`
@@ -1751,6 +1806,43 @@ func ReduceLifecycle(records []LifecycleRecord) LifecycleSnapshot {
 		return LifecycleSnapshot{CurrentStatus: "invalid", ReasonCodes: []string{err.Error()}, Records: append([]LifecycleRecord(nil), records...)}
 	}
 	return snapshot
+}
+
+func applyControl(record LifecycleRecord, command, phase string, phases map[string]string, refs map[string]proof.RelationshipRef, metas map[string]ControlEventEvidence) error {
+	if record.Control == nil {
+		return errors.New("lifecycle_control_missing")
+	}
+	c := record.Control
+	if c.Command != command || c.Phase != phase {
+		return errors.New("lifecycle_control_command_phase_mismatch")
+	}
+	prior := phases[command]
+	terminal := phase == "acknowledged" || phase == "denied" || phase == "failed" || phase == "invalidated"
+	if prior == "" && terminal {
+		return errors.New("lifecycle_control_terminal_without_request")
+	}
+	if prior != "" && !exactRef(c.CausalRef, refs[command]) {
+		return errors.New("lifecycle_control_causal_mismatch")
+	}
+	if prior != "" {
+		old := metas[command]
+		if old.BoundaryID != c.BoundaryID || old.ResourceID != c.ResourceID || old.AdapterIdentity != c.AdapterIdentity || strings.Join(old.AffectedScope, "\x00") != strings.Join(c.AffectedScope, "\x00") {
+			return errors.New("lifecycle_control_scope_drift")
+		}
+	}
+	if terminal && prior != "requested" && prior != "attempted" {
+		return errors.New("lifecycle_control_duplicate_terminal")
+	}
+	if phase == "acknowledged" && !c.AdapterAcknowledged {
+		return errors.New("lifecycle_control_ack_required")
+	}
+	phases[command] = phase
+	refs[command] = evidenceRefForControl(*c)
+	metas[command] = *c
+	return nil
+}
+func evidenceRefForControl(item ControlEventEvidence) proof.RelationshipRef {
+	return evidenceRef("control", item.EvidenceID, item.CanonicalContentDigest, ControlEventEvidenceSchemaID)
 }
 
 // ReduceLifecycleChecked validates structural identity, timestamps, contract
@@ -1852,6 +1944,9 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 	compensationCompleted := false
 	compensationRequirementRef := proof.RelationshipRef{}
 	compensationEventRef := proof.RelationshipRef{}
+	controlPhase := map[string]string{}
+	controlRef := map[string]proof.RelationshipRef{}
+	controlMeta := map[string]ControlEventEvidence{}
 	effectEvidenceRef := proof.RelationshipRef{}
 	for _, record := range ordered {
 		if terminal {
@@ -1894,6 +1989,51 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			out.Superseded = true
 			out.Activated = false
 			terminal = true
+		case LifecycleStopRequested:
+			if err := applyControl(record, "stop", "requested", controlPhase, controlRef, controlMeta); err != nil {
+				return LifecycleSnapshot{}, err
+			}
+			out.StopStatus = "requested"
+		case LifecycleStopAcknowledged:
+			if err := applyControl(record, "stop", "acknowledged", controlPhase, controlRef, controlMeta); err != nil {
+				return LifecycleSnapshot{}, err
+			}
+			out.StopStatus = "acknowledged"
+		case LifecycleStopDenied:
+			if err := applyControl(record, "stop", "denied", controlPhase, controlRef, controlMeta); err != nil {
+				return LifecycleSnapshot{}, err
+			}
+			out.StopStatus = "denied"
+		case LifecycleStopFailed:
+			if err := applyControl(record, "stop", "failed", controlPhase, controlRef, controlMeta); err != nil {
+				return LifecycleSnapshot{}, err
+			}
+			out.StopStatus = "failed"
+		case LifecycleRevocationAttempted:
+			if err := applyControl(record, "external_revocation", "attempted", controlPhase, controlRef, controlMeta); err != nil {
+				return LifecycleSnapshot{}, err
+			}
+			out.RevocationStatus = "attempted"
+		case LifecycleRevocationAcknowledged:
+			if err := applyControl(record, "external_revocation", "acknowledged", controlPhase, controlRef, controlMeta); err != nil {
+				return LifecycleSnapshot{}, err
+			}
+			out.RevocationStatus = "acknowledged"
+		case LifecycleRevocationFailed:
+			if err := applyControl(record, "external_revocation", "failed", controlPhase, controlRef, controlMeta); err != nil {
+				return LifecycleSnapshot{}, err
+			}
+			out.RevocationStatus = "failed"
+		case LifecycleCapabilityInvalidated:
+			if out.RevocationStatus != "acknowledged" || record.Control == nil || record.Control.Command != "capability_invalidation" || record.Control.Phase != "invalidated" || !record.Control.AdapterAcknowledged || !exactRef(record.Control.CausalRef, controlRef["external_revocation"]) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_invalidation_predecessor_invalid")
+			}
+			out.InvalidationStatus = "capability_invalidated"
+		case LifecycleDescendantInvalidated:
+			if out.RevocationStatus != "acknowledged" || record.Control == nil || record.Control.Command != "descendant_invalidation" || record.Control.Phase != "invalidated" || !record.Control.AdapterAcknowledged || !exactRef(record.Control.CausalRef, controlRef["external_revocation"]) {
+				return LifecycleSnapshot{}, errors.New("lifecycle_invalidation_predecessor_invalid")
+			}
+			out.InvalidationStatus = "descendant_invalidated"
 		case LifecyclePreconditionEvaluated:
 			for _, ref := range record.PreconditionRefs {
 				key := ref.Kind + "|" + ref.ID + "|" + ref.Digest
@@ -1930,6 +2070,9 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			out.DecisionReady = true
 			decisionReady = true
 		case LifecycleExecutionStarted:
+			if out.StopStatus == "acknowledged" || out.RevocationStatus == "acknowledged" || out.InvalidationStatus != "" {
+				return LifecycleSnapshot{}, errors.New("lifecycle_execution_after_control_terminal")
+			}
 			if !decisionReady || !out.Activated {
 				return LifecycleSnapshot{}, errors.New("lifecycle_execution_before_verified_activation")
 			}
@@ -2015,7 +2158,7 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 			containmentRequestRef = evidenceRefForContainment(*record.Containment)
 			containmentScopeRef = record.Containment.ContainmentRef
 			out.ContainmentStatus = "requested"
-		case LifecycleContainmentCompleted, LifecycleContainmentPartial, LifecycleContainmentUnresolved:
+		case LifecycleContainmentCompleted, LifecycleContainmentPartial, LifecycleContainmentUnresolved, LifecycleContainmentOutOfScope:
 			if !containmentRequested || containmentTerminal || record.Containment == nil {
 				return LifecycleSnapshot{}, errors.New("lifecycle_containment_terminal_order_invalid")
 			}
@@ -2060,7 +2203,18 @@ func ReduceLifecycleChecked(records []LifecycleRecord) (LifecycleSnapshot, error
 	if compensationNeeded && !compensationCompleted {
 		return LifecycleSnapshot{}, errors.New("lifecycle_required_compensation_missing")
 	}
+	for _, phase := range controlPhase {
+		if phase == "requested" || phase == "attempted" {
+			return LifecycleSnapshot{}, errors.New("lifecycle_control_pending")
+		}
+	}
 	switch {
+	case out.InvalidationStatus != "":
+		out.CurrentStatus = out.InvalidationStatus
+	case out.StopStatus == "denied" || out.StopStatus == "failed":
+		out.CurrentStatus = "stop_" + out.StopStatus
+	case out.RevocationStatus == "failed":
+		out.CurrentStatus = "revocation_failed"
 	case out.Revoked:
 		out.CurrentStatus = "revoked"
 	case out.Superseded:

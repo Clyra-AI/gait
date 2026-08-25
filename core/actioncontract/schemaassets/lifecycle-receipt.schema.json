@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/action-contract/lifecycle-receipt.schema.json",
+  "title": "Gait Action Contract lifecycle receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "receipt_id", "contract_family_id", "contract_id", "revision", "artifact_digests", "artifact_refs", "observed_at", "fresh_until", "correlation", "authority", "quarantine", "redaction", "outcome", "provenance", "canonical_content_digest"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/action-contract/lifecycle-receipt.schema.json"},
+    "schema_version": {"const": "1"},
+    "receipt_id": {"type": "string", "pattern": "^gait-receipt-[a-f0-9]{16}$"},
+    "contract_family_id": {"type": "string", "minLength": 1},
+    "contract_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "artifact_digests": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}},
+    "artifact_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/full_ref"}},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "fresh_until": {"type": "string", "format": "date-time"},
+    "correlation": {"$ref": "https://github.com/Clyra-AI/proof/schemas/v1/control-containment-telemetry-profile-v1.schema.json"},
+    "authority": {"enum": ["authoritative", "non_authoritative"]},
+    "quarantine": {"type": "boolean"},
+    "redaction": {"enum": ["reference_only", "hash_only"]},
+    "outcome": {"enum": ["unknown", "succeeded", "failed", "blocked", "partial", "unresolved", "out_of_scope"]},
+    "reason_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "canonical_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+  },
+  "allOf": [{"if": {"properties": {"authority": {"const": "authoritative"}}, "required": ["authority"]}, "then": {"properties": {"quarantine": {"const": false}}}}],
+  "$defs": {
+    "full_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "digest", "schema_id", "schema_version", "source_product"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1},
+        "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "schema_id": {"type": "string", "minLength": 1},
+        "schema_version": {"type": "string", "minLength": 1},
+        "source_product": {"type": "string", "minLength": 1}
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "key_id", "sig", "signed_digest"],
+      "properties": {
+        "alg": {"const": "ed25519"},
+        "key_id": {"type": "string", "minLength": 1},
+        "sig": {"type": "string", "minLength": 1},
+        "signed_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_product", "mode", "public_key", "signature"],
+      "properties": {
+        "source_product": {"const": "gait"},
+        "mode": {"const": "signed_local"},
+        "public_key": {"type": "string", "minLength": 1},
+        "signature": {"$ref": "#/$defs/signature"}
+      }
+    }
+  }
+}

@@ -16,7 +16,7 @@
     "containment_ref": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/ref"},
     "occurred_at": {"type": "string", "format": "date-time"},
     "fresh_until": {"type": "string", "format": "date-time"},
-    "outcome": {"enum": ["requested", "completed", "partial", "unresolved"]},
+    "outcome": {"enum": ["requested", "completed", "partial", "unresolved", "out_of_scope"]},
     "reason_code": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"},
     "provenance": {"$ref": "https://gait.dev/schemas/v1/action-contract/execution-evidence.schema.json#/$defs/provenance"},
     "canonical_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}

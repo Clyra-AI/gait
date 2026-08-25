@@ -1,0 +1,44 @@
+{
+  "schema_id": "gait.gate.delegation_token",
+  "schema_version": "1.0.0",
+  "created_at": "2026-08-01T12:00:00Z",
+  "producer_version": "v1.5.0",
+  "token_id": "f99ca0f0ef55704950227376",
+  "delegator_identity": "child@example",
+  "delegate_identity": "leaf@example",
+  "scope": [
+    "write"
+  ],
+  "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "policy_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "expires_at": "2026-08-01T13:00:00Z",
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "ec7805c87586f0415bba3377d1faad498e48f3165832f3522eca61d7d5926a3f",
+    "sig": "l9xn+9AWVJP/foEKYTQKIsS6sfzXfJIZylMRHIChD3o6CzQ42aITWxQ8ImUaroMSvXg00DPxZcG1L9ZKfm2jDg==",
+    "signed_digest": "71b67d56cb3f23b7fe83dba3c572850bc86470e58d547c304ee31bad6e2ab2e6"
+  },
+  "action_classes": [
+    "write"
+  ],
+  "target_scope": [
+    "repo:other"
+  ],
+  "environment_scope": [
+    "prod"
+  ],
+  "data_classes": [
+    "internal"
+  ],
+  "network_destinations": [
+    "api.example"
+  ],
+  "max_operations": 2,
+  "max_targets": 1,
+  "max_descendant_depth": 1,
+  "contract_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "parent_token_id": "bfedc0181e117708be5c3ac5",
+  "parent_token_digest": "sha256:2c8dd08698d318fda3b81fb8d89e928cdf6d532572da1c6453135816dc8024af",
+  "origin_authority_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "depth": 1
+}

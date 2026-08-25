@@ -56,16 +56,26 @@ type manifest struct {
 	Scenarios []scenarioManifest `json:"scenarios"`
 }
 type scenarioManifest struct {
-	ScenarioID     string `json:"scenario_id"`
-	Path           string `json:"path,omitempty"`
-	SHA256         string `json:"sha256,omitempty"`
-	ExpectedValid  bool   `json:"expected_valid"`
-	ExpectedReason string `json:"expected_reason,omitempty"`
-	EvaluationTime string `json:"evaluation_time,omitempty"`
-	Execution      string `json:"execution,omitempty"`
-	Effect         string `json:"effect,omitempty"`
-	Containment    string `json:"containment,omitempty"`
-	Compensation   string `json:"compensation,omitempty"`
+	ScenarioID         string `json:"scenario_id"`
+	Path               string `json:"path,omitempty"`
+	SHA256             string `json:"sha256,omitempty"`
+	ExpectedValid      bool   `json:"expected_valid"`
+	ExpectedReason     string `json:"expected_reason,omitempty"`
+	EvaluationTime     string `json:"evaluation_time,omitempty"`
+	Execution          string `json:"execution,omitempty"`
+	Effect             string `json:"effect,omitempty"`
+	Containment        string `json:"containment,omitempty"`
+	Compensation       string `json:"compensation,omitempty"`
+	Stop               string `json:"stop,omitempty"`
+	Revocation         string `json:"revocation,omitempty"`
+	Invalidation       string `json:"invalidation,omitempty"`
+	SyntheticExtension bool   `json:"synthetic_extension,omitempty"`
+	Quarantine         bool   `json:"quarantine,omitempty"`
+	Authoritative      *bool  `json:"authoritative,omitempty"`
+	BaseCommit         string `json:"base_commit,omitempty"`
+	GeneratorSHA256    string `json:"generator_sha256,omitempty"`
+	SchemaSHA256       string `json:"schema_sha256,omitempty"`
+	ProducerVersion    string `json:"producer_version,omitempty"`
 }
 type fixturePack struct {
 	Records []actioncontract.LifecycleRecord `json:"records"`
@@ -203,7 +213,23 @@ func run(repoRoot string, update bool) error {
 	validPacks["partial-containment"] = base.successful("partial", false)
 	validPacks["unresolved-containment"] = base.successful("unresolved", false)
 	validPacks["compensation-required-started-completed"] = base.successful("completed", true)
+	validPacks["out-of-scope-containment"] = base.successful("out_of_scope", false)
+	validPacks["stop-requested-acknowledged"] = base.controlScenario("stop", "requested", "acknowledged", "")
+	validPacks["stop-requested-failed"] = base.controlScenario("stop", "requested", "failed", "")
+	validPacks["external-revocation-acknowledged"] = base.controlScenario("external_revocation", "attempted", "acknowledged", "")
+	validPacks["external-revocation-failed"] = base.controlScenario("external_revocation", "attempted", "failed", "")
+	validPacks["capability-invalidation"] = base.controlScenario("external_revocation", "attempted", "acknowledged", "capability_invalidation")
+	validPacks["descendant-invalidation"] = base.controlScenario("external_revocation", "attempted", "acknowledged", "descendant_invalidation")
 	files := map[string][]byte{"runtime-action.json": projectedActionRaw, "runtime-readiness.json": projectedReadinessRaw}
+	generatorRaw, err := os.ReadFile(filepath.Join(repoRoot, "scripts/action_contract_evidence_fixture_generator/main.go"))
+	if err != nil {
+		return err
+	}
+	schemaRaw, err := os.ReadFile(filepath.Join(repoRoot, "schemas/v1/action-contract/runtime-lifecycle-record.schema.json"))
+	if err != nil {
+		return err
+	}
+	generatorDigest, schemaDigest := rawDigest(generatorRaw), rawDigest(schemaRaw)
 	for id, pack := range validPacks {
 		raw, err := json.MarshalIndent(pack, "", "  ")
 		if err != nil {
@@ -255,6 +281,12 @@ func run(repoRoot string, update bool) error {
 	for _, id := range validIDs {
 		s := scenarioManifest{ScenarioID: id, Path: id + "/lifecycle.json", ExpectedValid: true}
 		assignExpected(&s, id)
+		if syntheticControlScenario(id) {
+			authoritative := false
+			s.SyntheticExtension, s.Quarantine, s.Authoritative = true, true, &authoritative
+			s.BaseCommit, s.GeneratorSHA256, s.SchemaSHA256 = sourceCommit, generatorDigest, schemaDigest
+			s.ProducerVersion = "unreleased-control-extension"
+		}
 		manifestValue.Scenarios = append(manifestValue.Scenarios, s)
 	}
 	manifestValue.Scenarios = append(manifestValue.Scenarios, negatives...)
@@ -343,6 +375,7 @@ func (b fixtureBase) record(kind actioncontract.LifecycleEventKind, at int, prop
 	var effect *actioncontract.EffectEvent
 	var containment *actioncontract.ContainmentEvidence
 	var compensation *actioncontract.CompensationEvidence
+	var control *actioncontract.ControlEventEvidence
 	switch v := evidence.(type) {
 	case actioncontract.ExecutionEvidence:
 		exec = &v
@@ -352,8 +385,10 @@ func (b fixtureBase) record(kind actioncontract.LifecycleEventKind, at int, prop
 		containment = &v
 	case actioncontract.CompensationEvidence:
 		compensation = &v
+	case actioncontract.ControlEventEvidence:
+		control = &v
 	}
-	r, err := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: kind, OccurredAt: time.Date(2026, 7, 19, 1, 0, at, 0, time.UTC), ContractRef: b.proposalRef, ContractFamilyID: b.binding.ContractFamilyID, Revision: 1, ProposalRef: p, ActivationRef: a, Decision: decision, PreconditionRefs: pre, Execution: exec, Effect: effect, Containment: containment, Compensation: compensation, Correlation: b.corr(a, causal), SigningPrivateKey: b.private})
+	r, err := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: kind, OccurredAt: time.Date(2026, 7, 19, 1, 0, at, 0, time.UTC), ContractRef: b.proposalRef, ContractFamilyID: b.binding.ContractFamilyID, Revision: 1, ProposalRef: p, ActivationRef: a, Decision: decision, PreconditionRefs: pre, Execution: exec, Effect: effect, Containment: containment, Compensation: compensation, Control: control, Correlation: b.corr(a, causal), SigningPrivateKey: b.private})
 	if err != nil {
 		panic(fmt.Sprintf("%s: %v binding=%+v evidence=%#v", kind, err, binding, evidence))
 	}
@@ -465,6 +500,83 @@ func (b fixtureBase) failed() fixturePack {
 	records = append(records, b.record(actioncontract.LifecycleCompensationCompleted, 9, true, true, completed, nil, nil, &startedEvidenceRef))
 	return fixturePack{Records: records}
 }
+
+func (b fixtureBase) controlEvidence(command, phase string, at int, causal proof.RelationshipRef) actioncontract.ControlEventEvidence {
+	binding := withCausal(b.binding, causal)
+	returnValue, err := actioncontract.NewControlEventEvidence(actioncontract.ControlEventEvidence{
+		Binding:    binding,
+		EventRef:   ref("event", "control-"+command+"-"+phase, digestText("control-"+command+"-"+phase), actioncontract.ControlEventEvidenceSchemaID, "1", "gait"),
+		CausalRef:  causal,
+		ControlRef: ref("control", "control-"+command, digestText("control-"+command), "https://gait.dev/schemas/v1/control-ref.schema.json", "1", "gait"),
+		Command:    command, Phase: phase, BoundaryID: "boundary-fixture", ResourceID: "resource-fixture", AffectedScope: []string{"scope-fixture"}, AdapterIdentity: "adapter-fixture", AdapterAcknowledged: phase == "acknowledged" || phase == "invalidated",
+		OccurredAt: time.Date(2026, 7, 19, 1, 0, at, 0, time.UTC).Format(time.RFC3339), FreshUntil: time.Date(2026, 7, 19, 3, 0, 0, 0, time.UTC).Format(time.RFC3339), ReasonCode: command + "_" + phase,
+	}, b.private)
+	if err != nil {
+		panic(err)
+	}
+	return returnValue
+}
+
+func controlRef(item actioncontract.ControlEventEvidence) proof.RelationshipRef {
+	return ref("control", item.EvidenceID, item.CanonicalContentDigest, actioncontract.ControlEventEvidenceSchemaID, "1", "gait")
+}
+
+func (b fixtureBase) controlScenario(command, firstPhase, secondPhase string, invalidation string) fixturePack {
+	records := []actioncontract.LifecycleRecord{}
+	for at, kind := range []actioncontract.LifecycleEventKind{actioncontract.LifecycleProposalIngested, actioncontract.LifecycleActivationRequested, actioncontract.LifecyclePreconditionEvaluated, actioncontract.LifecycleDecisionReady, actioncontract.LifecycleActivated} {
+		var pre []proof.RelationshipRef
+		if kind == actioncontract.LifecyclePreconditionEvaluated {
+			pre = []proof.RelationshipRef{{Kind: "precondition", ID: "runtime-p1", Digest: b.readiness.Preconditions[0].EvidenceDigest, SchemaID: actioncontract.RuntimeReadinessSchemaID, SchemaVersion: "1", SourceProduct: "gait"}}
+		}
+		var decision *actioncontract.ReadinessResult
+		if kind == actioncontract.LifecycleDecisionReady {
+			decision = b.readiness
+		}
+		records = append(records, b.record(kind, at, true, kind != actioncontract.LifecycleProposalIngested, nil, decision, pre, nil))
+	}
+	first := b.controlEvidence(command, firstPhase, 5, b.activationRef)
+	records = append(records, b.record(controlKind(command, firstPhase), 5, true, true, first, nil, nil, &b.activationRef))
+	firstRef := controlRef(first)
+	if invalidation == "" {
+		second := b.controlEvidence(command, secondPhase, 6, firstRef)
+		records = append(records, b.record(controlKind(command, secondPhase), 6, true, true, second, nil, nil, &firstRef))
+	} else {
+		second := b.controlEvidence(command, secondPhase, 6, firstRef)
+		records = append(records, b.record(controlKind(command, secondPhase), 6, true, true, second, nil, nil, &firstRef))
+		secondRef := controlRef(second)
+		third := b.controlEvidence(invalidation, "invalidated", 7, secondRef)
+		records = append(records, b.record(controlKind(invalidation, "invalidated"), 7, true, true, third, nil, nil, &secondRef))
+	}
+	return fixturePack{Records: records}
+}
+
+func controlKind(command, phase string) actioncontract.LifecycleEventKind {
+	switch command {
+	case "stop":
+		switch phase {
+		case "requested":
+			return actioncontract.LifecycleStopRequested
+		case "acknowledged":
+			return actioncontract.LifecycleStopAcknowledged
+		case "failed":
+			return actioncontract.LifecycleStopFailed
+		}
+	case "external_revocation":
+		switch phase {
+		case "attempted":
+			return actioncontract.LifecycleRevocationAttempted
+		case "acknowledged":
+			return actioncontract.LifecycleRevocationAcknowledged
+		case "failed":
+			return actioncontract.LifecycleRevocationFailed
+		}
+	case "capability_invalidation":
+		return actioncontract.LifecycleCapabilityInvalidated
+	case "descendant_invalidation":
+		return actioncontract.LifecycleDescendantInvalidated
+	}
+	panic("unsupported control kind")
+}
 func withCausal(b actioncontract.EvidenceBinding, causal proof.RelationshipRef) actioncontract.EvidenceBinding {
 	b.CausalRefs = []proof.RelationshipRef{causal}
 	return b
@@ -555,8 +667,31 @@ func assignExpected(s *scenarioManifest, id string) {
 		s.Execution, s.Effect, s.Containment = "succeeded", "validated", "partial"
 	case "unresolved-containment":
 		s.Execution, s.Effect, s.Containment = "succeeded", "validated", "unresolved"
+	case "out-of-scope-containment":
+		s.Execution, s.Effect, s.Containment = "succeeded", "validated", "out_of_scope"
+	case "stop-requested-acknowledged":
+		s.Stop = "acknowledged"
+	case "stop-requested-failed":
+		s.Stop = "failed"
+	case "external-revocation-acknowledged", "external-revocation-failed", "capability-invalidation", "descendant-invalidation":
+		s.Revocation = map[string]string{"external-revocation-acknowledged": "acknowledged", "external-revocation-failed": "failed", "capability-invalidation": "acknowledged", "descendant-invalidation": "acknowledged"}[id]
+		if id == "capability-invalidation" {
+			s.Invalidation = "capability_invalidated"
+		}
+		if id == "descendant-invalidation" {
+			s.Invalidation = "descendant_invalidated"
+		}
 	case "compensation-required-started-completed":
 		s.Execution, s.Effect, s.Containment, s.Compensation = "succeeded", "validated", "completed", "completed"
+	}
+}
+
+func syntheticControlScenario(id string) bool {
+	switch id {
+	case "out-of-scope-containment", "stop-requested-acknowledged", "stop-requested-failed", "external-revocation-acknowledged", "external-revocation-failed", "capability-invalidation", "descendant-invalidation":
+		return true
+	default:
+		return false
 	}
 }
 func containmentKind(outcome string) actioncontract.LifecycleEventKind {
@@ -565,6 +700,8 @@ func containmentKind(outcome string) actioncontract.LifecycleEventKind {
 		return actioncontract.LifecycleContainmentCompleted
 	case "partial":
 		return actioncontract.LifecycleContainmentPartial
+	case "out_of_scope":
+		return actioncontract.LifecycleContainmentOutOfScope
 	default:
 		return actioncontract.LifecycleContainmentUnresolved
 	}

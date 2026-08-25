@@ -735,16 +735,17 @@ func runGateEval(arguments []string) int {
 			credentialReferenceUsed = reference
 			credentialScopesUsed = scope
 			request := credential.Request{
-				ToolName:      preparedIntent.ToolName,
-				Identity:      preparedIntent.Context.Identity,
-				Workspace:     preparedIntent.Context.Workspace,
-				SessionID:     preparedIntent.Context.SessionID,
-				RequestID:     preparedIntent.Context.RequestID,
-				RunID:         preparedIntent.Context.RunID,
-				JobID:         preparedIntent.Context.JobID,
-				Reference:     reference,
-				Scope:         scope,
-				TargetBinding: targetBinding,
+				ToolName:         preparedIntent.ToolName,
+				Identity:         preparedIntent.Context.Identity,
+				Workspace:        preparedIntent.Context.Workspace,
+				SessionID:        preparedIntent.Context.SessionID,
+				RequestID:        preparedIntent.Context.RequestID,
+				RunID:            preparedIntent.Context.RunID,
+				JobID:            preparedIntent.Context.JobID,
+				Reference:        reference,
+				Scope:            scope,
+				TargetBinding:    targetBinding,
+				ContractFamilyID: preparedIntent.Context.ContractFamilyID, ContractID: preparedIntent.Context.ContractID, ContractRevision: preparedIntent.Context.ContractRevision, ProposalDigest: preparedIntent.Context.ProposalDigest, ActivationDigest: preparedIntent.Context.ActivationDigest, PolicyDigest: preparedIntent.Context.PolicyDigest, ApprovalTokenDigest: preparedIntent.Context.ApprovalTokenDigest, DelegationDigest: preparedIntent.Context.DelegationDigest, ExpectedOutcome: preparedIntent.Context.ExpectedOutcome, EffectScope: preparedIntent.Context.EffectScope, ContainmentScope: preparedIntent.Context.ContainmentScope,
 			}
 			issued, issueErr := credential.Issue(resolvedBroker, request)
 			if issueErr != nil {
@@ -760,6 +761,7 @@ func runGateEval(arguments []string) int {
 						TargetBinding:         targetBinding,
 						RunBinding:            strings.TrimSpace(preparedIntent.Context.RunID),
 						JobBinding:            strings.TrimSpace(preparedIntent.Context.JobID),
+						ContractFamilyID:      preparedIntent.Context.ContractFamilyID, ContractID: preparedIntent.Context.ContractID, ContractRevision: preparedIntent.Context.ContractRevision, ProposalDigest: preparedIntent.Context.ProposalDigest, ActivationDigest: preparedIntent.Context.ActivationDigest, PolicyDigest: preparedIntent.Context.PolicyDigest, ApprovalTokenDigest: preparedIntent.Context.ApprovalTokenDigest, DelegationDigest: preparedIntent.Context.DelegationDigest, ExpectedOutcome: preparedIntent.Context.ExpectedOutcome, EffectScope: preparedIntent.Context.EffectScope, ContainmentScope: preparedIntent.Context.ContainmentScope,
 					})
 					reasons = mergeUniqueSorted(reasons, ruleReasons)
 					violations = mergeUniqueSorted(violations, ruleViolations)
@@ -907,6 +909,7 @@ func runGateEval(arguments []string) int {
 			IssuedAt:             credentialIssuedAt,
 			ExpiresAt:            credentialExpiresAt,
 			TTLSeconds:           credentialTTLSeconds,
+			ContractFamilyID:     preparedIntent.Context.ContractFamilyID, ContractID: preparedIntent.Context.ContractID, ContractRevision: preparedIntent.Context.ContractRevision, ProposalDigest: preparedIntent.Context.ProposalDigest, ActivationDigest: preparedIntent.Context.ActivationDigest, PolicyDigest: preparedIntent.Context.PolicyDigest, ApprovalTokenDigest: preparedIntent.Context.ApprovalTokenDigest, DelegationDigest: preparedIntent.Context.DelegationDigest, ExpectedOutcome: preparedIntent.Context.ExpectedOutcome, EffectScope: preparedIntent.Context.EffectScope, ContainmentScope: preparedIntent.Context.ContainmentScope,
 		})
 		if err := gate.WriteBrokerCredentialRecord(resolvedCredentialEvidencePath, credentialRecord); err != nil {
 			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

@@ -1,0 +1,106 @@
+{
+  "fixture_version": "1",
+  "fixture_test_only": true,
+  "quarantine": true,
+  "authoritative": false,
+  "base_commit": "eb4c599a5c1a24dbb270c39a5a513d78f253506d",
+  "generator_sha256": "sha256:0601f41490f9e213f5b538f65779b21be920ad57717d7b47a83e23422df7df1e",
+  "approval_schema_sha256": "sha256:d95b9920068d16041e1871eaa5e94163d949a5e0e899a589171e415fb2727118",
+  "delegation_schema_sha256": "sha256:ba89960f37fd48a948f6976098fa0b3087772537c8947e061afa1eafe5b87e53",
+  "public_key_sha256": "sha256:ecd40e8a5fbcd1e73bfbd4bac1ad7693f1cacc1cb2ef8d51844fa675e61b78ee",
+  "files": [
+    {
+      "path": "approval-exact.json",
+      "sha256": "sha256:94ddde1924f1996d34b5619a465f0ee64d2f2284f8ce051dcb39797edd5fe422",
+      "signed": true
+    },
+    {
+      "path": "approval-expired.json",
+      "sha256": "sha256:ed96df5395b7185cfec3afa5d491cfdf2ed9f68d0e9fac76ebf02c343347725f",
+      "expected_code": "approval_token_expired",
+      "signed": true
+    },
+    {
+      "path": "delegation-child-tightened.json",
+      "sha256": "sha256:621826102d15b48b088390c664602063e07c83b5b756e4dce5d83c6f4ca3af96",
+      "signed": true
+    },
+    {
+      "path": "delegation-root.json",
+      "sha256": "sha256:fd319ea491d55696240b7825c80e8eed05102e3974141d4f0a4bf59c8ea653bd",
+      "signed": true
+    },
+    {
+      "path": "invalid/action-expansion.json",
+      "sha256": "sha256:9acf4294fe7ca52979ce539cb83e25201a6243eb2c639eab9ed0bd9dc74af949",
+      "expected_code": "delegation_scope_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/data-expansion.json",
+      "sha256": "sha256:b707d50db0a698ba8d4669677474a341718c91f706e3e4838e57503be03b1098",
+      "expected_code": "delegation_scope_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/environment-expansion.json",
+      "sha256": "sha256:2d04a231bf9e6848b23987a8c9eb42b3e541e3761e830331289028a0f7c4e9ae",
+      "expected_code": "delegation_scope_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/max-depth-expansion.json",
+      "sha256": "sha256:9c71feca9abeac974732770f2e56bf7f64657352d8074d4b813c3edfff1e6f91",
+      "expected_code": "delegation_authority_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/max-ops-expansion.json",
+      "sha256": "sha256:9348a0d15656f4b3af8e51c1a13eda96394143a4f523573ac741e6a0152e62fa",
+      "expected_code": "delegation_authority_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/max-targets-expansion.json",
+      "sha256": "sha256:eb483dd901929cb48b919fe5ebbcd404013b29db16c62e89eb13391f8cf97328",
+      "expected_code": "delegation_authority_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/network-expansion.json",
+      "sha256": "sha256:f45695474d3da4e0a0dc8e076daa2540a972739c9449145e01376badd2e31733",
+      "expected_code": "delegation_scope_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/revoked-ancestor.json",
+      "sha256": "sha256:040572cdce113aa12c3dbbb5e518259d231d5de25b66173a2d8475e49ea3777e",
+      "expected_code": "delegation_token_chain_mismatch",
+      "signed": true
+    },
+    {
+      "path": "invalid/target-expansion.json",
+      "sha256": "sha256:87cc6e9760e6f5ddf08b4e79a06c839750368cf30de4af62bad5636406a9577f",
+      "expected_code": "delegation_scope_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/ttl-expansion.json",
+      "sha256": "sha256:407efe6eb6a6b6ebc6f48768567782d670a065599c774534a58bca92f550ba5c",
+      "expected_code": "delegation_authority_expanded",
+      "signed": true
+    },
+    {
+      "path": "invalid/wrong-origin-authority.json",
+      "sha256": "sha256:000fe6b4bc83908181e0ea8f8f4242617241456cf67cf51f9cd14b4dd0c36e22",
+      "expected_code": "delegation_inherited_binding_mismatch",
+      "signed": true
+    },
+    {
+      "path": "invalid/wrong-parent-digest.json",
+      "sha256": "sha256:30e6c327821adf3191d272383fdde5ab6a567b8be9fe62f06c755f8d115ba40a",
+      "expected_code": "delegation_parent_digest_mismatch",
+      "signed": true
+    }
+  ]
+}

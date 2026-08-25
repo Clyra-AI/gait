@@ -30,6 +30,7 @@
     "scope_class": { "type": "string" },
     "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+	"action_classes":{"$ref":"#/$defs/axis"},"target_scope":{"$ref":"#/$defs/axis"},"environment_scope":{"$ref":"#/$defs/axis"},"data_classes":{"$ref":"#/$defs/axis"},"network_destinations":{"$ref":"#/$defs/axis"},"max_operations":{"type":"integer","minimum":0},"max_targets":{"type":"integer","minimum":0},"max_descendant_depth":{"type":"integer","minimum":0},"contract_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},"revoked":{"type":"boolean"},"parent_token_id":{"type":"string","minLength":1},"parent_token_digest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"origin_authority_digest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"depth":{"type":"integer","minimum":0},
     "expires_at": { "type": "string", "format": "date-time" },
     "signature": {
       "type": "object",
@@ -43,5 +44,6 @@
       "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs":{"axis":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","minLength":1,"pattern":"^(?!\\*$).+"}}}
 }

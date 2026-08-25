@@ -277,6 +277,17 @@ type IntentContext struct {
 	ContextSetDigest        string           `json:"context_set_digest,omitempty"`
 	ContextEvidenceMode     string           `json:"context_evidence_mode,omitempty"`
 	ContextRefs             []string         `json:"context_refs,omitempty"`
+	ContractFamilyID        string           `json:"contract_family_id,omitempty"`
+	ContractID              string           `json:"contract_id,omitempty"`
+	ContractRevision        int              `json:"contract_revision,omitempty"`
+	ProposalDigest          string           `json:"proposal_digest,omitempty"`
+	ActivationDigest        string           `json:"activation_digest,omitempty"`
+	PolicyDigest            string           `json:"policy_digest,omitempty"`
+	ApprovalTokenDigest     string           `json:"approval_token_digest,omitempty"`
+	DelegationDigest        string           `json:"delegation_digest,omitempty"`
+	ExpectedOutcome         string           `json:"expected_outcome,omitempty"`
+	EffectScope             []string         `json:"effect_scope,omitempty"`
+	ContainmentScope        []string         `json:"containment_scope,omitempty"`
 }
 
 type IntentDelegation struct {
@@ -393,22 +404,46 @@ type ApprovalToken struct {
 	MaxOps                  int        `json:"max_ops,omitempty"`
 	ExpiresAt               time.Time  `json:"expires_at"`
 	Signature               *Signature `json:"signature,omitempty"`
+	ContractFamilyID        string     `json:"contract_family_id,omitempty"`
+	ContractID              string     `json:"contract_id,omitempty"`
+	ContractRevision        int        `json:"contract_revision,omitempty"`
+	ProposalDigest          string     `json:"proposal_digest,omitempty"`
+	ActivationDigest        string     `json:"activation_digest,omitempty"`
+	TargetScope             []string   `json:"target_scope,omitempty"`
+	EnvironmentScope        []string   `json:"environment_scope,omitempty"`
+	OutcomeScope            []string   `json:"outcome_scope,omitempty"`
+	EffectScope             []string   `json:"effect_scope,omitempty"`
+	ContainmentScope        []string   `json:"containment_scope,omitempty"`
 }
 
 type DelegationToken struct {
-	SchemaID          string     `json:"schema_id"`
-	SchemaVersion     string     `json:"schema_version"`
-	CreatedAt         time.Time  `json:"created_at"`
-	ProducerVersion   string     `json:"producer_version"`
-	TokenID           string     `json:"token_id"`
-	DelegatorIdentity string     `json:"delegator_identity"`
-	DelegateIdentity  string     `json:"delegate_identity"`
-	Scope             []string   `json:"scope"`
-	ScopeClass        string     `json:"scope_class,omitempty"`
-	IntentDigest      string     `json:"intent_digest,omitempty"`
-	PolicyDigest      string     `json:"policy_digest,omitempty"`
-	ExpiresAt         time.Time  `json:"expires_at"`
-	Signature         *Signature `json:"signature,omitempty"`
+	SchemaID              string     `json:"schema_id"`
+	SchemaVersion         string     `json:"schema_version"`
+	CreatedAt             time.Time  `json:"created_at"`
+	ProducerVersion       string     `json:"producer_version"`
+	TokenID               string     `json:"token_id"`
+	DelegatorIdentity     string     `json:"delegator_identity"`
+	DelegateIdentity      string     `json:"delegate_identity"`
+	Scope                 []string   `json:"scope"`
+	ScopeClass            string     `json:"scope_class,omitempty"`
+	IntentDigest          string     `json:"intent_digest,omitempty"`
+	PolicyDigest          string     `json:"policy_digest,omitempty"`
+	ExpiresAt             time.Time  `json:"expires_at"`
+	Signature             *Signature `json:"signature,omitempty"`
+	ActionClasses         []string   `json:"action_classes,omitempty"`
+	TargetScope           []string   `json:"target_scope,omitempty"`
+	EnvironmentScope      []string   `json:"environment_scope,omitempty"`
+	DataClasses           []string   `json:"data_classes,omitempty"`
+	NetworkDestinations   []string   `json:"network_destinations,omitempty"`
+	MaxOperations         int        `json:"max_operations,omitempty"`
+	MaxTargets            int        `json:"max_targets,omitempty"`
+	MaxDescendantDepth    int        `json:"max_descendant_depth,omitempty"`
+	ContractDigest        string     `json:"contract_digest,omitempty"`
+	Revoked               bool       `json:"revoked,omitempty"`
+	ParentTokenID         string     `json:"parent_token_id,omitempty"`
+	ParentTokenDigest     string     `json:"parent_token_digest,omitempty"`
+	OriginAuthorityDigest string     `json:"origin_authority_digest,omitempty"`
+	Depth                 int        `json:"depth,omitempty"`
 }
 
 type DelegationAuditEntry struct {
@@ -489,6 +524,17 @@ type BrokerCredentialRecord struct {
 	IssuedAt             time.Time `json:"issued_at,omitempty"`
 	ExpiresAt            time.Time `json:"expires_at,omitempty"`
 	TTLSeconds           int64     `json:"ttl_seconds,omitempty"`
+	ContractFamilyID     string    `json:"contract_family_id,omitempty"`
+	ContractID           string    `json:"contract_id,omitempty"`
+	ContractRevision     int       `json:"contract_revision,omitempty"`
+	ProposalDigest       string    `json:"proposal_digest,omitempty"`
+	ActivationDigest     string    `json:"activation_digest,omitempty"`
+	PolicyDigest         string    `json:"policy_digest,omitempty"`
+	ApprovalTokenDigest  string    `json:"approval_token_digest,omitempty"`
+	DelegationDigest     string    `json:"delegation_digest,omitempty"`
+	ExpectedOutcome      string    `json:"expected_outcome,omitempty"`
+	EffectScope          []string  `json:"effect_scope,omitempty"`
+	ContainmentScope     []string  `json:"containment_scope,omitempty"`
 }
 
 type ApprovedScriptEntry struct {
