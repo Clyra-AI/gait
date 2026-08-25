@@ -221,11 +221,11 @@ func run(repoRoot string, update bool) error {
 	validPacks["capability-invalidation"] = base.controlScenario("external_revocation", "attempted", "acknowledged", "capability_invalidation")
 	validPacks["descendant-invalidation"] = base.controlScenario("external_revocation", "attempted", "acknowledged", "descendant_invalidation")
 	files := map[string][]byte{"runtime-action.json": projectedActionRaw, "runtime-readiness.json": projectedReadinessRaw}
-	generatorRaw, err := os.ReadFile(filepath.Join(repoRoot, "scripts/action_contract_evidence_fixture_generator/main.go"))
+	generatorRaw, err := os.ReadFile(filepath.Join(repoRoot, "scripts/action_contract_evidence_fixture_generator/main.go")) // #nosec G304 -- fixed generator-owned source path rooted at repoRoot.
 	if err != nil {
 		return err
 	}
-	schemaRaw, err := os.ReadFile(filepath.Join(repoRoot, "schemas/v1/action-contract/runtime-lifecycle-record.schema.json"))
+	schemaRaw, err := os.ReadFile(filepath.Join(repoRoot, "schemas/v1/action-contract/runtime-lifecycle-record.schema.json")) // #nosec G304 -- fixed schema path rooted at repoRoot.
 	if err != nil {
 		return err
 	}

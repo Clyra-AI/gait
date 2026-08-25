@@ -31,7 +31,7 @@ func readTokenFile(path string) ([]byte, error) {
 	if !i.Mode().IsRegular() || i.Mode()&os.ModeSymlink != 0 {
 		return nil, errors.New("token file invalid")
 	}
-	f, e := os.Open(path)
+	f, e := os.Open(path) // #nosec G304 -- path is explicitly supplied by the caller and was validated with Lstat immediately before opening.
 	if e != nil {
 		return nil, e
 	}

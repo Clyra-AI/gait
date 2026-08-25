@@ -50,7 +50,7 @@ func runAdvisoryEvaluate(args []string) int {
 	if input == "" || out == "" || key == "" || action == "" {
 		return advisoryOutput(js, nil, "--input, --out, --private-key, and --action-id are required", exitInvalidInput)
 	}
-	raw, e := os.ReadFile(input)
+	raw, e := os.ReadFile(input) // #nosec G304 -- explicit local input path supplied by the operator.
 	if e != nil {
 		return advisoryOutput(js, nil, e.Error(), exitInvalidInput)
 	}
@@ -90,7 +90,7 @@ func runAdvisoryVerify(args []string) int {
 	if err := f.Parse(args); err != nil {
 		return advisoryOutput(js, nil, err.Error(), exitInvalidInput)
 	}
-	raw, e := os.ReadFile(path)
+	raw, e := os.ReadFile(path) // #nosec G304 -- explicit local report path supplied by the operator.
 	if e != nil {
 		return advisoryOutput(js, nil, e.Error(), exitInvalidInput)
 	}
