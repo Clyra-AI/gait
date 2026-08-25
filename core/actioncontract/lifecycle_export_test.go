@@ -1,11 +1,33 @@
 package actioncontract
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestLifecycleExportPreservesControlAndRecordScopeUnion(t *testing.T) {
+	records := exportTestRecords(t)
+	records[0].AffectedScope = []string{"record-scope", "shared"}
+	records[0].Control = &ControlEventEvidence{AffectedScope: []string{"control-scope", "shared"}, CanonicalContentDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}
+	p := filepath.Join(t.TempDir(), "otel.jsonl")
+	if err := ExportLifecycleOTel(p, records[:1], "v1"); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(p)
+	var event LifecycleOTelEvent
+	if err := json.Unmarshal(bytes.TrimSpace(raw), &event); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"control-scope", "record-scope", "shared"}
+	if !reflect.DeepEqual(event.AffectedScope, want) {
+		t.Fatalf("scope union=%v want %v", event.AffectedScope, want)
+	}
+}
 
 func exportTestRecords(t *testing.T) []LifecycleRecord {
 	_, _, _, _, r, _, _ := loadConformanceFixture(t, "successful-execution-effect-containment")

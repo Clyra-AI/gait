@@ -308,8 +308,8 @@ func ExportLifecycleOTelWithOptions(path string, records []LifecycleRecord, opts
 			e.AffectedScope = append(e.AffectedScope, r.Control.AffectedScope...)
 		}
 		e.AffectedScope = append(e.AffectedScope, r.AffectedScope...)
-		e.AffectedScope = unique(e.AffectedScope)
 		sort.Strings(e.AffectedScope)
+		e.AffectedScope = unique(e.AffectedScope)
 		events = append(events, e)
 	}
 	sort.Slice(events, func(i, j int) bool { return events[i].Time+"|"+events[i].Name < events[j].Time+"|"+events[j].Name })
