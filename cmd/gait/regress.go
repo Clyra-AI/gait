@@ -139,8 +139,8 @@ func runRegressAdd(arguments []string) int {
 			Error: "missing required --from <capture.json|run_id|path>",
 		}, exitInvalidInput)
 	}
-	if rawProbe, e := os.ReadFile(from); e == nil && strings.Contains(string(rawProbe), `"schema_id":"`+actioncontract.LifecycleReceiptSchemaID+`"`) {
-		raw, readErr := os.ReadFile(from)
+	if rawProbe, e := os.ReadFile(from); e == nil && strings.Contains(string(rawProbe), `"schema_id":"`+actioncontract.LifecycleReceiptSchemaID+`"`) { // #nosec G304 -- explicit local source path supplied by the operator.
+		raw, readErr := os.ReadFile(from) // #nosec G304 -- explicit local source path supplied by the operator.
 		if readErr != nil {
 			return writeRegressAddOutput(jsonOutput, regressAddOutput{OK: false, Source: from, Error: readErr.Error()}, exitInvalidInput)
 		}

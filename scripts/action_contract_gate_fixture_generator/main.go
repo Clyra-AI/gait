@@ -170,7 +170,7 @@ func writeOrCheck(update bool, items map[string]any, codes map[string]string, pu
 				return err
 			}
 		} else {
-			got, err := os.ReadFile(filepath.Join(rootDir, path))
+			got, err := os.ReadFile(filepath.Join(rootDir, path)) // #nosec G304 -- path is derived from the generator's fixed fixture manifest and rooted at rootDir.
 			if err != nil || string(got) != string(raw) {
 				return fmt.Errorf("fixture drift: %s", path)
 			}

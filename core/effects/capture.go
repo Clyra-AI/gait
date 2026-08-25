@@ -154,7 +154,7 @@ func captureFilesystem(req CaptureRequest, now time.Time) (CaptureResult, error)
 			if totalBytes > MaxCaptureBytes {
 				return errors.New("capture byte limit exceeded")
 			}
-			content, readErr := os.ReadFile(p)
+			content, readErr := os.ReadFile(p) // #nosec G304 -- p is produced by the bounded, symlink-rejecting filepath.Walk rooted at the explicit capture path.
 			if readErr != nil {
 				return readErr
 			}
