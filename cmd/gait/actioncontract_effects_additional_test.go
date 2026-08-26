@@ -42,6 +42,9 @@ func writeCLIKey(t *testing.T, dir string) (string, string) {
 }
 
 func TestActionContractAdvisoryCLIEvaluateVerifyAndErrors(t *testing.T) {
+	if code := advisoryOutput(false, nil, "", exitOK); code != exitOK {
+		t.Fatalf("nil optional advisory output=%d", code)
+	}
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -77,6 +80,34 @@ func TestActionContractAdvisoryCLIEvaluateVerifyAndErrors(t *testing.T) {
 	}
 	if code := runActionContractAdvisory([]string{"--help"}); code != exitOK {
 		t.Fatalf("advisory help: got %d", code)
+	}
+}
+
+func TestActionContractAdvisoryOptionalProviderFailureReturnsNoReport(t *testing.T) {
+	dir := filepath.Clean(t.TempDir())
+	privatePath, _ := writeCLIKey(t, dir)
+	inputPath := filepath.Join(dir, "advisory-input.json")
+	outputPath := filepath.Join(dir, "advisory-report.json")
+	writeCLIJSON(t, inputPath, actioncontract.AdvisoryInput{ActionID: "action:optional"})
+	output, code := captureEffectsOutput(t, func() int {
+		return runActionContractAdvisory([]string{"evaluate", "--input", inputPath, "--out", outputPath, "--private-key", privatePath, "--action-id", "action:optional", "--provider", "command", "--command", filepath.Join(dir, "missing-provider"), "--mode", "advisory"})
+	})
+	if code != exitOK || !strings.Contains(output, "unavailable") {
+		t.Fatalf("optional provider failure: code=%d output=%s", code, output)
+	}
+}
+
+func TestActionContractAdvisoryDisabledCLIProducesNoReport(t *testing.T) {
+	dir := filepath.Clean(t.TempDir())
+	privatePath, _ := writeCLIKey(t, dir)
+	inputPath := filepath.Join(dir, "advisory-input.json")
+	outputPath := filepath.Join(dir, "advisory-report.json")
+	writeCLIJSON(t, inputPath, actioncontract.AdvisoryInput{ActionID: "action:disabled"})
+	output, code := captureEffectsOutput(t, func() int {
+		return runActionContractAdvisory([]string{"evaluate", "--input", inputPath, "--out", outputPath, "--private-key", privatePath, "--action-id", "action:disabled", "--mode", "off"})
+	})
+	if code != exitOK || !strings.Contains(output, "off") {
+		t.Fatalf("disabled advisory: code=%d output=%s", code, output)
 	}
 }
 

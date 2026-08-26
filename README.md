@@ -187,7 +187,7 @@ gait contract activate --proposal proposal.json --selection fixture-manifest.jso
   --policy-digest sha256:<64-hex> --principal principal:owner \
   --authority-ref approval:owner --target target:deploy \
   --environment production --mode context_only --private-key gait-private.key \
-  --valid-from 2026-07-19T00:00:00Z --json
+  --valid-from 2026-07-19T00:00:00Z --lifecycle-out lifecycle.jsonl --json
 gait contract verify --activation activated.json --proposal proposal.json --public-key gait-public.key --json
 gait contract consume proposal.json --selection fixture-manifest.json
 gait effects grade --snapshot effect_snapshot.json --contract effect_contract.json --trusted-collector-key collector.pub --expected-action-digest sha256:<64-hex> [--expected-activation-digest sha256:<64-hex>] [--expected-proof-digest sha256:<64-hex>] [--junit effects.xml] --json
@@ -222,6 +222,25 @@ privilege posture without ingesting raw environment contents.
 Gate can also apply schema-backed kill-switch state for emergency stop coverage
 across matching agents, identities, tools, targets, paths, workspaces, and
 environments.
+
+Post-execution evidence is explicit and signed. `gait action-contract
+lifecycle-result` requires separate `--trace-public-key` and
+`--public-key` values, an `--evaluation-time`, and either `--result-digest` or
+the Go-hashed structured `--result-file`; it accepts the same trusted-validator
+flags used by Gate and rejects non-allow or readiness-mismatched traces.
+The Python adapter authenticates the signed lifecycle prefix with
+`gait action-contract lifecycle-verify` before invoking an executor.
+`gait containment stop` emits a signed control/lifecycle sequence and accepts
+an explicit `--occurrence-time` for deterministic evidence timestamps.
+It also emits a reference-only receipt for an explicit boundary. The local-only adapter name
+`gait-local-kill-switch` is required when no external revocation command is
+configured; unconfigured external boundaries are reported partial.
+The opt-in `gait effects compose` runner is bounded to an explicit Compose
+project and paths, never installs dependencies, and skips PostgreSQL
+observation unless a collector is configured.
+MCP proxy and bridge calls accept the same pre-execution controls through
+`--chain-policy`, `--chain-state`, `--chain-candidate`, `--chain-state-out`,
+and `--circuit-input`; control blocks still emit signed traces.
 For machine consumers, `gait gate eval --explain --json` now returns a
 schema-backed explanation object instead of prose-only guidance.
 Provider-style JIT broker receipts for AWS STS, GitHub OIDC, Vault, GCP,

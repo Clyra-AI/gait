@@ -128,3 +128,47 @@ rules:
 		})
 	}
 }
+
+func TestEvaluateAgentIdentityConstraintDirectBranches(t *testing.T) {
+	now := time.Date(2026, time.February, 5, 12, 0, 0, 0, time.UTC)
+	rule := PolicyRule{
+		RequireDeclaredAgent:           true,
+		AllowedAgentIDs:                []string{"agent.ok"},
+		DeniedAgentIDs:                 []string{"agent.denied"},
+		RequireAgentOwner:              true,
+		RequireUnexpiredAgent:          true,
+		RequiredAgentManifestDigest:    "manifest",
+		AllowedAgentManifestPublishers: []string{"publisher"},
+		AllowedAgentManifestSources:    []string{"source"},
+		RequiredAgentLifecycleStates:   []string{"approved", "active"},
+	}
+	if blocked, reason, reasons, violations := evaluateAgentIdentityConstraint(PolicyRule{}, schemagate.IntentRequest{}, now); blocked || reason != "" || reasons != nil || violations != nil {
+		t.Fatalf("disabled identity rule returned a decision: %t %q %v %v", blocked, reason, reasons, violations)
+	}
+	valid := schemagate.IntentRequest{}
+	valid.Context.AgentID = "agent.ok"
+	valid.Context.AgentIdentity = &schemagate.AgentIdentity{Owner: "owner", ManifestDigest: "manifest", Publisher: "Publisher", Source: "Source", LifecycleStates: []string{"active", "approved"}, ExpiresAt: now.Add(time.Hour)}
+	if blocked, reason, reasons, violations := evaluateAgentIdentityConstraint(rule, valid, now); blocked || reason != "" || reasons != nil || violations != nil {
+		t.Fatalf("valid identity blocked: %t %q %v %v", blocked, reason, reasons, violations)
+	}
+	cases := []func(*schemagate.IntentRequest){
+		func(i *schemagate.IntentRequest) { i.Context.AgentID = ""; i.Context.AgentIdentity = nil },
+		func(i *schemagate.IntentRequest) { i.Context.AgentID = "agent.denied" },
+		func(i *schemagate.IntentRequest) { i.Context.AgentIdentity.Revoked = true },
+		func(i *schemagate.IntentRequest) { i.Context.AgentIdentity.Owner = "" },
+		func(i *schemagate.IntentRequest) { i.Context.AgentIdentity.ExpiresAt = now.Add(-time.Minute) },
+		func(i *schemagate.IntentRequest) { i.Context.AgentIdentity.ManifestDigest = "other" },
+		func(i *schemagate.IntentRequest) { i.Context.AgentIdentity.Publisher = "other" },
+		func(i *schemagate.IntentRequest) { i.Context.AgentIdentity.Source = "other" },
+		func(i *schemagate.IntentRequest) { i.Context.AgentIdentity.LifecycleStates = []string{"approved"} },
+	}
+	for n, mutate := range cases {
+		candidate := valid
+		identity := *valid.Context.AgentIdentity
+		candidate.Context.AgentIdentity = &identity
+		mutate(&candidate)
+		if blocked, reason, reasons, violations := evaluateAgentIdentityConstraint(rule, candidate, now); !blocked || reason != "block" || len(reasons) == 0 || len(violations) == 0 {
+			t.Fatalf("case %d did not block: %t %q %v %v", n, blocked, reason, reasons, violations)
+		}
+	}
+}

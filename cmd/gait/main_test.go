@@ -3507,11 +3507,15 @@ func TestGateEvalApprovalChainAndSimulation(t *testing.T) {
 		"--policy", policyPath,
 		"--intent", intentPath,
 		"--simulate",
+		"--chain-state-out", filepath.Join(workDir, "simulated-state.json"),
 		"--key-mode", "prod",
 		"--private-key", privateKeyPath,
 		"--json",
 	}); code != exitOK {
 		t.Fatalf("runGateEval simulate mode: expected %d got %d", exitOK, code)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "simulated-state.json")); !os.IsNotExist(err) {
+		t.Fatalf("simulation published chain state: err=%v", err)
 	}
 }
 

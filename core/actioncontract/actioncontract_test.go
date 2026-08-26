@@ -536,6 +536,33 @@ func TestWriteActivatedArtifactRefusesUnsafeTargets(t *testing.T) {
 	assertNoActivationTempFiles(t, realParent)
 }
 
+func TestValidateActivatedArtifactOutputPreflight(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "activation.json")
+	if err := ValidateActivatedArtifactOutput(target, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("existing"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateActivatedArtifactOutput(target, false); err == nil {
+		t.Fatal("existing output accepted without overwrite")
+	}
+	if err := ValidateActivatedArtifactOutput(target, true); err != nil {
+		t.Fatal(err)
+	}
+	nonRegular := filepath.Join(dir, "directory")
+	if err := os.Mkdir(nonRegular, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateActivatedArtifactOutput(nonRegular, true); err == nil {
+		t.Fatal("directory output accepted")
+	}
+}
+
 func TestWriteActivatedArtifactInstallRacesAreFailClosedAndCleaned(t *testing.T) {
 	proposal := fixtureArtifact(t, "customer-data-to-egress")
 	activated, _, err := Activate(proposal, ActivationOptions{PolicyDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", ActivatingPrincipal: "principal:owner", AuthorityRefs: []string{"approval:owner"}, Target: "target:deploy", Environment: "production", Mode: ActivationContextOnly, ValidFrom: "2026-07-19T00:00:00Z", SigningPrivateKey: mustKey(t), Selection: fixtureSelection(t, "customer-data-to-egress", proposal)})

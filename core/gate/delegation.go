@@ -78,11 +78,12 @@ type DelegationTokenError struct {
 }
 
 type DelegationChainValidationOptions struct {
-	Now                  time.Time
-	RequiredScope        []string
-	ExpectedIntentDigest string
-	ExpectedPolicyDigest string
-	RequireExactBindings bool
+	Now                    time.Time
+	RequiredScope          []string
+	ExpectedIntentDigest   string
+	ExpectedPolicyDigest   string
+	ExpectedContractDigest string
+	RequireExactBindings   bool
 }
 
 type DelegationChainValidationResult struct {
@@ -357,13 +358,14 @@ func ValidateDelegationChain(delegation *schemagate.IntentDelegation, tokens []s
 				continue
 			}
 			validateErr := ValidateDelegationToken(token, publicKey, DelegationValidationOptions{
-				Now:                  opts.Now,
-				ExpectedDelegator:    strings.TrimSpace(link.DelegatorIdentity),
-				ExpectedDelegate:     strings.TrimSpace(link.DelegateIdentity),
-				RequiredScope:        requiredScope,
-				ExpectedIntentDigest: opts.ExpectedIntentDigest,
-				ExpectedPolicyDigest: opts.ExpectedPolicyDigest,
-				RequireExactBindings: opts.RequireExactBindings,
+				Now:                    opts.Now,
+				ExpectedDelegator:      strings.TrimSpace(link.DelegatorIdentity),
+				ExpectedDelegate:       strings.TrimSpace(link.DelegateIdentity),
+				RequiredScope:          requiredScope,
+				ExpectedIntentDigest:   opts.ExpectedIntentDigest,
+				ExpectedPolicyDigest:   opts.ExpectedPolicyDigest,
+				ExpectedContractDigest: opts.ExpectedContractDigest,
+				RequireExactBindings:   opts.RequireExactBindings,
 			})
 			if validateErr != nil {
 				continue
@@ -417,12 +419,13 @@ func ValidateDelegationChain(delegation *schemagate.IntentDelegation, tokens []s
 				continue
 			}
 			validateErr := ValidateDelegationToken(token, publicKey, DelegationValidationOptions{
-				Now:                  opts.Now,
-				ExpectedDelegator:    strings.TrimSpace(link.DelegatorIdentity),
-				ExpectedDelegate:     strings.TrimSpace(link.DelegateIdentity),
-				RequiredScope:        requiredScope,
-				ExpectedIntentDigest: opts.ExpectedIntentDigest,
-				ExpectedPolicyDigest: opts.ExpectedPolicyDigest,
+				Now:                    opts.Now,
+				ExpectedDelegator:      strings.TrimSpace(link.DelegatorIdentity),
+				ExpectedDelegate:       strings.TrimSpace(link.DelegateIdentity),
+				RequiredScope:          requiredScope,
+				ExpectedIntentDigest:   opts.ExpectedIntentDigest,
+				ExpectedPolicyDigest:   opts.ExpectedPolicyDigest,
+				ExpectedContractDigest: opts.ExpectedContractDigest,
 			})
 			if validateErr == nil {
 				errorCode = ""

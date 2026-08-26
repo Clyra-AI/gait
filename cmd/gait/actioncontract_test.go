@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Clyra-AI/gait/core/actioncontract"
+	proof "github.com/Clyra-AI/proof"
 	proofsign "github.com/Clyra-AI/proof/signing"
 )
 
@@ -326,6 +328,16 @@ func TestActionContractActivateAndDispatchBranches(t *testing.T) {
 	if code != exitOK || !strings.Contains(output, `"operation":"activate"`) || !strings.Contains(output, `"ok":true`) {
 		t.Fatalf("valid activation CLI should pass: code=%d output=%s", code, output)
 	}
+	activationDir := t.TempDir()
+	activationOut := filepath.Join(activationDir, "activated.json")
+	if _, code := captureActionContractOutput(t, func() int {
+		return runActionContractActivate(append(append([]string{}, base...), "--out", activationOut, "--lifecycle-out", activationDir, "--overwrite"))
+	}); code != exitInternalFailure {
+		t.Fatalf("activation with unwritable lifecycle journal code=%d", code)
+	}
+	if _, err := os.Stat(activationOut); !os.IsNotExist(err) {
+		t.Fatalf("activation published despite lifecycle failure: err=%v", err)
+	}
 
 	for _, test := range []struct {
 		name string
@@ -353,6 +365,139 @@ func TestActionContractActivateAndDispatchBranches(t *testing.T) {
 		if code != exitInvalidInput || !strings.Contains(output, "gait contract validate") {
 			t.Fatalf("dispatch branch code=%d output=%s", code, output)
 		}
+	}
+}
+
+func TestActionContractActivateRejectsMismatchedLifecyclePrefix(t *testing.T) {
+	proposalPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
+	selectionPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "fixture-manifest.json")
+	proposal, _, err := actioncontract.ReadArtifact(proposalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrong := proof.RelationshipRef{Kind: "action_contract", ID: "pac-wrong", Digest: "sha256:" + strings.Repeat("a", 64), SchemaID: actioncontract.ProposedContractSchemaID, SchemaVersion: actioncontract.ProposedContractVersion, SourceProduct: actioncontract.ProposedProducer}
+	precondition := proof.RelationshipRef{Kind: "precondition", ID: "prefix-check", Digest: "sha256:" + strings.Repeat("b", 64), SchemaID: actioncontract.RuntimeReadinessSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, SourceProduct: actioncontract.EvidenceProducer}
+	_, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	journal := filepath.Join(t.TempDir(), "prefix.jsonl")
+	for _, opts := range []actioncontract.LifecycleRecordOptions{
+		{Kind: actioncontract.LifecycleProposalIngested, OccurredAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), ContractRef: wrong, ContractFamilyID: proposal.ContractFamilyID, Revision: proposal.Revision, ProposalRef: &wrong, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecyclePreconditionEvaluated, OccurredAt: time.Date(2026, 1, 1, 0, 0, 1, 0, time.UTC), ContractRef: wrong, ContractFamilyID: proposal.ContractFamilyID, Revision: proposal.Revision, PreconditionRefs: []proof.RelationshipRef{precondition}, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecycleDecisionReady, OccurredAt: time.Date(2026, 1, 1, 0, 0, 2, 0, time.UTC), ContractRef: wrong, ContractFamilyID: proposal.ContractFamilyID, Revision: proposal.Revision, PreconditionRefs: []proof.RelationshipRef{precondition}, Decision: &actioncontract.ReadinessResult{ContractID: wrong.ID, PolicyDigest: "sha256:" + strings.Repeat("b", 64), Ready: true, Status: actioncontract.ReadinessSatisfied, Preconditions: []actioncontract.ReadinessPrecondition{{RequirementID: precondition.ID, Required: true, Status: actioncontract.ReadinessSatisfied, EvidenceDigest: precondition.Digest, ControlMode: actioncontract.ControlModeEnforced}}}, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecycleActivationRequested, OccurredAt: time.Date(2026, 1, 1, 0, 0, 3, 0, time.UTC), ContractRef: wrong, ContractFamilyID: proposal.ContractFamilyID, Revision: proposal.Revision, ProposalRef: &wrong, SigningPrivateKey: private},
+	} {
+		record, recordErr := actioncontract.NewLifecycleRecord(opts)
+		if recordErr != nil {
+			t.Fatal(recordErr)
+		}
+		if recordErr = actioncontract.AppendLifecycleRecord(journal, record); recordErr != nil {
+			t.Fatal(recordErr)
+		}
+	}
+	args := []string{"--proposal", proposalPath, "--selection", selectionPath, "--policy-digest", "sha256:" + strings.Repeat("b", 64), "--principal", "principal:test", "--authority-ref", "authority:test", "--target", "target:test", "--environment", "test", "--mode", "context_only", "--valid-from", "2026-01-01T00:00:00Z", "--allow-development-signing", "--lifecycle-out", journal, "--json"}
+	if code := runActionContractActivate(args); code != exitInternalFailure {
+		t.Fatalf("mismatched lifecycle prefix accepted: %d", code)
+	}
+}
+
+func TestActionContractActivateAuthenticatesAndExtendsLifecyclePrefix(t *testing.T) {
+	proposalPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "customer-data-to-egress", "pac-6dcee5a6d9a65e8c.json")
+	selectionPath := filepath.Join("..", "..", "testdata", "action-contract-interop", "v1", "expected", "fixture-manifest.json")
+	proposal, _, err := actioncontract.ReadArtifact(proposalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contractRef := proof.RelationshipRef{Kind: "action_contract", ID: proposal.ContractID, Digest: proposal.CanonicalContentDigest, SchemaID: actioncontract.ProposedContractSchemaID, SchemaVersion: actioncontract.ProposedContractVersion, SourceProduct: actioncontract.ProposedProducer}
+	precondition := proof.RelationshipRef{Kind: "precondition", ID: "prefix-ready", Digest: "sha256:" + strings.Repeat("b", 64), SchemaID: actioncontract.RuntimeReadinessSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, SourceProduct: actioncontract.EvidenceProducer}
+	ready := actioncontract.ReadinessResult{SchemaID: actioncontract.RuntimeReadinessSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, ContractID: proposal.ContractID, PolicyDigest: "sha256:" + strings.Repeat("c", 64), Ready: true, Status: actioncontract.ReadinessSatisfied, Preconditions: []actioncontract.ReadinessPrecondition{{RequirementID: precondition.ID, Required: true, Status: actioncontract.ReadinessSatisfied, ControlMode: actioncontract.ControlModeEnforced, EvidenceDigest: precondition.Digest}}}
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKeyPath := filepath.Join(root, "activation.key")
+	if err := os.WriteFile(privateKeyPath, []byte(base64.StdEncoding.EncodeToString(private)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	journal := filepath.Join(root, "prefix.jsonl")
+	when := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for _, opts := range []actioncontract.LifecycleRecordOptions{
+		{Kind: actioncontract.LifecycleProposalIngested, OccurredAt: when, ContractRef: contractRef, ContractFamilyID: proposal.ContractFamilyID, Revision: proposal.Revision, ProposalRef: &contractRef, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecyclePreconditionEvaluated, OccurredAt: when.Add(time.Nanosecond), ContractRef: contractRef, ContractFamilyID: proposal.ContractFamilyID, Revision: proposal.Revision, PreconditionRefs: []proof.RelationshipRef{precondition}, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecycleDecisionReady, OccurredAt: when.Add(2 * time.Nanosecond), ContractRef: contractRef, ContractFamilyID: proposal.ContractFamilyID, Revision: proposal.Revision, PreconditionRefs: []proof.RelationshipRef{precondition}, Decision: &ready, SigningPrivateKey: private},
+	} {
+		record, recordErr := actioncontract.NewLifecycleRecord(opts)
+		if recordErr != nil {
+			t.Fatal(recordErr)
+		}
+		if recordErr = actioncontract.AppendLifecycleRecord(journal, record); recordErr != nil {
+			t.Fatal(recordErr)
+		}
+	}
+	activationOut := filepath.Join(root, "activated.json")
+	args := []string{"--proposal", proposalPath, "--selection", selectionPath, "--policy-digest", ready.PolicyDigest, "--principal", "principal:test", "--authority-ref", "authority:test", "--target", "target:test", "--environment", "development", "--mode", "context_only", "--valid-from", "2026-01-01T00:00:00Z", "--private-key", privateKeyPath, "--out", activationOut, "--lifecycle-out", journal, "--overwrite", "--json"}
+	if code := runActionContractActivate(args); code != exitOK {
+		t.Fatalf("valid lifecycle prefix rejected: %d", code)
+	}
+	records, err := actioncontract.ReadLifecycleJournal(journal)
+	if err != nil || len(records) != 5 {
+		t.Fatalf("lifecycle extension records=%d err=%v", len(records), err)
+	}
+	if _, err := os.Stat(activationOut); err != nil {
+		t.Fatalf("activation output missing: %v", err)
+	}
+}
+
+func TestActionContractLifecycleVerifyAuthenticatesActivatedPrefix(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, private, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPath := filepath.Join(root, "trace.pub")
+	if err := os.WriteFile(keyPath, []byte(base64.StdEncoding.EncodeToString(private.Public().(ed25519.PublicKey))), 0600); err != nil {
+		t.Fatal(err)
+	}
+	contractRef := proof.RelationshipRef{Kind: "action_contract", ID: "pac-prefix", Digest: "sha256:" + strings.Repeat("a", 64), SchemaID: actioncontract.ProposedContractSchemaID, SchemaVersion: actioncontract.ProposedContractVersion, SourceProduct: actioncontract.ProposedProducer}
+	activationRef := proof.RelationshipRef{Kind: "activated_action_contract", ID: "gact-prefix", Digest: "sha256:" + strings.Repeat("b", 64), SchemaID: actioncontract.ActivatedSchemaID, SchemaVersion: actioncontract.ActivatedSchemaVersion, SourceProduct: actioncontract.ActivatedProducer}
+	precondition := proof.RelationshipRef{Kind: "precondition", ID: "prefix-ready", Digest: "sha256:" + strings.Repeat("d", 64), SchemaID: actioncontract.RuntimeReadinessSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, SourceProduct: actioncontract.EvidenceProducer}
+	ready := actioncontract.ReadinessResult{SchemaID: actioncontract.RuntimeReadinessSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, ContractID: contractRef.ID, PolicyDigest: "sha256:" + strings.Repeat("c", 64), Ready: true, Status: actioncontract.ReadinessSatisfied, Preconditions: []actioncontract.ReadinessPrecondition{{RequirementID: "prefix-ready", Required: true, Status: actioncontract.ReadinessSatisfied, ControlMode: actioncontract.ControlModeEnforced, EvidenceDigest: precondition.Digest}}}
+	journal := filepath.Join(root, "lifecycle.jsonl")
+	when := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for index, opts := range []actioncontract.LifecycleRecordOptions{
+		{Kind: actioncontract.LifecycleProposalIngested, OccurredAt: when, ContractRef: contractRef, Revision: 1, ProposalRef: &contractRef, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecyclePreconditionEvaluated, OccurredAt: when.Add(time.Nanosecond), ContractRef: contractRef, Revision: 1, PreconditionRefs: []proof.RelationshipRef{precondition}, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecycleDecisionReady, OccurredAt: when.Add(2 * time.Nanosecond), ContractRef: contractRef, Revision: 1, PreconditionRefs: []proof.RelationshipRef{precondition}, Decision: &ready, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecycleActivationRequested, OccurredAt: when.Add(3 * time.Nanosecond), ContractRef: contractRef, Revision: 1, ProposalRef: &contractRef, SigningPrivateKey: private},
+		{Kind: actioncontract.LifecycleActivated, OccurredAt: when.Add(4 * time.Nanosecond), ContractRef: contractRef, Revision: 1, ProposalRef: &contractRef, ActivationRef: &activationRef, SigningPrivateKey: private},
+	} {
+		record, recordErr := actioncontract.NewLifecycleRecord(opts)
+		if recordErr != nil {
+			t.Fatalf("record %d: %v", index, recordErr)
+		}
+		if recordErr = actioncontract.AppendLifecycleRecord(journal, record); recordErr != nil {
+			t.Fatalf("append %d: %v", index, recordErr)
+		}
+	}
+	if code := runActionContractLifecycleVerify([]string{"--help"}); code != exitOK {
+		t.Fatalf("help=%d", code)
+	}
+	if code := runActionContractLifecycleVerify([]string{"--journal", journal}); code != exitInvalidInput {
+		t.Fatalf("missing key=%d", code)
+	}
+	if code := runActionContractLifecycleVerify([]string{"--journal", journal, "--public-key", keyPath, "--json"}); code != exitOK {
+		t.Fatalf("valid prefix=%d", code)
+	}
+	if code := runActionContractLifecycleVerify([]string{"--journal", filepath.Join(root, "missing.jsonl"), "--public-key", keyPath}); code != exitVerifyFailed {
+		t.Fatalf("missing journal=%d", code)
 	}
 }
 

@@ -68,6 +68,18 @@ References:
 - `docs/contracts/action_contract_activation.md`
 - `schemas/v1/action-contract/README.md`
 - `docs/failure_taxonomy_exit_codes.md`
+
+`gait action-contract lifecycle-result` consumes a separately verified Gate
+trace and Action Contract activation, then appends signed execution terminal
+records with exact result digests. `gait containment stop` requires the same
+verified context plus explicit scope and emits signed stop control/lifecycle
+records and a reference-only containment receipt. Optional Compose fixtures,
+advisory providers, OTLP export, and the Python lifecycle bridge are bounded
+and opt-in; failures never turn into authorization or universal-containment
+claims. The lifecycle command accepts `--result-file` for structured executor
+output so Go computes the JCS digest, requires an `allow` trace verdict, and
+compares the trace `readiness_digest` against readiness recomputed with the
+same `--trusted-validators` and repeatable `--trusted-validator-key` inputs.
 ## Action Contract evidence additions
 
 - `gait effects observe` captures one bounded observation; paired `gait effects capture` consumes `--before-observation` and `--after-observation` to produce a complete signed snapshot.

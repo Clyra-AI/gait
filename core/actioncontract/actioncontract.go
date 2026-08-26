@@ -458,6 +458,39 @@ func WriteActivatedArtifact(path string, artifact ActivatedArtifact, overwrite b
 	return writeActivatedArtifact(path, artifact, overwrite, nil)
 }
 
+// ValidateActivatedArtifactOutput checks that an activation output can be
+// installed without mutating the filesystem. Callers can use this before
+// appending lifecycle evidence so a failed output never claims publication.
+func ValidateActivatedArtifactOutput(path string, overwrite bool) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return errors.New("activation output path is required")
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	directory, err := validateOutputDirectory(filepath.Dir(abs))
+	if err != nil {
+		return err
+	}
+	target := filepath.Join(directory, filepath.Base(abs))
+	info, err := os.Lstat(target)
+	if err == nil {
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return errors.New("activation output must be a regular file")
+		}
+		if !overwrite {
+			return errors.New("activation output exists; pass --overwrite to replace it")
+		}
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 func writeActivatedArtifact(path string, artifact ActivatedArtifact, overwrite bool, beforeInstall func()) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -1409,6 +1442,10 @@ func RawDigest(raw []byte) string {
 func DevelopmentPublicKey() ed25519.PublicKey {
 	return deterministicDevelopmentKey().Public().(ed25519.PublicKey)
 }
+
+// DevelopmentPrivateKey is provided solely for local fixture/demo lifecycle
+// signing. Production callers must supply an explicit key to Activate.
+func DevelopmentPrivateKey() ed25519.PrivateKey { return deterministicDevelopmentKey() }
 
 // EncodePrivateKey is a small helper for test/CLI fixtures and uses Proof's
 // base64-compatible representation without making key material part of an

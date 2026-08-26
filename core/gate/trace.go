@@ -26,6 +26,7 @@ type EmitTraceOptions struct {
 	LatencyMS                  float64
 	ContextSource              string
 	CompositeRiskClass         string
+	ReadinessDigest            string
 	StepVerdicts               []schemagate.TraceStepVerdict
 	PreApproved                bool
 	PatternID                  string
@@ -91,6 +92,7 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		producerVersion = "0.0.0-dev"
 	}
 
+	readinessDigest := strings.TrimPrefix(strings.TrimSpace(opts.ReadinessDigest), "sha256:")
 	trace := schemagate.TraceRecord{
 		SchemaID:                   "gait.gate.trace",
 		SchemaVersion:              "1.0.0",
@@ -103,6 +105,15 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		ArgsDigest:                 normalizedIntent.ArgsDigest,
 		IntentDigest:               normalizedIntent.IntentDigest,
 		PolicyDigest:               policyDigest,
+		ContractFamilyID:           normalizedIntent.Context.ContractFamilyID,
+		ContractID:                 normalizedIntent.Context.ContractID,
+		ContractRevision:           normalizedIntent.Context.ContractRevision,
+		ProposalDigest:             normalizedIntent.Context.ProposalDigest,
+		ActivationDigest:           normalizedIntent.Context.ActivationDigest,
+		ExpectedOutcome:            normalizedIntent.Context.ExpectedOutcome,
+		ExpectedEffect:             normalizedIntent.Context.EffectScope,
+		ExpectedContainment:        normalizedIntent.Context.ContainmentScope,
+		ReadinessDigest:            readinessDigest,
 		AgentID:                    normalizedIntent.Context.AgentID,
 		AgentIdentity:              normalizedIntent.Context.AgentIdentity,
 		RunID:                      normalizedIntent.Context.RunID,

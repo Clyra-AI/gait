@@ -70,7 +70,7 @@ func ValidateBrokerCredentialReceipt(rule PolicyRule, request credential.Request
 		name      string
 		want, got string
 	}{{"contract_family", intentBinding.ContractFamilyID, response.ContractFamilyID}, {"contract_id", intentBinding.ContractID, response.ContractID}, {"proposal_digest", intentBinding.ProposalDigest, response.ProposalDigest}, {"activation_digest", intentBinding.ActivationDigest, response.ActivationDigest}, {"policy_digest", intentBinding.PolicyDigest, response.PolicyDigest}, {"approval_digest", intentBinding.ApprovalTokenDigest, response.ApprovalTokenDigest}, {"delegation_digest", intentBinding.DelegationDigest, response.DelegationDigest}, {"expected_outcome", intentBinding.ExpectedOutcome, response.ExpectedOutcome}} {
-		if x.want != "" && x.got != x.want {
+		if x.want != "" && !sameBrokerBindingValue(x.name, x.want, x.got) {
 			code := "broker_" + x.name + "_mismatch"
 			reasons = append(reasons, code)
 			violations = append(violations, code)
@@ -91,6 +91,13 @@ func ValidateBrokerCredentialReceipt(rule PolicyRule, request credential.Request
 		}
 	}
 	return uniqueSorted(reasons), uniqueSorted(violations)
+}
+
+func sameBrokerBindingValue(name, want, got string) bool {
+	if strings.HasSuffix(name, "digest") {
+		return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(want)), "sha256:") == strings.TrimPrefix(strings.ToLower(strings.TrimSpace(got)), "sha256:")
+	}
+	return want == got
 }
 
 type IntentBrokerBinding struct {

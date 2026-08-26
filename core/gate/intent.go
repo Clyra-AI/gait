@@ -735,6 +735,17 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 		ContextSetDigest:        contextSetDigest,
 		ContextEvidenceMode:     contextEvidenceMode,
 		ContextRefs:             contextRefs,
+		ContractFamilyID:        strings.TrimSpace(context.ContractFamilyID),
+		ContractID:              strings.TrimSpace(context.ContractID),
+		ContractRevision:        context.ContractRevision,
+		ProposalDigest:          strings.TrimSpace(context.ProposalDigest),
+		ActivationDigest:        strings.TrimSpace(context.ActivationDigest),
+		PolicyDigest:            strings.TrimSpace(context.PolicyDigest),
+		ApprovalTokenDigest:     strings.TrimSpace(context.ApprovalTokenDigest),
+		DelegationDigest:        strings.TrimSpace(context.DelegationDigest),
+		ExpectedOutcome:         strings.TrimSpace(context.ExpectedOutcome),
+		EffectScope:             normalizeStringList(context.EffectScope),
+		ContainmentScope:        normalizeStringList(context.ContainmentScope),
 	}, nil
 }
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/actioncontract"
 	"github.com/Clyra-AI/gait/core/contextproof"
 	"github.com/Clyra-AI/gait/core/credential"
 	coreerrors "github.com/Clyra-AI/gait/core/errors"
@@ -19,6 +20,7 @@ import (
 	"github.com/Clyra-AI/gait/core/projectconfig"
 	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	proof "github.com/Clyra-AI/proof"
 	sign "github.com/Clyra-AI/proof/signing"
 )
 
@@ -76,6 +78,14 @@ type gateEvalOutput struct {
 	SimulatedVerdict           string                           `json:"simulated_verdict,omitempty"`
 	SimulatedReasonCodes       []string                         `json:"simulated_reason_codes,omitempty"`
 	Warnings                   []string                         `json:"warnings,omitempty"`
+	ContractID                 string                           `json:"contract_id,omitempty"`
+	ContractFamilyID           string                           `json:"contract_family_id,omitempty"`
+	ContractRevision           int                              `json:"contract_revision,omitempty"`
+	ContractActivationDigest   string                           `json:"contract_activation_digest,omitempty"`
+	ContractMode               string                           `json:"contract_mode,omitempty"`
+	RuntimeAction              *actioncontract.RuntimeAction    `json:"runtime_action,omitempty"`
+	RuntimeReadiness           *actioncontract.ReadinessResult  `json:"runtime_readiness,omitempty"`
+	ContractReasonCodes        []string                         `json:"contract_reason_codes,omitempty"`
 	Error                      string                           `json:"error,omitempty"`
 }
 
@@ -143,6 +153,19 @@ func runGateEval(arguments []string) int {
 	var credentialCommandArgsCSV string
 	var credentialEvidencePath string
 	var wrkrInventoryPath string
+	var actionContractPath string
+	var activationPath string
+	var activationPublicKeyPath string
+	var activationPublicKeyEnv string
+	var trustedValidatorCSV string
+	var trustedValidatorKeyFlags repeatStringFlag
+	var allowDevelopmentContractSigning bool
+	var chainPolicyPath, chainStatePath, chainCandidatePath, chainStateOut, circuitInputPath string
+	var otlpEndpoint string
+	var otlpTimeout time.Duration
+	var otlpRedact bool
+	var lifecycleOut string
+	var revocationRegistryPath string
 	var approvedScriptRegistryPath string
 	var approvedScriptPublicKeyPath string
 	var approvedScriptPublicKeyEnv string
@@ -187,6 +210,25 @@ func runGateEval(arguments []string) int {
 	flagSet.StringVar(&credentialCommandArgsCSV, "credential-command-args", "", "comma-separated args for --credential-command")
 	flagSet.StringVar(&credentialEvidencePath, "credential-evidence-out", "", "path to emitted broker credential evidence JSON")
 	flagSet.StringVar(&wrkrInventoryPath, "wrkr-inventory", "", "path to local Wrkr inventory JSON")
+	flagSet.StringVar(&actionContractPath, "action-contract", "", "path to explicit Wrkr proposed action contract artifact")
+	flagSet.StringVar(&actionContractPath, "contract", "", "alias for --action-contract")
+	flagSet.StringVar(&actionContractPath, "proposal", "", "alias for --action-contract")
+	flagSet.StringVar(&activationPath, "activation", "", "path to explicit signed Gait activation artifact")
+	flagSet.StringVar(&activationPublicKeyPath, "activation-public-key", "", "base64 Ed25519 public key for activation verification")
+	flagSet.StringVar(&activationPublicKeyEnv, "activation-public-key-env", "", "environment variable containing activation verify key")
+	flagSet.StringVar(&trustedValidatorCSV, "trusted-validators", "", "comma-separated policy-named trusted validator references")
+	flagSet.Var(&trustedValidatorKeyFlags, "trusted-validator-key", "authoritative validator key as producer=public-key-path (repeatable)")
+	flagSet.BoolVar(&allowDevelopmentContractSigning, "allow-development-contract-signing", false, "TEST ONLY: permit development-signed activations")
+	flagSet.StringVar(&chainPolicyPath, "chain-policy", "", "bounded action-chain policy JSON")
+	flagSet.StringVar(&chainStatePath, "chain-state", "", "persisted bounded action-chain state JSON")
+	flagSet.StringVar(&chainCandidatePath, "chain-candidate", "", "current action-chain candidate JSON")
+	flagSet.StringVar(&chainStateOut, "chain-state-out", "", "atomic output path for next chain state")
+	flagSet.StringVar(&circuitInputPath, "circuit-input", "", "bounded circuit-breaker input JSON")
+	flagSet.StringVar(&otlpEndpoint, "otlp-endpoint", "", "optional OTLP HTTP endpoint (default off)")
+	flagSet.DurationVar(&otlpTimeout, "otlp-timeout", 5*time.Second, "bounded OTLP exporter timeout")
+	flagSet.BoolVar(&otlpRedact, "otlp-redact", true, "redact OTLP evidence payloads")
+	flagSet.StringVar(&lifecycleOut, "lifecycle-out", "", "optional JSONL journal for signed Action Contract lifecycle records")
+	flagSet.StringVar(&revocationRegistryPath, "revocation-registry", "", "persistent native capability revocation registry")
 	flagSet.StringVar(&approvedScriptRegistryPath, "approved-script-registry", "", "path to approved script registry JSON")
 	flagSet.StringVar(&approvedScriptPublicKeyPath, "approved-script-public-key", "", "path to base64 approved-script verify key")
 	flagSet.StringVar(&approvedScriptPublicKeyEnv, "approved-script-public-key-env", "", "env var containing base64 approved-script verify key")
@@ -276,6 +318,51 @@ func runGateEval(arguments []string) int {
 	intent, err := readIntentRequest(intentPath)
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	intent, err = gate.NormalizeIntent(intent)
+	if err != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if strings.TrimSpace(revocationRegistryPath) != "" {
+		revocationIDs := []string{intent.Context.Identity, intent.Context.ApprovalRef, intent.Context.ApprovalTokenDigest, intent.Context.DelegationDigest}
+		if intent.Delegation != nil {
+			revocationIDs = append(revocationIDs, intent.Delegation.TokenRefs...)
+			for _, link := range intent.Delegation.Chain {
+				revocationIDs = append(revocationIDs, link.TokenRef)
+			}
+		}
+		if revoked, readErr := anyRevokedByRegistry(revocationRegistryPath, revocationIDs); readErr != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: readErr.Error()}, exitPolicyBlocked)
+		} else if revoked {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "capability invalidated", ReasonCodes: []string{"capability_invalidated"}}, exitPolicyBlocked)
+		}
+	}
+	// Preserve the signed Gate trace for control-boundary blocks. The validated
+	// policy path below still supplies the trace signing context; no state is
+	// persisted unless the final verdict is allow.
+	controlsErr := evaluateGateControls(chainPolicyPath, chainStatePath, chainCandidatePath, "", circuitInputPath, intent)
+	evaluatedPolicyDigest, digestErr := gate.PolicyDigest(policy)
+	if digestErr != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: digestErr.Error()}, exitCodeForError(digestErr, exitInvalidInput))
+	}
+	contractRuntime, contractErr := evaluateGateActionContract(actionContractPath, activationPath, activationPublicKeyPath, activationPublicKeyEnv, trustedValidatorCSV, trustedValidatorKeyFlags, allowDevelopmentContractSigning, evaluatedPolicyDigest, intent, evaluationNow)
+	if contractErr != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: contractErr.Error(), ContractReasonCodes: actionContractReasonCodes(contractErr)}, exitPolicyBlocked)
+	}
+	if contractRuntime.Selected {
+		intent.Context.ContractID = contractRuntime.ContractID
+		intent.Context.ContractFamilyID = contractRuntime.ContractFamilyID
+		intent.Context.ContractRevision = contractRuntime.Revision
+		intent.Context.ProposalDigest = strings.TrimPrefix(contractRuntime.ProposalRef.Digest, "sha256:")
+		intent.Context.ActivationDigest = strings.TrimPrefix(contractRuntime.ActivationRef.Digest, "sha256:")
+		if contractRuntime.Action != nil {
+			intent.Context.ExpectedOutcome = contractRuntime.Action.ExpectedOutcomeClass
+		}
+		intent, err = gate.NormalizeIntent(intent)
+		if err != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+		}
+		controlsErr = evaluateGateControls(chainPolicyPath, chainStatePath, chainCandidatePath, "", circuitInputPath, intent)
 	}
 	var killSwitchState *schemagate.KillSwitchState
 	var killSwitchStateErr error
@@ -471,7 +558,27 @@ func runGateEval(arguments []string) int {
 	if preparedIntent.SchemaID == "" {
 		preparedIntent = intent
 	}
+	if contractRuntime.Selected {
+		preparedIntent.Context.ContractID = intent.Context.ContractID
+		preparedIntent.Context.ContractFamilyID = intent.Context.ContractFamilyID
+		preparedIntent.Context.ContractRevision = intent.Context.ContractRevision
+		preparedIntent.Context.ProposalDigest = intent.Context.ProposalDigest
+		preparedIntent.Context.ActivationDigest = intent.Context.ActivationDigest
+		preparedIntent.Context.ExpectedOutcome = intent.Context.ExpectedOutcome
+	}
 	result := outcome.Result
+	if contractRuntime.Selected {
+		result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, contractRuntime.ReasonCodes)
+		if contractRuntime.Block {
+			result.Verdict = "block"
+			result.Violations = mergeUniqueSorted(result.Violations, []string{"action_contract_not_ready"})
+		}
+	}
+	if controlsErr != nil {
+		result.Verdict = "block"
+		result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, actionContractReasonCodes(controlsErr))
+		result.Violations = mergeUniqueSorted(result.Violations, []string{"action_control_blocked"})
+	}
 	evalLatencyMS := time.Since(evalStart).Seconds() * 1000
 	policyDigestForContext, intentDigestForContext, requiredApprovalScope, err := gate.ApprovalContext(policy, preparedIntent)
 	if err != nil {
@@ -565,38 +672,57 @@ func runGateEval(arguments []string) int {
 			exitCode = exitPolicyBlocked
 		} else {
 			tokens := make([]schemagate.DelegationToken, 0, len(delegationTokenPaths))
+			revokedToken := false
 			for _, tokenPath := range delegationTokenPaths {
 				token, readErr := gate.ReadDelegationToken(tokenPath)
 				if readErr != nil {
 					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: readErr.Error()}, exitCodeForError(readErr, exitInvalidInput))
 				}
 				tokens = append(tokens, token)
-			}
-			validation, validateErr := gate.ValidateDelegationChain(preparedIntent.Delegation, tokens, verifyKey, gate.DelegationChainValidationOptions{
-				Now:                  time.Now().UTC(),
-				RequiredScope:        outcome.RequiredDelegationScopes,
-				ExpectedIntentDigest: intentDigestForContext,
-				ExpectedPolicyDigest: policyDigestForContext,
-			})
-			if validateErr != nil {
-				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: validateErr.Error()}, exitCodeForError(validateErr, exitInvalidInput))
-			}
-			delegationEntries = append(delegationEntries, validation.Entries...)
-			validDelegations = validation.ValidDelegations
-			if !validation.Complete {
-				for _, entry := range validation.Entries {
-					if !entry.Valid && strings.TrimSpace(entry.ErrorCode) != "" {
-						result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{entry.ErrorCode})
+				if strings.TrimSpace(revocationRegistryPath) != "" {
+					revoked, revocationErr := identityRevokedByRegistry(revocationRegistryPath, token.TokenID)
+					if revocationErr != nil {
+						return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: revocationErr.Error()}, exitPolicyBlocked)
+					}
+					if revoked {
+						revokedToken = true
 					}
 				}
+			}
+			if revokedToken {
 				result.Verdict = "block"
-				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_chain_insufficient"})
+				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"capability_invalidated"})
 				result.Violations = mergeUniqueSorted(result.Violations, []string{"delegation_not_granted"})
 				exitCode = exitPolicyBlocked
 			} else {
-				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_granted"})
-				if len(validation.ValidTokenIDs) > 0 {
-					resolvedDelegationRef = strings.Join(validation.ValidTokenIDs, ",")
+				validation, validateErr := gate.ValidateDelegationChain(preparedIntent.Delegation, tokens, verifyKey, gate.DelegationChainValidationOptions{
+					Now:                    time.Now().UTC(),
+					RequiredScope:          outcome.RequiredDelegationScopes,
+					ExpectedIntentDigest:   intentDigestForContext,
+					ExpectedPolicyDigest:   policyDigestForContext,
+					ExpectedContractDigest: strings.TrimPrefix(strings.ToLower(strings.TrimSpace(preparedIntent.Context.ProposalDigest)), "sha256:"),
+					RequireExactBindings:   contractRuntime.Selected,
+				})
+				if validateErr != nil {
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: validateErr.Error()}, exitCodeForError(validateErr, exitInvalidInput))
+				}
+				delegationEntries = append(delegationEntries, validation.Entries...)
+				validDelegations = validation.ValidDelegations
+				if !validation.Complete {
+					for _, entry := range validation.Entries {
+						if !entry.Valid && strings.TrimSpace(entry.ErrorCode) != "" {
+							result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{entry.ErrorCode})
+						}
+					}
+					result.Verdict = "block"
+					result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_chain_insufficient"})
+					result.Violations = mergeUniqueSorted(result.Violations, []string{"delegation_not_granted"})
+					exitCode = exitPolicyBlocked
+				} else {
+					result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_granted"})
+					if len(validation.ValidTokenIDs) > 0 {
+						resolvedDelegationRef = strings.Join(validation.ValidTokenIDs, ",")
+					}
 				}
 			}
 		}
@@ -648,11 +774,28 @@ func runGateEval(arguments []string) int {
 					ExpiresAt:        token.ExpiresAt.UTC(),
 					Valid:            false,
 				}
+				if strings.TrimSpace(revocationRegistryPath) != "" {
+					revoked, revocationErr := identityRevokedByRegistry(revocationRegistryPath, token.TokenID)
+					if revocationErr != nil {
+						return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: revocationErr.Error()}, exitPolicyBlocked)
+					}
+					if revoked {
+						entry.ErrorCode = "capability_invalidated"
+						result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"capability_invalidated"})
+						approvalEntries = append(approvalEntries, entry)
+						continue
+					}
+				}
 				err = gate.ValidateApprovalToken(token, verifyKey, gate.ApprovalValidationOptions{
 					Now:                             time.Now().UTC(),
 					ExpectedIntentDigest:            intentDigestForContext,
 					ExpectedPolicyDigest:            policyDigestForContext,
 					ExpectedDelegationBindingDigest: delegationBindingDigest,
+					ExpectedContractFamilyID:        preparedIntent.Context.ContractFamilyID,
+					ExpectedContractID:              preparedIntent.Context.ContractID,
+					ExpectedContractRevision:        preparedIntent.Context.ContractRevision,
+					ExpectedProposalDigest:          preparedIntent.Context.ProposalDigest,
+					ExpectedActivationDigest:        preparedIntent.Context.ActivationDigest,
 					RequiredScope:                   requiredApprovalScope,
 					TargetCount:                     gateIntentTargetCount(preparedIntent),
 					OperationCount:                  gateIntentOperationCount(preparedIntent),
@@ -795,6 +938,7 @@ func runGateEval(arguments []string) int {
 		}
 	}
 
+	enforcementVerdict := result.Verdict
 	simulatedVerdict := ""
 	simulatedReasonCodes := []string{}
 	wouldHaveBlocked := false
@@ -821,6 +965,7 @@ func runGateEval(arguments []string) int {
 		LatencyMS:                  evalLatencyMS,
 		ContextSource:              outcome.ContextSource,
 		CompositeRiskClass:         outcome.CompositeRiskClass,
+		ReadinessDigest:            contractRuntime.ReadinessDigest,
 		StepVerdicts:               outcome.StepVerdicts,
 		PreApproved:                outcome.PreApproved,
 		PatternID:                  outcome.PatternID,
@@ -842,6 +987,59 @@ func runGateEval(arguments []string) int {
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
+	if strings.TrimSpace(otlpEndpoint) != "" {
+		telemetry := actioncontract.ExportOTLP(actioncontract.OTLPExporter{Endpoint: otlpEndpoint, Timeout: otlpTimeout, Redact: otlpRedact}, traceResult.Trace)
+		if telemetry.Error != "" {
+			startupWarnings = append(startupWarnings, "otlp_export_failed: "+telemetry.Error)
+		}
+	}
+	if contractRuntime.Selected && strings.TrimSpace(lifecycleOut) != "" {
+		proposalRecord, lifecycleErr := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: actioncontract.LifecycleProposalIngested, OccurredAt: result.CreatedAt, ContractRef: contractRuntime.ProposalRef, ContractFamilyID: contractRuntime.ContractFamilyID, Revision: contractRuntime.Revision, ProposalRef: &contractRuntime.ProposalRef, ReasonCodes: contractRuntime.ReasonCodes, SigningPrivateKey: keyPair.Private})
+		if lifecycleErr != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: lifecycleErr.Error(), ContractReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+		}
+		if lifecycleErr = actioncontract.AppendLifecycleRecord(lifecycleOut, proposalRecord); lifecycleErr != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: lifecycleErr.Error(), ContractReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+		}
+		if contractRuntime.Readiness != nil && len(contractRuntime.Readiness.Preconditions) > 0 {
+			preconditionRefs := make([]proof.RelationshipRef, 0, len(contractRuntime.Readiness.Preconditions))
+			for _, precondition := range contractRuntime.Readiness.Preconditions {
+				digest := strings.TrimSpace(precondition.EvidenceDigest)
+				if digest != "" && !strings.HasPrefix(digest, "sha256:") {
+					digest = "sha256:" + digest
+				}
+				if digest == "" {
+					continue
+				}
+				preconditionRefs = append(preconditionRefs, proof.RelationshipRef{Kind: "precondition", ID: precondition.RequirementID, Digest: digest, SchemaID: actioncontract.RuntimeReadinessSchemaID, SchemaVersion: actioncontract.RuntimeActionSchemaVersion, SourceProduct: actioncontract.EvidenceProducer})
+			}
+			if len(preconditionRefs) > 0 {
+				preconditionRecord, preconditionErr := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: actioncontract.LifecyclePreconditionEvaluated, OccurredAt: result.CreatedAt.Add(time.Nanosecond), ContractRef: contractRuntime.ProposalRef, ContractFamilyID: contractRuntime.ContractFamilyID, Revision: contractRuntime.Revision, ProposalRef: &contractRuntime.ProposalRef, PreconditionRefs: preconditionRefs, SigningPrivateKey: keyPair.Private})
+				if preconditionErr != nil {
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: preconditionErr.Error(), ContractReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+				}
+				if preconditionErr = actioncontract.AppendLifecycleRecord(lifecycleOut, preconditionRecord); preconditionErr != nil {
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: preconditionErr.Error(), ContractReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+				}
+			}
+		}
+		kind := actioncontract.LifecycleProposalIngested
+		if result.Verdict == "block" {
+			kind = actioncontract.LifecycleRejected
+		}
+		if contractRuntime.Readiness != nil && contractRuntime.Readiness.Ready {
+			kind = actioncontract.LifecycleDecisionReady
+		}
+		if kind != actioncontract.LifecycleProposalIngested {
+			record, lifecycleErr := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: kind, OccurredAt: result.CreatedAt.Add(2 * time.Nanosecond), ContractRef: contractRuntime.ProposalRef, ContractFamilyID: contractRuntime.ContractFamilyID, Revision: contractRuntime.Revision, ProposalRef: &contractRuntime.ProposalRef, ActivationRef: &contractRuntime.ActivationRef, Decision: contractRuntime.Readiness, ReasonCodes: contractRuntime.ReasonCodes, SigningPrivateKey: keyPair.Private})
+			if lifecycleErr != nil {
+				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: lifecycleErr.Error(), ContractReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+			}
+			if lifecycleErr = actioncontract.AppendLifecycleRecord(lifecycleOut, record); lifecycleErr != nil {
+				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: lifecycleErr.Error(), ContractReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+			}
+		}
+	}
 	if outcome.KillSwitch != nil && outcome.KillSwitch.Status == "active" && strings.TrimSpace(killSwitchStatePath) != "" {
 		if err := gate.AppendKillSwitchJournal(gate.KillSwitchJournalPath(killSwitchStatePath), gate.KillSwitchJournalRecord{
 			CreatedAt:       result.CreatedAt,
@@ -856,6 +1054,11 @@ func runGateEval(arguments []string) int {
 			MatchedEntryIDs: outcome.KillSwitch.MatchedEntryIDs,
 		}); err != nil {
 			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+		}
+	}
+	if !simulate && strings.TrimSpace(chainStateOut) != "" && enforcementVerdict == "allow" {
+		if controlsErr := evaluateGateControls(chainPolicyPath, chainStatePath, chainCandidatePath, chainStateOut, "", preparedIntent); controlsErr != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: controlsErr.Error(), ReasonCodes: actionContractReasonCodes(controlsErr)}, exitPolicyBlocked)
 		}
 	}
 
@@ -991,6 +1194,14 @@ func runGateEval(arguments []string) int {
 		SimulatedVerdict:           simulatedVerdict,
 		SimulatedReasonCodes:       simulatedReasonCodes,
 		Warnings:                   mergeUniqueSorted(startupWarnings, signingWarnings),
+		ContractID:                 contractRuntime.ContractID,
+		ContractFamilyID:           contractRuntime.ContractFamilyID,
+		ContractRevision:           contractRuntime.Revision,
+		ContractActivationDigest:   contractRuntime.ActivationDigest,
+		ContractMode:               contractRuntime.Mode,
+		RuntimeAction:              contractRuntime.Action,
+		RuntimeReadiness:           contractRuntime.Readiness,
+		ContractReasonCodes:        contractRuntime.ReasonCodes,
 	}
 	if explainOutput && jsonOutput {
 		explain := gate.BuildPolicyExplain(policy, outcome, gate.BuildPolicyExplainOptions{
@@ -1337,7 +1548,7 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 func printGateUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--context-envelope <context_envelope.json>] [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--wrkr-inventory <inventory.json>] [--approved-script-registry <registry.json>] [--approved-script-public-key <path>|--approved-script-public-key-env <VAR>] [--evaluation-time <rfc3339>] [--kill-switch-state <state.json>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--action-contract <proposal.json> --activation <activated.json> --activation-public-key <key>] [--trusted-validators <csv> --trusted-validator-key producer=key] [--chain-policy policy.json --chain-state state.json --chain-candidate candidate.json --chain-state-out next-state.json] [--circuit-input circuit.json] [--lifecycle-out lifecycle.jsonl] [--otlp-endpoint URL] [--json]")
 	fmt.Println("Rollout path:")
 	fmt.Println("  observe: gait gate eval ... --simulate --json")
 	fmt.Println("  enforce: gait gate eval ... --json")

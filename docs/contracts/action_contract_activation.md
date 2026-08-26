@@ -10,7 +10,7 @@ gait contract activate --proposal proposal.json --selection fixture-manifest.jso
   --policy-digest sha256:<64 hex> --principal principal:owner \
   --authority-ref approval:owner --target target:deploy \
   --environment production --mode context_only --private-key gait-private.key \
-  --valid-from 2026-07-19T00:00:00Z --json
+  --valid-from 2026-07-19T00:00:00Z --lifecycle-out lifecycle.jsonl --json
 gait contract verify --activation activated.json --proposal proposal.json \
   --public-key gait-public.key --json
 gait contract consume proposal.json --selection fixture-manifest.json
@@ -27,6 +27,16 @@ Its signed content binds the proposal artifact/digest/revision, Gait policy
 digest, activating principal and authority references, target/environment,
 activation mode (`context_only`, `enforce_floor`, or `required`), validity, and
 explicit exceptions. A new Wrkr revision must be activated again.
+
+When `--lifecycle-out` is supplied, it must point to an existing signed,
+decision-ready lifecycle prefix authenticated by the same activation key. Gait
+verifies that prefix before appending activation transitions and never treats
+an unauthenticated decision-ready record as authority.
+
+Adapters that execute after Gate should run
+`gait action-contract lifecycle-verify --journal lifecycle.jsonl --public-key
+trace.pub` before invoking the executor. This verifies the Gate-owned prefix
+and requires both decision-ready and activated state.
 
 The conformance consumer (`gait contract consume <artifact>`) emits a direct,
 deterministic JSON receipt. `status: pass` means the selected bytes were
@@ -106,6 +116,18 @@ gait action-contract advisory evaluate|verify
 gait action-contract otel --lifecycle lifecycle.json --otel-out events.jsonl --trusted-key public-key --source-version v1.5.0
 gait regress add --from lifecycle-receipt.json --trusted-key receipt-public-key --private-key runpack-private-key --verify-at RFC3339
 ```
+
+The covered-action boundary can bind a verified proposal and signed activation
+directly to `gait gate eval`:
+
+```text
+gait gate eval --action-contract proposal.json --activation activated.json --activation-public-key public-key --trusted-validators validator --trusted-validator-key validator=validator.pub.b64
+```
+
+`enforce_floor` and `required` activations fail closed unless signature,
+proposal digest, runtime classification, and trusted-validator readiness all
+verify. Caller-supplied context digests are compared with verified artifacts;
+they never grant authority.
 
 Stateful chain policy/state/candidate APIs are deterministic and pre-execution.
 Contract-bound approval, delegation, and brokered JIT evidence preserve exact

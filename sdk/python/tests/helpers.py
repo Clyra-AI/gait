@@ -159,6 +159,9 @@ def main():
     args = sys.argv[1:]
     if args[:2] == ["gate", "eval"]:
         return run_gate_eval(args[2:])
+    if args[:2] == ["action-contract", "lifecycle-verify"]:
+        print(json.dumps({"ok": True}))
+        return 0
     if args[:2] == ["regress", "init"]:
         return run_regress_init()
     if args[:2] == ["run", "record"]:

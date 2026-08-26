@@ -6,7 +6,7 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Callable, Literal, Mapping
 
 from .client import record_runpack
 from .models import GateEvalResult, IntentRequest, RunRecordCapture
@@ -32,6 +32,10 @@ def run_session(
     producer_version: str = "0.0.0-dev",
     context_evidence_mode: str | None = None,
     context_envelope: str | Path | None = None,
+    lifecycle_callback: Callable[
+        [IntentRequest, GateEvalResult, Any | None, BaseException | None], None
+    ]
+    | None = None,
 ) -> "RunSession":
     return RunSession(
         run_id=run_id,
@@ -43,6 +47,7 @@ def run_session(
         producer_version=producer_version,
         context_evidence_mode=context_evidence_mode,
         context_envelope=context_envelope,
+        lifecycle_callback=lifecycle_callback,
     )
 
 
@@ -68,6 +73,10 @@ class RunSession:
         producer_version: str = "0.0.0-dev",
         context_evidence_mode: str | None = None,
         context_envelope: str | Path | None = None,
+        lifecycle_callback: Callable[
+            [IntentRequest, GateEvalResult, Any | None, BaseException | None], None
+        ]
+        | None = None,
     ) -> None:
         if not run_id.strip():
             raise ValueError("run_id is required")
@@ -83,6 +92,7 @@ class RunSession:
         self.producer_version = producer_version
         self.context_evidence_mode = context_evidence_mode
         self.context_envelope = context_envelope
+        self.lifecycle_callback = lifecycle_callback
 
         self._token: Token[RunSession | None] | None = None
         self._closed = False

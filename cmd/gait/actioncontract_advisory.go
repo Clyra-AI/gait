@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/Clyra-AI/gait/core/actioncontract"
 	proofsign "github.com/Clyra-AI/proof/signing"
@@ -35,7 +36,8 @@ func runActionContractAdvisory(args []string) int {
 }
 func runAdvisoryEvaluate(args []string) int {
 	f := flag.NewFlagSet("advisory-evaluate", flag.ContinueOnError)
-	var input, out, key, action, contract, corr string
+	var input, out, key, action, contract, corr, mode, provider, command, commandArgs, endpoint, model string
+	var timeout time.Duration
 	var js bool
 	f.StringVar(&input, "input", "", "input JSON")
 	f.StringVar(&out, "out", "", "report output")
@@ -43,6 +45,13 @@ func runAdvisoryEvaluate(args []string) int {
 	f.StringVar(&action, "action-id", "", "Action Contract action ID")
 	f.StringVar(&contract, "contract-digest", "", "expected contract digest")
 	f.StringVar(&corr, "correlation-digest", "", "expected correlation digest")
+	f.StringVar(&mode, "mode", "advisory", "provider mode: off|advisory|required")
+	f.StringVar(&provider, "provider", "offline", "provider: offline|command|ollama")
+	f.StringVar(&command, "command", "", "advisory command provider executable")
+	f.StringVar(&commandArgs, "command-args", "", "comma-separated command provider args")
+	f.StringVar(&endpoint, "endpoint", "", "Ollama endpoint (no model pull)")
+	f.StringVar(&model, "model", "", "Ollama model name")
+	f.DurationVar(&timeout, "timeout", 5*time.Second, "provider timeout")
 	f.BoolVar(&js, "json", false, "JSON")
 	if err := f.Parse(args); err != nil {
 		return advisoryOutput(js, nil, err.Error(), exitInvalidInput)
@@ -61,7 +70,23 @@ func runAdvisoryEvaluate(args []string) int {
 	in.ActionID = action
 	in.ContractDigest = contract
 	in.CorrelationDigest = corr
-	r, e := (actioncontract.OfflineAdvisoryEvaluator{}).Evaluate(in)
+	var evaluator actioncontract.AdvisoryEvaluator = actioncontract.OfflineAdvisoryEvaluator{}
+	switch provider {
+	case "offline":
+	case "command":
+		evaluator = actioncontract.CommandAdvisoryEvaluator{Command: command, Args: parseCSV(commandArgs), Timeout: timeout}
+	case "ollama":
+		evaluator = actioncontract.OllamaAdvisoryEvaluator{Endpoint: endpoint, Model: model, Timeout: timeout}
+	default:
+		return advisoryOutput(js, nil, "provider must be offline, command, or ollama", exitInvalidInput)
+	}
+	r, e := actioncontract.EvaluateAdvisory(actioncontract.AdvisoryMode(mode), evaluator, in)
+	if mode == "off" && e == nil {
+		return advisoryOutput(js, &actioncontract.AdvisoryReport{Status: "off", AdvisoryOnly: true}, "", exitOK)
+	}
+	if e == nil && r.ProviderName == "" {
+		return advisoryOutput(js, nil, "", exitOK)
+	}
 	if e == nil {
 		var k []byte
 		k, e = proofsign.LoadPrivateKeyBase64(key)
@@ -128,7 +153,11 @@ func advisoryOutput(js bool, r *actioncontract.AdvisoryReport, e string, code in
 	} else if e != "" {
 		fmt.Println("advisory error: " + e)
 	} else {
-		fmt.Println("advisory report: " + r.Status)
+		status := "unavailable"
+		if r != nil && r.Status != "" {
+			status = r.Status
+		}
+		fmt.Println("advisory report: " + status)
 	}
 	return code
 }

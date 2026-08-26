@@ -88,6 +88,11 @@ type mcpProxyEvalOptions struct {
 	PrivateKeyEnv               string
 	AllowLocalContextArtifacts  bool
 	AllowPayloadContextEnvelope bool
+	ChainPolicyPath             string
+	ChainStatePath              string
+	ChainCandidatePath          string
+	ChainStateOut               string
+	CircuitInputPath            string
 }
 
 func runMCP(arguments []string) int {
@@ -134,6 +139,11 @@ func runMCPProxy(arguments []string) int {
 		"key-mode":          true,
 		"private-key":       true,
 		"private-key-env":   true,
+		"chain-policy":      true,
+		"chain-state":       true,
+		"chain-candidate":   true,
+		"chain-state-out":   true,
+		"circuit-input":     true,
 	})
 	flagSet := flag.NewFlagSet("mcp-proxy", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -154,6 +164,7 @@ func runMCPProxy(arguments []string) int {
 	var keyMode string
 	var privateKeyPath string
 	var privateKeyEnv string
+	var chainPolicyPath, chainStatePath, chainCandidatePath, chainStateOut, circuitInputPath string
 	var jsonOutput bool
 	var helpFlag bool
 
@@ -173,6 +184,11 @@ func runMCPProxy(arguments []string) int {
 	flagSet.StringVar(&keyMode, "key-mode", string(sign.ModeDev), "signing key mode: dev or prod")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private signing key")
 	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private signing key")
+	flagSet.StringVar(&chainPolicyPath, "chain-policy", "", "bounded action-chain policy JSON")
+	flagSet.StringVar(&chainStatePath, "chain-state", "", "persisted bounded action-chain state JSON")
+	flagSet.StringVar(&chainCandidatePath, "chain-candidate", "", "current action-chain candidate JSON")
+	flagSet.StringVar(&chainStateOut, "chain-state-out", "", "atomic output path for next chain state")
+	flagSet.StringVar(&circuitInputPath, "circuit-input", "", "bounded circuit-breaker input JSON")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -216,6 +232,11 @@ func runMCPProxy(arguments []string) int {
 		PrivateKey:                 privateKeyPath,
 		PrivateKeyEnv:              privateKeyEnv,
 		AllowLocalContextArtifacts: true,
+		ChainPolicyPath:            chainPolicyPath,
+		ChainStatePath:             chainStatePath,
+		ChainCandidatePath:         chainCandidatePath,
+		ChainStateOut:              chainStateOut,
+		CircuitInputPath:           circuitInputPath,
 	})
 	if err != nil {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -445,6 +466,14 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
+	controlsErr := evaluateGateControls(options.ChainPolicyPath, options.ChainStatePath, options.ChainCandidatePath, "", options.CircuitInputPath, evalResult.Intent)
+	if controlsErr != nil {
+		result := evalResult.Outcome.Result
+		result.Verdict = "block"
+		result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, actionContractReasonCodes(controlsErr))
+		result.Violations = mergeUniqueSorted(result.Violations, []string{"action_contract_control_blocked"})
+		evalResult.Outcome.Result = result
+	}
 	emergencyBlockedReason, emergencyWarnings := evaluateMCPEmergencyStop(call, strings.TrimSpace(options.JobRoot))
 	if emergencyBlockedReason != "" {
 		result := evalResult.Outcome.Result
@@ -592,6 +621,11 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		resolvedOTelExport = strings.TrimSpace(options.OTelExport)
 		if err := mcp.ExportOTelEvent(resolvedOTelExport, exportEvent); err != nil {
 			return mcpProxyOutput{}, exitInvalidInput, err
+		}
+	}
+	if strings.TrimSpace(options.ChainStateOut) != "" && evalResult.Outcome.Result.Verdict == "allow" {
+		if controlsErr := evaluateGateControls(options.ChainPolicyPath, options.ChainStatePath, options.ChainCandidatePath, options.ChainStateOut, "", evalResult.Intent); controlsErr != nil {
+			return mcpProxyOutput{}, exitPolicyBlocked, controlsErr
 		}
 	}
 
@@ -1076,7 +1110,7 @@ func printMCPUsage() {
 
 func printMCPProxyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--kill-switch-state <state.json>] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--kill-switch-state <state.json>] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--chain-policy policy.json --chain-state state.json --chain-candidate candidate.json --chain-state-out next-state.json] [--circuit-input circuit.json] [--json] [--explain]")
 }
 
 func printMCPVerifyUsage() {
