@@ -19,7 +19,7 @@
     "generator_version": {"type": "string", "minLength": 1},
     "signing": {
       "type": "object",
-      "required": ["algorithm", "authority", "key_origin", "public_key_path", "public_key_sha256", "key_id"],
+      "required": ["algorithm", "authority", "public_key_path", "public_key_sha256", "key_id"],
       "properties": {
         "algorithm": {"const": "ed25519"},
         "authority": {"const": "gait-release-owner"},

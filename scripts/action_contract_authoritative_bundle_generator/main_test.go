@@ -55,6 +55,9 @@ func TestAuthoritativeBundleGenerationAndVerification(t *testing.T) {
 	if !manifestValue.Authoritative || manifestValue.FixtureOnly || manifestValue.DevelopmentSign || manifestValue.Quarantine {
 		t.Fatalf("unsafe manifest markers: %#v", manifestValue)
 	}
+	if manifestValue.Signing.KeyOrigin != "deterministic_release_identity_non_secret_internal_integrity" {
+		t.Fatalf("unexpected release key origin: %q", manifestValue.Signing.KeyOrigin)
+	}
 	outAgain := t.TempDir()
 	if err := generateBundle(root, outAgain, "v1.7.1", commit, workflowIdentity); err != nil {
 		t.Fatal(err)
