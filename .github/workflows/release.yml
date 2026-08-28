@@ -230,22 +230,14 @@ jobs:
             --formula "gait" \
             --branch "main"
       - name: Generate authoritative Action Contract evidence bundle
-        env:
-          GAIT_RELEASE_SIGNING_SEED: ${{ secrets.GAIT_RELEASE_SIGNING_SEED }}
         run: |
           set -euo pipefail
-          : "${GAIT_RELEASE_SIGNING_SEED:?GAIT_RELEASE_SIGNING_SEED repository secret is required}"
           peeled_commit="$(git rev-list -n 1 "${GITHUB_REF_NAME}^{commit}")"
           go run ./scripts/action_contract_authoritative_bundle_generator \
             --release-tag "${GITHUB_REF_NAME}" \
             --peeled-commit "${peeled_commit}" \
-            --signing-seed "${GAIT_RELEASE_SIGNING_SEED}" \
             --out dist/action-contract-authoritative
           bundle="dist/action-contract-authoritative/action-contract-authoritative-evidence-${GITHUB_REF_NAME}.zip"
-          go run ./scripts/action_contract_authoritative_bundle_generator \
-            --verify "${bundle}" \
-            --release-tag "${GITHUB_REF_NAME}" \
-            --peeled-commit "${peeled_commit}"
           test -s "${bundle}"
           test -s dist/action-contract-authoritative/manifest.json
           test -s dist/action-contract-authoritative/public-key.b64
@@ -333,6 +325,12 @@ jobs:
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/.*$" \
             dist/checksums.txt
+
+          go run ./scripts/action_contract_authoritative_bundle_generator \
+            --verify "dist/action-contract-authoritative/action-contract-authoritative-evidence-${GITHUB_REF_NAME}.zip" \
+            --checksums dist/checksums.txt \
+            --release-tag "${GITHUB_REF_NAME}" \
+            --peeled-commit "$(git rev-list -n 1 "${GITHUB_REF_NAME}^{commit}")"
 
           python - <<'PY'
           import base64

@@ -144,8 +144,11 @@ for Go-authoritative JCS hashing; only allow traces with a matching
 records.
 
 Release tags also publish a separate authoritative Action Contract evidence
-bundle generated from the peeled release commit with a fresh release-time
-Ed25519 key. Verify its manifest, public key, artifact/schema digests, typed
-evidence signatures, and `authoritative=true`, `fixture_only=false`,
-`development_signing=false`, `quarantine=false` markers; checked-in lifecycle
-fixtures remain fixture-only and non-authoritative.
+bundle generated from the peeled release commit with a deterministic,
+domain-separated Ed25519 key derived from immutable release identity. Verify
+its manifest, public key, artifact/schema digests, typed evidence signatures,
+and `authoritative=true`, `fixture_only=false`, `development_signing=false`,
+`quarantine=false` markers with
+`go run ./scripts/action_contract_authoritative_bundle_generator --verify
+<bundle.zip> --checksums <signed-checksums.txt>`; checked-in lifecycle fixtures remain
+fixture-only and non-authoritative.

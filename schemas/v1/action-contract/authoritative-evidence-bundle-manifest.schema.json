@@ -23,6 +23,7 @@
       "properties": {
         "algorithm": {"const": "ed25519"},
         "authority": {"const": "gait-release-owner"},
+        "key_origin": {"const": "deterministic_release_identity_non_secret_internal_integrity"},
         "public_key_path": {"const": "public-key.b64"},
         "public_key_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
         "key_id": {"type": "string", "minLength": 1}

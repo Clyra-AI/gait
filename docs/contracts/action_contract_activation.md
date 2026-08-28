@@ -152,8 +152,8 @@ quarantined and non-authoritative.
 
 Release tags generate a separate release-owner bundle with
 `go run ./scripts/action_contract_authoritative_bundle_generator`. The release
-workflow resolves the peeled tag commit, creates a fresh Ed25519 key at release
-time, re-signs the selected activation, readiness claim, lifecycle records,
+workflow resolves the peeled tag commit, derives a domain-separated Ed25519 key
+from the immutable release identity, re-signs the selected activation, readiness claim, lifecycle records,
 and typed execution/effect/containment/compensation evidence, then verifies and
 uploads the compressed bundle. Its manifest sets `authoritative: true`,
 `fixture_only: false`, `development_signing: false`, and `quarantine: false`,
