@@ -7,7 +7,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -29,14 +28,15 @@ import (
 )
 
 const (
-	sourceProposal   = "testdata/action-contract-interop/v1/expected/compensation/pac-4b7f1402784256ce.json"
-	sourceActivation = "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json"
-	sourceSelection  = "testdata/action-contract-interop/v1/expected/fixture-manifest.json"
-	sourceAction     = "testdata/action-contract-evidence/v1/runtime-action.json"
-	sourceReadiness  = "testdata/action-contract-evidence/v1/runtime-readiness.json"
-	sourceLifecycle  = "testdata/action-contract-evidence/v1/compensation-required-started-completed/lifecycle.json"
-	workflowIdentity = "github.com/Clyra-AI/gait/.github/workflows/release.yml"
-	releaseOwner     = "gait-release-owner"
+	sourceProposal      = "testdata/action-contract-interop/v1/expected/compensation/pac-4b7f1402784256ce.json"
+	sourceActivation    = "testdata/action-contract-interop/v1/expected/compensation/activated-action-contract.json"
+	sourceSelection     = "testdata/action-contract-interop/v1/expected/fixture-manifest.json"
+	sourceAction        = "testdata/action-contract-evidence/v1/runtime-action.json"
+	sourceReadiness     = "testdata/action-contract-evidence/v1/runtime-readiness.json"
+	sourceLifecycle     = "testdata/action-contract-evidence/v1/compensation-required-started-completed/lifecycle.json"
+	workflowIdentity    = "github.com/Clyra-AI/gait/.github/workflows/release.yml"
+	releaseOwner        = "gait-release-owner"
+	maxBundleEntryBytes = 16 << 20
 )
 
 type digestEntry struct {
@@ -84,12 +84,14 @@ type lifecyclePack struct {
 
 func main() {
 	var root, out, tag, commit, workflow string
+	var signingSeed string
 	var verify string
 	flag.StringVar(&root, "repo-root", ".", "repository root")
 	flag.StringVar(&out, "out", "dist/action-contract-authoritative", "output directory")
 	flag.StringVar(&tag, "release-tag", "", "release tag, for example v1.7.1")
 	flag.StringVar(&commit, "peeled-commit", "", "peeled tag commit SHA")
 	flag.StringVar(&workflow, "workflow", workflowIdentity, "release workflow identity")
+	flag.StringVar(&signingSeed, "signing-seed", "", "stable release signing seed (64 hex or base64, exactly 32 bytes)")
 	flag.StringVar(&verify, "verify", "", "verify an existing bundle instead of generating")
 	flag.Parse()
 	var err error
@@ -99,7 +101,7 @@ func main() {
 		if strings.TrimSpace(tag) == "" || strings.TrimSpace(commit) == "" {
 			err = errors.New("--release-tag and --peeled-commit are required")
 		} else {
-			err = generateBundle(root, out, tag, commit, workflow)
+			err = generateBundle(root, out, tag, commit, workflow, signingSeed)
 		}
 	}
 	if err != nil {
@@ -108,11 +110,13 @@ func main() {
 	}
 }
 
-func generateBundle(root, out, tag, commit, workflow string) error {
-	public, private, err := ed25519.GenerateKey(rand.Reader)
+func generateBundle(root, out, tag, commit, workflow, signingSeed string) error {
+	seed, err := parseSigningSeed(signingSeed)
 	if err != nil {
-		return fmt.Errorf("generate release key: %w", err)
+		return err
 	}
+	private := ed25519.NewKeyFromSeed(seed)
+	public := private.Public().(ed25519.PublicKey)
 	proposal, proposalRaw, err := actioncontract.ReadArtifact(filepath.Join(root, sourceProposal))
 	if err != nil {
 		return err
@@ -165,7 +169,10 @@ func generateBundle(root, out, tag, commit, workflow string) error {
 		return err
 	}
 	activationFileBytes := append(append([]byte(nil), activationBytes...), '\n')
-	activationRef := relationship("activated_action_contract", activation.ArtifactID, rawDigest(activationFileBytes), actioncontract.ActivatedSchemaID, actioncontract.ActivatedSchemaVersion, actioncontract.ActivatedProducer)
+	// Lifecycle relationship refs bind the canonical signed activation object,
+	// matching core's activatedSignableDigest, rather than the transport file
+	// bytes (which may include formatting or a trailing newline).
+	activationRef := relationship("activated_action_contract", activation.ArtifactID, "sha256:"+strings.TrimPrefix(activation.Signature.SignedDigest, "sha256:"), actioncontract.ActivatedSchemaID, actioncontract.ActivatedSchemaVersion, actioncontract.ActivatedProducer)
 	readinessDigest, err := digestJCS(readinessRaw)
 	if err != nil {
 		return err
@@ -433,6 +440,21 @@ func rawDigest(raw []byte) string {
 	sum := sha256.Sum256(raw)
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
+
+func parseSigningSeed(value string) ([]byte, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, errors.New("--signing-seed is required; provide a stable release signing seed")
+	}
+	if decoded, err := hex.DecodeString(value); err == nil && len(decoded) == ed25519.SeedSize {
+		return decoded, nil
+	}
+	decoded, err := base64.StdEncoding.DecodeString(value)
+	if err != nil || len(decoded) != ed25519.SeedSize {
+		return nil, errors.New("release signing seed must be exactly 32 bytes as 64 hex or base64")
+	}
+	return decoded, nil
+}
 func digestJCS(raw []byte) (string, error) {
 	d, err := proofcanon.DigestJCS(raw)
 	if err != nil {
@@ -478,18 +500,29 @@ func verifyBundle(path, expectedTag, expectedCommit string) error {
 	}
 	defer func() { _ = reader.Close() }()
 	files := map[string][]byte{}
+	seenNames := map[string]struct{}{}
 	for _, file := range reader.File {
+		if _, exists := seenNames[file.Name]; exists {
+			return fmt.Errorf("duplicate bundle entry: %s", file.Name)
+		}
+		seenNames[file.Name] = struct{}{}
 		if file.FileInfo().IsDir() || filepath.IsAbs(file.Name) || strings.Contains(filepath.ToSlash(file.Name), "../") {
 			return errors.New("unsafe bundle path")
+		}
+		if file.UncompressedSize64 > maxBundleEntryBytes {
+			return fmt.Errorf("bundle entry exceeds size limit: %s", file.Name)
 		}
 		handle, openErr := file.Open()
 		if openErr != nil {
 			return openErr
 		}
-		data, readErr := io.ReadAll(io.LimitReader(handle, 16<<20))
+		data, readErr := io.ReadAll(io.LimitReader(handle, maxBundleEntryBytes+1))
 		_ = handle.Close()
 		if readErr != nil {
 			return readErr
+		}
+		if int64(len(data)) > maxBundleEntryBytes {
+			return fmt.Errorf("bundle entry exceeds size limit: %s", file.Name)
 		}
 		files[file.Name] = data
 	}
@@ -558,34 +591,67 @@ func verifyBundle(path, expectedTag, expectedCommit string) error {
 	if err := json.Unmarshal(files["lifecycle.json"], &pack); err != nil {
 		return err
 	}
-	for _, record := range pack.Records {
-		valid, verifyErr := actioncontract.VerifyLifecycleRecord(record, ed25519.PublicKey(publicBytes))
-		if verifyErr != nil || !valid {
-			return fmt.Errorf("lifecycle signature invalid: %v", verifyErr)
+	for _, scenario := range m.Scenarios {
+		if scenario.LifecyclePath == "" || !scenario.ExpectedAuthoritative || scenario.ExpectedQuarantine {
+			return errors.New("scenario authority markers invalid")
 		}
-		if record.Execution != nil {
-			if valid, e := actioncontract.VerifyExecutionEvidence(*record.Execution, ed25519.PublicKey(publicBytes)); e != nil || !valid {
-				return fmt.Errorf("execution evidence invalid: %v", e)
+		scenarioRaw, exists := files[scenario.LifecyclePath]
+		if !exists || rawDigest(scenarioRaw) != scenario.LifecycleSHA256 {
+			return fmt.Errorf("scenario lifecycle digest mismatch: %s", scenario.ID)
+		}
+		var scenarioPack lifecyclePack
+		if err := json.Unmarshal(scenarioRaw, &scenarioPack); err != nil || len(scenarioPack.Records) == 0 {
+			return fmt.Errorf("scenario lifecycle invalid: %s", scenario.ID)
+		}
+		if scenario.LifecyclePath == "lifecycle.json" && len(scenarioPack.Records) != len(pack.Records) {
+			return errors.New("manifest lifecycle scenario mismatch")
+		}
+		for _, record := range scenarioPack.Records {
+			valid, verifyErr := actioncontract.VerifyLifecycleRecord(record, ed25519.PublicKey(publicBytes))
+			if verifyErr != nil || !valid {
+				return fmt.Errorf("lifecycle signature invalid: %v", verifyErr)
 			}
-		}
-		if record.Effect != nil {
-			if valid, e := actioncontract.VerifyEffectEvent(*record.Effect, ed25519.PublicKey(publicBytes)); e != nil || !valid {
-				return fmt.Errorf("effect evidence invalid: %v", e)
+			if record.Execution != nil {
+				if valid, e := actioncontract.VerifyExecutionEvidence(*record.Execution, ed25519.PublicKey(publicBytes)); e != nil || !valid {
+					return fmt.Errorf("execution evidence invalid: %v", e)
+				}
 			}
-		}
-		if record.Containment != nil {
-			if valid, e := actioncontract.VerifyContainmentEvidence(*record.Containment, ed25519.PublicKey(publicBytes)); e != nil || !valid {
-				return fmt.Errorf("containment evidence invalid: %v", e)
+			if record.Effect != nil {
+				if valid, e := actioncontract.VerifyEffectEvent(*record.Effect, ed25519.PublicKey(publicBytes)); e != nil || !valid {
+					return fmt.Errorf("effect evidence invalid: %v", e)
+				}
 			}
-		}
-		if record.Compensation != nil {
-			if valid, e := actioncontract.VerifyCompensationEvidence(*record.Compensation, ed25519.PublicKey(publicBytes)); e != nil || !valid {
-				return fmt.Errorf("compensation evidence invalid: %v", e)
+			if record.Containment != nil {
+				if valid, e := actioncontract.VerifyContainmentEvidence(*record.Containment, ed25519.PublicKey(publicBytes)); e != nil || !valid {
+					return fmt.Errorf("containment evidence invalid: %v", e)
+				}
+			}
+			if record.Compensation != nil {
+				if valid, e := actioncontract.VerifyCompensationEvidence(*record.Compensation, ed25519.PublicKey(publicBytes)); e != nil || !valid {
+					return fmt.Errorf("compensation evidence invalid: %v", e)
+				}
 			}
 		}
 	}
 	if snapshot, err := actioncontract.ReduceVerifiedLifecycle(pack.Records, ed25519.PublicKey(publicBytes)); err != nil || snapshot.ExecutionStatus != "succeeded" || snapshot.EffectStatus != "validated" || snapshot.ContainmentStatus != "completed" || snapshot.CompensationStatus != "completed" {
 		return fmt.Errorf("authoritative lifecycle reduction failed: %v", err)
+	}
+	var readiness actioncontract.ReadinessResult
+	if err := json.Unmarshal(files["runtime-readiness.json"], &readiness); err != nil {
+		return err
+	}
+	var action actioncontract.RuntimeAction
+	if err := json.Unmarshal(files["runtime-action.json"], &action); err != nil {
+		return err
+	}
+	conformance := actioncontract.VerifyLifecycleConformance(actioncontract.LifecycleConformanceInput{
+		Proposal: proposal, Activation: activation, ActivationPublicKey: ed25519.PublicKey(publicBytes), RuntimeAction: action,
+		Readiness: readiness, ReadinessTrustedValidatorRefs: []string{releaseOwner}, ReadinessTrustedValidatorKeys: map[string]ed25519.PublicKey{releaseOwner: ed25519.PublicKey(publicBytes)},
+		LifecycleRecords: pack.Records, LifecyclePublicKey: ed25519.PublicKey(publicBytes), EvaluationTime: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC),
+		Expectation: actioncontract.LifecycleConformanceExpectation{ExecutionOutcome: "succeeded", EffectOutcome: "validated", ContainmentOutcome: "completed", CompensationOutcome: "completed", RequireComplete: true},
+	})
+	if !conformance.Valid || !conformance.AuthoritativeSuccess {
+		return fmt.Errorf("authoritative conformance failed: %v", conformance.ReasonCodes)
 	}
 	if len(m.ReferencedSchemas) == 0 || len(m.Artifacts) == 0 || len(m.Scenarios) == 0 {
 		return errors.New("manifest completeness failure")
