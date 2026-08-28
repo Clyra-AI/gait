@@ -417,6 +417,13 @@ Every Gait decision can produce signed proof artifacts that map to operational a
 
 - `gait verify`, `gait pack verify`, and `gait trace verify` work offline
 - packs use Ed25519 signatures plus SHA-256 manifests
+
+Release tags also publish an authoritative Action Contract evidence bundle. It
+is generated at release time from the peeled tag commit, signed with a fresh
+release-owner Ed25519 key, and accompanied by its manifest, public key, typed
+evidence, referenced schemas, checksums, and provenance. The bundle is distinct
+from the checked-in fixture-only conformance corpus and must verify with
+`go run ./scripts/action_contract_authoritative_bundle_generator --verify`.
 - duplicate ZIP entry names are treated as verification failures rather than ambiguous soft passes
 - artifacts are deterministic, versioned, and designed for PRs, incidents, change control, and audits
 

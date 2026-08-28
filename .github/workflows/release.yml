@@ -245,6 +245,22 @@ jobs:
             fi
             sleep $((attempt * 10))
           done
+      - name: Generate authoritative Action Contract evidence bundle
+        run: |
+          set -euo pipefail
+          peeled_commit="$(git rev-list -n 1 "${GITHUB_REF_NAME}^{commit}")"
+          go run ./scripts/action_contract_authoritative_bundle_generator \
+            --release-tag "${GITHUB_REF_NAME}" \
+            --peeled-commit "${peeled_commit}" \
+            --out dist/action-contract-authoritative
+          bundle="dist/action-contract-authoritative/action-contract-authoritative-evidence-${GITHUB_REF_NAME}.zip"
+          go run ./scripts/action_contract_authoritative_bundle_generator \
+            --verify "${bundle}" \
+            --release-tag "${GITHUB_REF_NAME}" \
+            --peeled-commit "${peeled_commit}"
+          test -s "${bundle}"
+          test -s dist/action-contract-authoritative/manifest.json
+          test -s dist/action-contract-authoritative/public-key.b64
       - name: Generate SBOM (syft)
         run: |
           go install "github.com/anchore/syft/cmd/syft@${SYFT_VERSION}"
@@ -381,6 +397,10 @@ jobs:
               dist/checksums.txt.pem \
               dist/checksums.txt.sig \
               dist/checksums.txt.intoto.jsonl \
+              dist/action-contract-authoritative/action-contract-authoritative-evidence-${GITHUB_REF_NAME}.zip \
+              dist/action-contract-authoritative/manifest.json \
+              dist/action-contract-authoritative/public-key.b64 \
+              dist/action-contract-authoritative/schemas/v1/action-contract/*.schema.json \
               --clobber 2>&1 | tee "${log_file}"
             status=${PIPESTATUS[0]}
             set -e

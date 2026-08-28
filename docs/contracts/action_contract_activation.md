@@ -147,3 +147,16 @@ tightened child delegation, and non-expansion failures across action, target,
 environment, data, network, operation, target-count, depth, TTL, parent,
 origin, and revocation boundaries. Its key is fixture-only; every artifact is
 quarantined and non-authoritative.
+
+## Authoritative release evidence
+
+Release tags generate a separate release-owner bundle with
+`go run ./scripts/action_contract_authoritative_bundle_generator`. The release
+workflow resolves the peeled tag commit, creates a fresh Ed25519 key at release
+time, re-signs the selected activation, readiness claim, lifecycle records,
+and typed execution/effect/containment/compensation evidence, then verifies and
+uploads the compressed bundle. Its manifest sets `authoritative: true`,
+`fixture_only: false`, `development_signing: false`, and `quarantine: false`,
+and binds the release tag, peeled commit, public-key digest, artifact digests,
+and every referenced schema. The checked-in fixture corpus remains separate and
+must never be promoted by changing marker fields.

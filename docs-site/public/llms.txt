@@ -142,3 +142,10 @@ not alter local verdicts or proof. Lifecycle results may use `--result-file`
 for Go-authoritative JCS hashing; only allow traces with a matching
 `readiness_digest` (and matching trusted-validator inputs) can emit execution
 records.
+
+Release tags also publish a separate authoritative Action Contract evidence
+bundle generated from the peeled release commit with a fresh release-time
+Ed25519 key. Verify its manifest, public key, artifact/schema digests, typed
+evidence signatures, and `authoritative=true`, `fixture_only=false`,
+`development_signing=false`, `quarantine=false` markers; checked-in lifecycle
+fixtures remain fixture-only and non-authoritative.
