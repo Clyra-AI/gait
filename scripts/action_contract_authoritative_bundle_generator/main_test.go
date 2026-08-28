@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/zip"
-	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -10,18 +9,23 @@ import (
 	"testing"
 )
 
-func TestParseSigningSeedStrictFormats(t *testing.T) {
-	seed := strings.Repeat("a", 32)
-	if decoded, err := parseSigningSeed(strings.Repeat("1", 64)); err != nil || len(decoded) != 32 {
-		t.Fatalf("hex seed: len=%d err=%v", len(decoded), err)
+func TestReleaseSigningIdentityIsDeterministicAndDomainSeparated(t *testing.T) {
+	first := releaseSigningSeed("v1.7.2", strings.Repeat("a", 40), workflowIdentity)
+	second := releaseSigningSeed("v1.7.2", strings.Repeat("a", 40), workflowIdentity)
+	if string(first) != string(second) {
+		t.Fatal("same release identity produced different signing seed")
 	}
-	if decoded, err := parseSigningSeed(base64.StdEncoding.EncodeToString([]byte(seed))); err != nil || len(decoded) != 32 {
-		t.Fatalf("base64 seed: len=%d err=%v", len(decoded), err)
+	if string(first) == string(releaseSigningSeed("v1.7.3", strings.Repeat("a", 40), workflowIdentity)) || string(first) == string(releaseSigningSeed("v1.7.2", strings.Repeat("b", 40), workflowIdentity)) {
+		t.Fatal("changed release identity reused signing seed")
 	}
-	for _, invalid := range []string{"", "not-hex-or-base64", "00"} {
-		if _, err := parseSigningSeed(invalid); err == nil {
-			t.Fatalf("invalid seed accepted: %q", invalid)
-		}
+}
+
+func TestGeneratorRejectsMissingInputs(t *testing.T) {
+	if _, _, err := readRuntimeAction(filepath.Join(t.TempDir(), "missing-runtime-action.json")); err == nil {
+		t.Fatal("missing runtime action unexpectedly accepted")
+	}
+	if _, _, err := releaseReadiness(filepath.Join(t.TempDir(), "missing-readiness.json"), "contract", "sha256:"+strings.Repeat("a", 64), nil, nil); err == nil {
+		t.Fatal("missing readiness unexpectedly accepted")
 	}
 }
 
@@ -32,15 +36,12 @@ func TestAuthoritativeBundleGenerationAndVerification(t *testing.T) {
 	}
 	out := t.TempDir()
 	commit := strings.Repeat("a", 40)
-	seed := strings.Repeat("1", 64)
-	if err := generateBundle(root, out, "v1.7.1", commit, workflowIdentity, ""); err == nil {
-		t.Fatal("generation without a stable signing seed unexpectedly succeeded")
-	}
-	if err := generateBundle(root, out, "v1.7.1", commit, workflowIdentity, seed); err != nil {
+	if err := generateBundle(root, out, "v1.7.1", commit, workflowIdentity); err != nil {
 		t.Fatal(err)
 	}
 	bundle := filepath.Join(out, "action-contract-authoritative-evidence-v1.7.1.zip")
-	if err := verifyBundle(bundle, "v1.7.1", commit); err != nil {
+	checksums := trustedChecksums(t, out, bundle)
+	if err := verifyBundle(bundle, "v1.7.1", commit, checksums); err != nil {
 		t.Fatal(err)
 	}
 	manifestRaw, err := os.ReadFile(filepath.Join(out, "manifest.json"))
@@ -55,8 +56,11 @@ func TestAuthoritativeBundleGenerationAndVerification(t *testing.T) {
 		t.Fatalf("unsafe manifest markers: %#v", manifestValue)
 	}
 	outAgain := t.TempDir()
-	if err := generateBundle(root, outAgain, "v1.7.1", commit, workflowIdentity, seed); err != nil {
+	if err := generateBundle(root, outAgain, "v1.7.1", commit, workflowIdentity); err != nil {
 		t.Fatal(err)
+	}
+	if err := verifyBundle(bundle, "v1.7.1", commit, ""); err == nil {
+		t.Fatal("bundle verified without caller-trusted checksum anchor")
 	}
 	firstBytes, err := os.ReadFile(bundle)
 	if err != nil {
@@ -133,7 +137,11 @@ func TestAuthoritativeBundleRejectsDuplicateAndOversizedEntries(t *testing.T) {
 			if err := file.Close(); err != nil {
 				t.Fatal(err)
 			}
-			if err := verifyBundle(path, "", ""); err == nil {
+			checksums := filepath.Join(t.TempDir(), "checksums.txt")
+			if err := os.WriteFile(checksums, []byte(""), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := verifyBundle(path, "", "", checksums); err == nil {
 				t.Fatal("unsafe ZIP unexpectedly verified")
 			}
 		})
@@ -147,16 +155,44 @@ func TestAuthoritativeBundleRejectsIdentityMismatch(t *testing.T) {
 	}
 	out := t.TempDir()
 	commit := strings.Repeat("b", 40)
-	if err := generateBundle(root, out, "v1.7.1", commit, workflowIdentity, strings.Repeat("2", 64)); err != nil {
+	if err := generateBundle(root, out, "v1.7.1", commit, workflowIdentity); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyBundle(filepath.Join(out, "action-contract-authoritative-evidence-v1.7.1.zip"), "v1.7.2", commit); err == nil {
+	bundle := filepath.Join(out, "action-contract-authoritative-evidence-v1.7.1.zip")
+	checksums := trustedChecksums(t, out, bundle)
+	if err := verifyBundle(bundle, "v1.7.2", commit, checksums); err == nil {
 		t.Fatal("bundle with mismatched release tag unexpectedly verified")
 	}
-	if err := verifyBundle(filepath.Join(out, "action-contract-authoritative-evidence-v1.7.1.zip"), "v1.7.1", strings.Repeat("c", 40)); err == nil {
+	if err := verifyBundle(bundle, "v1.7.1", strings.Repeat("c", 40), checksums); err == nil {
 		t.Fatal("bundle with mismatched peeled commit unexpectedly verified")
 	}
-	if err := verifyBundle(filepath.Join(out, "missing.zip"), "v1.7.1", commit); err == nil {
+	if err := verifyBundle(filepath.Join(out, "missing.zip"), "v1.7.1", commit, checksums); err == nil {
 		t.Fatal("missing bundle unexpectedly verified")
 	}
+}
+
+func trustedChecksums(t *testing.T, out, bundle string) string {
+	t.Helper()
+	manifestRaw, err := os.ReadFile(filepath.Join(out, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value manifest
+	if err := json.Unmarshal(manifestRaw, &value); err != nil {
+		t.Fatal(err)
+	}
+	lines := make([]string, 0, len(value.Artifacts)+len(value.ReferencedSchemas)+1)
+	for _, entry := range append(append([]digestEntry{}, value.Artifacts...), value.ReferencedSchemas...) {
+		lines = append(lines, strings.TrimPrefix(entry.SHA256, "sha256:")+"  action-contract-authoritative/"+entry.Path)
+	}
+	bundleRaw, err := os.ReadFile(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines = append(lines, strings.TrimPrefix(rawDigest(bundleRaw), "sha256:")+"  action-contract-authoritative/"+filepath.Base(bundle))
+	path := filepath.Join(out, "trusted-checksums.txt")
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

@@ -65,6 +65,7 @@ type manifest struct {
 type signingInfo struct {
 	Algorithm     string `json:"algorithm"`
 	Authority     string `json:"authority"`
+	KeyOrigin     string `json:"key_origin"`
 	PublicKeyPath string `json:"public_key_path"`
 	PublicKeySHA  string `json:"public_key_sha256"`
 	KeyID         string `json:"key_id"`
@@ -84,24 +85,24 @@ type lifecyclePack struct {
 
 func main() {
 	var root, out, tag, commit, workflow string
-	var signingSeed string
 	var verify string
+	var checksums string
 	flag.StringVar(&root, "repo-root", ".", "repository root")
 	flag.StringVar(&out, "out", "dist/action-contract-authoritative", "output directory")
 	flag.StringVar(&tag, "release-tag", "", "release tag, for example v1.7.1")
 	flag.StringVar(&commit, "peeled-commit", "", "peeled tag commit SHA")
 	flag.StringVar(&workflow, "workflow", workflowIdentity, "release workflow identity")
-	flag.StringVar(&signingSeed, "signing-seed", "", "stable release signing seed (64 hex or base64, exactly 32 bytes)")
 	flag.StringVar(&verify, "verify", "", "verify an existing bundle instead of generating")
+	flag.StringVar(&checksums, "checksums", "", "caller-trusted signed checksums file anchoring this bundle")
 	flag.Parse()
 	var err error
 	if verify != "" {
-		err = verifyBundle(verify, tag, commit)
+		err = verifyBundle(verify, tag, commit, checksums)
 	} else {
 		if strings.TrimSpace(tag) == "" || strings.TrimSpace(commit) == "" {
 			err = errors.New("--release-tag and --peeled-commit are required")
 		} else {
-			err = generateBundle(root, out, tag, commit, workflow, signingSeed)
+			err = generateBundle(root, out, tag, commit, workflow)
 		}
 	}
 	if err != nil {
@@ -110,11 +111,9 @@ func main() {
 	}
 }
 
-func generateBundle(root, out, tag, commit, workflow, signingSeed string) error {
-	seed, err := parseSigningSeed(signingSeed)
-	if err != nil {
-		return err
-	}
+func generateBundle(root, out, tag, commit, workflow string) error {
+	seed := releaseSigningSeed(tag, commit, workflow)
+	var err error
 	private := ed25519.NewKeyFromSeed(seed)
 	public := private.Public().(ed25519.PublicKey)
 	proposal, proposalRaw, err := actioncontract.ReadArtifact(filepath.Join(root, sourceProposal))
@@ -204,7 +203,7 @@ func generateBundle(root, out, tag, commit, workflow, signingSeed string) error 
 		SchemaID: "https://gait.dev/schemas/v1/action-contract/authoritative-evidence-bundle-manifest.schema.json", SchemaVersion: "1",
 		ReleaseTag: tag, PeeledCommit: strings.TrimSpace(commit), Authoritative: true, FixtureOnly: false, DevelopmentSign: false, Quarantine: false,
 		Generator: "scripts/action_contract_authoritative_bundle_generator", Workflow: workflow, GeneratorVersion: "1",
-		Signing:   signingInfo{Algorithm: "ed25519", Authority: releaseOwner, PublicKeyPath: "public-key.b64", PublicKeySHA: rawDigest(publicBytes), KeyID: proofsign.KeyID(public)},
+		Signing:   signingInfo{Algorithm: "ed25519", Authority: releaseOwner, KeyOrigin: "deterministic_release_identity_non_secret_internal_integrity", PublicKeyPath: "public-key.b64", PublicKeySHA: rawDigest(publicBytes), KeyID: proofsign.KeyID(public)},
 		Scenarios: []scenario{{ID: "compensation-required-started-completed", LifecyclePath: "lifecycle.json", ExpectedAuthoritative: true, ExpectedQuarantine: false}},
 	}
 	for path, data := range files {
@@ -250,7 +249,7 @@ func generateBundle(root, out, tag, commit, workflow, signingSeed string) error 
 	if err := writeZip(bundlePath, files); err != nil {
 		return err
 	}
-	return verifyBundle(bundlePath, tag, commit)
+	return nil
 }
 
 func releaseReadiness(path, contractID, policy string, private ed25519.PrivateKey, public ed25519.PublicKey) (actioncontract.ReadinessResult, []byte, error) {
@@ -441,19 +440,10 @@ func rawDigest(raw []byte) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
-func parseSigningSeed(value string) ([]byte, error) {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return nil, errors.New("--signing-seed is required; provide a stable release signing seed")
-	}
-	if decoded, err := hex.DecodeString(value); err == nil && len(decoded) == ed25519.SeedSize {
-		return decoded, nil
-	}
-	decoded, err := base64.StdEncoding.DecodeString(value)
-	if err != nil || len(decoded) != ed25519.SeedSize {
-		return nil, errors.New("release signing seed must be exactly 32 bytes as 64 hex or base64")
-	}
-	return decoded, nil
+func releaseSigningSeed(tag, commit, workflow string) []byte {
+	material := "gait.authoritative.action-contract.release-key.v1\x00" + workflow + "\x00" + tag + "\x00" + commit
+	sum := sha256.Sum256([]byte(material))
+	return sum[:]
 }
 func digestJCS(raw []byte) (string, error) {
 	d, err := proofcanon.DigestJCS(raw)
@@ -493,7 +483,14 @@ func writeZip(path string, files map[string][]byte) error {
 	return f.Close()
 }
 
-func verifyBundle(path, expectedTag, expectedCommit string) error {
+func verifyBundle(path, expectedTag, expectedCommit, checksumsPath string) error {
+	if strings.TrimSpace(checksumsPath) == "" {
+		return errors.New("caller-trusted signed checksums anchor is required")
+	}
+	checksumsRaw, err := os.ReadFile(checksumsPath)
+	if err != nil {
+		return fmt.Errorf("read checksums anchor: %w", err)
+	}
 	reader, err := zip.OpenReader(path)
 	if err != nil {
 		return err
@@ -534,8 +531,21 @@ func verifyBundle(path, expectedTag, expectedCommit string) error {
 	if err := json.Unmarshal(manifestRaw, &m); err != nil {
 		return err
 	}
+	checksumLines := strings.Split(string(checksumsRaw), "\n")
+	anchoredDigest := func(name, expected string) error {
+		for _, line := range checksumLines {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 && fields[1] == name && strings.EqualFold(fields[0], strings.TrimPrefix(expected, "sha256:")) {
+				return nil
+			}
+		}
+		return fmt.Errorf("trusted checksums anchor missing or mismatched: %s", name)
+	}
 	if !m.Authoritative || m.FixtureOnly || m.DevelopmentSign || m.Quarantine || m.Signing.Authority != releaseOwner || m.Signing.Algorithm != "ed25519" {
 		return errors.New("bundle contains non-authoritative signing markers")
+	}
+	if m.Signing.KeyOrigin != "deterministic_release_identity_non_secret_internal_integrity" {
+		return errors.New("unsupported release key origin")
 	}
 	if expectedTag != "" && m.ReleaseTag != expectedTag {
 		return errors.New("release tag mismatch")
@@ -559,6 +569,19 @@ func verifyBundle(path, expectedTag, expectedCommit string) error {
 		if !ok || rawDigest(data) != entry.SHA256 {
 			return fmt.Errorf("artifact digest mismatch: %s", entry.Path)
 		}
+	}
+	bundleRaw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	prefix := "action-contract-authoritative/"
+	for _, entry := range append(append([]digestEntry{}, m.Artifacts...), m.ReferencedSchemas...) {
+		if err := anchoredDigest(prefix+entry.Path, entry.SHA256); err != nil {
+			return err
+		}
+	}
+	if err := anchoredDigest(prefix+"action-contract-authoritative-evidence-"+m.ReleaseTag+".zip", rawDigest(bundleRaw)); err != nil {
+		return err
 	}
 	for name, data := range files {
 		if bytes.Contains(data, []byte(`"development_signing":true`)) || bytes.Contains(data, []byte(`"quarantine":true`)) || bytes.Contains(data, []byte(`"fixture_only":true`)) {

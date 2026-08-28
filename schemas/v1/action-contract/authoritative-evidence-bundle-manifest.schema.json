@@ -19,10 +19,11 @@
     "generator_version": {"type": "string", "minLength": 1},
     "signing": {
       "type": "object",
-      "required": ["algorithm", "authority", "public_key_path", "public_key_sha256", "key_id"],
+      "required": ["algorithm", "authority", "key_origin", "public_key_path", "public_key_sha256", "key_id"],
       "properties": {
         "algorithm": {"const": "ed25519"},
         "authority": {"const": "gait-release-owner"},
+        "key_origin": {"const": "deterministic_release_identity_non_secret_internal_integrity"},
         "public_key_path": {"const": "public-key.b64"},
         "public_key_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
         "key_id": {"type": "string", "minLength": 1}
