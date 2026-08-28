@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"crypto/ed25519"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -20,6 +21,21 @@ func TestReleaseSigningIdentityIsDeterministicAndDomainSeparated(t *testing.T) {
 	}
 	if string(first) != string(releaseSigningSeed(" v1.7.2 ", " "+strings.Repeat("a", 40)+" ", " "+workflowIdentity+" ")) {
 		t.Fatal("release identity whitespace changed signing seed")
+	}
+}
+
+func TestVerifierRejectsArbitrarySelfKey(t *testing.T) {
+	m := manifest{ReleaseTag: "v1.7.2", PeeledCommit: strings.Repeat("a", 40), Workflow: workflowIdentity, Signing: signingInfo{KeyOrigin: "deterministic_release_identity_non_secret_internal_integrity"}}
+	expected := ed25519.NewKeyFromSeed(releaseSigningSeed(m.ReleaseTag, m.PeeledCommit, m.Workflow)).Public().(ed25519.PublicKey)
+	if err := verifyReleaseKeyIdentity(m, expected); err != nil {
+		t.Fatal(err)
+	}
+	_, arbitrary, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyReleaseKeyIdentity(m, arbitrary.Public().(ed25519.PublicKey)); err == nil {
+		t.Fatal("arbitrary self-generated key accepted as release identity")
 	}
 }
 

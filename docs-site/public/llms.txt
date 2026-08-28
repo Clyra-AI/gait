@@ -150,5 +150,5 @@ its manifest, public key, artifact/schema digests, typed evidence signatures,
 and `authoritative=true`, `fixture_only=false`, `development_signing=false`,
 `quarantine=false` markers with
 `go run ./scripts/action_contract_authoritative_bundle_generator --verify
---checksums <signed-checksums.txt>`; checked-in lifecycle fixtures remain
+<bundle.zip> --checksums <signed-checksums.txt>`; checked-in lifecycle fixtures remain
 fixture-only and non-authoritative.

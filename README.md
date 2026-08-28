@@ -425,7 +425,7 @@ checked-in private key), and accompanied by its manifest, public key, typed
 evidence, referenced schemas, checksums, and provenance. The bundle is distinct
 from the checked-in fixture-only conformance corpus and must verify with
 `go run ./scripts/action_contract_authoritative_bundle_generator --verify
---checksums <signed-checksums.txt>`; the embedded public key alone is not a
+<bundle.zip> --checksums <signed-checksums.txt>`; the embedded public key alone is not a
 trust anchor.
 - duplicate ZIP entry names are treated as verification failures rather than ambiguous soft passes
 - artifacts are deterministic, versioned, and designed for PRs, incidents, change control, and audits

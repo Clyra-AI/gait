@@ -567,6 +567,9 @@ func verifyBundle(path, expectedTag, expectedCommit, checksumsPath string) error
 	if err != nil || len(publicBytes) != ed25519.PublicKeySize {
 		return errors.New("public key invalid")
 	}
+	if err := verifyReleaseKeyIdentity(m, ed25519.PublicKey(publicBytes)); err != nil {
+		return err
+	}
 	if rawDigest(publicRaw) != m.Signing.PublicKeySHA {
 		return errors.New("public key digest mismatch")
 	}
@@ -684,6 +687,17 @@ func verifyBundle(path, expectedTag, expectedCommit, checksumsPath string) error
 	}
 	if len(m.ReferencedSchemas) == 0 || len(m.Artifacts) == 0 || len(m.Scenarios) == 0 {
 		return errors.New("manifest completeness failure")
+	}
+	return nil
+}
+
+func verifyReleaseKeyIdentity(m manifest, public ed25519.PublicKey) error {
+	if m.Signing.KeyOrigin != "deterministic_release_identity_non_secret_internal_integrity" {
+		return nil
+	}
+	expected := ed25519.NewKeyFromSeed(releaseSigningSeed(m.ReleaseTag, m.PeeledCommit, m.Workflow)).Public().(ed25519.PublicKey)
+	if !bytes.Equal(public, expected) {
+		return errors.New("release public key does not match immutable release identity")
 	}
 	return nil
 }
