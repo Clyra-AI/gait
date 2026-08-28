@@ -2,6 +2,9 @@ package actioncontract
 
 import (
 	"encoding/json"
+	"errors"
+	proofcanon "github.com/Clyra-AI/proof/canon"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -18,6 +21,9 @@ type CircuitBreakerInput struct {
 	AffectedScope       []string      `json:"affected_scope,omitempty"`
 	InvalidationStatus  string        `json:"invalidation_status,omitempty"`
 	OutOfScope          bool          `json:"out_of_scope,omitempty"`
+	IntentDigest        string        `json:"intent_digest,omitempty"`
+	ChainStateDigest    string        `json:"chain_state_digest,omitempty"`
+	BindingDigest       string        `json:"binding_digest,omitempty"`
 }
 type CircuitBreakerDecision struct {
 	SchemaID           string   `json:"schema_id"`
@@ -33,6 +39,8 @@ type CircuitBreakerDecision struct {
 
 const CircuitInputSchemaID = "https://gait.dev/schemas/v1/action-contract/circuit-breaker-input.schema.json"
 const CircuitDecisionSchemaID = "https://gait.dev/schemas/v1/action-contract/circuit-breaker-decision.schema.json"
+
+var circuitDigestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 func ValidateCircuitInput(i CircuitBreakerInput) []string {
 	reasons := []string{}
@@ -58,12 +66,52 @@ func ValidateCircuitInput(i CircuitBreakerInput) []string {
 	if !sort.StringsAreSorted(i.AffectedScope) || hasDuplicateCircuit(i.AffectedScope) {
 		reasons = append(reasons, "circuit_scope_noncanonical")
 	}
+	for _, digest := range []string{i.IntentDigest, i.ChainStateDigest, i.BindingDigest} {
+		if digest != "" && !circuitDigestPattern.MatchString(digest) {
+			reasons = append(reasons, "circuit_digest_invalid")
+		}
+	}
 	for _, scope := range i.AffectedScope {
 		if strings.TrimSpace(scope) == "" {
 			reasons = append(reasons, "circuit_scope_invalid")
 		}
 	}
 	return uniqueCircuitReasons(reasons)
+}
+
+func DigestChainState(state ChainState) (string, error) {
+	raw, err := json.Marshal(state)
+	if err != nil {
+		return "", err
+	}
+	digest, err := proofcanon.DigestJCS(raw)
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(digest, "sha256:") {
+		digest = "sha256:" + digest
+	}
+	return digest, nil
+}
+
+func CircuitBindingDigest(input CircuitBreakerInput) (string, error) {
+	copyInput := input
+	copyInput.BindingDigest = ""
+	raw, err := json.Marshal(copyInput)
+	if err != nil {
+		return "", err
+	}
+	digest, err := proofcanon.DigestJCS(raw)
+	if err != nil {
+		return "", err
+	}
+	if digest == "" {
+		return "", errors.New("circuit binding digest empty")
+	}
+	if !strings.HasPrefix(digest, "sha256:") {
+		digest = "sha256:" + digest
+	}
+	return digest, nil
 }
 
 func ValidateCircuitDecision(d CircuitBreakerDecision) []string {

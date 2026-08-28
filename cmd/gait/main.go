@@ -98,6 +98,8 @@ func runDispatch(arguments []string) int {
 		return runGate(arguments[2:])
 	case "kill-switch":
 		return runKillSwitch(arguments[2:])
+	case "containment":
+		return runContainment(arguments[2:])
 	case "init":
 		return runInit(arguments[2:])
 	case "policy":

@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/ed25519"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/actioncontract"
+	proof "github.com/Clyra-AI/proof"
 	proofsign "github.com/Clyra-AI/proof/signing"
 )
 
@@ -92,6 +94,10 @@ func runActionContract(arguments []string) int {
 		return runActionContractCircuit(arguments[1:])
 	case "otel":
 		return runActionContractOTel(arguments[1:])
+	case "lifecycle-result":
+		return runActionContractLifecycleResult(arguments[1:])
+	case "lifecycle-verify":
+		return runActionContractLifecycleVerify(arguments[1:])
 	default:
 		printActionContractUsage()
 		return exitInvalidInput
@@ -152,9 +158,9 @@ func runActionContractValidate(arguments []string) int {
 }
 
 func runActionContractActivate(arguments []string) int {
-	arguments = reorderInterspersedFlags(arguments, map[string]bool{"proposal": true, "artifact": true, "from": true, "selection": true, "policy-digest": true, "principal": true, "activating-principal": true, "authority-refs": true, "authority-ref": true, "target": true, "environment": true, "mode": true, "valid-from": true, "valid-until": true, "exceptions": true, "exception": true, "out": true, "private-key": true, "private-key-env": true})
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{"proposal": true, "artifact": true, "from": true, "selection": true, "policy-digest": true, "principal": true, "activating-principal": true, "authority-refs": true, "authority-ref": true, "target": true, "environment": true, "mode": true, "valid-from": true, "valid-until": true, "exceptions": true, "exception": true, "out": true, "lifecycle-out": true, "private-key": true, "private-key-env": true})
 	flags := actionContractFlags("contract-activate")
-	var proposalPath, selectionPath, policyDigest, principal, authorityCSV, authorityRef, target, environment, mode, validFrom, validUntil, exceptionsCSV, exception, outPath, privateKeyPath, privateKeyEnv string
+	var proposalPath, selectionPath, policyDigest, principal, authorityCSV, authorityRef, target, environment, mode, validFrom, validUntil, exceptionsCSV, exception, outPath, privateKeyPath, privateKeyEnv, lifecycleOut string
 	var jsonOutput, help, overwrite bool
 	var allowDevelopmentSigning bool
 	flags.StringVar(&proposalPath, "proposal", "", "explicit path to one proposed_action_contract artifact")
@@ -174,6 +180,7 @@ func runActionContractActivate(arguments []string) int {
 	flags.StringVar(&exceptionsCSV, "exceptions", "", "comma-separated explicit exceptions")
 	flags.StringVar(&exception, "exception", "", "one explicit exception")
 	flags.StringVar(&outPath, "out", "", "optional activation artifact output path")
+	flags.StringVar(&lifecycleOut, "lifecycle-out", "", "optional existing JSONL journal for signed activation transitions")
 	flags.StringVar(&privateKeyPath, "private-key", "", "base64 Ed25519 private key path")
 	flags.StringVar(&privateKeyEnv, "private-key-env", "", "environment variable containing base64 Ed25519 private key")
 	flags.BoolVar(&overwrite, "overwrite", false, "explicitly replace an existing regular activation output file; symlinks remain rejected")
@@ -223,13 +230,96 @@ func runActionContractActivate(arguments []string) int {
 	if err != nil {
 		return writeActionContractOutput(jsonOutput, actionContractOutput{SchemaID: actioncontract.ActivatedSchemaID, SchemaVersion: actioncontract.ActivatedSchemaVersion, Operation: "activate", Proposal: &validation, Error: err.Error(), ReasonCodes: actionContractReasonCodes(err)}, exitVerifyFailed)
 	}
-	if outPath != "" {
+	if outPath != "" && strings.TrimSpace(lifecycleOut) == "" {
 		if writeErr := actioncontract.WriteActivatedArtifact(outPath, activated, overwrite); writeErr != nil {
 			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: writeErr.Error()}, exitInternalFailure)
 		}
 	}
 	out := actionContractOutput{SchemaID: actioncontract.ActivatedSchemaID, SchemaVersion: actioncontract.ActivatedSchemaVersion, OK: true, Operation: "activate", Proposal: &validation, Activated: &activated}
+	if strings.TrimSpace(lifecycleOut) != "" {
+		prefix, prefixErr := actioncontract.ReadLifecycleJournal(lifecycleOut)
+		if prefixErr != nil {
+			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: "activation lifecycle output requires an existing verified decision-ready prefix: " + prefixErr.Error()}, exitInternalFailure)
+		}
+		// This command has no separate lifecycle-public-key input, so its
+		// explicit activation key is the shared signer for the existing prefix.
+		// Authenticate the prefix before reducing decision-ready state.
+		lifecycleSigner := privateKey
+		if len(lifecycleSigner) == 0 {
+			lifecycleSigner = actioncontract.DevelopmentPrivateKey()
+		}
+		if verifyErr := actioncontract.VerifyLifecycleJournal(lifecycleOut, lifecycleSigner.Public().(ed25519.PublicKey)); verifyErr != nil {
+			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: "activation lifecycle output signature verification failed: " + verifyErr.Error()}, exitInternalFailure)
+		}
+		prefixState, prefixErr := actioncontract.ReduceLifecycleChecked(prefix)
+		if prefixErr != nil || !prefixState.DecisionReady {
+			if prefixErr == nil {
+				prefixErr = errors.New("lifecycle prefix is not decision-ready")
+			}
+			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: "activation lifecycle output requires an existing verified decision-ready prefix: " + prefixErr.Error()}, exitInternalFailure)
+		}
+		proposalRef := proof.RelationshipRef{Kind: "action_contract", ID: artifact.ContractID, Digest: artifact.CanonicalContentDigest, SchemaID: actioncontract.ProposedContractSchemaID, SchemaVersion: actioncontract.ProposedContractVersion, SourceProduct: actioncontract.ProposedProducer}
+		if prefixErr := lifecyclePrefixContractError(prefix, proposalRef, artifact.ContractFamilyID, artifact.Revision); prefixErr != nil {
+			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: "activation lifecycle prefix contract mismatch: " + prefixErr.Error()}, exitInternalFailure)
+		}
+		if outPath != "" {
+			if outputErr := actioncontract.ValidateActivatedArtifactOutput(outPath, overwrite); outputErr != nil {
+				return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: outputErr.Error()}, exitInternalFailure)
+			}
+		}
+		activationRef := proof.RelationshipRef{Kind: "activated_action_contract", ID: activated.ArtifactID, Digest: actioncontract.RawDigest(mustReadActivationOutput(outPath, activated)), SchemaID: actioncontract.ActivatedSchemaID, SchemaVersion: actioncontract.ActivatedSchemaVersion, SourceProduct: actioncontract.ActivatedProducer}
+		signer := privateKey
+		if len(signer) == 0 {
+			signer = actioncontract.DevelopmentPrivateKey()
+		}
+		at := time.Now().UTC()
+		requested, reqErr := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: actioncontract.LifecycleActivationRequested, OccurredAt: at, ContractRef: proposalRef, ContractFamilyID: artifact.ContractFamilyID, Revision: artifact.Revision, ProposalRef: &proposalRef, SigningPrivateKey: signer})
+		if reqErr != nil {
+			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: reqErr.Error(), ReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+		}
+		if reqErr = actioncontract.AppendLifecycleRecord(lifecycleOut, requested); reqErr != nil {
+			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: reqErr.Error(), ReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+		}
+		activatedRecord, actErr := actioncontract.NewLifecycleRecord(actioncontract.LifecycleRecordOptions{Kind: actioncontract.LifecycleActivated, OccurredAt: at.Add(time.Nanosecond), ContractRef: proposalRef, ContractFamilyID: artifact.ContractFamilyID, Revision: artifact.Revision, ProposalRef: &proposalRef, ActivationRef: &activationRef, SigningPrivateKey: signer})
+		if actErr != nil {
+			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: actErr.Error(), ReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+		}
+		if err := actioncontract.AppendLifecycleRecord(lifecycleOut, activatedRecord); err != nil {
+			return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: err.Error(), ReasonCodes: []string{"lifecycle_emit_failed"}}, exitInternalFailure)
+		}
+		if outPath != "" {
+			if writeErr := actioncontract.WriteActivatedArtifact(outPath, activated, overwrite); writeErr != nil {
+				return writeActionContractOutput(jsonOutput, actionContractOutput{Operation: "activate", Error: writeErr.Error()}, exitInternalFailure)
+			}
+		}
+	}
 	return writeActionContractOutput(jsonOutput, out, exitOK)
+}
+
+func lifecyclePrefixContractError(records []actioncontract.LifecycleRecord, expected proof.RelationshipRef, family string, revision int) error {
+	for _, record := range records {
+		if record.ContractRef.Kind != expected.Kind || record.ContractRef.ID != expected.ID || record.ContractRef.Digest != expected.Digest || record.ContractRef.SchemaID != expected.SchemaID || record.ContractRef.SchemaVersion != expected.SchemaVersion || record.ContractRef.SourceProduct != expected.SourceProduct {
+			return fmt.Errorf("record %s contract reference differs", record.RecordID)
+		}
+		if record.ContractFamilyID != family || record.Revision != revision {
+			return fmt.Errorf("record %s contract family or revision differs", record.RecordID)
+		}
+		if record.ProposalRef != nil && (record.ProposalRef.Kind != expected.Kind || record.ProposalRef.ID != expected.ID || record.ProposalRef.Digest != expected.Digest || record.ProposalRef.SchemaID != expected.SchemaID || record.ProposalRef.SchemaVersion != expected.SchemaVersion || record.ProposalRef.SourceProduct != expected.SourceProduct) {
+			return fmt.Errorf("record %s proposal reference differs", record.RecordID)
+		}
+		if record.Decision != nil && record.Decision.ContractID != expected.ID {
+			return fmt.Errorf("record %s decision contract differs", record.RecordID)
+		}
+	}
+	return nil
+}
+
+func mustReadActivationOutput(path string, artifact actioncontract.ActivatedArtifact) []byte {
+	// WriteActivatedArtifact uses this exact deterministic representation. Use
+	// it before installation as well so lifecycle references never bind to an
+	// unrelated pre-existing output file.
+	raw, _ := json.MarshalIndent(artifact, "", "  ")
+	return append(raw, '\n')
 }
 
 func runActionContractVerify(arguments []string) int {
@@ -324,11 +414,13 @@ func runActionContractConsume(arguments []string) int {
 		return writeActionContractReceipt(actionContractReceipt{Consumer: "gait", Version: currentVersion(), Status: "reject", SelfAttestation: false, SemanticResult: actionContractSemanticResult{ReasonCodes: actionContractReasonCodes(err)}}, exitVerifyFailed)
 	}
 	_, validation := actioncontract.ValidateArtifactBytes(raw, actioncontract.ValidationOptions{})
-	if strings.TrimSpace(selectionPath) == "" {
-		selectionPath = filepath.Join(filepath.Dir(filepath.Dir(artifactPath)), "fixture-manifest.json")
-	}
-	if _, err := actioncontract.LoadSelectionEvidence(selectionPath, artifactPath, artifact, raw); err != nil {
-		return writeActionContractReceipt(actionContractReceipt{Consumer: "gait", Version: currentVersion(), Status: "reject", SelfAttestation: false, ArtifactSHA256: actioncontract.RawDigest(raw), SemanticResult: actionContractSemanticResult{ReasonCodes: actionContractReasonCodes(err)}}, exitVerifyFailed)
+	// Consumer interoperability accepts the sole proposal argument without a
+	// Gait-private transformed selection manifest. Current-selection evidence is
+	// still mandatory for the explicit activation path above.
+	if strings.TrimSpace(selectionPath) != "" {
+		if _, err := actioncontract.LoadSelectionEvidence(selectionPath, artifactPath, artifact, raw); err != nil {
+			return writeActionContractReceipt(actionContractReceipt{Consumer: "gait", Version: currentVersion(), Status: "reject", SelfAttestation: false, ArtifactSHA256: actioncontract.RawDigest(raw), SemanticResult: actionContractSemanticResult{ReasonCodes: actionContractReasonCodes(err)}}, exitVerifyFailed)
+		}
 	}
 	if scenarioID == "" {
 		scenarioID = filepath.Base(filepath.Dir(artifactPath))
@@ -499,6 +591,8 @@ func printActionContractUsage() {
 	fmt.Println("  gait action-contract chain evaluate --policy policy.json --state state.json --candidate candidate.json [--out decision.json] [--json]")
 	fmt.Println("  gait action-contract circuit evaluate --input input.json [--out decision.json] [--json]")
 	fmt.Println("  gait action-contract otel --lifecycle lifecycle.json --otel-out events.jsonl --trusted-key public-key --source-version version")
+	fmt.Println("  gait action-contract lifecycle-result --trace trace.json --proposal proposal.json --activation activated.json --trace-public-key key --public-key key --journal lifecycle.jsonl --private-key key --result-digest sha256:<hex>|--result-file result.json --evaluation-time RFC3339 [--execution-time RFC3339] --outcome succeeded|failed [--trusted-validators csv --trusted-validator-key producer=key] [--json]")
+	fmt.Println("  gait action-contract lifecycle-verify --journal lifecycle.jsonl --public-key key [--json]")
 }
 func printActionContractValidateUsage() {
 	fmt.Println("Usage: gait contract validate --proposal <artifact.json> [--evaluation-time <rfc3339>] [--json]")
@@ -513,7 +607,7 @@ func printActionContractExplainUsage() {
 	fmt.Println("Usage: gait contract explain [--proposal <artifact.json>|--action <runtime-action.json>|--input <classification-input.json>] [--json]")
 }
 func printActionContractActivateUsage() {
-	fmt.Println("Usage: gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> [--valid-until <rfc3339>] [--out <activated.json>] [--overwrite] [--json]")
+	fmt.Println("Usage: gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> [--valid-until <rfc3339>] [--out <activated.json>] [--lifecycle-out <lifecycle.jsonl>] [--overwrite] [--json]")
 }
 func printActionContractVerifyUsage() {
 	fmt.Println("Usage: gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> [--evaluation-time <rfc3339>] [--allow-development-signing] [--json]")

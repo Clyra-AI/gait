@@ -64,6 +64,16 @@ func AppendLineLocked(path string, line []byte, mode os.FileMode) error {
 	return nil
 }
 
+// WithFileLock serializes a read/validate/write critical section across
+// processes using the same lock-file protocol as AppendLineLocked.
+func WithFileLock(path string, fn func() error) error {
+	cleanPath := filepath.Clean(path)
+	if strings.TrimSpace(path) == "" || cleanPath == "." {
+		return fmt.Errorf("lock path is required")
+	}
+	return withAppendFileLock(cleanPath, fn)
+}
+
 func appendPayloadCapacity(lineLength int) (int, error) {
 	if lineLength < 0 {
 		return 0, fmt.Errorf("line length must be >= 0")

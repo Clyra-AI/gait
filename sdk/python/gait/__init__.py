@@ -1,4 +1,4 @@
-from .adapter import AdapterOutcome, GateEnforcementError, ToolAdapter
+from .adapter import AdapterOutcome, GateEnforcementError, LifecycleEmissionError, ToolAdapter
 from .client import (
     GaitCommandError,
     GaitError,
@@ -37,6 +37,7 @@ __all__ = [
     "GaitCommandError",
     "GaitError",
     "GateEnforcementError",
+    "LifecycleEmissionError",
     "GateEvalResult",
     "GaitLangChainCallbackHandler",
     "GaitLangChainMiddleware",

@@ -19,6 +19,15 @@ type TraceRecord struct {
 	ArgsDigest                 string                             `json:"args_digest"`
 	IntentDigest               string                             `json:"intent_digest"`
 	PolicyDigest               string                             `json:"policy_digest"`
+	ContractFamilyID           string                             `json:"contract_family_id,omitempty"`
+	ContractID                 string                             `json:"contract_id,omitempty"`
+	ContractRevision           int                                `json:"contract_revision,omitempty"`
+	ProposalDigest             string                             `json:"proposal_digest,omitempty"`
+	ActivationDigest           string                             `json:"activation_digest,omitempty"`
+	ExpectedOutcome            string                             `json:"expected_outcome,omitempty"`
+	ExpectedEffect             []string                           `json:"expected_effect,omitempty"`
+	ExpectedContainment        []string                           `json:"expected_containment,omitempty"`
+	ReadinessDigest            string                             `json:"readiness_digest,omitempty"`
 	AgentID                    string                             `json:"agent_id,omitempty"`
 	AgentIdentity              *AgentIdentity                     `json:"agent_identity,omitempty"`
 	RunID                      string                             `json:"run_id,omitempty"`

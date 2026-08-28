@@ -1,6 +1,9 @@
 package actioncontract
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func validCircuitInput() CircuitBreakerInput {
 	return CircuitBreakerInput{SchemaID: CircuitInputSchemaID, SchemaVersion: "1", Chain: ChainDecision{SchemaID: ChainDecisionSchemaID, SchemaVersion: "1", Allowed: true, State: ChainState{SchemaID: ChainStateSchemaID, SchemaVersion: "1", StepCount: 0, StepIDs: []string{}, Classes: []string{}, Targets: []string{}}}, EffectStatus: "pass", EffectAuthoritative: true, ContainmentStatus: "completed", StopStatus: "", RevocationStatus: "", AffectedScope: []string{"repo:a"}}
@@ -55,6 +58,17 @@ func TestValidateCircuitRejectsInvalidStatusesAndNonCanonicalScope(t *testing.T)
 	d.InvalidationStatus = "invalid"
 	if !hasCircuitReason(ValidateCircuitDecision(d), "circuit_decision_invalidation_status_invalid") {
 		t.Fatal("invalid decision invalidation status accepted")
+	}
+}
+
+func TestCircuitDigestRequiresCanonicalLowerHex(t *testing.T) {
+	base := validCircuitInput()
+	for _, digest := range []string{"sha256:ABCDEF", "sha256:" + strings.Repeat("A", 64), strings.Repeat("a", 64)} {
+		value := base
+		value.IntentDigest = digest
+		if len(ValidateCircuitInput(value)) == 0 {
+			t.Fatalf("non-canonical circuit digest accepted: %q", digest)
+		}
 	}
 }
 

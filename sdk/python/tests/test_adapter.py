@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from gait import (
+    GaitError,
     GaitCommandError,
     GateEnforcementError,
     GateEvalResult,
@@ -41,6 +42,215 @@ def test_tool_adapter_executes_allowed_intent(tmp_path: Path) -> None:
     assert outcome.executed
     assert outcome.result == {"ok": True}
     assert outcome.decision.verdict == "allow"
+
+
+def test_tool_adapter_lifecycle_callback_only_after_execution(tmp_path: Path) -> None:
+    fake_gait = tmp_path / "fake_gait.py"
+    create_fake_gait_script(fake_gait)
+    events: list[tuple[bool, object | None, BaseException | None]] = []
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml",
+        gait_bin=[sys.executable, str(fake_gait)],
+        lifecycle_callback=lambda _intent, _decision, result, error: events.append(
+            (True, result, error)
+        ),
+    )
+    intent = capture_intent(
+        tool_name="tool.allow",
+        args={"path": "/tmp/out.txt"},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+    )
+    adapter.execute(intent=intent, executor=lambda _: {"ok": True}, cwd=tmp_path)
+    assert events == [(True, {"ok": True}, None)]
+    with pytest.raises(RuntimeError):
+        adapter.execute(
+            intent=intent,
+            executor=lambda _: (_ for _ in ()).throw(RuntimeError("boom")),
+            cwd=tmp_path,
+        )
+    assert isinstance(events[-1][2], RuntimeError)
+
+
+def test_tool_adapter_builtin_lifecycle_command_success_failure_and_block(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(command: list[str], cwd: str | Path | None = None) -> object:
+        calls.append(command)
+        return object()
+
+    monkeypatch.setattr("gait.adapter._run_command", fake_run)
+    decision = GateEvalResult(
+        ok=True, exit_code=0, verdict="allow", trace_path=str(tmp_path / "trace.json")
+    )
+    monkeypatch.setattr(ToolAdapter, "gate_intent", lambda self, **kwargs: decision)
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml",
+        lifecycle_proposal="proposal.json",
+        lifecycle_activation="activation.json",
+        lifecycle_trace_public_key="trace.pub",
+        lifecycle_activation_public_key="activation.pub",
+        lifecycle_journal="events.jsonl",
+        lifecycle_private_key="private.key",
+        lifecycle_evaluation_time="2026-08-26T00:00:00Z",
+    )
+    intent = capture_intent(
+        tool_name="tool.allow",
+        args={"x": 1},
+        context=IntentContext(identity="alice", workspace="/repo", risk_class="low"),
+    )
+    adapter.execute(intent=intent, executor=lambda _: {"ok": True}, cwd=tmp_path)
+    assert (
+        calls
+        and "--outcome" in calls[-1]
+        and calls[-1][calls[-1].index("--outcome") + 1] == "succeeded"
+        and "--result-file" in calls[-1]
+        and "--result-digest" not in calls[-1]
+    )
+    calls.clear()
+    with pytest.raises(RuntimeError):
+        adapter.execute(
+            intent=intent,
+            executor=lambda _: (_ for _ in ()).throw(RuntimeError("boom")),
+            cwd=tmp_path,
+        )
+    assert (
+        calls
+        and calls[-1][calls[-1].index("--outcome") + 1] == "failed"
+        and "--result-file" in calls[-1]
+    )
+    calls.clear()
+    blocked = GateEvalResult(
+        ok=True, exit_code=3, verdict="block", trace_path=str(tmp_path / "trace.json")
+    )
+    monkeypatch.setattr(ToolAdapter, "gate_intent", lambda self, **kwargs: blocked)
+    with pytest.raises(GateEnforcementError):
+        adapter.execute(intent=intent, executor=lambda _: {"never": True}, cwd=tmp_path)
+    assert calls == []
+
+
+def test_tool_adapter_lifecycle_configuration_is_complete_and_failures_observable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    with pytest.raises(ValueError, match="lifecycle configuration"):
+        ToolAdapter(policy_path=tmp_path / "policy.yaml", lifecycle_proposal="proposal.json")
+    fake_gait = tmp_path / "fake_gait.py"
+    create_fake_gait_script(fake_gait)
+    decision = GateEvalResult(
+        ok=True, exit_code=0, verdict="allow", trace_path=str(tmp_path / "trace.json")
+    )
+    monkeypatch.setattr(ToolAdapter, "gate_intent", lambda self, **kwargs: decision)
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml",
+        gait_bin=[sys.executable, str(fake_gait)],
+        lifecycle_proposal="proposal.json",
+        lifecycle_activation="activation.json",
+        lifecycle_trace_public_key="trace.pub",
+        lifecycle_activation_public_key="activation.pub",
+        lifecycle_journal="events.jsonl",
+        lifecycle_private_key="private.key",
+        lifecycle_evaluation_time="2026-08-26T00:00:00Z",
+    )
+    monkeypatch.setattr(
+        "gait.adapter._run_command",
+        lambda *args, **kwargs: (_ for _ in ()).throw(GaitError("lifecycle failed")),
+    )
+    with pytest.raises(GaitError, match="lifecycle failed"):
+        adapter.execute(
+            intent=capture_intent(
+                tool_name="tool.allow",
+                args={},
+                context=IntentContext(identity="alice", workspace="/repo", risk_class="low"),
+            ),
+            executor=lambda _: {"ok": True},
+            cwd=tmp_path,
+        )
+
+
+def test_tool_adapter_lifecycle_requires_trace_before_executor(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_gait = tmp_path / "fake_gait.py"
+    create_fake_gait_script(fake_gait)
+    monkeypatch.setattr(
+        ToolAdapter,
+        "gate_intent",
+        lambda self, **kwargs: GateEvalResult(ok=True, exit_code=0, verdict="allow"),
+    )
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml",
+        gait_bin=[sys.executable, str(fake_gait)],
+        lifecycle_proposal="proposal.json",
+        lifecycle_activation="activation.json",
+        lifecycle_trace_public_key="trace.pub",
+        lifecycle_activation_public_key="activation.pub",
+        lifecycle_journal="events.jsonl",
+        lifecycle_private_key="private.key",
+        lifecycle_evaluation_time="2026-08-26T00:00:00Z",
+    )
+    executed = False
+
+    def executor(_: object) -> object:
+        nonlocal executed
+        executed = True
+        return {"ok": True}
+
+    with pytest.raises(GaitError, match="requires an explicit trace path"):
+        adapter.execute(
+            intent=capture_intent(
+                tool_name="tool.allow",
+                args={},
+                context=IntentContext(identity="alice", workspace="/repo", risk_class="low"),
+            ),
+            executor=executor,
+            cwd=tmp_path,
+        )
+    assert not executed
+
+
+def test_tool_adapter_requires_authenticated_activation_prefix_before_executor(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    decision = GateEvalResult(
+        ok=True, exit_code=0, verdict="allow", trace_path=str(tmp_path / "trace.json")
+    )
+    monkeypatch.setattr(ToolAdapter, "gate_intent", lambda self, **kwargs: decision)
+
+    def reject_prefix(command: list[str], cwd: str | Path | None = None) -> object:
+        if "lifecycle-verify" in command:
+            raise GaitError("prefix is not activated")
+        return object()
+
+    monkeypatch.setattr("gait.adapter._run_command", reject_prefix)
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml",
+        lifecycle_proposal="proposal.json",
+        lifecycle_activation="activation.json",
+        lifecycle_trace_public_key="trace.pub",
+        lifecycle_activation_public_key="activation.pub",
+        lifecycle_journal="events.jsonl",
+        lifecycle_private_key="private.key",
+        lifecycle_evaluation_time="2026-08-26T00:00:00Z",
+    )
+    executed = False
+
+    def executor(_: object) -> object:
+        nonlocal executed
+        executed = True
+        return {"ok": True}
+
+    with pytest.raises(GaitError, match="activation prefix verification"):
+        adapter.execute(
+            intent=capture_intent(
+                tool_name="tool.allow",
+                args={},
+                context=IntentContext(identity="alice", workspace="/repo", risk_class="low"),
+            ),
+            executor=executor,
+            cwd=tmp_path,
+        )
+    assert not executed
 
 
 def test_tool_adapter_blocks_high_risk_intent(tmp_path: Path) -> None:

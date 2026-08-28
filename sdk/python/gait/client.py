@@ -94,6 +94,13 @@ def evaluate_gate(
     delegation_public_key_env: str | None = None,
     delegation_private_key: str | Path | None = None,
     delegation_private_key_env: str | None = None,
+    action_contract: str | Path | None = None,
+    activation: str | Path | None = None,
+    activation_public_key: str | Path | None = None,
+    evaluation_time: str | None = None,
+    trusted_validators: str | None = None,
+    trusted_validator_keys: Sequence[str] | None = None,
+    lifecycle_out: str | Path | None = None,
 ) -> GateEvalResult:
     with tempfile.TemporaryDirectory(prefix="gait-intent-") as tmp_dir:
         intent_path = Path(tmp_dir) / "intent.json"
@@ -142,6 +149,20 @@ def evaluate_gate(
             command.extend(["--delegation-private-key", str(delegation_private_key)])
         if delegation_private_key_env:
             command.extend(["--delegation-private-key-env", delegation_private_key_env])
+        if action_contract is not None:
+            command.extend(["--action-contract", str(action_contract)])
+        if activation is not None:
+            command.extend(["--activation", str(activation)])
+        if activation_public_key is not None:
+            command.extend(["--activation-public-key", str(activation_public_key)])
+        if evaluation_time:
+            command.extend(["--evaluation-time", evaluation_time])
+        if trusted_validators:
+            command.extend(["--trusted-validators", trusted_validators])
+        for validator_key in trusted_validator_keys or ():
+            command.extend(["--trusted-validator-key", validator_key])
+        if lifecycle_out is not None:
+            command.extend(["--lifecycle-out", str(lifecycle_out)])
 
         result = _run_command(command, cwd=cwd)
         payload = _parse_json_stdout(result.stdout)

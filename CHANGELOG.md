@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [semver:minor] Added verified Gate-to-lifecycle result ingestion, signed execution/effect/compensation transitions, scoped signed containment receipts, and opt-in Python lifecycle command bridging.
+- Added bounded local Compose effect fixtures, replaceable advisory providers, and optional redacted OTLP export with non-verdict-affecting failure semantics.
+
+### Security
+
+- Added exact trace/proposal/activation digest binding, persistent token revocation checks, cross-process chain-state locking, and fail-closed containment/provider validation.
+
 ## [1.6.0] - 2026-08-25
 
 ### Added

@@ -31,7 +31,9 @@
 - gait contract classify (--proposal <artifact.json>|--action <runtime-action.json>|--input <classification-input.json>) --json
 - gait contract readiness --proposal <artifact.json> --policy-digest sha256:<hex> --trusted-validators <csv> --trusted-validator-key producer=public-key-path --evaluation-time <rfc3339> --json
 - gait contract explain [--proposal <artifact.json>|--action <runtime-action.json>|--input <classification-input.json>] --json
-- gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> --json
+- gait contract activate --proposal <artifact.json> --selection <manifest.json> --policy-digest sha256:<hex> --principal <ref> --authority-ref <ref> --target <target> --environment <env> --mode context_only|enforce_floor|required --private-key <key> --valid-from <rfc3339> [--lifecycle-out <lifecycle.jsonl>] --json
+- gait action-contract lifecycle-verify --journal <lifecycle.jsonl> --public-key <key> --json
+- gait containment stop --proposal <proposal.json> --activation <activated.json> --trace <trace.json> --trace-public-key <key> --activation-public-key <key> --evaluation-time <rfc3339> --occurrence-time <rfc3339> --private-key <key> --journal <lifecycle.jsonl> --receipt-out <receipt.json> --identity <identity> --boundary-id <boundary> --adapter-identity <adapter> --resource-id <resource> --json
 - gait contract verify --activation <activated.json> --proposal <artifact.json> --public-key <key> --json
 - gait contract consume <artifact.json> --selection <manifest.json>
 - gait effects grade --snapshot <effect_snapshot.json> --contract <effect_contract.json> --trusted-collector-key <public-key> --expected-action-digest sha256:<64-hex> [--expected-activation-digest sha256:<64-hex>] [--expected-proof-digest sha256:<64-hex>] [--junit <junit.xml>] --json
@@ -130,3 +132,13 @@ promotion via `gait regress add`. Pre-execution enforcement commands are
 `gait action-contract chain evaluate` and `gait action-contract circuit
 evaluate`. Synthetic control extensions remain
 quarantined and non-authoritative until release.
+
+Post-execution integrations are explicit and signed: use `gait action-contract
+lifecycle-result` with separate trace and activation keys, or `gait containment
+stop` with verified proposal/activation/trace context, explicit boundary scope,
+journal, and receipt output. Compose, advisory providers, OTLP, and the Python
+lifecycle command bridge are opt-in and bounded; provider/exporter failure does
+not alter local verdicts or proof. Lifecycle results may use `--result-file`
+for Go-authoritative JCS hashing; only allow traces with a matching
+`readiness_digest` (and matching trusted-validator inputs) can emit execution
+records.

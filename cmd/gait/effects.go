@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -35,11 +36,75 @@ func runEffects(arguments []string) int {
 	if arguments[0] == "observe" {
 		return runEffectsObserve(arguments[1:])
 	}
+	if arguments[0] == "compose" {
+		return runEffectsCompose(arguments[1:])
+	}
 	if arguments[0] != "grade" {
 		printEffectsUsage()
 		return exitInvalidInput
 	}
 	return runEffectsGrade(arguments[1:])
+}
+
+func runEffectsCompose(args []string) int {
+	f := flag.NewFlagSet("effects-compose", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	var composeFile, project, workingDir, docker, service, mountedPath, proxyURL string
+	var reset, seed, run, diff, accept, repeat, postgresCollector string
+	var timeout time.Duration
+	var js, help bool
+	f.StringVar(&composeFile, "compose-file", "", "explicit local compose file")
+	f.StringVar(&project, "project", "", "explicit compose project name")
+	f.StringVar(&workingDir, "working-dir", "", "hook working directory")
+	f.StringVar(&docker, "docker", "docker", "docker executable (no auto-install)")
+	f.StringVar(&service, "service", "postgres", "compose service to start")
+	f.StringVar(&mountedPath, "mounted-path", "", "bounded mounted path to observe")
+	f.StringVar(&proxyURL, "proxy-url", "", "configured proxy URL to observe")
+	f.StringVar(&reset, "reset", "", "reset hook command and arguments")
+	f.StringVar(&seed, "seed", "", "seed hook command and arguments")
+	f.StringVar(&run, "run", "", "run hook command and arguments")
+	f.StringVar(&diff, "diff", "", "diff hook command and arguments")
+	f.StringVar(&accept, "accept", "", "accept hook command and arguments")
+	f.StringVar(&repeat, "repeat", "", "repeat hook command and arguments")
+	f.StringVar(&postgresCollector, "postgres-collector-command", "", "bounded command returning strict CaptureResult JSON")
+	f.DurationVar(&timeout, "timeout", 2*time.Minute, "bounded total runner timeout")
+	f.BoolVar(&js, "json", false, "emit JSON")
+	f.BoolVar(&help, "help", false, "show help")
+	if err := f.Parse(args); err != nil {
+		return writeComposeOutput(js, effects.ComposeRunResult{Status: "failed", ReasonCodes: []string{"compose_input_invalid"}}, exitInvalidInput)
+	}
+	if help {
+		fmt.Println("Usage: gait effects compose --compose-file compose.yaml --project project [--postgres-collector-command cmd] [--mounted-path path] [--proxy-url url] [--reset cmd] [--seed cmd] [--run cmd] [--diff cmd] [--accept cmd] [--repeat cmd] [--json]")
+		return exitOK
+	}
+	if len(f.Args()) > 0 || effects.ValidateComposeOptions(effects.ComposeRunOptions{ComposeFile: composeFile, Project: project}) != nil {
+		return writeComposeOutput(js, effects.ComposeRunResult{Status: "failed", ReasonCodes: []string{"compose_input_invalid"}}, exitInvalidInput)
+	}
+	words := func(value string) []string {
+		if strings.TrimSpace(value) == "" {
+			return nil
+		}
+		return strings.Fields(value)
+	}
+	result := effects.RunCompose(context.Background(), effects.ComposeRunOptions{ComposeFile: composeFile, Project: project, WorkingDir: workingDir, DockerBinary: docker, Service: service, MountedPath: mountedPath, ProxyURL: proxyURL, Reset: words(reset), Seed: words(seed), Run: words(run), Diff: words(diff), Accept: words(accept), Repeat: words(repeat), PostgresCollectorCommand: words(postgresCollector), Timeout: timeout})
+	code := exitOK
+	if result.Status != "pass" {
+		code = exitVerifyFailed
+		if len(result.ReasonCodes) > 0 && result.ReasonCodes[0] == "compose_dependency_missing" {
+			code = exitInvalidInput
+		}
+	}
+	return writeComposeOutput(js, result, code)
+}
+
+func writeComposeOutput(jsonOutput bool, result effects.ComposeRunResult, code int) int {
+	if jsonOutput {
+		raw, _ := marshalJSON(result)
+		fmt.Println(string(raw))
+	} else {
+		fmt.Printf("effects compose: status=%s project=%s\n", result.Status, result.Project)
+	}
+	return code
 }
 
 func runEffectsObserve(args []string) int {
@@ -236,6 +301,7 @@ func writeEffectsOutput(jsonOutput bool, output effectsOutput, code int) int {
 func printEffectsUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait effects observe --resource filesystem|http|resource [--path path|--url url|--reference ref] --out observation.json [--observed-at RFC3339] [--allow-unsafe-local] [--json]")
+	fmt.Println("  gait effects compose --compose-file compose.yaml --project project [--postgres-collector-command cmd] [--mounted-path path] [--proxy-url url] [--reset cmd] [--seed cmd] [--run cmd] [--diff cmd] [--accept cmd] [--repeat cmd] [--json]")
 	fmt.Println("  gait effects capture --resource filesystem|http|resource [--path path|--url url|--reference ref] [--out result.json] [--json]")
 	fmt.Println("  gait effects grade --snapshot <effect_snapshot.json> --contract <effect_contract.json> --trusted-collector-key <public-key> [--expected-action-digest sha256:<hex>] [--expected-activation-digest sha256:<hex>] [--expected-proof-digest sha256:<hex>] [--junit <junit.xml>] [--json] [--explain]")
 }
