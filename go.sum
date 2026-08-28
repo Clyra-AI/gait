@@ -1,5 +1,5 @@
-github.com/Clyra-AI/proof v0.6.1 h1:PtkfKoDgBsRT+aVMfucK3ree48vQz2E/JWVWhbBQbpY=
-github.com/Clyra-AI/proof v0.6.1/go.mod h1:oH/QMlmfi4mSlGSkXTjdk/DUIStow5KyxYEPiEamufk=
+github.com/Clyra-AI/proof v0.7.0 h1:jaBG+AjBGKysz3VpXPd1V4xCClz5ZYUUYXRcCR0JG+I=
+github.com/Clyra-AI/proof v0.7.0/go.mod h1:ytCmhLduSeWcVxBCGmZkC5amz6fq6ODB1lgwCK8u9ng=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

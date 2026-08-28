@@ -30,7 +30,7 @@ const (
 	RuntimeReadinessSchemaID           = "https://gait.dev/schemas/v1/runtime-readiness.schema.json"
 	RuntimeLifecycleSchemaID           = "https://gait.dev/schemas/v1/runtime-lifecycle-record.schema.json"
 	RuntimeLifecycleVersion            = "1"
-	ProofCompatibilityVersion          = "0.6.1"
+	ProofCompatibilityVersion          = "0.7.0"
 	CorrelationProfileVersion          = "1.0"
 )
 

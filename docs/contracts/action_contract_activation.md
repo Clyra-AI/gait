@@ -78,7 +78,7 @@ UTC `--evaluation-time` and policy-bound validator public key(s); a freeform
 validator name or signature string cannot authorize readiness. Evidence must
 be verified, digest-bound, timestamped, fresh within its max age, and carry
 non-empty evidence references. Wrkr declarations, judge/advisory, and
-self-attested results do not satisfy required checks. Proof v0.6.1
+self-attested results do not satisfy required checks. Proof v0.7.0
 digest-bound relationship refs and the correlation profile are retained on
 signed lifecycle records. Callers should use the verified reducer, which
 checks every record signature before reconstructing state without an event
