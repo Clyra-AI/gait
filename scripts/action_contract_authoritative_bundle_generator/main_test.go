@@ -66,4 +66,10 @@ func TestAuthoritativeBundleRejectsIdentityMismatch(t *testing.T) {
 	if err := verifyBundle(filepath.Join(out, "action-contract-authoritative-evidence-v1.7.1.zip"), "v1.7.2", commit); err == nil {
 		t.Fatal("bundle with mismatched release tag unexpectedly verified")
 	}
+	if err := verifyBundle(filepath.Join(out, "action-contract-authoritative-evidence-v1.7.1.zip"), "v1.7.1", strings.Repeat("c", 40)); err == nil {
+		t.Fatal("bundle with mismatched peeled commit unexpectedly verified")
+	}
+	if err := verifyBundle(filepath.Join(out, "missing.zip"), "v1.7.1", commit); err == nil {
+		t.Fatal("missing bundle unexpectedly verified")
+	}
 }
