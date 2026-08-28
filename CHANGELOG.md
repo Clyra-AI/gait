@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Added exact trace/proposal/activation digest binding, persistent token revocation checks, cross-process chain-state locking, and fail-closed containment/provider validation.
 
+### Changed
+
+- Updated the pinned `Clyra-AI/proof` dependency and runtime compatibility declaration to `v0.7.0`.
+
 ## [1.6.0] - 2026-08-25
 
 ### Added
