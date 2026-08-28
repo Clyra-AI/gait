@@ -67,6 +67,14 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 - [ ] Checksums generated and verified.
 - [ ] Signatures/provenance artifacts generated and verifiable.
 - [ ] Homebrew formula asset rendered from release checksums (`dist/gait.rb`).
+- [ ] Release-owner Action Contract evidence bundle generated from the peeled
+  release commit with a stable release-time Ed25519 key supplied through the
+  protected `GAIT_RELEASE_SIGNING_SEED` secret (never a checked-in key); verify its manifest,
+  lifecycle/typed-evidence signatures, schema digests, and authoritative
+  (`authoritative=true`, `fixture_only=false`, `development_signing=false`,
+  `quarantine=false`) markers before upload.
+- [ ] The authoritative bundle zip, manifest, public key, and every referenced
+  schema are uploaded as release assets.
 - [ ] `publish-homebrew-tap` workflow job is green (or intentionally skipped with documented reason).
 - [ ] Release workflow integrity verification steps complete successfully.
 

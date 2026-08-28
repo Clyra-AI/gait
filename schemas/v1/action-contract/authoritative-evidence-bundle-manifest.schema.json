@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/action-contract/authoritative-evidence-bundle-manifest.schema.json",
+  "title": "Gait release-owner authoritative Action Contract evidence bundle manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "release_tag", "peeled_commit", "authoritative", "fixture_only", "development_signing", "quarantine", "generator", "workflow", "signing", "artifacts", "referenced_schemas", "scenarios"],
+  "properties": {
+    "schema_id": {"const": "https://gait.dev/schemas/v1/action-contract/authoritative-evidence-bundle-manifest.schema.json"},
+    "schema_version": {"const": "1"},
+    "release_tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "peeled_commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "authoritative": {"const": true},
+    "fixture_only": {"const": false},
+    "development_signing": {"const": false},
+    "quarantine": {"const": false},
+    "generator": {"type": "string", "minLength": 1},
+    "workflow": {"type": "string", "minLength": 1},
+    "generator_version": {"type": "string", "minLength": 1},
+    "signing": {
+      "type": "object",
+      "required": ["algorithm", "authority", "public_key_path", "public_key_sha256", "key_id"],
+      "properties": {
+        "algorithm": {"const": "ed25519"},
+        "authority": {"const": "gait-release-owner"},
+        "public_key_path": {"const": "public-key.b64"},
+        "public_key_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "key_id": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/digestEntry"}},
+    "referenced_schemas": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/digestEntry"}},
+    "scenarios": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "lifecycle_path", "lifecycle_sha256", "expected_authoritative", "expected_quarantine"], "properties": {"id": {"type": "string"}, "lifecycle_path": {"type": "string"}, "lifecycle_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}, "expected_authoritative": {"const": true}, "expected_quarantine": {"const": false}}, "additionalProperties": false}}
+  },
+  "$defs": {"digestEntry": {"type": "object", "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}}, "additionalProperties": false}}
+}
