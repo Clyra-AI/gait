@@ -112,6 +112,10 @@ func main() {
 }
 
 func generateBundle(root, out, tag, commit, workflow string) error {
+	tag, commit, workflow = strings.TrimSpace(tag), strings.TrimSpace(commit), strings.TrimSpace(workflow)
+	if tag == "" || commit == "" || workflow == "" {
+		return errors.New("release identity values must not be empty")
+	}
 	seed := releaseSigningSeed(tag, commit, workflow)
 	var err error
 	private := ed25519.NewKeyFromSeed(seed)
@@ -441,6 +445,7 @@ func rawDigest(raw []byte) string {
 }
 
 func releaseSigningSeed(tag, commit, workflow string) []byte {
+	tag, commit, workflow = strings.TrimSpace(tag), strings.TrimSpace(commit), strings.TrimSpace(workflow)
 	material := "gait.authoritative.action-contract.release-key.v1\x00" + workflow + "\x00" + tag + "\x00" + commit
 	sum := sha256.Sum256([]byte(material))
 	return sum[:]
@@ -484,6 +489,7 @@ func writeZip(path string, files map[string][]byte) error {
 }
 
 func verifyBundle(path, expectedTag, expectedCommit, checksumsPath string) error {
+	expectedTag, expectedCommit = strings.TrimSpace(expectedTag), strings.TrimSpace(expectedCommit)
 	if strings.TrimSpace(checksumsPath) == "" {
 		return errors.New("caller-trusted signed checksums anchor is required")
 	}

@@ -18,6 +18,9 @@ func TestReleaseSigningIdentityIsDeterministicAndDomainSeparated(t *testing.T) {
 	if string(first) == string(releaseSigningSeed("v1.7.3", strings.Repeat("a", 40), workflowIdentity)) || string(first) == string(releaseSigningSeed("v1.7.2", strings.Repeat("b", 40), workflowIdentity)) {
 		t.Fatal("changed release identity reused signing seed")
 	}
+	if string(first) != string(releaseSigningSeed(" v1.7.2 ", " "+strings.Repeat("a", 40)+" ", " "+workflowIdentity+" ")) {
+		t.Fatal("release identity whitespace changed signing seed")
+	}
 }
 
 func TestGeneratorRejectsMissingInputs(t *testing.T) {
