@@ -148,7 +148,7 @@ func runActionContractLifecycleResult(args []string) int {
 		traceDigest = "sha256:" + traceDigest
 	}
 	if strings.TrimSpace(resultPath) != "" {
-		resultRaw, readErr := os.ReadFile(resultPath)
+		resultRaw, readErr := os.ReadFile(resultPath) // #nosec G304 -- explicit local lifecycle result artifact selected by the CLI operator.
 		if readErr != nil {
 			return lifecycleResultOutput(js, nil, readErr, exitInvalidInput)
 		}

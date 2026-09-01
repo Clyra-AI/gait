@@ -178,7 +178,7 @@ func runContainment(args []string) int {
 		if len(command) == 0 {
 			status = "partial"
 			reasons = append(reasons, "external_revocation_invalid")
-		} else if err := exec.CommandContext(ctx, command[0], command[1:]...).Run(); err != nil {
+		} else if err := exec.CommandContext(ctx, command[0], command[1:]...).Run(); err != nil { // #nosec G204 -- explicit operator-selected adapter command; executed without a shell.
 			status = "partial"
 			reasons = append(reasons, "external_revocation_failed")
 		} else {
