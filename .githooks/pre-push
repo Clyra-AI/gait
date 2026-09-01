@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+# Client-side hooks inherit repository-local Git variables. Clear them before
+# running checks that create and inspect their own temporary repositories.
+unset $(git rev-parse --local-env-vars)
+
 mode="${GAIT_PREPUSH_MODE:-fast}"
 
 if [ "$mode" = "full" ]; then
