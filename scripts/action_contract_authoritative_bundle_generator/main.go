@@ -124,7 +124,7 @@ func generateBundle(root, out, tag, commit, workflow string) error {
 	if err != nil {
 		return err
 	}
-	activationRaw, err := os.ReadFile(filepath.Join(root, sourceActivation))
+	activationRaw, err := os.ReadFile(filepath.Join(root, sourceActivation)) // #nosec G304 -- release tool reads caller-selected local repository inputs.
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func generateBundle(root, out, tag, commit, workflow string) error {
 	if err != nil {
 		return err
 	}
-	lifecycleRaw, err := os.ReadFile(filepath.Join(root, sourceLifecycle))
+	lifecycleRaw, err := os.ReadFile(filepath.Join(root, sourceLifecycle)) // #nosec G304 -- release tool reads caller-selected local repository inputs.
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func generateBundle(root, out, tag, commit, workflow string) error {
 	}
 	sort.Strings(schemaPaths)
 	for _, schemaPath := range schemaPaths {
-		data, readErr := os.ReadFile(schemaPath)
+		data, readErr := os.ReadFile(schemaPath) // #nosec G304 -- schema paths are local repository files enumerated by this release tool.
 		if readErr != nil {
 			return readErr
 		}
@@ -257,7 +257,7 @@ func generateBundle(root, out, tag, commit, workflow string) error {
 }
 
 func releaseReadiness(path, contractID, policy string, private ed25519.PrivateKey, public ed25519.PublicKey) (actioncontract.ReadinessResult, []byte, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- readiness artifact is an explicit local release-tool input.
 	if err != nil {
 		return actioncontract.ReadinessResult{}, nil, err
 	}
@@ -295,7 +295,7 @@ func releaseReadiness(path, contractID, policy string, private ed25519.PrivateKe
 }
 
 func readRuntimeAction(path string) (actioncontract.RuntimeAction, []byte, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- runtime action is an explicit local release-tool input.
 	if err != nil {
 		return actioncontract.RuntimeAction{}, nil, err
 	}
@@ -459,7 +459,7 @@ func digestJCS(raw []byte) (string, error) {
 }
 
 func writeZip(path string, files map[string][]byte) error {
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304 -- output bundle path is explicitly selected by the local release operator.
 	if err != nil {
 		return err
 	}
@@ -493,7 +493,7 @@ func verifyBundle(path, expectedTag, expectedCommit, checksumsPath string) error
 	if strings.TrimSpace(checksumsPath) == "" {
 		return errors.New("caller-trusted signed checksums anchor is required")
 	}
-	checksumsRaw, err := os.ReadFile(checksumsPath)
+	checksumsRaw, err := os.ReadFile(checksumsPath) // #nosec G304 -- signed checksums anchor is an explicit local release-tool input.
 	if err != nil {
 		return fmt.Errorf("read checksums anchor: %w", err)
 	}
@@ -579,7 +579,7 @@ func verifyBundle(path, expectedTag, expectedCommit, checksumsPath string) error
 			return fmt.Errorf("artifact digest mismatch: %s", entry.Path)
 		}
 	}
-	bundleRaw, err := os.ReadFile(path)
+	bundleRaw, err := os.ReadFile(path) // #nosec G304 -- bundle path is an explicit local release-tool input.
 	if err != nil {
 		return err
 	}
